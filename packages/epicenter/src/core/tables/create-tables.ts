@@ -146,7 +146,7 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 		 */
 		$all() {
 			return Object.values(tableHelpers) as TableHelper<
-				TTableDefinitionMap[keyof TTableDefinitionMap]
+				TTableDefinitionMap[keyof TTableDefinitionMap]['fields']
 			>[];
 		},
 
@@ -195,7 +195,7 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 				{
 					[K in keyof TTableDefinitionMap & string]: {
 						name: K;
-						table: TableHelper<TTableDefinitionMap[K]>;
+						table: TableHelper<TTableDefinitionMap[K]['fields']>;
 						paired: TConfigs[K];
 					};
 				}[keyof TTableDefinitionMap & string]

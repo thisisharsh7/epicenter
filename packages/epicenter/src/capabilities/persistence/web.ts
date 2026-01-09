@@ -3,7 +3,7 @@ import type {
 	CapabilityFactory,
 	CapabilityContext,
 } from '../../core/capability';
-import type { FieldsSchemaMap } from '../../core/schema';
+import type { KvSchema, TableDefinitionMap } from '../../core/schema';
 
 /**
  * YJS document persistence capability using IndexedDB.
@@ -92,9 +92,12 @@ import type { FieldsSchemaMap } from '../../core/schema';
  *
  * @see {@link persistence} from `@epicenter/hq/capabilities/persistence/desktop` for Node.js/filesystem version
  */
-export const persistence = (<TSchema extends FieldsSchemaMap>({
+export const persistence = (<
+	TTableDefinitionMap extends TableDefinitionMap,
+	TKvSchema extends KvSchema,
+>({
 	ydoc,
-}: CapabilityContext<TSchema>) => {
+}: CapabilityContext<TTableDefinitionMap, TKvSchema>) => {
 	// y-indexeddb handles both loading and saving automatically
 	// Uses the YDoc's guid as the IndexedDB database name
 	const persistence = new IndexeddbPersistence(ydoc.guid, ydoc);
@@ -109,4 +112,4 @@ export const persistence = (<TSchema extends FieldsSchemaMap>({
 		}),
 		destroy: () => persistence.destroy(),
 	};
-}) satisfies CapabilityFactory;
+}) satisfies CapabilityFactory<TableDefinitionMap, KvSchema>;

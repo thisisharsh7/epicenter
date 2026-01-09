@@ -5,7 +5,6 @@ import type {
 	PartialRow,
 	Row,
 	FieldsSchema,
-	TableDefinition,
 	TableDefinitionMap,
 } from '../schema';
 import { fieldsSchemaToTypebox } from '../schema';
@@ -154,12 +153,17 @@ export function createTableHelpers<
 		Object.entries(tableDefinitions).map(([tableName, tableDefinition]) => {
 			return [
 				tableName,
-				createTableHelper({ ydoc, tableName, ytables, tableDefinition }),
+				createTableHelper({
+					ydoc,
+					tableName,
+					ytables,
+					schema: tableDefinition.fields,
+				}),
 			];
 		}),
 	) as {
 		[TTableName in keyof TTableDefinitionMap]: TableHelper<
-			TTableDefinitionMap[TTableName]
+			TTableDefinitionMap[TTableName]['fields']
 		>;
 	};
 }
@@ -176,20 +180,20 @@ export function createTableHelpers<
  * User A edits title, User B edits views → After sync: both changes preserved
  * ```
  */
-function createTableHelper<TTableDefinition extends TableDefinition>({
+function createTableHelper<TFieldsSchema extends FieldsSchema>({
 	ydoc,
 	tableName,
 	ytables,
-	tableDefinition,
+	schema,
 }: {
 	ydoc: Y.Doc;
 	tableName: string;
 	ytables: TablesMap;
-	tableDefinition: TTableDefinition;
+	schema: TFieldsSchema;
 }) {
-	type TRow = Row<TTableDefinition['fields']>;
+	type TRow = Row<TFieldsSchema>;
 
-	const typeboxSchema = fieldsSchemaToTypebox(tableDefinition.fields);
+	const typeboxSchema = fieldsSchemaToTypebox(schema);
 	const rowValidator = Compile(typeboxSchema);
 
 	/**
@@ -302,9 +306,9 @@ function createTableHelper<TTableDefinition extends TableDefinition>({
 
 	return {
 		name: tableName,
-		tableDefinition,
+		schema,
 
-		update(partialRow: PartialRow<TTableDefinition['fields']>): UpdateResult {
+		update(partialRow: PartialRow<TFieldsSchema>): UpdateResult {
 			const rowMap = getRow(partialRow.id);
 			if (!rowMap) return { status: 'not_found_locally' };
 
@@ -337,9 +341,7 @@ function createTableHelper<TTableDefinition extends TableDefinition>({
 			});
 		},
 
-		updateMany(
-			rows: PartialRow<TTableDefinition['fields']>[],
-		): UpdateManyResult {
+		updateMany(rows: PartialRow<TFieldsSchema>[]): UpdateManyResult {
 			const applied: string[] = [];
 			const notFoundLocally: string[] = [];
 
@@ -753,6 +755,6 @@ function createTableHelper<TTableDefinition extends TableDefinition>({
 	};
 }
 
-export type TableHelper<TTableDefinition extends TableDefinition> = ReturnType<
-	typeof createTableHelper<TTableDefinition>
+export type TableHelper<TFieldsSchema extends FieldsSchema> = ReturnType<
+	typeof createTableHelper<TFieldsSchema>
 >;

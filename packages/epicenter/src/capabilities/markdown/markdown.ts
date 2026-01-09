@@ -10,7 +10,12 @@ import {
 	type CapabilityContext,
 } from '../../core/capability';
 import type { TableHelper } from '../../core/tables/create-tables';
-import type { Row, FieldsSchema, FieldsSchemaMap } from '../../core/schema';
+import type {
+	FieldsSchema,
+	KvSchema,
+	Row,
+	TableDefinitionMap,
+} from '../../core/schema';
 import type { AbsolutePath } from '../../core/types';
 import { createIndexLogger } from '../error-logger';
 import {
@@ -124,8 +129,10 @@ type RowToFilenameMap = Record<string, string>;
  *
  * Use serializer factories like `bodyFieldSerializer()` or `titleFilenameSerializer()`.
  */
-type TableConfigs<TFieldsSchemaMap extends FieldsSchemaMap> = {
-	[K in keyof TFieldsSchemaMap]?: TableMarkdownConfig<TFieldsSchemaMap[K]>;
+type TableConfigs<TTableDefinitionMap extends TableDefinitionMap> = {
+	[K in keyof TTableDefinitionMap]?: TableMarkdownConfig<
+		TTableDefinitionMap[K]['fields']
+	>;
 };
 
 /**
@@ -169,7 +176,7 @@ type ResolvedTableConfig<TFieldsSchema extends FieldsSchema> = {
  * ```
  */
 export type MarkdownCapabilityConfig<
-	TFieldsSchemaMap extends FieldsSchemaMap = FieldsSchemaMap,
+	TTableDefinitionMap extends TableDefinitionMap,
 > = {
 	/**
 	 * Absolute path to the workspace directory where markdown files are stored.
@@ -250,7 +257,7 @@ export type MarkdownCapabilityConfig<
 	 * }
 	 * ```
 	 */
-	tableConfigs?: TableConfigs<TFieldsSchemaMap>;
+	tableConfigs?: TableConfigs<TTableDefinitionMap>;
 
 	/**
 	 * Enable verbose debug logging for troubleshooting file sync issues.
@@ -268,9 +275,12 @@ export type MarkdownCapabilityConfig<
 	debug?: boolean;
 };
 
-export const markdown = async <TFieldsSchemaMap extends FieldsSchemaMap>(
-	context: CapabilityContext<TFieldsSchemaMap>,
-	config: MarkdownCapabilityConfig<TFieldsSchemaMap>,
+export const markdown = async <
+	TTableDefinitionMap extends TableDefinitionMap,
+	TKvSchema extends KvSchema,
+>(
+	context: CapabilityContext<TTableDefinitionMap, TKvSchema>,
+	config: MarkdownCapabilityConfig<TTableDefinitionMap>,
 ) => {
 	const { id, tables } = context;
 	const {
@@ -288,7 +298,8 @@ export const markdown = async <TFieldsSchemaMap extends FieldsSchemaMap>(
 			}
 		: () => {};
 
-	const userTableConfigs: TableConfigs<TFieldsSchemaMap> = tableConfigs ?? {};
+	const userTableConfigs: TableConfigs<TTableDefinitionMap> =
+		tableConfigs ?? {};
 
 	mkdirSync(logsDir, { recursive: true });
 
@@ -343,7 +354,7 @@ export const markdown = async <TFieldsSchemaMap extends FieldsSchemaMap>(
 	 * iteration via tables.$zip(resolvedConfigs).
 	 */
 	// Cast is correct: Object.fromEntries loses key specificity (returns { [k: string]: V }),
-	// but we know keys are exactly keyof TFieldsSchemaMap since we iterate tables.$all().
+	// but we know keys are exactly keyof TTableDefinitionMap since we iterate tables.$all().
 	const resolvedConfigs = Object.fromEntries(
 		tables.$all().map((table) => {
 			const userConfig = userTableConfigs[table.name] ?? {};
@@ -359,7 +370,7 @@ export const markdown = async <TFieldsSchemaMap extends FieldsSchemaMap>(
 
 			// Flatten for internal use
 			const config: ResolvedTableConfig<
-				TFieldsSchemaMap[keyof TFieldsSchemaMap & string]
+				TTableDefinitionMap[keyof TTableDefinitionMap & string]['fields']
 			> = {
 				directory,
 				serialize: serializer.serialize,
@@ -370,8 +381,8 @@ export const markdown = async <TFieldsSchemaMap extends FieldsSchemaMap>(
 			return [table.name, config];
 		}),
 	) as unknown as {
-		[K in keyof TFieldsSchemaMap & string]: ResolvedTableConfig<
-			TFieldsSchemaMap[K]
+		[K in keyof TTableDefinitionMap & string]: ResolvedTableConfig<
+			TTableDefinitionMap[K]['fields']
 		>;
 	};
 
@@ -398,7 +409,6 @@ export const markdown = async <TFieldsSchemaMap extends FieldsSchemaMap>(
 				row: Row<TFieldsSchema>,
 			) {
 				const { frontmatter, body, filename } = tableConfig.serialize({
-					// @ts-expect-error: TFieldsSchema doesn't correlate with tableConfig's schema from outer $zip
 					row,
 					table,
 				});
@@ -701,7 +711,7 @@ export const markdown = async <TFieldsSchemaMap extends FieldsSchemaMap>(
 					}
 
 					const validatedRow = row as Row<
-						TFieldsSchemaMap[keyof TFieldsSchemaMap & string]
+						TTableDefinitionMap[keyof TTableDefinitionMap & string]['fields']
 					>;
 
 					// Success: remove from diagnostics if it was previously invalid
@@ -1272,12 +1282,17 @@ export const markdown = async <TFieldsSchemaMap extends FieldsSchemaMap>(
 					diagnostics.clear();
 
 					type TableSyncData = {
-						table: TableHelper<TFieldsSchemaMap[keyof TFieldsSchemaMap]>;
+						table: TableHelper<
+							TTableDefinitionMap[keyof TTableDefinitionMap]['fields']
+						>;
 						yjsIds: Set<string>;
 						fileExistsIds: Set<string>;
 						markdownRows: Map<
 							string,
-							Row<TFieldsSchemaMap[keyof TFieldsSchemaMap & string]>
+							Row<
+								TTableDefinitionMap[keyof TTableDefinitionMap &
+									string]['fields']
+							>
 						>;
 						markdownFilenames: Map<string, string>;
 					};
@@ -1314,7 +1329,10 @@ export const markdown = async <TFieldsSchemaMap extends FieldsSchemaMap>(
 
 									const markdownRows = new Map<
 										string,
-										Row<TFieldsSchemaMap[keyof TFieldsSchemaMap & string]>
+										Row<
+											TTableDefinitionMap[keyof TTableDefinitionMap &
+												string]['fields']
+										>
 									>();
 									const markdownFilenames = new Map<string, string>();
 

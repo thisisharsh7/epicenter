@@ -50,7 +50,7 @@ import { type } from 'arktype';
 import filenamify from 'filenamify';
 import { Ok, type Result } from 'wellcrafted/result';
 import type { TableHelper } from '../../core/tables/table-helper';
-import type { Row, FieldsSchema } from '../../core/schema';
+import type { FieldsSchema, Row } from '../../core/schema';
 import { tableSchemaToArktype } from '../../core/schema';
 import {
 	MarkdownCapabilityErr,
