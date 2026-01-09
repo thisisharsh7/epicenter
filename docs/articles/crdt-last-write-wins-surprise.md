@@ -157,6 +157,7 @@ Next time you're building a collaborative feature, remember: the "last" in Last 
 
 _Related:_
 
+- [The Point of CRDTs Is Consistency, Not Fairness](./crdt-consistency-not-fairness.md) - The core insight: determinism beats intuition
 - [CRDT Offline Sync: Why Determinism Beats "Fairness"](./crdt-offline-sync-determinism.md) - Concrete scenarios walking through what happens when devices go offline
 
 _Further reading:_

@@ -144,6 +144,7 @@ The goal isn't "fair" conflict resolution. The goal is **every device agreeing o
 
 _Related:_
 
+- [The Point of CRDTs Is Consistency, Not Fairness](./crdt-consistency-not-fairness.md) - The core insight: determinism beats intuition
 - [The Surprising Truth About "Last Write Wins" in CRDTs](./crdt-last-write-wins-surprise.md) - Why CRDTs use clientID ordering instead of timestamps
 
 _Primary sources:_
