@@ -2,7 +2,7 @@ import { Value } from 'typebox/value';
 import * as Y from 'yjs';
 import type {
 	CapabilityExports,
-	CapabilityMap,
+	CapabilityFactoryMap,
 	InferCapabilityExports,
 } from '../capability';
 import { createKv, type Kv } from '../kv/core';
@@ -12,7 +12,6 @@ import type {
 	ExtractTablesSchema,
 	FieldSchema,
 	IconDefinition,
-	TableDefinition,
 } from '../schema/fields/types';
 import { createTables, type Tables } from '../tables/create-tables';
 
@@ -133,18 +132,18 @@ export type Workspace<
 	 * ```
 	 */
 	create<
-		TCapabilities extends CapabilityMap<
+		TCapabilityFactories extends CapabilityFactoryMap<
 			ExtractTablesSchema<TTablesWithMetadata>,
 			TKvSchema
 		> = {},
 	>(options?: {
 		epoch?: number;
-		capabilities?: TCapabilities;
+		capabilities?: TCapabilityFactories;
 	}): Promise<
 		WorkspaceClient<
 			ExtractTablesSchema<TTablesWithMetadata>,
 			TKvSchema,
-			TCapabilities
+			TCapabilityFactories
 		>
 	>;
 };
@@ -188,10 +187,10 @@ export type Workspace<
 export type WorkspaceClient<
 	TTablesSchema extends TablesSchema = TablesSchema,
 	TKvSchema extends KvSchema = KvSchema,
-	TCapabilities extends CapabilityMap<TTablesSchema, TKvSchema> = CapabilityMap<
+	TCapabilityFactories extends CapabilityFactoryMap<
 		TTablesSchema,
 		TKvSchema
-	>,
+	> = CapabilityFactoryMap<TTablesSchema, TKvSchema>,
 > = {
 	/** Globally unique identifier for sync coordination. */
 	id: string;
@@ -202,7 +201,7 @@ export type WorkspaceClient<
 	/** Key-value store for simple values. */
 	kv: Kv<TKvSchema>;
 	/** Exports from initialized capabilities. */
-	capabilities: InferCapabilityExports<TCapabilities>;
+	capabilities: InferCapabilityExports<TCapabilityFactories>;
 	/** The underlying YJS document. */
 	ydoc: Y.Doc;
 	/** Clean up resources (close capabilities, destroy YJS doc). */
@@ -361,21 +360,21 @@ export function defineWorkspace<
 		 * ```
 		 */
 		async create<
-			TCapabilities extends CapabilityMap<
+			TCapabilityFactories extends CapabilityFactoryMap<
 				ExtractTablesSchema<TTablesWithMetadata>,
 				TKvSchema
 			> = {},
 		>({
 			epoch = 0,
-			capabilities = {} as TCapabilities,
+			capabilities: capabilityFactories = {} as TCapabilityFactories,
 		}: {
 			epoch?: number;
-			capabilities?: TCapabilities;
+			capabilities?: TCapabilityFactories;
 		} = {}): Promise<
 			WorkspaceClient<
 				ExtractTablesSchema<TTablesWithMetadata>,
 				TKvSchema,
-				TCapabilities
+				TCapabilityFactories
 			>
 		> {
 			// Create Data Y.Doc with deterministic GUID
@@ -406,9 +405,9 @@ export function defineWorkspace<
 			// Run capability factories in parallel
 			const capabilityExports = Object.fromEntries(
 				await Promise.all(
-					Object.entries(capabilities).map(
-						async ([capabilityId, capabilityFn]) => {
-							const result = await capabilityFn({
+					Object.entries(capabilityFactories).map(
+						async ([capabilityId, capabilityFactory]) => {
+							const result = await capabilityFactory({
 								id: config.id,
 								slug: config.slug,
 								capabilityId,
@@ -420,7 +419,7 @@ export function defineWorkspace<
 						},
 					),
 				),
-			) as InferCapabilityExports<TCapabilities>;
+			) as InferCapabilityExports<TCapabilityFactories>;
 
 			const destroy = async () => {
 				await Promise.all(

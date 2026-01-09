@@ -58,10 +58,10 @@ export type { CapabilityError } from './core/errors';
 // Error types
 export { CapabilityErr } from './core/errors';
 export type {
-	Capability,
+	CapabilityFactory,
+	CapabilityFactoryMap,
 	CapabilityContext,
 	CapabilityExports,
-	CapabilityMap,
 	InferCapabilityExports,
 } from './core/capability';
 // Capability system

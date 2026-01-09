@@ -1,5 +1,5 @@
 import { WebsocketProvider } from 'y-websocket';
-import type { Capability } from '../core/capability';
+import type { CapabilityFactory } from '../core/capability';
 import type { TablesSchema } from '../core/schema';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -224,7 +224,7 @@ export type WebsocketSyncConfig = {
  */
 export function websocketSync<TSchema extends TablesSchema>(
 	config: WebsocketSyncConfig,
-): Capability<TSchema> {
+): CapabilityFactory<TSchema> {
 	return ({ ydoc }) => {
 		const provider = new WebsocketProvider(
 			config.url,

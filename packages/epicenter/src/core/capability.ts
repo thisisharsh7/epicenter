@@ -20,7 +20,7 @@ import type { KvSchema, TablesSchema } from './schema';
  *
  * ### 1. Persist the entire YDoc (storage capability)
  * ```typescript
- * const persistence: Capability = ({ ydoc }, config) => {
+ * const persistence: CapabilityFactory = ({ ydoc }, config) => {
  *   const saved = loadFromDisk(config.path);
  *   Y.applyUpdate(ydoc, saved);
  *   ydoc.on('update', () => {
@@ -31,7 +31,7 @@ import type { KvSchema, TablesSchema } from './schema';
  *
  * ### 2. Sync tables to external store (materializer capability)
  * ```typescript
- * const sqlite: Capability = ({ tables }, config) => {
+ * const sqlite: CapabilityFactory = ({ tables }, config) => {
  *   const db = new Database(config.dbPath);
  *   for (const table of tables.$all()) {
  *     table.observeChanges((changes) => {
@@ -52,7 +52,7 @@ import type { KvSchema, TablesSchema } from './schema';
  *
  * ### 3. Real-time sync (sync capability)
  * ```typescript
- * const websocketSync: Capability = ({ ydoc }) => {
+ * const websocketSync: CapabilityFactory = ({ ydoc }) => {
  *   const ws = new WebsocketProvider(url, ydoc.guid, ydoc);
  *   return { destroy: () => ws.destroy() };
  * };
@@ -60,7 +60,7 @@ import type { KvSchema, TablesSchema } from './schema';
  *
  * ### 4. Do nothing with data (pure side-effect capability)
  * ```typescript
- * const logger: Capability = ({ id }) => {
+ * const logger: CapabilityFactory = ({ id }) => {
  *   console.log(`Workspace ${id} initialized`);
  * };
  * ```
@@ -125,9 +125,12 @@ export type CapabilityExports = {
 };
 
 /**
- * A capability function that attaches functionality to a workspace.
+ * A capability factory function that attaches functionality to a workspace.
+ *
+ * Capability factories receive context and return exports (or void).
+ * The exports become accessible via `client.capabilities.{name}`.
  */
-export type Capability<
+export type CapabilityFactory<
 	TTablesSchema extends TablesSchema = TablesSchema,
 	TKvSchema extends KvSchema = KvSchema,
 	TExports extends CapabilityExports = CapabilityExports,
@@ -138,23 +141,23 @@ export type Capability<
 /**
  * A map of capability factory functions keyed by capability ID.
  *
- * Capabilities add functionality to workspaces: persistence, sync, SQL queries, etc.
- * Each capability receives context and optionally returns exports accessible via
+ * Capability factories add functionality to workspaces: persistence, sync, SQL queries, etc.
+ * Each factory receives context and optionally returns exports accessible via
  * `client.capabilities[capabilityId]`.
  */
-export type CapabilityMap<
+export type CapabilityFactoryMap<
 	TTablesSchema extends TablesSchema = TablesSchema,
 	TKvSchema extends KvSchema = KvSchema,
-> = Record<string, Capability<TTablesSchema, TKvSchema>>;
+> = Record<string, CapabilityFactory<TTablesSchema, TKvSchema>>;
 
 /**
- * Utility type to infer the exports from a capability map.
+ * Utility type to infer the exports from a capability factory map.
  *
  * Maps each capability key to its return type (unwrapped from Promise if async).
- * Capabilities that return void produce empty objects.
+ * Factories that return void produce empty objects.
  */
-export type InferCapabilityExports<TCapabilities> = {
-	[K in keyof TCapabilities]: TCapabilities[K] extends Capability<
+export type InferCapabilityExports<TCapabilityFactories> = {
+	[K in keyof TCapabilityFactories]: TCapabilityFactories[K] extends CapabilityFactory<
 		TablesSchema,
 		KvSchema,
 		infer TExports

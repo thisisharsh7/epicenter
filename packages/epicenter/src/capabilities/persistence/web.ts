@@ -1,5 +1,8 @@
 import { IndexeddbPersistence } from 'y-indexeddb';
-import type { Capability, CapabilityContext } from '../../core/capability';
+import type {
+	CapabilityFactory,
+	CapabilityContext,
+} from '../../core/capability';
 import type { TablesSchema } from '../../core/schema';
 
 /**
@@ -106,4 +109,4 @@ export const persistence = (<TSchema extends TablesSchema>({
 		}),
 		destroy: () => persistence.destroy(),
 	};
-}) satisfies Capability;
+}) satisfies CapabilityFactory;
