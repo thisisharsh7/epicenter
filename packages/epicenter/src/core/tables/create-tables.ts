@@ -127,6 +127,12 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 		...tableHelpers,
 
 		/**
+		 * The raw table definitions passed to createTables.
+		 * Useful when you need the full TableDefinitionMap (e.g., for Drizzle conversion).
+		 */
+		$definitions: tableDefinitions,
+
+		/**
 		 * Get all table helpers as an array.
 		 *
 		 * Useful for providers and indexes that need to iterate over all tables.

@@ -26,132 +26,81 @@ import type {
 	RealFieldSchema,
 	RichtextFieldSchema,
 	SelectFieldSchema,
+	TableDefinitionMap,
 	TagsFieldSchema,
 	TextFieldSchema,
 } from '../fields/types';
 
 import { isNullableFieldSchema } from '../fields/helpers';
 
-function capitalize(str: string): string {
-	return str
-		.split(/[_-]/)
-		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-		.join(' ');
-}
-
 export function toSqlIdentifier(displayName: string): string {
 	return slugify(displayName, { separator: '_' });
 }
 
 /**
- * Maps a workspace schema to its Drizzle table representations.
+ * Maps table definitions to their Drizzle table representations.
  *
  * Use this type when you need to reference the return type of
- * `convertWorkspaceSchemaToDrizzle` in your type definitions.
- *
- * @typeParam TWorkspaceSchema - The workspace schema containing all table definitions
- *
- * @example
- * ```typescript
- * const schema = {
- *   users: { id: id(), name: text() },
- *   posts: { id: id(), title: text() },
- * };
- *
- * // Type for the resulting Drizzle tables
- * type MyTables = WorkspaceSchemaToDrizzleTables<typeof schema>;
- * // { users: SQLiteTable, posts: SQLiteTable }
- * ```
+ * `convertTableDefinitionsToDrizzle` in your type definitions.
  */
-export type WorkspaceSchemaToDrizzleTables<
-	TWorkspaceSchema extends Record<string, FieldsSchema>,
+export type TableDefinitionsToDrizzle<
+	TTableDefinitionMap extends TableDefinitionMap,
 > = {
-	[K in keyof TWorkspaceSchema & string]: ReturnType<
-		typeof convertTableSchemaToDrizzle<K, TWorkspaceSchema[K]>
+	[K in keyof TTableDefinitionMap & string]: ReturnType<
+		typeof convertTableSchemaToDrizzle<K, TTableDefinitionMap[K]['fields']>
 	>;
 };
 
 /**
- * Convert a workspace schema to Drizzle SQLite tables.
+ * Convert table definitions to Drizzle SQLite tables.
  *
- * This is the main entry point for converting a complete workspace schema
- * (which may contain multiple tables) into Drizzle table definitions that
- * can be used for database operations.
+ * This is the main entry point for converting a TableDefinitionMap
+ * into Drizzle table definitions for database operations.
  *
- * Use this when setting up the SQLite provider to create type-safe table
- * references for Drizzle ORM queries.
- *
- * @param schema - The workspace schema containing all table definitions
+ * @param definitions - The table definitions (from `tables.$definitions`)
  * @returns A record mapping table names to their Drizzle SQLiteTable representations
  *
  * @example
  * ```typescript
- * const schema = {
- *   users: { id: id(), name: text() },
- *   posts: { id: id(), title: text(), authorId: text() },
- * };
- *
- * const tables = convertWorkspaceSchemaToDrizzle(schema);
+ * // In a capability, use tables.$definitions directly
+ * const drizzleTables = convertTableDefinitionsToDrizzle(tables.$definitions);
  *
  * // Use with Drizzle queries
- * const allUsers = await db.select().from(tables.users);
- * const userPosts = await db
- *   .select()
- *   .from(tables.posts)
- *   .where(eq(tables.posts.authorId, userId));
+ * const allUsers = await db.select().from(drizzleTables.users);
  * ```
  */
-export function convertWorkspaceSchemaToDrizzle<
-	TWorkspaceSchema extends Record<string, FieldsSchema>,
->(schema: TWorkspaceSchema): WorkspaceSchemaToDrizzleTables<TWorkspaceSchema> {
+export function convertTableDefinitionsToDrizzle<
+	TTableDefinitionMap extends TableDefinitionMap,
+>(
+	definitions: TTableDefinitionMap,
+): TableDefinitionsToDrizzle<TTableDefinitionMap> {
 	const result: Record<string, SQLiteTable> = {};
 
-	for (const tableName of Object.keys(schema)) {
-		const tableSchema = schema[tableName];
-		if (!tableSchema) {
-			throw new Error(`Table schema for "${tableName}" is undefined`);
+	for (const tableName of Object.keys(definitions)) {
+		const tableDefinition = definitions[tableName];
+		if (!tableDefinition) {
+			throw new Error(`Table definition for "${tableName}" is undefined`);
 		}
-		result[tableName] = convertTableSchemaToDrizzle(tableName, tableSchema);
+		result[tableName] = convertTableSchemaToDrizzle(
+			tableName,
+			tableDefinition.fields,
+		);
 	}
 
-	return result as WorkspaceSchemaToDrizzleTables<TWorkspaceSchema>;
+	return result as TableDefinitionsToDrizzle<TTableDefinitionMap>;
 }
 
-/**
- * Convert a single table schema to a Drizzle SQLiteTable.
- *
- * Use this when you need to create a Drizzle table for a single table schema,
- * rather than an entire workspace. Useful for testing or when working with
- * individual tables in isolation.
- *
- * @param tableName - The name of the table (used in SQL)
- * @param fieldsSchema - The schema defining all columns for this table
- * @returns A Drizzle SQLiteTable with typed columns
- *
- * @example
- * ```typescript
- * const usersTable = convertTableSchemaToDrizzle('users', {
- *   id: id(),
- *   name: text(),
- *   age: integer({ nullable: true }),
- * });
- *
- * // Use with Drizzle queries
- * const adults = await db
- *   .select()
- *   .from(usersTable)
- *   .where(gte(usersTable.age, 18));
- * ```
- */
-export function convertTableSchemaToDrizzle<
+/** Convert a single table schema to a Drizzle SQLiteTable. */
+function convertTableSchemaToDrizzle<
 	TTableName extends string,
 	TFieldsSchema extends FieldsSchema,
 >(tableName: TTableName, fieldsSchema: TFieldsSchema) {
 	const columns = Object.fromEntries(
 		Object.keys(fieldsSchema).map((fieldKey) => {
 			const schema = fieldsSchema[fieldKey as keyof TFieldsSchema]!;
-			const displayName = schema.name ?? capitalize(fieldKey);
-			const sqlColumnName = toSqlIdentifier(displayName);
+			const sqlColumnName = schema.name
+				? toSqlIdentifier(schema.name)
+				: fieldKey;
 			return [fieldKey, convertFieldSchemaToDrizzle(sqlColumnName, schema)];
 		}),
 	) as { [Key in keyof TFieldsSchema]: FieldToDrizzle<TFieldsSchema[Key]> };

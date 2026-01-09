@@ -13,7 +13,7 @@ import {
 	type CapabilityContext,
 } from '../../core/capability';
 import type { KvSchema, Row, TableDefinitionMap } from '../../core/schema';
-import { convertWorkspaceSchemaToDrizzle } from '../../core/schema/converters/to-drizzle';
+import { convertTableDefinitionsToDrizzle } from '../../core/schema/converters/to-drizzle';
 import { createIndexLogger } from '../error-logger';
 
 const DEFAULT_DEBOUNCE_MS = 100;
@@ -91,14 +91,7 @@ export const sqlite = async <
 ) => {
 	const { dbPath, logsDir, debounceMs = DEFAULT_DEBOUNCE_MS } = config;
 
-	// Extract fields from each table definition to create a FieldsSchemaMap
-	type ExtractedFieldsSchemaMap = {
-		[K in keyof TTableDefinitionMap]: TTableDefinitionMap[K]['fields'];
-	};
-	const fieldsSchemaMap = Object.fromEntries(
-		tables.$all().map((t) => [t.name, t.schema]),
-	) as ExtractedFieldsSchemaMap;
-	const drizzleTables = convertWorkspaceSchemaToDrizzle(fieldsSchemaMap);
+	const drizzleTables = convertTableDefinitionsToDrizzle(tables.$definitions);
 
 	await mkdir(path.dirname(dbPath), { recursive: true });
 	await mkdir(logsDir, { recursive: true });

@@ -1,15 +1,17 @@
 export {
 	boolean,
+	cover,
 	date,
+	icon,
 	id,
 	integer,
 	json,
 	real,
+	richtext,
 	select,
 	table,
 	tags,
 	text,
-	richtext,
 } from './fields/factories.js';
 
 export type {
@@ -58,10 +60,9 @@ export {
 	fieldsSchemaToTypebox,
 } from './converters/to-typebox.js';
 
-export type { WorkspaceSchemaToDrizzleTables } from './converters/to-drizzle.js';
+export type { TableDefinitionsToDrizzle } from './converters/to-drizzle.js';
 export {
-	convertTableSchemaToDrizzle,
-	convertWorkspaceSchemaToDrizzle,
+	convertTableDefinitionsToDrizzle,
 	toSqlIdentifier,
 } from './converters/to-drizzle.js';
 
