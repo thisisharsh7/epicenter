@@ -23,6 +23,12 @@ ykeyvalue.set('foo', 'from-B');
 
 With YKeyValue: **unpredictable**. The winner depends on sync order, not chronology. Whoever's entry ends up rightmost in the internal array wins.
 
+This mirrors how native Y.Map works. From dmonad:
+
+> "The 'winner' is decided by `ydoc.clientID` of the document (which is a generated number). The higher clientID wins."
+>
+> — [dmonad, GitHub issue #520](https://github.com/yjs/yjs/issues/520)
+
 This is fine for many use cases. But if users expect "my later edit should stick," it's confusing.
 
 ## How y-lwwmap Works

@@ -85,6 +85,19 @@ Time gap test: Winner is "A edits at 10:00am"
 
 The winner is determined by Yjs internals (client IDs assigned randomly at Y.Doc creation), NOT by chronological order. Users expect "my later edit should stick" but that's not guaranteed.
 
+This is confirmed by dmonad (Yjs creator):
+
+> "The 'winner' is decided by `ydoc.clientID` of the document (which is a generated number). The higher clientID wins."
+>
+> — [GitHub issue #520](https://github.com/yjs/yjs/issues/520)
+
+The actual comparison happens in Yjs source ([updates.js#L357](https://github.com/yjs/yjs/blob/main/src/utils/updates.js#L357)):
+
+```javascript
+// Different clients: higher clientID wins
+return dec2.curr.id.client - dec1.curr.id.client;
+```
+
 ## What "Concurrent" Actually Means
 
 "Concurrent" in CRDT terms means **causally concurrent**—neither operation happened-before the other. This occurs when clients are **offline** and don't see each other's changes before making their own.
@@ -209,6 +222,12 @@ Given YKeyValue's 1935x improvement over Y.Map, 8 bytes per entry is negligible.
 ## The Lesson
 
 CRDTs guarantee eventual consistency—all clients converge to the same state. But they don't guarantee the state you expect. Understanding your CRDT's conflict resolution semantics is critical for offline-first applications.
+
+As one community member noted:
+
+> "This is expected behavior. CRDT won't guarantee that result is always correct for each round, it only guarantees result is same for every client."
+>
+> — [GitHub issue #520 discussion](https://github.com/yjs/yjs/issues/520)
 
 Two separate concerns:
 
