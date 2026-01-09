@@ -335,102 +335,12 @@ function mergeSchemaIntoYDoc(
 	});
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Workspace Initialization
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Initialize a workspace: create Data Y.Doc, seed schema, tables, kv, and run capability factories.
- *
- * This is an internal function called by `.create()`. It:
- * 1. Creates a Data Y.Doc with `{id}-{epoch}` as the doc GUID
- * 2. Seeds the Y.Doc schema from code-defined schema (if not already seeded)
- * 3. Creates typed table and kv helpers backed by the Y.Doc
- * 4. Runs all capability factories in parallel
- * 5. Returns a fully initialized WorkspaceClient
- *
- * The Data Y.Doc contains both schema and data. Schema is seeded once from the
- * code-defined schema, then becomes the runtime source of truth for validation.
- * TypeScript types always come from the code schema (compile-time).
- */
-async function initializeWorkspace<
-	TTablesSchema extends TablesSchema,
-	TKvSchema extends KvSchema,
-	TCapabilities extends CapabilityMap<TTablesSchema, TKvSchema>,
->(
-	{
-		id,
-		slug,
-		name,
-		tables: tablesSchema,
-		kv: kvSchema,
-	}: WorkspaceSchema<TTablesSchema, TKvSchema>,
-	epoch: number,
-	capabilities: TCapabilities,
-): Promise<WorkspaceClient<TTablesSchema, TKvSchema, TCapabilities>> {
-	// Create Data Y.Doc with deterministic GUID
-	const docId = `${id}-${epoch}` as const;
-	const ydoc = new Y.Doc({ guid: docId });
-
-	// Get metadata map for name/slug storage
-	const metaMap = ydoc.getMap<string>('meta');
-
-	// Merge workspace metadata (update if different from config)
-	if (metaMap.get('name') !== name) {
-		metaMap.set('name', name);
-	}
-	if (metaMap.get('slug') !== slug) {
-		metaMap.set('slug', slug);
-	}
-
-	// Merge code schema into Y.Doc schema (idempotent, CRDT handles conflicts)
-	mergeSchemaIntoYDoc(ydoc, tablesSchema, kvSchema);
-
-	// Create table and kv helpers using the Y.Doc
-	const tables = createTables(ydoc, tablesSchema);
-	const kv = createKv(ydoc, kvSchema);
-
-	// Run capability factories in parallel
-	const capabilities_ = Object.fromEntries(
-		await Promise.all(
-			Object.entries(capabilities).map(async ([capabilityId, capabilityFn]) => {
-				const result = await capabilityFn({
-					id: slug,
-					capabilityId,
-					ydoc,
-					tables,
-					kv,
-				});
-				return [capabilityId, result ?? {}];
-			}),
-		),
-	) as InferCapabilityExports<TCapabilities>;
-
-	const destroy = async () => {
-		await Promise.all(
-			Object.values(capabilities_).map((capability) =>
-				(capability as CapabilityExports).destroy?.(),
-			),
-		);
-		ydoc.destroy();
-	};
-
-	return {
-		id,
-		slug,
-		ydoc,
-		tables,
-		kv,
-		capabilities: capabilities_,
-		destroy,
-		[Symbol.asyncDispose]: destroy,
-	};
-}
-
 /**
  * Define a collaborative workspace with YJS-first architecture.
  *
  * A workspace is a self-contained domain module with tables and capabilities.
+ * This function returns a **static definition** with a `.create()` method to
+ * instantiate **runtime clients**.
  *
  * @example
  * ```typescript
@@ -444,7 +354,7 @@ async function initializeWorkspace<
  *   kv: {},
  * });
  *
- * // Create client with capabilities
+ * // Create a runtime client with capabilities
  * const client = await workspace.create({
  *   capabilities: { sqlite, persistence },
  * });
@@ -461,7 +371,7 @@ async function initializeWorkspace<
  * ```
  *
  * @param config - Workspace configuration (id, slug, name, tables, kv)
- * @returns A Workspace object with a `.create()` method
+ * @returns A Workspace definition with a `.create()` method
  */
 export function defineWorkspace<
 	TTablesSchema extends TablesSchema,
@@ -479,6 +389,87 @@ export function defineWorkspace<
 	return {
 		...config,
 
+		/**
+		 * Create a runtime client for this workspace.
+		 *
+		 * This is the second phase of the two-phase initialization:
+		 * 1. `defineWorkspace()` creates a static definition (schema + metadata)
+		 * 2. `.create()` creates a runtime client (Y.Doc + helpers + capabilities)
+		 *
+		 * ## What happens during creation
+		 *
+		 * 1. **Y.Doc created** — A new YJS document with GUID `{id}-{epoch}`.
+		 *    The epoch creates isolated document namespaces for versioning/sync.
+		 *
+		 * 2. **Metadata merged** — Workspace name and slug are written to the doc's
+		 *    meta map (idempotent; only updates if values differ).
+		 *
+		 * 3. **Schema merged** — Code-defined table/kv schemas are merged into the
+		 *    doc's schema map. New fields are added, changed fields are updated,
+		 *    existing identical fields are untouched. Safe to call repeatedly.
+		 *
+		 * 4. **Helpers created** — Typed `tables` and `kv` helpers are bound to
+		 *    the Y.Doc for CRUD operations.
+		 *
+		 * 5. **Capabilities initialized** — Factory functions run in parallel,
+		 *    each receiving context (ydoc, tables, kv). Their exports become
+		 *    available on `client.capabilities`.
+		 *
+		 * ## Important behaviors
+		 *
+		 * - **No automatic persistence**: Data lives only in memory unless you
+		 *   provide a persistence capability.
+		 *
+		 * - **No automatic sync**: The client is isolated unless you provide
+		 *   a sync capability (e.g., WebSocket provider).
+		 *
+		 * - **Multiple clients are independent**: Calling `.create()` twice
+		 *   returns two separate Y.Docs and clients. They don't share state
+		 *   unless connected via sync capabilities.
+		 *
+		 * - **Capabilities run in parallel**: Don't rely on execution order
+		 *   between capabilities. Each should be independent.
+		 *
+		 * @param options - Optional configuration
+		 * @param options.epoch - Data Doc version (defaults to 0). The Y.Doc GUID
+		 *   is `{workspaceId}-{epoch}`. Change this intentionally to create a
+		 *   separate document namespace (e.g., for migrations or sync isolation).
+		 *   Get from Head Doc for multi-user sync scenarios.
+		 * @param options.capabilities - Factory functions that add features like
+		 *   persistence, sync, or SQL queries. Each factory receives context and
+		 *   can return exports accessible via `client.capabilities.{name}`.
+		 *
+		 * @example No options (ephemeral, in-memory, epoch 0)
+		 * ```typescript
+		 * const client = await workspace.create();
+		 * ```
+		 *
+		 * @example With capabilities
+		 * ```typescript
+		 * const client = await workspace.create({
+		 *   capabilities: { sqlite, persistence },
+		 * });
+		 * // client.capabilities.sqlite is now available
+		 * ```
+		 *
+		 * @example With epoch from Head Doc (multi-user sync)
+		 * ```typescript
+		 * const head = createHeadDoc({ workspaceId: workspace.id });
+		 * const epoch = head.getEpoch();
+		 * const client = await workspace.create({
+		 *   epoch,
+		 *   capabilities: { sqlite, persistence, sync },
+		 * });
+		 * ```
+		 *
+		 * @example Automatic cleanup with `await using`
+		 * ```typescript
+		 * {
+		 *   await using client = await workspace.create();
+		 *   client.tables.posts.upsert({ id: '1', title: 'Hello' });
+		 * } // Automatically cleaned up here
+		 * ```
+		 */
 		async create<
 			TCapabilities extends CapabilityMap<TTablesSchema, TKvSchema> = {},
 		>({
@@ -488,7 +479,64 @@ export function defineWorkspace<
 			epoch?: number;
 			capabilities?: TCapabilities;
 		} = {}): Promise<WorkspaceClient<TTablesSchema, TKvSchema, TCapabilities>> {
-			return initializeWorkspace(config, epoch, capabilities);
+			// Create Data Y.Doc with deterministic GUID
+			const docId = `${config.id}-${epoch}` as const;
+			const ydoc = new Y.Doc({ guid: docId });
+
+			// Merge workspace metadata (update if different from config)
+			const metaMap = ydoc.getMap<string>('meta');
+			if (metaMap.get('name') !== config.name) {
+				metaMap.set('name', config.name);
+			}
+			if (metaMap.get('slug') !== config.slug) {
+				metaMap.set('slug', config.slug);
+			}
+
+			// Merge code schema into Y.Doc schema (idempotent, CRDT handles conflicts)
+			mergeSchemaIntoYDoc(ydoc, config.tables, config.kv);
+
+			// Create table and kv helpers bound to the Y.Doc
+			const tables = createTables(ydoc, config.tables);
+			const kv = createKv(ydoc, config.kv);
+
+			// Run capability factories in parallel
+			const capabilityExports = Object.fromEntries(
+				await Promise.all(
+					Object.entries(capabilities).map(
+						async ([capabilityId, capabilityFn]) => {
+							const result = await capabilityFn({
+								id: config.id,
+								slug: config.slug,
+								capabilityId,
+								ydoc,
+								tables,
+								kv,
+							});
+							return [capabilityId, result ?? {}];
+						},
+					),
+				),
+			) as InferCapabilityExports<TCapabilities>;
+
+			const destroy = async () => {
+				await Promise.all(
+					Object.values(capabilityExports).map((capability) =>
+						(capability as CapabilityExports).destroy?.(),
+					),
+				);
+				ydoc.destroy();
+			};
+
+			return {
+				id: config.id,
+				slug: config.slug,
+				ydoc,
+				tables,
+				kv,
+				capabilities: capabilityExports,
+				destroy,
+				[Symbol.asyncDispose]: destroy,
+			};
 		},
 	};
 }
