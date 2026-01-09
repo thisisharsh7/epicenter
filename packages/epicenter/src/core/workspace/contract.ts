@@ -183,18 +183,6 @@ export type WorkspaceClient<
 	[Symbol.asyncDispose](): Promise<void>;
 };
 
-type InitializedWorkspace<
-	TTablesSchema extends TablesSchema,
-	TKvSchema extends KvSchema,
-	TCapabilities extends CapabilityMap<TTablesSchema, TKvSchema>,
-> = {
-	ydoc: Y.Doc;
-	tables: Tables<TTablesSchema>;
-	kv: Kv<TKvSchema>;
-	capabilityExports: InferCapabilityExports<TCapabilities>;
-	cleanup: () => Promise<void>;
-};
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Schema Merge Utilities (inlined from data-doc.ts)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -359,7 +347,7 @@ function mergeSchemaIntoYDoc(
  * 2. Seeds the Y.Doc schema from code-defined schema (if not already seeded)
  * 3. Creates typed table and kv helpers backed by the Y.Doc
  * 4. Runs all capability factories in parallel
- * 5. Returns everything needed to construct a WorkspaceClient
+ * 5. Returns a fully initialized WorkspaceClient
  *
  * The Data Y.Doc contains both schema and data. Schema is seeded once from the
  * code-defined schema, then becomes the runtime source of truth for validation.
@@ -379,7 +367,7 @@ async function initializeWorkspace<
 	}: WorkspaceSchema<TTablesSchema, TKvSchema>,
 	epoch: number,
 	capabilities: TCapabilities,
-): Promise<InitializedWorkspace<TTablesSchema, TKvSchema, TCapabilities>> {
+): Promise<WorkspaceClient<TTablesSchema, TKvSchema, TCapabilities>> {
 	// Create Data Y.Doc with deterministic GUID
 	const docId = `${id}-${epoch}` as const;
 	const ydoc = new Y.Doc({ guid: docId });
@@ -403,7 +391,7 @@ async function initializeWorkspace<
 	const kv = createKv(ydoc, kvSchema);
 
 	// Run capability factories in parallel
-	const capabilityExports = Object.fromEntries(
+	const capabilities_ = Object.fromEntries(
 		await Promise.all(
 			Object.entries(capabilities).map(async ([capabilityId, capabilityFn]) => {
 				const result = await capabilityFn({
@@ -418,9 +406,9 @@ async function initializeWorkspace<
 		),
 	) as InferCapabilityExports<TCapabilities>;
 
-	const cleanup = async () => {
+	const destroy = async () => {
 		await Promise.all(
-			Object.values(capabilityExports).map((capability) =>
+			Object.values(capabilities_).map((capability) =>
 				(capability as CapabilityExports).destroy?.(),
 			),
 		);
@@ -428,11 +416,14 @@ async function initializeWorkspace<
 	};
 
 	return {
+		id,
+		slug,
 		ydoc,
 		tables,
 		kv,
-		capabilityExports,
-		cleanup,
+		capabilities: capabilities_,
+		destroy,
+		[Symbol.asyncDispose]: destroy,
 	};
 }
 
@@ -497,19 +488,7 @@ export function defineWorkspace<
 			epoch?: number;
 			capabilities?: TCapabilities;
 		} = {}): Promise<WorkspaceClient<TTablesSchema, TKvSchema, TCapabilities>> {
-			const { ydoc, tables, kv, capabilityExports, cleanup } =
-				await initializeWorkspace(config, epoch, capabilities);
-
-			return {
-				id: config.id,
-				slug: config.slug,
-				ydoc,
-				tables,
-				kv,
-				capabilities: capabilityExports,
-				destroy: cleanup,
-				[Symbol.asyncDispose]: cleanup,
-			};
+			return initializeWorkspace(config, epoch, capabilities);
 		},
 	};
 }
