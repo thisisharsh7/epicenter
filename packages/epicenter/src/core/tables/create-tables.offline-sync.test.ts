@@ -17,7 +17,7 @@
  */
 import { describe, expect, test } from 'bun:test';
 import * as Y from 'yjs';
-import { id, text } from '../schema';
+import { id, table, text } from '../schema';
 import { createTables } from './create-tables';
 
 describe('Offline Sync Scenarios', () => {
@@ -27,10 +27,10 @@ describe('Offline Sync Scenarios', () => {
 			const docB = new Y.Doc();
 
 			const tablesA = createTables(docA, {
-				posts: { id: id(), title: text() },
+				posts: table({ name: '', fields: { id: id(), title: text() } }),
 			});
 			const tablesB = createTables(docB, {
-				posts: { id: id(), title: text() },
+				posts: table({ name: '', fields: { id: id(), title: text() } }),
 			});
 
 			tablesA.posts.upsert({ id: 'post-1', title: 'Original' });
@@ -58,10 +58,10 @@ describe('Offline Sync Scenarios', () => {
 			const docB = new Y.Doc();
 
 			const tablesA = createTables(docA, {
-				posts: { id: id(), title: text() },
+				posts: table({ name: '', fields: { id: id(), title: text() } }),
 			});
 			const tablesB = createTables(docB, {
-				posts: { id: id(), title: text() },
+				posts: table({ name: '', fields: { id: id(), title: text() } }),
 			});
 
 			tablesA.posts.upsert({ id: 'post-1', title: 'Original' });
@@ -97,16 +97,16 @@ describe('Offline Sync Scenarios', () => {
 				docB1.clientID = docB2.clientID = 200 + i;
 
 				const tablesA1 = createTables(docA1, {
-					posts: { id: id(), title: text() },
+					posts: table({ name: '', fields: { id: id(), title: text() } }),
 				});
 				const tablesB1 = createTables(docB1, {
-					posts: { id: id(), title: text() },
+					posts: table({ name: '', fields: { id: id(), title: text() } }),
 				});
 				const tablesA2 = createTables(docA2, {
-					posts: { id: id(), title: text() },
+					posts: table({ name: '', fields: { id: id(), title: text() } }),
 				});
 				const tablesB2 = createTables(docB2, {
-					posts: { id: id(), title: text() },
+					posts: table({ name: '', fields: { id: id(), title: text() } }),
 				});
 
 				tablesA1.posts.upsert({ id: 'post-1', title: 'Original' });
@@ -148,10 +148,10 @@ describe('Offline Sync Scenarios', () => {
 			const docOffline = new Y.Doc();
 
 			const tablesOnline = createTables(docOnline, {
-				posts: { id: id(), title: text() },
+				posts: table({ name: '', fields: { id: id(), title: text() } }),
 			});
 			const tablesOffline = createTables(docOffline, {
-				posts: { id: id(), title: text() },
+				posts: table({ name: '', fields: { id: id(), title: text() } }),
 			});
 
 			tablesOnline.posts.upsert({ id: 'post-1', title: 'Initial' });
@@ -187,13 +187,13 @@ describe('Offline Sync Scenarios', () => {
 			const docC = new Y.Doc();
 
 			const tablesA = createTables(docA, {
-				posts: { id: id(), title: text() },
+				posts: table({ name: '', fields: { id: id(), title: text() } }),
 			});
 			const tablesB = createTables(docB, {
-				posts: { id: id(), title: text() },
+				posts: table({ name: '', fields: { id: id(), title: text() } }),
 			});
 			const tablesC = createTables(docC, {
-				posts: { id: id(), title: text() },
+				posts: table({ name: '', fields: { id: id(), title: text() } }),
 			});
 
 			tablesA.posts.upsert({ id: 'post-1', title: 'Original' });
@@ -244,10 +244,10 @@ describe('Offline Sync Scenarios', () => {
 				const docB = new Y.Doc();
 
 				const tablesA = createTables(docA, {
-					posts: { id: id(), title: text() },
+					posts: table({ name: '', fields: { id: id(), title: text() } }),
 				});
 				const tablesB = createTables(docB, {
-					posts: { id: id(), title: text() },
+					posts: table({ name: '', fields: { id: id(), title: text() } }),
 				});
 
 				tablesA.posts.upsert({ id: 'post-1', title: 'Original' });
@@ -281,10 +281,10 @@ describe('Offline Sync Scenarios', () => {
 			const docB = new Y.Doc();
 
 			const tablesA = createTables(docA, {
-				posts: { id: id(), title: text() },
+				posts: table({ name: '', fields: { id: id(), title: text() } }),
 			});
 			const tablesB = createTables(docB, {
-				posts: { id: id(), title: text() },
+				posts: table({ name: '', fields: { id: id(), title: text() } }),
 			});
 
 			tablesA.posts.upsert({ id: 'post-1', title: 'Original' });
