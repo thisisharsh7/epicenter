@@ -1,22 +1,20 @@
 import { describe, expect, test } from 'bun:test';
 import * as Y from 'yjs';
-import type { FieldsSchema } from '../schema';
-import { boolean, id, integer, tags, text, richtext } from '../schema';
+import { boolean, id, integer, tags, text, richtext, table } from '../schema';
 import { createTables } from './create-tables';
-
-/** Helper to create a minimal TableDefinition from fields */
-const table = <T extends FieldsSchema>(fields: T) =>
-	({ name: '', icon: null, cover: null, description: '', fields }) as const;
 
 describe('createTables', () => {
 	test('should create and retrieve rows correctly', () => {
 		const ydoc = new Y.Doc({ guid: 'test-workspace' });
 		const doc = createTables(ydoc, {
 			posts: table({
-				id: id(),
-				title: text(),
-				view_count: integer(),
-				published: boolean(),
+				name: '',
+				fields: {
+					id: id(),
+					title: text(),
+					view_count: integer(),
+					published: boolean(),
+				},
 			}),
 		});
 
@@ -42,10 +40,13 @@ describe('createTables', () => {
 		const ydoc = new Y.Doc({ guid: 'test-workspace' });
 		const doc = createTables(ydoc, {
 			posts: table({
-				id: id(),
-				title: text(),
-				view_count: integer(),
-				published: boolean(),
+				name: '',
+				fields: {
+					id: id(),
+					title: text(),
+					view_count: integer(),
+					published: boolean(),
+				},
 			}),
 		});
 
@@ -72,10 +73,13 @@ describe('createTables', () => {
 		const ydoc = new Y.Doc({ guid: 'test-workspace' });
 		const doc = createTables(ydoc, {
 			posts: table({
-				id: id(),
-				title: text(),
-				view_count: integer(),
-				published: boolean(),
+				name: '',
+				fields: {
+					id: id(),
+					title: text(),
+					view_count: integer(),
+					published: boolean(),
+				},
 			}),
 		});
 
@@ -101,10 +105,13 @@ describe('createTables', () => {
 		const ydoc = new Y.Doc({ guid: 'test-workspace' });
 		const doc = createTables(ydoc, {
 			posts: table({
-				id: id(),
-				title: text(),
-				view_count: integer(),
-				published: boolean(),
+				name: '',
+				fields: {
+					id: id(),
+					title: text(),
+					view_count: integer(),
+					published: boolean(),
+				},
 			}),
 		});
 
@@ -124,9 +131,12 @@ describe('createTables', () => {
 		const ydoc = new Y.Doc({ guid: 'test-workspace' });
 		const doc = createTables(ydoc, {
 			posts: table({
-				id: id(),
-				title: richtext(),
-				tags: tags({ options: ['typescript', 'javascript', 'python'] }),
+				name: '',
+				fields: {
+					id: id(),
+					title: richtext(),
+					tags: tags({ options: ['typescript', 'javascript', 'python'] }),
+				},
 			}),
 		});
 
@@ -161,9 +171,12 @@ describe('createTables', () => {
 		const ydoc = new Y.Doc({ guid: 'test-workspace' });
 		const doc = createTables(ydoc, {
 			posts: table({
-				id: id(),
-				title: text(),
-				published: boolean(),
+				name: '',
+				fields: {
+					id: id(),
+					title: text(),
+					published: boolean(),
+				},
 			}),
 		});
 
@@ -186,9 +199,12 @@ describe('createTables', () => {
 			const ydoc = new Y.Doc({ guid: 'test-observe' });
 			const tables = createTables(ydoc, {
 				posts: table({
-					id: id(),
-					title: text(),
-					published: boolean(),
+					name: '',
+					fields: {
+						id: id(),
+						title: text(),
+						published: boolean(),
+					},
 				}),
 			});
 
@@ -211,9 +227,12 @@ describe('createTables', () => {
 			const ydoc = new Y.Doc({ guid: 'test-observe' });
 			const tables = createTables(ydoc, {
 				posts: table({
-					id: id(),
-					title: text(),
-					view_count: integer(),
+					name: '',
+					fields: {
+						id: id(),
+						title: text(),
+						view_count: integer(),
+					},
 				}),
 			});
 
@@ -242,8 +261,11 @@ describe('createTables', () => {
 			const ydoc = new Y.Doc({ guid: 'test-observe' });
 			const tables = createTables(ydoc, {
 				posts: table({
-					id: id(),
-					title: text(),
+					name: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
 				}),
 			});
 
@@ -268,8 +290,11 @@ describe('createTables', () => {
 			const ydoc = new Y.Doc({ guid: 'test-observe' });
 			const tables = createTables(ydoc, {
 				posts: table({
-					id: id(),
-					title: text(),
+					name: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
 				}),
 			});
 
@@ -299,8 +324,11 @@ describe('createTables', () => {
 
 			const tables = createTables(ydoc, {
 				posts: table({
-					id: id(),
-					count: integer(),
+					name: '',
+					fields: {
+						id: id(),
+						count: integer(),
+					},
 				}),
 			});
 
@@ -337,8 +365,11 @@ describe('createTables', () => {
 			const ydoc = new Y.Doc({ guid: 'test-observe' });
 			const tables = createTables(ydoc, {
 				posts: table({
-					id: id(),
-					title: text(),
+					name: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
 				}),
 			});
 
@@ -362,8 +393,11 @@ describe('createTables', () => {
 			const ydoc = new Y.Doc({ guid: 'test-batch' });
 			const tables = createTables(ydoc, {
 				posts: table({
-					id: id(),
-					title: text(),
+					name: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
 				}),
 			});
 
@@ -396,9 +430,12 @@ describe('createTables', () => {
 			const ydoc = new Y.Doc({ guid: 'test-batch-update' });
 			const tables = createTables(ydoc, {
 				posts: table({
-					id: id(),
-					title: text(),
-					view_count: integer(),
+					name: '',
+					fields: {
+						id: id(),
+						title: text(),
+						view_count: integer(),
+					},
 				}),
 			});
 
@@ -434,8 +471,11 @@ describe('createTables', () => {
 			const ydoc = new Y.Doc({ guid: 'test-batch-mixed' });
 			const tables = createTables(ydoc, {
 				posts: table({
-					id: id(),
-					title: text(),
+					name: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
 				}),
 			});
 
@@ -467,8 +507,11 @@ describe('createTables', () => {
 			const ydoc = new Y.Doc({ guid: 'test-batch-delete' });
 			const tables = createTables(ydoc, {
 				posts: table({
-					id: id(),
-					title: text(),
+					name: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
 				}),
 			});
 
@@ -501,9 +544,12 @@ describe('createTables', () => {
 			const ydoc = new Y.Doc({ guid: 'test-dedupe' });
 			const tables = createTables(ydoc, {
 				posts: table({
-					id: id(),
-					title: text(),
-					view_count: integer(),
+					name: '',
+					fields: {
+						id: id(),
+						title: text(),
+						view_count: integer(),
+					},
 				}),
 			});
 
@@ -558,8 +604,11 @@ describe('createTables', () => {
 
 			const tables = createTables(ydoc, {
 				posts: table({
-					id: id(),
-					title: text(),
+					name: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
 				}),
 			});
 
@@ -589,12 +638,18 @@ describe('createTables', () => {
 			const ydoc = new Y.Doc({ guid: 'test-isolation' });
 			const tables = createTables(ydoc, {
 				posts: table({
-					id: id(),
-					title: text(),
+					name: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
 				}),
 				comments: table({
-					id: id(),
-					content: text(),
+					name: '',
+					fields: {
+						id: id(),
+						content: text(),
+					},
 				}),
 			});
 
@@ -619,8 +674,11 @@ describe('createTables', () => {
 			const ydoc = new Y.Doc({ guid: 'test-timing' });
 			const tables = createTables(ydoc, {
 				posts: table({
-					id: id(),
-					title: text(),
+					name: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
 				}),
 			});
 
@@ -644,8 +702,11 @@ describe('createTables', () => {
 			const ydoc = new Y.Doc({ guid: 'test-multi-sub' });
 			const tables = createTables(ydoc, {
 				posts: table({
-					id: id(),
-					title: text(),
+					name: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
 				}),
 			});
 
