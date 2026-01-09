@@ -128,7 +128,25 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 
 		/**
 		 * The raw table definitions passed to createTables.
-		 * Useful when you need the full TableDefinitionMap (e.g., for Drizzle conversion).
+		 *
+		 * Provides direct access to the `TableDefinitionMap` without going through
+		 * table helpers. Useful when you need the complete definition including
+		 * metadata (name, icon, description) or the raw `fields` schema.
+		 *
+		 * Primary use case: passing to converters like `convertTableDefinitionsToDrizzle`
+		 * that need the full definition rather than individual table helpers.
+		 *
+		 * @example
+		 * ```typescript
+		 * // In a capability, convert to Drizzle tables
+		 * const drizzleTables = convertTableDefinitionsToDrizzle(tables.$definitions);
+		 *
+		 * // Access table metadata
+		 * const postsDefinition = tables.$definitions.posts;
+		 * console.log(postsDefinition.name);        // "Posts"
+		 * console.log(postsDefinition.description); // "Blog posts and articles"
+		 * console.log(postsDefinition.fields);      // { id: {...}, title: {...}, ... }
+		 * ```
 		 */
 		$definitions: tableDefinitions,
 
