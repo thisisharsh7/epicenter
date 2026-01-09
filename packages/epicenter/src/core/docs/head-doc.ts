@@ -80,33 +80,6 @@ export function createHeadDoc(options: { workspaceId: string; ydoc?: Y.Doc }) {
 	const ydoc = options.ydoc ?? new Y.Doc({ guid: workspaceId });
 	const epochsMap = ydoc.getMap<number>('epochs');
 
-	/**
-	 * Get the current epoch number.
-	 *
-	 * Computes the maximum of all client-proposed epochs.
-	 * This ensures concurrent bumps converge to the same version
-	 * without skipping epoch numbers.
-	 *
-	 * @returns The current epoch (0 if no bumps have occurred)
-	 *
-	 * @example
-	 * ```typescript
-	 * // Initial state
-	 * head.getEpoch(); // 0
-	 *
-	 * // After some bumps
-	 * head.bumpEpoch();
-	 * head.getEpoch(); // 1
-	 * ```
-	 */
-	function getEpoch(): number {
-		let max = 0;
-		for (const value of epochsMap.values()) {
-			max = Math.max(max, value);
-		}
-		return max;
-	}
-
 	return {
 		/** The underlying Y.Doc instance. */
 		ydoc,
@@ -114,7 +87,32 @@ export function createHeadDoc(options: { workspaceId: string; ydoc?: Y.Doc }) {
 		/** The workspace ID (Y.Doc guid). */
 		workspaceId,
 
-		getEpoch,
+		/**
+		 * Get the current epoch number.
+		 *
+		 * Computes the maximum of all client-proposed epochs.
+		 * This ensures concurrent bumps converge to the same version
+		 * without skipping epoch numbers.
+		 *
+		 * @returns The current epoch (0 if no bumps have occurred)
+		 *
+		 * @example
+		 * ```typescript
+		 * // Initial state
+		 * head.getEpoch(); // 0
+		 *
+		 * // After some bumps
+		 * head.bumpEpoch();
+		 * head.getEpoch(); // 1
+		 * ```
+		 */
+		getEpoch(): number {
+			let max = 0;
+			for (const value of epochsMap.values()) {
+				max = Math.max(max, value);
+			}
+			return max;
+		},
 
 		/**
 		 * Get this client's own epoch value.
@@ -176,7 +174,7 @@ export function createHeadDoc(options: { workspaceId: string; ydoc?: Y.Doc }) {
 		 * ```
 		 */
 		bumpEpoch(): number {
-			const next = getEpoch() + 1;
+			const next = this.getEpoch() + 1;
 			epochsMap.set(ydoc.clientID.toString(), next);
 			return next;
 		},
@@ -223,7 +221,7 @@ export function createHeadDoc(options: { workspaceId: string; ydoc?: Y.Doc }) {
 		 * ```
 		 */
 		setOwnEpoch(epoch: number): number {
-			const globalEpoch = getEpoch();
+			const globalEpoch = this.getEpoch();
 			const clampedEpoch = Math.min(epoch, globalEpoch);
 			epochsMap.set(ydoc.clientID.toString(), clampedEpoch);
 			return clampedEpoch;
@@ -278,10 +276,10 @@ export function createHeadDoc(options: { workspaceId: string; ydoc?: Y.Doc }) {
 		 * ```
 		 */
 		observeEpoch(callback: (epoch: number) => void) {
-			let lastEpoch = getEpoch();
+			let lastEpoch = this.getEpoch();
 
 			const handler = () => {
-				const currentEpoch = getEpoch();
+				const currentEpoch = this.getEpoch();
 				if (currentEpoch !== lastEpoch) {
 					lastEpoch = currentEpoch;
 					callback(currentEpoch);
