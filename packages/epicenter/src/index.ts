@@ -135,13 +135,8 @@ export type {
 export { defineWorkspace } from './core/workspace/contract';
 
 // Y.Doc wrappers for collaborative workspace architecture
-export type {
-	RegistryDoc,
-	HeadDoc,
-	DataDoc,
-	SchemaChangeEvent,
-} from './core/docs';
-export { createRegistryDoc, createHeadDoc, createDataDoc } from './core/docs';
+export type { RegistryDoc, HeadDoc } from './core/docs';
+export { createRegistryDoc, createHeadDoc } from './core/docs';
 // Action system
 export type { Action, Actions, Mutation, Query } from './core/actions';
 export {
