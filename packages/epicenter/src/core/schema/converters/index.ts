@@ -8,7 +8,7 @@ export {
 } from './to-arktype-yjs';
 
 export type { FieldSchemaToTypebox } from './to-typebox';
-export { fieldSchemaToTypebox, tableSchemaToTypebox } from './to-typebox';
+export { fieldSchemaToTypebox, fieldsSchemaToTypebox } from './to-typebox';
 
 export type { WorkspaceSchemaToDrizzleTables } from './to-drizzle';
 export {

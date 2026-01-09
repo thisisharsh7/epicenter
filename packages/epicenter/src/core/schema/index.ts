@@ -54,7 +54,7 @@ export {
 export type { FieldSchemaToTypebox } from './converters/to-typebox.js';
 export {
 	fieldSchemaToTypebox,
-	tableSchemaToTypebox,
+	fieldsSchemaToTypebox,
 } from './converters/to-typebox.js';
 
 export type { WorkspaceSchemaToDrizzleTables } from './converters/to-drizzle.js';

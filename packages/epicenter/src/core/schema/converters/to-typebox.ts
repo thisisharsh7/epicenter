@@ -108,7 +108,7 @@ export type FieldSchemaToTypebox<C extends FieldSchema> =
  *   count: integer({ nullable: true }),
  * };
  *
- * const typeboxSchema = tableSchemaToTypebox(schema);
+ * const typeboxSchema = fieldsSchemaToTypebox(schema);
  * const validator = Compile(typeboxSchema);
  *
  * validator.Check({ id: '123', title: 'Test', count: 42 }); // true
@@ -116,7 +116,7 @@ export type FieldSchemaToTypebox<C extends FieldSchema> =
  * validator.Check({ id: '123', title: 'Test' }); // false (missing count)
  * ```
  */
-export function tableSchemaToTypebox<TFieldsSchema extends FieldsSchema>(
+export function fieldsSchemaToTypebox<TFieldsSchema extends FieldsSchema>(
 	fieldsSchema: TFieldsSchema,
 ): TObject {
 	const properties: Record<string, TSchema> = {};
