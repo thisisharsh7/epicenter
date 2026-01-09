@@ -47,20 +47,20 @@ export type {
 
 export type { FieldDefinitionToArktype } from './converters/to-arktype.js';
 export {
-	fieldSchemaToArktype,
+	fieldDefinitionToArktype,
 	tableSchemaToArktype,
 } from './converters/to-arktype.js';
 
 export type { FieldDefinitionToYjsArktype } from './converters/to-arktype-yjs.js';
 export {
-	fieldSchemaToYjsArktype,
+	fieldDefinitionToYjsArktype,
 	tableSchemaToYjsArktype,
 } from './converters/to-arktype-yjs.js';
 
 export type { FieldDefinitionToTypebox } from './converters/to-typebox.js';
 export {
-	fieldSchemaToTypebox,
-	fieldsSchemaToTypebox,
+	fieldDefinitionToTypebox,
+	fieldsDefinitionToTypebox,
 } from './converters/to-typebox.js';
 
 export type { TableDefinitionsToDrizzle } from './converters/to-drizzle.js';

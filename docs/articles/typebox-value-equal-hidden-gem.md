@@ -10,7 +10,7 @@ Turns out TypeBox has this [`Value.Equal` function that does deep structural equ
 import { Value } from 'typebox/value';
 
 // Before: 20 lines of manual comparison
-function deepEqual(a: FieldSchema, b: FieldSchema): boolean {
+function deepEqual(a: FieldDefinition, b: FieldDefinition): boolean {
 	if (a.type !== b.type) return false;
 	if (a.name !== b.name) return false;
 	if (a.icon !== b.icon) {
@@ -22,7 +22,7 @@ function deepEqual(a: FieldSchema, b: FieldSchema): boolean {
 }
 
 // After: one line
-const deepEqual = (a: FieldSchema, b: FieldSchema) => Value.Equal(a, b);
+const deepEqual = (a: FieldDefinition, b: FieldDefinition) => Value.Equal(a, b);
 ```
 
 One line. Done.

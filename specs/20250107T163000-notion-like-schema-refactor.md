@@ -61,7 +61,7 @@ type WorkspaceSchema<
 ### TableDefinition (New)
 
 ```typescript
-type TableDefinition<TFields extends FieldsSchema = FieldsSchema> = {
+type TableDefinition<TFields extends FieldDefinitions = FieldDefinitions> = {
 	name: string; // Required - "Blog Posts"
 	icon: IconDefinition | null; // Required - emoji or image
 	cover: CoverDefinition | null; // Required - banner image
@@ -72,7 +72,7 @@ type TableDefinition<TFields extends FieldsSchema = FieldsSchema> = {
 type TablesWithMetadata = Record<string, TableDefinition>;
 ```
 
-### FieldSchema (Updated)
+### FieldDefinition (Updated)
 
 All field types gain optional `name` and `description`:
 

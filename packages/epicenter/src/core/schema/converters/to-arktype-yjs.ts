@@ -117,9 +117,9 @@ export function tableSchemaToYjsArktype<
 >(fieldsSchema: TFieldDefinitions): ObjectType<Row<TFieldDefinitions>> {
 	return type(
 		Object.fromEntries(
-			Object.entries(fieldsSchema).map(([fieldName, fieldSchema]) => [
+			Object.entries(fieldsSchema).map(([fieldName, fieldDefinition]) => [
 				fieldName,
-				fieldSchemaToYjsArktype(fieldSchema),
+				fieldDefinitionToYjsArktype(fieldDefinition),
 			]),
 		),
 	) as ObjectType<Row<TFieldDefinitions>>;
@@ -129,16 +129,16 @@ export function tableSchemaToYjsArktype<
  * Converts a single FieldDefinition to a YJS-aware arktype Type.
  *
  * Returns arktype Type instances that validate YJS cell values. Unlike
- * `fieldSchemaToArktype`, this validator is designed for Row objects
+ * `fieldDefinitionToArktype`, this validator is designed for Row objects
  * built from Y.Maps where values have already been extracted.
  *
- * @param fieldSchema - The field schema to convert
+ * @param fieldDefinition - The field definition to convert
  * @returns Arktype Type that validates the YJS cell value
  *
  * @example
  * ```typescript
- * const textValidator = fieldSchemaToYjsArktype({ type: 'text' });
- * const tagsValidator = fieldSchemaToYjsArktype({
+ * const textValidator = fieldDefinitionToYjsArktype({ type: 'text' });
+ * const tagsValidator = fieldDefinitionToYjsArktype({
  *   type: 'tags',
  *   options: ['tech', 'blog'],
  * });
@@ -148,12 +148,12 @@ export function tableSchemaToYjsArktype<
  * tagsValidator(['invalid']); // type.errors
  * ```
  */
-export function fieldSchemaToYjsArktype<C extends FieldDefinition>(
-	fieldSchema: C,
+export function fieldDefinitionToYjsArktype<C extends FieldDefinition>(
+	fieldDefinition: C,
 ): FieldDefinitionToYjsArktype<C> {
 	let baseType: Type;
 
-	switch (fieldSchema.type) {
+	switch (fieldDefinition.type) {
 		case 'id':
 		case 'text':
 		case 'richtext':
@@ -176,11 +176,11 @@ export function fieldSchemaToYjsArktype<C extends FieldDefinition>(
 				.matching(DATE_TIME_STRING_REGEX);
 			break;
 		case 'select':
-			baseType = type.enumerated(...fieldSchema.options);
+			baseType = type.enumerated(...fieldDefinition.options);
 			break;
 		case 'tags':
-			baseType = fieldSchema.options
-				? type.enumerated(...fieldSchema.options).array()
+			baseType = fieldDefinition.options
+				? type.enumerated(...fieldDefinition.options).array()
 				: type.string.array();
 			break;
 		case 'json':
@@ -188,11 +188,11 @@ export function fieldSchemaToYjsArktype<C extends FieldDefinition>(
 			// TODO: Remove cast when @ark/json-schema updates to arktype >=2.1.29
 			// Type cast needed due to @ark/json-schema using older arktype version (2.1.23 vs 2.1.29).
 			// Runtime behavior is correct; only TS types differ.
-			baseType = jsonSchemaToType(fieldSchema.schema) as unknown as Type;
+			baseType = jsonSchemaToType(fieldDefinition.schema) as unknown as Type;
 			break;
 	}
 
-	const isNullable = isNullableFieldDefinition(fieldSchema);
+	const isNullable = isNullableFieldDefinition(fieldDefinition);
 	return (
 		isNullable ? baseType.or(type.null) : baseType
 	) as FieldDefinitionToYjsArktype<C>;

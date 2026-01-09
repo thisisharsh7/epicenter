@@ -525,22 +525,22 @@ function mergeSchemaIntoYDoc(
 				tableMap.set('fields', fieldsMap);
 			}
 
-			for (const [fieldName, fieldSchema] of Object.entries(
+			for (const [fieldName, fieldDefinition] of Object.entries(
 				tableDefinition.fields,
 			)) {
 				const existing = fieldsMap.get(fieldName);
 
-				if (!existing || !Value.Equal(existing, fieldSchema)) {
-					fieldsMap.set(fieldName, fieldSchema);
+				if (!existing || !Value.Equal(existing, fieldDefinition)) {
+					fieldsMap.set(fieldName, fieldDefinition);
 				}
 			}
 		}
 
-		for (const [keyName, fieldSchema] of Object.entries(kv)) {
+		for (const [keyName, fieldDefinition] of Object.entries(kv)) {
 			const existing = kvSchemaMap.get(keyName);
 
-			if (!existing || !Value.Equal(existing, fieldSchema)) {
-				kvSchemaMap.set(keyName, fieldSchema);
+			if (!existing || !Value.Equal(existing, fieldDefinition)) {
+				kvSchemaMap.set(keyName, fieldDefinition);
 			}
 		}
 	});

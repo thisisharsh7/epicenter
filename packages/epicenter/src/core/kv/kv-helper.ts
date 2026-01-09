@@ -3,7 +3,10 @@ import { createTaggedError } from 'wellcrafted/error';
 import type * as Y from 'yjs';
 
 import type { KvDefinitionMap, KvFieldDefinition, KvValue } from '../schema';
-import { fieldSchemaToYjsArktype, isNullableFieldDefinition } from '../schema';
+import {
+	fieldDefinitionToYjsArktype,
+	isNullableFieldDefinition,
+} from '../schema';
 
 /**
  * Change event for a KV value.
@@ -59,7 +62,7 @@ export function createKvHelpers<TKvDefinitionMap extends KvDefinitionMap>({
 			createKvHelper({
 				keyName,
 				ykvMap,
-				fieldSchema: definition.field,
+				fieldDefinition: definition.field,
 			}),
 		]),
 	) as {
@@ -70,16 +73,16 @@ export function createKvHelpers<TKvDefinitionMap extends KvDefinitionMap>({
 export function createKvHelper<TFieldDefinition extends KvFieldDefinition>({
 	keyName,
 	ykvMap,
-	fieldSchema,
+	fieldDefinition,
 }: {
 	keyName: string;
 	ykvMap: Y.Map<KvValue>;
-	fieldSchema: TFieldDefinition;
+	fieldDefinition: TFieldDefinition;
 }) {
 	type TValue = KvValue<TFieldDefinition>;
 
-	const nullable = isNullableFieldDefinition(fieldSchema);
-	const validator = fieldSchemaToYjsArktype(fieldSchema);
+	const nullable = isNullableFieldDefinition(fieldDefinition);
+	const validator = fieldDefinitionToYjsArktype(fieldDefinition);
 
 	return {
 		/** The name of this KV key */
@@ -98,7 +101,7 @@ export function createKvHelper<TFieldDefinition extends KvFieldDefinition>({
 		 * console.log(kv.theme.field.default); // 'light'
 		 * ```
 		 */
-		field: fieldSchema,
+		field: fieldDefinition,
 
 		/**
 		 * Get the current value for this KV key.
@@ -127,8 +130,11 @@ export function createKvHelper<TFieldDefinition extends KvFieldDefinition>({
 
 			// Handle undefined: default → null → not_found
 			if (rawValue === undefined) {
-				if ('default' in fieldSchema && fieldSchema.default !== undefined) {
-					return { status: 'valid', value: fieldSchema.default as TValue };
+				if (
+					'default' in fieldDefinition &&
+					fieldDefinition.default !== undefined
+				) {
+					return { status: 'valid', value: fieldDefinition.default as TValue };
 				}
 				if (nullable) {
 					return { status: 'valid', value: null as TValue };
@@ -247,8 +253,11 @@ export function createKvHelper<TFieldDefinition extends KvFieldDefinition>({
 		 * ```
 		 */
 		reset(): void {
-			if ('default' in fieldSchema && fieldSchema.default !== undefined) {
-				this.set(fieldSchema.default as TValue);
+			if (
+				'default' in fieldDefinition &&
+				fieldDefinition.default !== undefined
+			) {
+				this.set(fieldDefinition.default as TValue);
 			} else if (nullable) {
 				this.set(null as TValue);
 			} else {
