@@ -123,13 +123,13 @@ export type LocalRevisionHistoryConfig = {
  * }
  * ```
  */
-export const localRevisionHistory = async <
+export async function localRevisionHistory<
 	TTableDefinitionMap extends TableDefinitionMap,
 	TKvSchema extends KvSchema,
 >(
 	{ ydoc, id }: CapabilityContext<TTableDefinitionMap, TKvSchema>,
 	{ directory, debounceMs = 1000, maxVersions }: LocalRevisionHistoryConfig,
-) => {
+) {
 	// CRITICAL: Snapshots require gc: false
 	if (ydoc.gc) {
 		throw new Error(
@@ -423,4 +423,4 @@ export const localRevisionHistory = async <
 			ydoc.off('update', updateHandler);
 		},
 	};
-};
+}
