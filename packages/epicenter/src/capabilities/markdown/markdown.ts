@@ -10,7 +10,7 @@ import {
 	type CapabilityContext,
 } from '../../core/capability';
 import type { TableHelper } from '../../core/tables/create-tables';
-import type { Row, TableSchema, TablesSchema } from '../../core/schema';
+import type { Row, FieldsSchema, FieldsSchemaMap } from '../../core/schema';
 import type { AbsolutePath } from '../../core/types';
 import { createIndexLogger } from '../error-logger';
 import {
@@ -124,19 +124,19 @@ type RowToFilenameMap = Record<string, string>;
  *
  * Use serializer factories like `bodyFieldSerializer()` or `titleFilenameSerializer()`.
  */
-type TableConfigs<TTablesSchema extends TablesSchema> = {
-	[K in keyof TTablesSchema]?: TableMarkdownConfig<TTablesSchema[K]>;
+type TableConfigs<TFieldsSchemaMap extends FieldsSchemaMap> = {
+	[K in keyof TFieldsSchemaMap]?: TableMarkdownConfig<TFieldsSchemaMap[K]>;
 };
 
 /**
  * Internal resolved config with all required fields.
  * This is what the provider uses internally after merging user config with defaults.
  */
-type ResolvedTableConfig<TTableSchema extends TableSchema> = {
+type ResolvedTableConfig<TFieldsSchema extends FieldsSchema> = {
 	directory: AbsolutePath;
-	serialize: MarkdownSerializer<TTableSchema>['serialize'];
-	parseFilename: MarkdownSerializer<TTableSchema>['deserialize']['parseFilename'];
-	deserialize: MarkdownSerializer<TTableSchema>['deserialize']['fromContent'];
+	serialize: MarkdownSerializer<TFieldsSchema>['serialize'];
+	parseFilename: MarkdownSerializer<TFieldsSchema>['deserialize']['parseFilename'];
+	deserialize: MarkdownSerializer<TFieldsSchema>['deserialize']['fromContent'];
 };
 
 /**
@@ -169,7 +169,7 @@ type ResolvedTableConfig<TTableSchema extends TableSchema> = {
  * ```
  */
 export type MarkdownCapabilityConfig<
-	TTablesSchema extends TablesSchema = TablesSchema,
+	TFieldsSchemaMap extends FieldsSchemaMap = FieldsSchemaMap,
 > = {
 	/**
 	 * Absolute path to the workspace directory where markdown files are stored.
@@ -250,7 +250,7 @@ export type MarkdownCapabilityConfig<
 	 * }
 	 * ```
 	 */
-	tableConfigs?: TableConfigs<TTablesSchema>;
+	tableConfigs?: TableConfigs<TFieldsSchemaMap>;
 
 	/**
 	 * Enable verbose debug logging for troubleshooting file sync issues.
@@ -268,9 +268,9 @@ export type MarkdownCapabilityConfig<
 	debug?: boolean;
 };
 
-export const markdown = async <TTablesSchema extends TablesSchema>(
-	context: CapabilityContext<TTablesSchema>,
-	config: MarkdownCapabilityConfig<TTablesSchema>,
+export const markdown = async <TFieldsSchemaMap extends FieldsSchemaMap>(
+	context: CapabilityContext<TFieldsSchemaMap>,
+	config: MarkdownCapabilityConfig<TFieldsSchemaMap>,
 ) => {
 	const { id, tables } = context;
 	const {
@@ -288,7 +288,7 @@ export const markdown = async <TTablesSchema extends TablesSchema>(
 			}
 		: () => {};
 
-	const userTableConfigs: TableConfigs<TTablesSchema> = tableConfigs ?? {};
+	const userTableConfigs: TableConfigs<TFieldsSchemaMap> = tableConfigs ?? {};
 
 	mkdirSync(logsDir, { recursive: true });
 
@@ -343,7 +343,7 @@ export const markdown = async <TTablesSchema extends TablesSchema>(
 	 * iteration via tables.$zip(resolvedConfigs).
 	 */
 	// Cast is correct: Object.fromEntries loses key specificity (returns { [k: string]: V }),
-	// but we know keys are exactly keyof TTablesSchema since we iterate tables.$all().
+	// but we know keys are exactly keyof TFieldsSchemaMap since we iterate tables.$all().
 	const resolvedConfigs = Object.fromEntries(
 		tables.$all().map((table) => {
 			const userConfig = userTableConfigs[table.name] ?? {};
@@ -359,7 +359,7 @@ export const markdown = async <TTablesSchema extends TablesSchema>(
 
 			// Flatten for internal use
 			const config: ResolvedTableConfig<
-				TTablesSchema[keyof TTablesSchema & string]
+				TFieldsSchemaMap[keyof TFieldsSchemaMap & string]
 			> = {
 				directory,
 				serialize: serializer.serialize,
@@ -370,7 +370,9 @@ export const markdown = async <TTablesSchema extends TablesSchema>(
 			return [table.name, config];
 		}),
 	) as unknown as {
-		[K in keyof TTablesSchema & string]: ResolvedTableConfig<TTablesSchema[K]>;
+		[K in keyof TFieldsSchemaMap & string]: ResolvedTableConfig<
+			TFieldsSchemaMap[K]
+		>;
 	};
 
 	/**
@@ -392,11 +394,11 @@ export const markdown = async <TTablesSchema extends TablesSchema>(
 			/**
 			 * Write a YJS row to markdown file
 			 */
-			async function writeRowToMarkdown<TTableSchema extends TableSchema>(
-				row: Row<TTableSchema>,
+			async function writeRowToMarkdown<TFieldsSchema extends FieldsSchema>(
+				row: Row<TFieldsSchema>,
 			) {
 				const { frontmatter, body, filename } = tableConfig.serialize({
-					// @ts-expect-error: TTableSchema doesn't correlate with tableConfig's schema from outer $zip
+					// @ts-expect-error: TFieldsSchema doesn't correlate with tableConfig's schema from outer $zip
 					row,
 					table,
 				});
@@ -699,7 +701,7 @@ export const markdown = async <TTablesSchema extends TablesSchema>(
 					}
 
 					const validatedRow = row as Row<
-						TTablesSchema[keyof TTablesSchema & string]
+						TFieldsSchemaMap[keyof TFieldsSchemaMap & string]
 					>;
 
 					// Success: remove from diagnostics if it was previously invalid
@@ -1270,12 +1272,12 @@ export const markdown = async <TTablesSchema extends TablesSchema>(
 					diagnostics.clear();
 
 					type TableSyncData = {
-						table: TableHelper<TTablesSchema[keyof TTablesSchema]>;
+						table: TableHelper<TFieldsSchemaMap[keyof TFieldsSchemaMap]>;
 						yjsIds: Set<string>;
 						fileExistsIds: Set<string>;
 						markdownRows: Map<
 							string,
-							Row<TTablesSchema[keyof TTablesSchema & string]>
+							Row<TFieldsSchemaMap[keyof TFieldsSchemaMap & string]>
 						>;
 						markdownFilenames: Map<string, string>;
 					};
@@ -1312,7 +1314,7 @@ export const markdown = async <TTablesSchema extends TablesSchema>(
 
 									const markdownRows = new Map<
 										string,
-										Row<TTablesSchema[keyof TTablesSchema & string]>
+										Row<TFieldsSchemaMap[keyof TFieldsSchemaMap & string]>
 									>();
 									const markdownFilenames = new Map<string, string>();
 

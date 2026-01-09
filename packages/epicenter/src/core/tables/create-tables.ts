@@ -1,6 +1,6 @@
 import { regex } from 'arkregex';
 import type * as Y from 'yjs';
-import type { TablesSchema } from '../schema';
+import type { FieldsSchemaMap } from '../schema';
 import { createTableHelpers, type TableHelper } from './table-helper';
 
 /**
@@ -86,9 +86,9 @@ export type {
  * db.clearAll();
  * ```
  */
-export function createTables<TTablesSchema extends TablesSchema>(
+export function createTables<TFieldsSchemaMap extends FieldsSchemaMap>(
 	ydoc: Y.Doc,
-	schema: TTablesSchema,
+	schema: TFieldsSchemaMap,
 ) {
 	// Validate table names
 	for (const tableName of Object.keys(schema)) {
@@ -140,7 +140,7 @@ export function createTables<TTablesSchema extends TablesSchema>(
 		 */
 		$all() {
 			return Object.values(tableHelpers) as TableHelper<
-				TTablesSchema[keyof TTablesSchema]
+				TFieldsSchemaMap[keyof TFieldsSchemaMap]
 			>[];
 		},
 
@@ -174,10 +174,12 @@ export function createTables<TTablesSchema extends TablesSchema>(
 		 */
 		$zip<
 			TConfigs extends {
-				[K in keyof TTablesSchema & string]: unknown;
+				[K in keyof TFieldsSchemaMap & string]: unknown;
 			},
 		>(configs: TConfigs) {
-			const names = Object.keys(schema) as Array<keyof TTablesSchema & string>;
+			const names = Object.keys(schema) as Array<
+				keyof TFieldsSchemaMap & string
+			>;
 
 			return names.map((name) => ({
 				name,
@@ -185,12 +187,12 @@ export function createTables<TTablesSchema extends TablesSchema>(
 				paired: configs[name],
 			})) as Array<
 				{
-					[K in keyof TTablesSchema & string]: {
+					[K in keyof TFieldsSchemaMap & string]: {
 						name: K;
-						table: TableHelper<TTablesSchema[K]>;
+						table: TableHelper<TFieldsSchemaMap[K]>;
 						paired: TConfigs[K];
 					};
-				}[keyof TTablesSchema & string]
+				}[keyof TFieldsSchemaMap & string]
 			>;
 		},
 
@@ -211,6 +213,6 @@ export function createTables<TTablesSchema extends TablesSchema>(
  * Type alias for the return type of createTables.
  * Useful for typing function parameters that accept a tables instance.
  */
-export type Tables<TTablesSchema extends TablesSchema> = ReturnType<
-	typeof createTables<TTablesSchema>
+export type Tables<TFieldsSchemaMap extends FieldsSchemaMap> = ReturnType<
+	typeof createTables<TFieldsSchemaMap>
 >;

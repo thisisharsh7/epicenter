@@ -3,7 +3,7 @@ import type {
 	CapabilityFactory,
 	CapabilityContext,
 } from '../../core/capability';
-import type { TablesSchema } from '../../core/schema';
+import type { FieldsSchemaMap } from '../../core/schema';
 
 /**
  * YJS document persistence capability using IndexedDB.
@@ -92,7 +92,7 @@ import type { TablesSchema } from '../../core/schema';
  *
  * @see {@link persistence} from `@epicenter/hq/capabilities/persistence/desktop` for Node.js/filesystem version
  */
-export const persistence = (<TSchema extends TablesSchema>({
+export const persistence = (<TSchema extends FieldsSchemaMap>({
 	ydoc,
 }: CapabilityContext<TSchema>) => {
 	// y-indexeddb handles both loading and saving automatically

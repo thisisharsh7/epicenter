@@ -371,12 +371,6 @@ export type CellValue<C extends FieldSchema = FieldSchema> =
 export type FieldsSchema = { id: IdFieldSchema } & Record<string, FieldSchema>;
 
 /**
- * Table schema - maps field names to field schemas.
- * Alias for FieldsSchema, used when defining tables.
- */
-export type TableSchema = FieldsSchema;
-
-/**
  * Table definition with metadata for UI display.
  * Use this type for the full table definition including metadata.
  *
@@ -409,26 +403,32 @@ export type TableDefinition<TFields extends FieldsSchema = FieldsSchema> = {
 };
 
 /**
- * Tables schema - maps table keys to table field schemas.
- * This is the simple format for defining tables inline.
+ * Map of table names to their field schemas.
+ *
+ * This is the "fields only" format used internally by capabilities and table helpers.
+ * Users typically define tables with full metadata via `TableDefinitionMap`, and
+ * `ExtractFieldsSchemaMap` extracts just the fields for runtime operations.
  *
  * @example
  * ```typescript
- * const blogTables = {
+ * const blogFields: FieldsSchemaMap = {
  *   posts: { id: id(), title: text() },
  *   authors: { id: id(), name: text() },
- * } satisfies TablesSchema;
+ * };
  * ```
  */
-export type TablesSchema = Record<string, TableSchema>;
+export type FieldsSchemaMap = Record<string, FieldsSchema>;
 
 /**
- * Tables with metadata - maps table keys to full table definitions.
+ * Map of table names to their full definitions (metadata + fields).
+ *
  * This is the required format for `defineWorkspace().tables`.
+ * Each entry is a `TableDefinition` with display metadata (name, icon, description)
+ * and the field schemas.
  *
  * @example
  * ```typescript
- * const blogTables: TablesWithMetadata = {
+ * const blogTables: TableDefinitionMap = {
  *   posts: {
  *     name: 'Posts',
  *     icon: { type: 'emoji', value: '📝' },
@@ -439,12 +439,12 @@ export type TablesSchema = Record<string, TableSchema>;
  * };
  * ```
  */
-export type TablesWithMetadata = Record<string, TableDefinition>;
+export type TableDefinitionMap = Record<string, TableDefinition>;
 
 /**
- * Extract the fields schema from a TablesWithMetadata type.
+ * Extract the fields schema map from a TableDefinitionMap.
  *
- * Used internally to derive `TablesSchema` from user-provided `TablesWithMetadata`.
+ * Used internally to derive `FieldsSchemaMap` from user-provided `TableDefinitionMap`.
  * Capabilities and table helpers work with the extracted fields, not the full metadata.
  *
  * @example
@@ -452,11 +452,11 @@ export type TablesWithMetadata = Record<string, TableDefinition>;
  * type Input = {
  *   posts: { name: 'Posts', fields: { id: IdFieldSchema, title: TextFieldSchema } }
  * };
- * type Output = ExtractTablesSchema<Input>;
+ * type Output = ExtractFieldsSchemaMap<Input>;
  * // { posts: { id: IdFieldSchema, title: TextFieldSchema } }
  * ```
  */
-export type ExtractTablesSchema<T extends TablesWithMetadata> = {
+export type ExtractFieldsSchemaMap<T extends TableDefinitionMap> = {
 	[K in keyof T]: T[K]['fields'];
 };
 

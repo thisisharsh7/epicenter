@@ -6,10 +6,10 @@ import type {
 	InferCapabilityExports,
 } from '../capability';
 import { createKv, type Kv } from '../kv/core';
-import type { KvSchema, TablesSchema, TablesWithMetadata } from '../schema';
+import type { KvSchema, FieldsSchemaMap, TableDefinitionMap } from '../schema';
 import type {
 	CoverDefinition,
-	ExtractTablesSchema,
+	ExtractFieldsSchemaMap,
 	FieldSchema,
 	IconDefinition,
 } from '../schema/fields/types';
@@ -28,7 +28,7 @@ import { createTables, type Tables } from '../tables/create-tables';
  * Use `defineWorkspace()` to create a `Workspace` object with a `.create()` method.
  */
 export type WorkspaceSchema<
-	TTablesWithMetadata extends TablesWithMetadata = TablesWithMetadata,
+	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
 	TKvSchema extends KvSchema = KvSchema,
 > = {
 	/** Globally unique identifier for sync coordination. Generate with `generateGuid()`. */
@@ -53,7 +53,7 @@ export type WorkspaceSchema<
 	 * }
 	 * ```
 	 */
-	tables: TTablesWithMetadata;
+	tables: TTableDefinitionMap;
 	/** Key-value store schema. */
 	kv: TKvSchema;
 };
@@ -87,9 +87,9 @@ export type WorkspaceSchema<
  * ```
  */
 export type Workspace<
-	TTablesWithMetadata extends TablesWithMetadata = TablesWithMetadata,
+	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
 	TKvSchema extends KvSchema = KvSchema,
-> = WorkspaceSchema<TTablesWithMetadata, TKvSchema> & {
+> = WorkspaceSchema<TTableDefinitionMap, TKvSchema> & {
 	/**
 	 * Create a workspace client.
 	 *
@@ -133,7 +133,7 @@ export type Workspace<
 	 */
 	create<
 		TCapabilityFactories extends CapabilityFactoryMap<
-			ExtractTablesSchema<TTablesWithMetadata>,
+			ExtractFieldsSchemaMap<TTableDefinitionMap>,
 			TKvSchema
 		> = {},
 	>(options?: {
@@ -141,7 +141,7 @@ export type Workspace<
 		capabilities?: TCapabilityFactories;
 	}): Promise<
 		WorkspaceClient<
-			ExtractTablesSchema<TTablesWithMetadata>,
+			ExtractFieldsSchemaMap<TTableDefinitionMap>,
 			TKvSchema,
 			TCapabilityFactories
 		>
@@ -185,19 +185,19 @@ export type Workspace<
  * ```
  */
 export type WorkspaceClient<
-	TTablesSchema extends TablesSchema = TablesSchema,
+	TFieldsSchemaMap extends FieldsSchemaMap = FieldsSchemaMap,
 	TKvSchema extends KvSchema = KvSchema,
 	TCapabilityFactories extends CapabilityFactoryMap<
-		TTablesSchema,
+		TFieldsSchemaMap,
 		TKvSchema
-	> = CapabilityFactoryMap<TTablesSchema, TKvSchema>,
+	> = CapabilityFactoryMap<TFieldsSchemaMap, TKvSchema>,
 > = {
 	/** Globally unique identifier for sync coordination. */
 	id: string;
 	/** Human-readable slug for URLs, paths, and CLI commands. */
 	slug: string;
 	/** Typed table helpers for CRUD operations. */
-	tables: Tables<TTablesSchema>;
+	tables: Tables<TFieldsSchemaMap>;
 	/** Key-value store for simple values. */
 	kv: Kv<TKvSchema>;
 	/** Exports from initialized capabilities. */
@@ -263,11 +263,11 @@ export type WorkspaceClient<
  * @returns A Workspace definition with a `.create()` method
  */
 export function defineWorkspace<
-	TTablesWithMetadata extends TablesWithMetadata,
+	TTableDefinitionMap extends TableDefinitionMap,
 	TKvSchema extends KvSchema = Record<string, never>,
 >(
-	config: WorkspaceSchema<TTablesWithMetadata, TKvSchema>,
-): Workspace<TTablesWithMetadata, TKvSchema> {
+	config: WorkspaceSchema<TTableDefinitionMap, TKvSchema>,
+): Workspace<TTableDefinitionMap, TKvSchema> {
 	if (!config.id || typeof config.id !== 'string') {
 		throw new Error('Workspace must have a valid ID');
 	}
@@ -361,7 +361,7 @@ export function defineWorkspace<
 		 */
 		async create<
 			TCapabilityFactories extends CapabilityFactoryMap<
-				ExtractTablesSchema<TTablesWithMetadata>,
+				ExtractFieldsSchemaMap<TTableDefinitionMap>,
 				TKvSchema
 			> = {},
 		>({
@@ -372,7 +372,7 @@ export function defineWorkspace<
 			capabilities?: TCapabilityFactories;
 		} = {}): Promise<
 			WorkspaceClient<
-				ExtractTablesSchema<TTablesWithMetadata>,
+				ExtractFieldsSchemaMap<TTableDefinitionMap>,
 				TKvSchema,
 				TCapabilityFactories
 			>
@@ -396,7 +396,7 @@ export function defineWorkspace<
 			// Extract fields from table definitions for table helpers
 			const extractedFields = Object.fromEntries(
 				Object.entries(config.tables).map(([key, def]) => [key, def.fields]),
-			) as ExtractTablesSchema<TTablesWithMetadata>;
+			) as ExtractFieldsSchemaMap<TTableDefinitionMap>;
 
 			// Create table and kv helpers bound to the Y.Doc
 			const tables = createTables(ydoc, extractedFields);
@@ -467,7 +467,7 @@ type TableSchemaMap = Y.Map<
  */
 function mergeSchemaIntoYDoc(
 	ydoc: Y.Doc,
-	tables: TablesWithMetadata,
+	tables: TableDefinitionMap,
 	kv: KvSchema,
 ) {
 	const schemaMap = ydoc.getMap<Y.Map<unknown>>('schema');

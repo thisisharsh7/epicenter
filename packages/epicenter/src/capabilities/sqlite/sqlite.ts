@@ -12,7 +12,7 @@ import {
 	defineCapabilities,
 	type CapabilityContext,
 } from '../../core/capability';
-import type { Row, TablesSchema } from '../../core/schema';
+import type { Row, FieldsSchemaMap } from '../../core/schema';
 import { convertWorkspaceSchemaToDrizzle } from '../../core/schema/converters/to-drizzle';
 import { createIndexLogger } from '../error-logger';
 
@@ -82,15 +82,15 @@ export type SqliteConfig = {
  *   .from(client.capabilities.sqlite.posts);
  * ```
  */
-export const sqlite = async <TTablesSchema extends TablesSchema>(
-	{ slug, tables }: CapabilityContext<TTablesSchema>,
+export const sqlite = async <TFieldsSchemaMap extends FieldsSchemaMap>(
+	{ slug, tables }: CapabilityContext<TFieldsSchemaMap>,
 	config: SqliteConfig,
 ) => {
 	const { dbPath, logsDir, debounceMs = DEFAULT_DEBOUNCE_MS } = config;
 
 	const schema = Object.fromEntries(
 		tables.$all().map((t) => [t.name, t.schema]),
-	) as unknown as TTablesSchema;
+	) as unknown as TFieldsSchemaMap;
 	const drizzleTables = convertWorkspaceSchemaToDrizzle(schema);
 
 	await mkdir(path.dirname(dbPath), { recursive: true });
@@ -291,7 +291,7 @@ export const sqlite = async <TTablesSchema extends TablesSchema>(
 						for (const row of rows) {
 							// Cast is safe: Drizzle schema is derived from workspace schema
 							table.upsert(
-								row as Row<TTablesSchema[keyof TTablesSchema & string]>,
+								row as Row<TFieldsSchemaMap[keyof TFieldsSchemaMap & string]>,
 							);
 						}
 					}

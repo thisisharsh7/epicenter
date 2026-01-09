@@ -8,7 +8,7 @@
 import type * as Y from 'yjs';
 import type { Tables } from './tables/create-tables';
 import type { Kv } from './kv/core';
-import type { KvSchema, TablesSchema } from './schema';
+import type { KvSchema, FieldsSchemaMap } from './schema';
 /**
  * Context provided to each capability function.
  *
@@ -80,7 +80,7 @@ import type { KvSchema, TablesSchema } from './schema';
  * Use `typeof process !== 'undefined'` to detect Node.js/Bun vs browser environments.
  */
 export type CapabilityContext<
-	TTablesSchema extends TablesSchema = TablesSchema,
+	TFieldsSchemaMap extends FieldsSchemaMap = FieldsSchemaMap,
 	TKvSchema extends KvSchema = KvSchema,
 > = {
 	/** Globally unique identifier for sync coordination. */
@@ -106,7 +106,7 @@ export type CapabilityContext<
 	 * Use `tables.$all()` to iterate over all tables, or access specific tables
 	 * like `tables.posts.observeChanges()` for reactive updates.
 	 */
-	tables: Tables<TTablesSchema>;
+	tables: Tables<TFieldsSchemaMap>;
 
 	/**
 	 * Typed KV helpers.
@@ -131,11 +131,11 @@ export type CapabilityExports = {
  * The exports become accessible via `client.capabilities.{name}`.
  */
 export type CapabilityFactory<
-	TTablesSchema extends TablesSchema = TablesSchema,
+	TFieldsSchemaMap extends FieldsSchemaMap = FieldsSchemaMap,
 	TKvSchema extends KvSchema = KvSchema,
 	TExports extends CapabilityExports = CapabilityExports,
 > = (
-	context: CapabilityContext<TTablesSchema, TKvSchema>,
+	context: CapabilityContext<TFieldsSchemaMap, TKvSchema>,
 ) => TExports | void | Promise<TExports | void>;
 
 /**
@@ -146,9 +146,9 @@ export type CapabilityFactory<
  * `client.capabilities[capabilityId]`.
  */
 export type CapabilityFactoryMap<
-	TTablesSchema extends TablesSchema = TablesSchema,
+	TFieldsSchemaMap extends FieldsSchemaMap = FieldsSchemaMap,
 	TKvSchema extends KvSchema = KvSchema,
-> = Record<string, CapabilityFactory<TTablesSchema, TKvSchema>>;
+> = Record<string, CapabilityFactory<TFieldsSchemaMap, TKvSchema>>;
 
 /**
  * Utility type to infer the exports from a capability factory map.
@@ -158,7 +158,7 @@ export type CapabilityFactoryMap<
  */
 export type InferCapabilityExports<TCapabilityFactories> = {
 	[K in keyof TCapabilityFactories]: TCapabilityFactories[K] extends CapabilityFactory<
-		TablesSchema,
+		FieldsSchemaMap,
 		KvSchema,
 		infer TExports
 	>

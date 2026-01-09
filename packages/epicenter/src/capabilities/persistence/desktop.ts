@@ -3,7 +3,7 @@ import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import * as Y from 'yjs';
 import type { CapabilityContext } from '../../core/capability';
-import type { TablesSchema } from '../../core/schema';
+import type { FieldsSchemaMap } from '../../core/schema';
 
 /**
  * Configuration for the persistence capability.
@@ -42,7 +42,7 @@ export type PersistenceConfig = {
  * });
  * ```
  */
-export const persistence = async <TSchema extends TablesSchema>(
+export const persistence = async <TSchema extends FieldsSchemaMap>(
 	{ ydoc }: CapabilityContext<TSchema>,
 	{ filePath }: PersistenceConfig,
 ) => {
