@@ -1,14 +1,19 @@
-import type * as Y from 'yjs';
+import * as Y from 'yjs';
 
 import { createTables, type Tables } from '../tables/create-tables';
 import { createKv, type Kv } from '../kv/core';
-import { createDataDoc, type DataDoc } from '../docs';
 import type {
 	CapabilityExports,
 	CapabilityMap,
 	InferCapabilityExports,
 } from '../capability';
 import type { KvSchema, TablesSchema, TablesWithMetadata } from '../schema';
+import type {
+	FieldSchema,
+	TableDefinition,
+	IconDefinition,
+	CoverDefinition,
+} from '../schema/fields/types';
 
 /**
  * A workspace schema defines the pure data shape of a workspace.
@@ -162,12 +167,168 @@ type InitializedWorkspace<
 	TKvSchema extends KvSchema,
 	TCapabilities extends CapabilityMap<TTablesSchema, TKvSchema>,
 > = {
-	dataDoc: DataDoc;
+	ydoc: Y.Doc;
 	tables: Tables<TTablesSchema>;
 	kv: Kv<TKvSchema>;
 	capabilityExports: InferCapabilityExports<TCapabilities>;
 	cleanup: () => Promise<void>;
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Schema Merge Utilities (inlined from data-doc.ts)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Deep equality check for field schemas.
+ * Compares all properties including metadata (name, description, icon).
+ */
+function deepEqualFieldSchema(a: FieldSchema, b: FieldSchema): boolean {
+	if (a.type !== b.type) return false;
+	if (a.name !== b.name) return false;
+	if (a.description !== b.description) return false;
+
+	if (a.icon !== b.icon) {
+		if (!a.icon || !b.icon) return false;
+		if (a.icon.type !== b.icon.type) return false;
+		if (a.icon.type === 'emoji' && b.icon.type === 'emoji') {
+			if (a.icon.value !== b.icon.value) return false;
+		} else if (a.icon.type === 'external' && b.icon.type === 'external') {
+			if (a.icon.url !== b.icon.url) return false;
+		}
+	}
+
+	return JSON.stringify(a) === JSON.stringify(b);
+}
+
+/**
+ * Check if a table value is TablesWithMetadata format (has 'fields' property).
+ */
+function isTableDefinition(
+	value: Record<string, FieldSchema> | TableDefinition,
+): value is TableDefinition {
+	return 'fields' in value && typeof value.fields === 'object';
+}
+
+/**
+ * Type for the inner Y.Map that stores table schema with metadata.
+ */
+type TableSchemaMap = Y.Map<
+	string | IconDefinition | CoverDefinition | null | Y.Map<FieldSchema>
+>;
+
+/**
+ * Merge code-defined schema into Y.Doc schema.
+ *
+ * Uses pure merge semantics:
+ * - If table/field doesn't exist → add it
+ * - If table/field exists with different value → update it
+ * - If table/field exists with same value → no-op (CRDT handles)
+ *
+ * Idempotent and safe for concurrent calls.
+ */
+function mergeSchemaIntoYDoc(
+	ydoc: Y.Doc,
+	tables: TablesSchema | TablesWithMetadata,
+	kv: KvSchema,
+) {
+	const schemaMap = ydoc.getMap<Y.Map<unknown>>('schema');
+
+	// Initialize schema submaps if not present
+	if (!schemaMap.has('tables')) {
+		schemaMap.set('tables', new Y.Map());
+	}
+	if (!schemaMap.has('kv')) {
+		schemaMap.set('kv', new Y.Map());
+	}
+
+	const tablesSchemaMap = schemaMap.get('tables') as Y.Map<TableSchemaMap>;
+	const kvSchemaMap = schemaMap.get('kv') as Y.Map<FieldSchema>;
+
+	ydoc.transact(() => {
+		for (const [tableName, tableValue] of Object.entries(tables)) {
+			// Determine if this is TablesWithMetadata or TablesSchema format
+			const tableDefinition: TableDefinition = isTableDefinition(tableValue)
+				? tableValue
+				: {
+						name: tableName,
+						icon: null,
+						cover: null,
+						description: '',
+						fields: tableValue,
+					};
+
+			// Get or create the table schema map
+			let tableMap = tablesSchemaMap.get(tableName);
+			if (!tableMap) {
+				tableMap = new Y.Map() as TableSchemaMap;
+				tableMap.set('fields', new Y.Map<FieldSchema>());
+				tablesSchemaMap.set(tableName, tableMap);
+			}
+
+			// Merge table metadata
+			const currentName = tableMap.get('name') as string | undefined;
+			if (currentName !== tableDefinition.name) {
+				tableMap.set('name', tableDefinition.name);
+			}
+
+			const currentIcon = tableMap.get('icon') as
+				| IconDefinition
+				| null
+				| undefined;
+			if (
+				JSON.stringify(currentIcon) !== JSON.stringify(tableDefinition.icon)
+			) {
+				tableMap.set('icon', tableDefinition.icon);
+			}
+
+			const currentCover = tableMap.get('cover') as
+				| CoverDefinition
+				| null
+				| undefined;
+			if (
+				JSON.stringify(currentCover) !== JSON.stringify(tableDefinition.cover)
+			) {
+				tableMap.set('cover', tableDefinition.cover);
+			}
+
+			const currentDescription = tableMap.get('description') as
+				| string
+				| undefined;
+			if (currentDescription !== tableDefinition.description) {
+				tableMap.set('description', tableDefinition.description);
+			}
+
+			// Merge fields
+			let fieldsMap = tableMap.get('fields') as Y.Map<FieldSchema> | undefined;
+			if (!fieldsMap) {
+				fieldsMap = new Y.Map();
+				tableMap.set('fields', fieldsMap);
+			}
+
+			for (const [fieldName, fieldSchema] of Object.entries(
+				tableDefinition.fields,
+			)) {
+				const existing = fieldsMap.get(fieldName);
+
+				if (!existing || !deepEqualFieldSchema(existing, fieldSchema)) {
+					fieldsMap.set(fieldName, fieldSchema);
+				}
+			}
+		}
+
+		for (const [keyName, fieldSchema] of Object.entries(kv)) {
+			const existing = kvSchemaMap.get(keyName);
+
+			if (!existing || !deepEqualFieldSchema(existing, fieldSchema)) {
+				kvSchemaMap.set(keyName, fieldSchema);
+			}
+		}
+	});
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Workspace Initialization
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Initialize a workspace: create Data Y.Doc, seed schema, tables, kv, and run capability factories.
@@ -191,28 +352,31 @@ async function initializeWorkspace<
 	config: WorkspaceSchema<TTablesSchema, TKvSchema>,
 	capabilityFactories: TCapabilities,
 ): Promise<InitializedWorkspace<TTablesSchema, TKvSchema, TCapabilities>> {
-	// Create Data Y.Doc (epoch 0 for now, will be read from Head Y.Doc in future)
-	const dataDoc = createDataDoc({
-		workspaceId: config.id,
-		epoch: 0,
-	});
+	// Create Data Y.Doc with deterministic GUID
+	// epoch 0 for now; will be passed via .create() options in future
+	const epoch = 0;
+	const docId = `${config.id}-${epoch}` as const;
+	const ydoc = new Y.Doc({ guid: docId });
 
-	// Set workspace metadata (only if not already set)
-	if (!dataDoc.getName()) {
-		dataDoc.setName(config.name);
+	// Get metadata map for name/slug storage
+	const metaMap = ydoc.getMap<string>('meta');
+
+	// Set workspace metadata (only if not already set by sync)
+	if (!metaMap.get('name')) {
+		metaMap.set('name', config.name);
 	}
-	if (!dataDoc.getSlug()) {
-		dataDoc.setSlug(config.slug);
+	if (!metaMap.get('slug')) {
+		metaMap.set('slug', config.slug);
 	}
 
 	// Merge code schema into Y.Doc schema (idempotent, CRDT handles conflicts)
-	// mergeSchema() handles both TablesSchema and TablesWithMetadata formats
-	dataDoc.mergeSchema(config.tables, config.kv);
+	mergeSchemaIntoYDoc(ydoc, config.tables, config.kv);
 
-	// Create table and kv helpers using the Data Y.Doc
-	const tables = createTables(dataDoc.ydoc, config.tables);
-	const kv = createKv(dataDoc.ydoc, config.kv);
+	// Create table and kv helpers using the Y.Doc
+	const tables = createTables(ydoc, config.tables);
+	const kv = createKv(ydoc, config.kv);
 
+	// Run capability factories in parallel
 	const capabilityExports = Object.fromEntries(
 		await Promise.all(
 			Object.entries(capabilityFactories).map(
@@ -220,7 +384,7 @@ async function initializeWorkspace<
 					const result = await capabilityFn({
 						id: config.slug,
 						capabilityId,
-						ydoc: dataDoc.ydoc,
+						ydoc,
 						tables,
 						kv,
 					});
@@ -236,11 +400,11 @@ async function initializeWorkspace<
 				(capability as CapabilityExports).destroy?.(),
 			),
 		);
-		dataDoc.destroy();
+		ydoc.destroy();
 	};
 
 	return {
-		dataDoc,
+		ydoc,
 		tables,
 		kv,
 		capabilityExports,
@@ -303,7 +467,7 @@ export function defineWorkspace<
 		>(
 			capabilities?: TCapabilities,
 		): Promise<WorkspaceClient<TTablesSchema, TKvSchema, TCapabilities>> {
-			const { dataDoc, tables, kv, capabilityExports, cleanup } =
+			const { ydoc, tables, kv, capabilityExports, cleanup } =
 				await initializeWorkspace(
 					config,
 					(capabilities ?? {}) as TCapabilities,
@@ -312,7 +476,7 @@ export function defineWorkspace<
 			return {
 				id: config.id,
 				slug: config.slug,
-				ydoc: dataDoc.ydoc,
+				ydoc,
 				tables,
 				kv,
 				capabilities: capabilityExports,
