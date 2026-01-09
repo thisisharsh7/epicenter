@@ -1,19 +1,18 @@
 import * as Y from 'yjs';
-
-import { createTables, type Tables } from '../tables/create-tables';
-import { createKv, type Kv } from '../kv/core';
 import type {
 	CapabilityExports,
 	CapabilityMap,
 	InferCapabilityExports,
 } from '../capability';
+import { createKv, type Kv } from '../kv/core';
 import type { KvSchema, TablesSchema, TablesWithMetadata } from '../schema';
 import type {
-	FieldSchema,
-	TableDefinition,
-	IconDefinition,
 	CoverDefinition,
+	FieldSchema,
+	IconDefinition,
+	TableDefinition,
 } from '../schema/fields/types';
+import { createTables, type Tables } from '../tables/create-tables';
 
 /**
  * A workspace schema defines the pure data shape of a workspace.
@@ -54,14 +53,18 @@ export type WorkspaceSchema<
  *
  * @example With capabilities
  * ```typescript
- * const client = await workspace.create({ sqlite, persistence });
+ * const client = await workspace.create({
+ *   capabilities: { sqlite, persistence },
+ * });
  * ```
  *
  * @example Capabilities with options
  * ```typescript
  * const client = await workspace.create({
- *   sqlite: sqlite({ debounceMs: 50 }),
- *   persistence,
+ *   capabilities: {
+ *     sqlite: sqlite({ debounceMs: 50 }),
+ *     persistence,
+ *   },
  * });
  * ```
  */
@@ -72,32 +75,50 @@ export type Workspace<
 	/**
 	 * Create a workspace client.
 	 *
-	 * @param capabilities - Optional capability factories to attach.
-	 *   Capabilities add functionality like persistence, sync, or SQL queries.
-	 *   Each capability receives context and can return exports accessible
-	 *   via `client.capabilities.{name}`.
+	 * @param options - Optional object with epoch and capabilities.
+	 *   - `epoch`: Data Doc version (defaults to 0). Get from Head Doc for multi-user sync.
+	 *   - `capabilities`: Capability factories that add functionality like persistence, sync, or SQL queries.
+	 *     Each capability receives context and can return exports accessible via `client.capabilities.{name}`.
 	 *
-	 * @example No capabilities (ephemeral, in-memory)
+	 * @example No options (ephemeral, in-memory, epoch 0)
 	 * ```typescript
 	 * const client = await workspace.create();
 	 * ```
 	 *
-	 * @example With capabilities
+	 * @example With capabilities only
 	 * ```typescript
-	 * const client = await workspace.create({ sqlite, persistence });
+	 * const client = await workspace.create({
+	 *   capabilities: { sqlite, persistence },
+	 * });
+	 * ```
+	 *
+	 * @example With epoch from Head Doc
+	 * ```typescript
+	 * const head = createHeadDoc({ workspaceId: workspace.id });
+	 * const epoch = head.getEpoch();
+	 * const client = await workspace.create({
+	 *   epoch,
+	 *   capabilities: { sqlite, persistence },
+	 * });
 	 * ```
 	 *
 	 * @example Capabilities with options
 	 * ```typescript
 	 * const client = await workspace.create({
-	 *   sqlite: sqlite({ debounceMs: 50 }),
-	 *   persistence,
+	 *   epoch: 0,
+	 *   capabilities: {
+	 *     sqlite: sqlite({ debounceMs: 50 }),
+	 *     persistence,
+	 *   },
 	 * });
 	 * ```
 	 */
-	create<TCapabilities extends CapabilityMap<TTablesSchema, TKvSchema> = {}>(
-		capabilities?: TCapabilities,
-	): Promise<WorkspaceClient<TTablesSchema, TKvSchema, TCapabilities>>;
+	create<
+		TCapabilities extends CapabilityMap<TTablesSchema, TKvSchema> = {},
+	>(options?: {
+		epoch?: number;
+		capabilities?: TCapabilities;
+	}): Promise<WorkspaceClient<TTablesSchema, TKvSchema, TCapabilities>>;
 };
 
 /**
@@ -334,7 +355,7 @@ function mergeSchemaIntoYDoc(
  * Initialize a workspace: create Data Y.Doc, seed schema, tables, kv, and run capability factories.
  *
  * This is an internal function called by `.create()`. It:
- * 1. Creates a Data Y.Doc with `{id}-{epoch}` as the doc GUID (epoch 0 for initial)
+ * 1. Creates a Data Y.Doc with `{id}-{epoch}` as the doc GUID
  * 2. Seeds the Y.Doc schema from code-defined schema (if not already seeded)
  * 3. Creates typed table and kv helpers backed by the Y.Doc
  * 4. Runs all capability factories in parallel
@@ -350,11 +371,10 @@ async function initializeWorkspace<
 	TCapabilities extends CapabilityMap<TTablesSchema, TKvSchema>,
 >(
 	config: WorkspaceSchema<TTablesSchema, TKvSchema>,
-	capabilityFactories: TCapabilities,
+	epoch: number,
+	capabilities: TCapabilities,
 ): Promise<InitializedWorkspace<TTablesSchema, TKvSchema, TCapabilities>> {
 	// Create Data Y.Doc with deterministic GUID
-	// epoch 0 for now; will be passed via .create() options in future
-	const epoch = 0;
 	const docId = `${config.id}-${epoch}` as const;
 	const ydoc = new Y.Doc({ guid: docId });
 
@@ -379,7 +399,7 @@ async function initializeWorkspace<
 	// Run capability factories in parallel
 	const capabilityExports = Object.fromEntries(
 		await Promise.all(
-			Object.entries(capabilityFactories).map(
+			Object.entries(capabilities).map(
 				async ([capabilityId, capabilityFn]) => {
 					const result = await capabilityFn({
 						id: config.slug,
@@ -430,7 +450,9 @@ async function initializeWorkspace<
  * });
  *
  * // Create client with capabilities
- * const client = await workspace.create({ sqlite, persistence });
+ * const client = await workspace.create({
+ *   capabilities: { sqlite, persistence },
+ * });
  *
  * // Or without capabilities (ephemeral, in-memory)
  * const client = await workspace.create();
@@ -464,14 +486,15 @@ export function defineWorkspace<
 
 		async create<
 			TCapabilities extends CapabilityMap<TTablesSchema, TKvSchema> = {},
-		>(
-			capabilities?: TCapabilities,
-		): Promise<WorkspaceClient<TTablesSchema, TKvSchema, TCapabilities>> {
+		>({
+			epoch = 0,
+			capabilities = {} as TCapabilities,
+		}: {
+			epoch?: number;
+			capabilities?: TCapabilities;
+		} = {}): Promise<WorkspaceClient<TTablesSchema, TKvSchema, TCapabilities>> {
 			const { ydoc, tables, kv, capabilityExports, cleanup } =
-				await initializeWorkspace(
-					config,
-					(capabilities ?? {}) as TCapabilities,
-				);
+				await initializeWorkspace(config, epoch, capabilities);
 
 			return {
 				id: config.id,

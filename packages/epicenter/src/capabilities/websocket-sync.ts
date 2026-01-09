@@ -145,7 +145,9 @@ export type WebsocketSyncConfig = {
  * });
  *
  * const client = await workspace.create({
- *   sync: websocketSync({ url: 'ws://localhost:3913/sync' }),
+ *   capabilities: {
+ *     sync: websocketSync({ url: 'ws://localhost:3913/sync' }),
+ *   },
  * });
  * ```
  *
@@ -167,10 +169,12 @@ export type WebsocketSyncConfig = {
  * });
  *
  * const client = await workspace.create({
- *   // Create a capability for each sync node
- *   syncDesktop: websocketSync({ url: SYNC_NODES.desktop }),
- *   syncLaptop: websocketSync({ url: SYNC_NODES.laptop }),
- *   syncCloud: websocketSync({ url: SYNC_NODES.cloud }),
+ *   capabilities: {
+ *     // Create a capability for each sync node
+ *     syncDesktop: websocketSync({ url: SYNC_NODES.desktop }),
+ *     syncLaptop: websocketSync({ url: SYNC_NODES.laptop }),
+ *     syncCloud: websocketSync({ url: SYNC_NODES.cloud }),
+ *   },
  * });
  * ```
  *
@@ -190,11 +194,13 @@ export type WebsocketSyncConfig = {
  * });
  *
  * const client = await workspace.create({
- *   // Server acts as both:
- *   // 1. A sync server (via createSyncPlugin in server.ts)
- *   // 2. A sync client connecting to other servers
- *   syncToLaptop: websocketSync({ url: SYNC_NODES.laptop }),
- *   syncToCloud: websocketSync({ url: SYNC_NODES.cloud }),
+ *   capabilities: {
+ *     // Server acts as both:
+ *     // 1. A sync server (via createSyncPlugin in server.ts)
+ *     // 2. A sync client connecting to other servers
+ *     syncToLaptop: websocketSync({ url: SYNC_NODES.laptop }),
+ *     syncToCloud: websocketSync({ url: SYNC_NODES.cloud }),
+ *   },
  * });
  * ```
  *

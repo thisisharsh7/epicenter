@@ -68,10 +68,12 @@ export type SqliteConfig = {
  * const epicenterDir = join(projectDir, '.epicenter');
  *
  * const client = await workspace.create({
- *   sqlite: (ctx) => sqlite(ctx, {
- *     dbPath: join(epicenterDir, 'sqlite', `${ctx.id}.db`),
- *     logsDir: join(epicenterDir, 'sqlite', 'logs'),
- *   }),
+ *   capabilities: {
+ *     sqlite: (ctx) => sqlite(ctx, {
+ *       dbPath: join(epicenterDir, 'sqlite', `${ctx.id}.db`),
+ *       logsDir: join(epicenterDir, 'sqlite', 'logs'),
+ *     }),
+ *   },
  * });
  *
  * // Query with Drizzle:

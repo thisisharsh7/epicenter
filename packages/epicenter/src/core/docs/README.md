@@ -147,8 +147,7 @@ const workspace = defineWorkspace({
 
 const client = await workspace.create({
 	epoch, // From Head Doc (defaults to 0 if omitted)
-	sqlite,
-	persistence,
+	capabilities: { sqlite, persistence },
 });
 
 // Now you have a fully typed client
@@ -248,7 +247,9 @@ const workspace = defineWorkspace({
 });
 
 // Epoch defaults to 0
-const client = await workspace.create({ sqlite });
+const client = await workspace.create({
+	capabilities: { sqlite },
+});
 ```
 
 ## Files

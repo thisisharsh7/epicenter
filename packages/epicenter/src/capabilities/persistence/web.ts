@@ -37,7 +37,9 @@ import type { TablesSchema } from '../../core/schema';
  *   tables: { ... },
  * });
  *
- * const client = await workspace.create({ persistence });
+ * const client = await workspace.create({
+ *   capabilities: { persistence },
+ * });
  * ```
  *
  * @example In a Svelte/React component
@@ -45,7 +47,9 @@ import type { TablesSchema } from '../../core/schema';
  * import { workspace } from './workspace-config';
  *
  * // Inside component setup/onMount:
- * const client = await workspace.create({ persistence });
+ * const client = await workspace.create({
+ *   capabilities: { persistence },
+ * });
  *
  * // Data persists across page refreshes!
  * // Check DevTools → Application → IndexedDB to see the database
@@ -64,8 +68,12 @@ import type { TablesSchema } from '../../core/schema';
  *   tables: { ... },
  * });
  *
- * const blogClient = await blog.create({ persistence });
- * const notesClient = await notes.create({ persistence });
+ * const blogClient = await blog.create({
+ *   capabilities: { persistence },
+ * });
+ * const notesClient = await notes.create({
+ *   capabilities: { persistence },
+ * });
  *
  * // Workspaces are isolated, each with separate IndexedDB storage
  * ```
