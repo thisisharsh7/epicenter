@@ -6,7 +6,7 @@ import {
 } from '$lib/services/workspace-storage';
 import { toSnakeCase } from '$lib/utils/slug';
 import { Ok, Err } from 'wellcrafted/result';
-import { generateGuid, id, text, toSqlIdentifier } from '@epicenter/hq';
+import { generateGuid, icon, id, text, toSqlIdentifier } from '@epicenter/hq';
 
 const workspaceKeys = {
 	all: ['workspaces'] as const,
@@ -126,7 +126,7 @@ export const workspaces = {
 
 			workspace.tables[tableId] = {
 				name: input.name,
-				icon: input.icon ? { type: 'emoji', value: input.icon } : null,
+				icon: input.icon ? icon.emoji(input.icon) : null,
 				cover: null,
 				description: input.description ?? '',
 				fields: { id: id() },

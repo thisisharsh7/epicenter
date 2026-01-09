@@ -100,11 +100,13 @@ export type {
 // Column schema system
 export {
 	boolean,
+	cover,
 	DATE_TIME_STRING_REGEX,
 	date,
 	DateTimeString,
 	generateGuid,
 	generateId,
+	icon,
 	id,
 	integer,
 	isNullableFieldSchema,
@@ -113,6 +115,7 @@ export {
 	real,
 	richtext,
 	select,
+	table,
 	tableSchemaToArktype,
 	tableSchemaToYjsArktype,
 	tags,

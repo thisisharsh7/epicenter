@@ -64,6 +64,93 @@ export function table<TFields extends FieldsSchema>(options: {
 	};
 }
 
+/**
+ * Factory functions for creating IconDefinition objects.
+ *
+ * Icons can be emoji characters or external image URLs.
+ * Use these helpers instead of manually constructing icon objects.
+ *
+ * @example
+ * ```typescript
+ * import { table, icon } from '@epicenter/hq';
+ *
+ * const posts = table({
+ *   name: 'Posts',
+ *   icon: icon.emoji('📝'),
+ *   fields: { id: id(), title: text() },
+ * });
+ *
+ * const settings = table({
+ *   name: 'Settings',
+ *   icon: icon.external('https://example.com/icon.png'),
+ *   fields: { id: id(), key: text() },
+ * });
+ * ```
+ */
+export const icon = {
+	/**
+	 * Create an emoji icon.
+	 *
+	 * @param value - The emoji character to use as the icon
+	 * @returns An emoji icon definition
+	 *
+	 * @example
+	 * ```typescript
+	 * icon.emoji('📝')  // { type: 'emoji', value: '📝' }
+	 * icon.emoji('🚀')  // { type: 'emoji', value: '🚀' }
+	 * ```
+	 */
+	emoji: (value: string) =>
+		({ type: 'emoji', value }) as const satisfies IconDefinition,
+
+	/**
+	 * Create an external image icon.
+	 *
+	 * @param url - The URL of the external image
+	 * @returns An external icon definition
+	 *
+	 * @example
+	 * ```typescript
+	 * icon.external('https://example.com/icon.png')
+	 * ```
+	 */
+	external: (url: string) =>
+		({ type: 'external', url }) as const satisfies IconDefinition,
+};
+
+/**
+ * Factory functions for creating CoverDefinition objects.
+ *
+ * Covers are banner images displayed at the top of tables.
+ * Currently supports external URLs; future versions may add gradients, Unsplash, etc.
+ *
+ * @example
+ * ```typescript
+ * import { table, cover } from '@epicenter/hq';
+ *
+ * const posts = table({
+ *   name: 'Posts',
+ *   cover: cover.external('https://example.com/banner.jpg'),
+ *   fields: { id: id(), title: text() },
+ * });
+ * ```
+ */
+export const cover = {
+	/**
+	 * Create an external image cover.
+	 *
+	 * @param url - The URL of the external cover image
+	 * @returns An external cover definition
+	 *
+	 * @example
+	 * ```typescript
+	 * cover.external('https://example.com/banner.jpg')
+	 * ```
+	 */
+	external: (url: string) =>
+		({ type: 'external', url }) as const satisfies CoverDefinition,
+};
+
 export function id({
 	name = '',
 	description = '',
