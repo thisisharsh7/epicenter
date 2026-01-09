@@ -8,21 +8,62 @@ import * as Y from 'yjs';
  *
  * Y.Doc ID: `{workspaceId}` (no epoch suffix)
  *
+ * ## CRDT-Safe Epoch Pattern
+ *
+ * Epochs use a **per-client MAX pattern** to handle concurrent bumps safely.
+ * This is similar to the per-client counter pattern from [learn.yjs.dev](https://learn.yjs.dev/lessons/02-counter/),
+ * but uses `max()` instead of `sum()` for version semantics.
+ *
+ * ### Why not a simple counter?
+ *
+ * A naive implementation would store a single `epoch: number`:
+ *
+ * ```typescript
+ * // BAD: Concurrent bumps cause lost updates
+ * setEpoch(epoch: number) {
+ *   headMap.set('epoch', epoch);  // Overwrites other clients!
+ * }
+ * ```
+ *
+ * If two clients both read epoch=2 and set epoch=3 simultaneously,
+ * one bump is silently lost (higher clientID wins in YJS).
+ *
+ * ### The solution: Per-client keys with MAX aggregation
+ *
+ * Each client writes to their own key (clientID), then we compute `max()`:
+ *
+ * ```
+ * Y.Map('epochs')
+ *   └── "1090160253": 3   // Client A proposed epoch 3
+ *   └── "2847291038": 3   // Client B also proposed epoch 3
+ *   └── "9182736450": 5   // Client C proposed epoch 5
+ *
+ * getEpoch() → max(3, 3, 5) → 5
+ * ```
+ *
+ * ### Why MAX instead of SUM?
+ *
+ * - **SUM** (counter pattern): "How many total bumps happened?" → Can skip epochs
+ * - **MAX** (version pattern): "What's the highest version proposed?" → No gaps
+ *
+ * Two clients bumping concurrently both propose "next version" (e.g., 3).
+ * With MAX, they converge to epoch 3. With SUM, you'd get epoch 4 (skipping 3).
+ *
  * Structure:
  * ```
- * Y.Map('head')
- *   └── epoch: number
+ * Y.Map('epochs')
+ *   └── {clientId}: number  // Each client's proposed epoch
  * ```
  *
  * @example
  * ```typescript
  * const head = createHeadDoc({ workspaceId: 'abc123xyz789012' });
  *
- * // Get current epoch
+ * // Get current epoch (max of all client proposals)
  * const epoch = head.getEpoch(); // 0
  *
- * // Set epoch (for migrations)
- * head.setEpoch(1);
+ * // Bump epoch safely (handles concurrent bumps)
+ * const newEpoch = head.bumpEpoch(); // 1
  *
  * // Observe epoch changes (for reconnecting to new data doc)
  * const unsubscribe = head.observeEpoch((newEpoch) => {
@@ -30,19 +71,40 @@ import * as Y from 'yjs';
  *   // Reconnect to new data doc
  * });
  * ```
+ *
+ * @see https://learn.yjs.dev/lessons/02-counter/ - The counter pattern this is based on
+ * @see skills/yjs/SKILL.md - Single-Writer Keys pattern documentation
  */
 export function createHeadDoc(options: { workspaceId: string; ydoc?: Y.Doc }) {
 	const { workspaceId } = options;
 	const ydoc = options.ydoc ?? new Y.Doc({ guid: workspaceId });
-	const headMap = ydoc.getMap<number>('head');
+	const epochsMap = ydoc.getMap<number>('epochs');
 
-	// Initialize epoch to 0 if not set
-	if (!headMap.has('epoch')) {
-		headMap.set('epoch', 0);
-	}
-
+	/**
+	 * Get the current epoch number.
+	 *
+	 * Computes the maximum of all client-proposed epochs.
+	 * This ensures concurrent bumps converge to the same version
+	 * without skipping epoch numbers.
+	 *
+	 * @returns The current epoch (0 if no bumps have occurred)
+	 *
+	 * @example
+	 * ```typescript
+	 * // Initial state
+	 * head.getEpoch(); // 0
+	 *
+	 * // After some bumps
+	 * head.bumpEpoch();
+	 * head.getEpoch(); // 1
+	 * ```
+	 */
 	function getEpoch(): number {
-		return headMap.get('epoch') ?? 0;
+		let max = 0;
+		for (const value of epochsMap.values()) {
+			max = Math.max(max, value);
+		}
+		return max;
 	}
 
 	return {
@@ -52,43 +114,117 @@ export function createHeadDoc(options: { workspaceId: string; ydoc?: Y.Doc }) {
 		/** The workspace ID (Y.Doc guid). */
 		workspaceId,
 
-		/**
-		 * Get the current epoch number.
-		 *
-		 * Epoch 0 is the initial epoch. Higher epochs indicate migrations.
-		 */
 		getEpoch,
 
 		/**
-		 * Set the epoch number.
+		 * Bump the epoch to the next version.
 		 *
-		 * Use this to bump epochs or restore from a specific point.
-		 * Clients observing epoch changes will be notified.
+		 * This is the **safe** way to increment epochs. It:
+		 * 1. Reads the current max epoch
+		 * 2. Proposes `max + 1` under this client's ID
+		 * 3. Returns the new epoch
+		 *
+		 * **Concurrent safety**: If two clients bump simultaneously, they both
+		 * propose the same "next" value (e.g., both propose 3). After sync,
+		 * `getEpoch()` returns 3, not 4. No epochs are skipped.
+		 *
+		 * @returns The new epoch number after bumping
+		 *
+		 * @example
+		 * ```typescript
+		 * const head = createHeadDoc({ workspaceId: 'abc123' });
+		 *
+		 * // Client A bumps
+		 * const epoch1 = head.bumpEpoch(); // 1
+		 *
+		 * // Client B bumps concurrently (before sync)
+		 * // Both propose epoch 1, converge to 1 after sync
+		 *
+		 * // Sequential bump after sync
+		 * const epoch2 = head.bumpEpoch(); // 2
+		 * ```
 		 */
-		setEpoch(epoch: number) {
-			headMap.set('epoch', epoch);
+		bumpEpoch(): number {
+			const next = getEpoch() + 1;
+			epochsMap.set(ydoc.clientID.toString(), next);
+			return next;
+		},
+
+		/**
+		 * Force set the epoch to a specific value.
+		 *
+		 * **Warning**: This bypasses the safe bump mechanism. Use only for:
+		 * - Admin recovery operations
+		 * - Restoring from a known state
+		 * - Testing
+		 *
+		 * For normal epoch advancement, use `bumpEpoch()` instead.
+		 *
+		 * @param epoch - The epoch number to set
+		 *
+		 * @example
+		 * ```typescript
+		 * // Recovery: force all clients to epoch 5
+		 * head.forceSetEpoch(5);
+		 * ```
+		 */
+		forceSetEpoch(epoch: number) {
+			epochsMap.set(ydoc.clientID.toString(), epoch);
 		},
 
 		/**
 		 * Observe epoch changes.
 		 *
-		 * Fires when the epoch number changes, indicating clients
-		 * should reconnect to a new Data Y.Doc at `{workspaceId}-{newEpoch}`.
+		 * Fires when any client proposes a new epoch, which may change the
+		 * max epoch. Use this to reconnect to the new Data Y.Doc.
 		 *
+		 * The callback receives the new max epoch (computed via `getEpoch()`).
+		 *
+		 * @param callback - Function called with the new epoch when it changes
 		 * @returns Unsubscribe function
+		 *
+		 * @example
+		 * ```typescript
+		 * const unsubscribe = head.observeEpoch((newEpoch) => {
+		 *   console.log(`Epoch changed to ${newEpoch}`);
+		 *   const dataDocId = `${head.workspaceId}-${newEpoch}`;
+		 *   // Reconnect to new data doc...
+		 * });
+		 *
+		 * // Later: stop observing
+		 * unsubscribe();
+		 * ```
 		 */
 		observeEpoch(callback: (epoch: number) => void) {
-			const handler = (
-				event: Y.YMapEvent<number>,
-				_transaction: Y.Transaction,
-			) => {
-				if (event.keysChanged.has('epoch')) {
-					callback(getEpoch());
+			let lastEpoch = getEpoch();
+
+			const handler = () => {
+				const currentEpoch = getEpoch();
+				if (currentEpoch !== lastEpoch) {
+					lastEpoch = currentEpoch;
+					callback(currentEpoch);
 				}
 			};
 
-			headMap.observe(handler);
-			return () => headMap.unobserve(handler);
+			epochsMap.observeDeep(handler);
+			return () => epochsMap.unobserveDeep(handler);
+		},
+
+		/**
+		 * Get all client epoch proposals.
+		 *
+		 * Useful for debugging or understanding the epoch state across clients.
+		 *
+		 * @returns Map of clientId to their proposed epoch
+		 *
+		 * @example
+		 * ```typescript
+		 * const proposals = head.getEpochProposals();
+		 * // Map { "1090160253" => 3, "2847291038" => 3 }
+		 * ```
+		 */
+		getEpochProposals(): Map<string, number> {
+			return new Map(epochsMap.entries());
 		},
 
 		/** Destroy the head doc and clean up resources. */

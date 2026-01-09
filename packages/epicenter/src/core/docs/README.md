@@ -67,8 +67,10 @@ A single Y.Doc per workspace seems simpler, but creates problems:
 │  ID: {workspaceId}                                               │
 │  Scope: Shared (syncs with all workspace collaborators)          │
 │                                                                  │
-│  Y.Map('head')                                                   │
-│    └── epoch: 0                                                  │
+│  Y.Map('epochs')                                                 │
+│    └── {clientId}: number   // Per-client epoch proposals        │
+│                                                                  │
+│  getEpoch() → max(all values)                                    │
 │                                                                  │
 │  Purpose: "What's the current data epoch?"                       │
 └─────────────────────────────────────────────────────────────────┘
@@ -102,6 +104,69 @@ A single Y.Doc per workspace seems simpler, but creates problems:
 │                                                                  │
 │  Purpose: "All the actual workspace data"                        │
 └─────────────────────────────────────────────────────────────────┘
+```
+
+## CRDT-Safe Epoch Pattern
+
+The Head Doc uses a **per-client MAX pattern** to handle concurrent epoch bumps safely.
+
+### The Problem with Naive Counters
+
+A simple `epoch: number` field is broken for CRDTs:
+
+```typescript
+// BAD: Two clients bump simultaneously
+// Client A reads epoch=2, sets epoch=3
+// Client B reads epoch=2, sets epoch=3
+// Result: epoch=3, but one bump was lost!
+headMap.set('epoch', epoch + 1);
+```
+
+In YJS, concurrent writes to the same key don't merge; the higher `clientID` wins.
+
+### The Solution: Per-Client Keys with MAX
+
+Each client writes their proposed epoch to their own key (their `clientID`).
+The current epoch is computed as `max()` of all proposals:
+
+```
+Y.Map('epochs')
+  └── "1090160253": 3   // Client A proposed epoch 3
+  └── "2847291038": 3   // Client B also proposed epoch 3
+  └── "9182736450": 5   // Client C proposed epoch 5
+
+getEpoch() → max(3, 3, 5) → 5
+```
+
+### Why MAX Instead of SUM?
+
+This is similar to the [learn.yjs.dev counter pattern](https://learn.yjs.dev/lessons/02-counter/),
+but uses `max()` instead of `sum()`:
+
+| Pattern | Aggregation | Use Case                  | Concurrent Bumps |
+| ------- | ----------- | ------------------------- | ---------------- |
+| Counter | `sum()`     | "How many clicks total?"  | A:1 + B:1 = 2    |
+| Epoch   | `max()`     | "What version are we on?" | max(1, 1) = 1    |
+
+With **SUM**, two concurrent bumps would skip an epoch (0 → 2).
+With **MAX**, two concurrent bumps converge to the same next version (0 → 1).
+
+### API
+
+```typescript
+const head = createHeadDoc({ workspaceId: 'abc123' });
+
+// Get current epoch (max of all client proposals)
+head.getEpoch(); // 0
+
+// Bump epoch safely (handles concurrent bumps)
+head.bumpEpoch(); // Returns 1
+
+// Force set (admin/recovery only)
+head.forceSetEpoch(5);
+
+// Debug: see all client proposals
+head.getEpochProposals(); // Map { "1090160253" => 1 }
 ```
 
 ## Boot Flow
@@ -162,13 +227,13 @@ Data Docs are **immutable by ID**:
 - `abc123-1` is epoch 1's data
 - `abc123-2` is epoch 2's data
 
-They're different Y.Docs with different GUIDs. You can't "upgrade" a Y.Doc in place — you create a new one.
+They're different Y.Docs with different GUIDs. You can't "upgrade" a Y.Doc in place; you create a new one.
 
 The Head Doc is the **stable pointer**. Its GUID never changes (`abc123`), but its `epoch` value can change. When you bump epochs:
 
 1. Create new client at epoch 3: `workspace.create({ epoch: 3 })`
 2. Migrate data from old client to new client
-3. Update Head Doc: `head.setEpoch(3)`
+3. Bump Head Doc: `head.bumpEpoch()` (or `forceSetEpoch(3)` for explicit control)
 4. All clients observing Head reconnect to the new Data Doc
 
 ## Epoch System
@@ -191,8 +256,12 @@ Epoch 2: Compacted data (fresh Y.Doc)
 
 1. Create new client at `epoch + 1`
 2. Migrate/transform data from old client to new client
-3. Call `head.setEpoch(epoch + 1)`
+3. Call `head.bumpEpoch()` (safe for concurrent bumps)
 4. All clients observing Head reconnect to new Data Doc
+
+**Concurrent bump safety**: If two clients both call `bumpEpoch()` simultaneously,
+they both propose the same "next" epoch. After sync, `getEpoch()` returns that
+value; no epochs are skipped.
 
 ## Schema Merge Semantics
 
@@ -254,16 +323,16 @@ const client = await workspace.create({
 
 ## Files
 
-| File              | Factory               | Purpose                  |
-| ----------------- | --------------------- | ------------------------ |
-| `registry-doc.ts` | `createRegistryDoc()` | Personal workspace index |
-| `head-doc.ts`     | `createHeadDoc()`     | Epoch pointer            |
+| File              | Factory               | Purpose                   |
+| ----------------- | --------------------- | ------------------------- |
+| `registry-doc.ts` | `createRegistryDoc()` | Personal workspace index  |
+| `head-doc.ts`     | `createHeadDoc()`     | Epoch pointer (CRDT-safe) |
 
 **Note:** Data Doc creation is handled internally by `workspace.create()` in the workspace module.
 
 ## Schema Storage
 
-The Y.Doc stores the full `FieldDefinition` directly - no conversion needed:
+The Y.Doc stores the full `FieldDefinition` directly; no conversion needed:
 
 ```typescript
 // FieldDefinition stored as-is in Y.Doc
@@ -297,6 +366,9 @@ registry.addWorkspace('workspace456');
 const head = createHeadDoc({ workspaceId: 'workspace456' });
 const epoch = head.getEpoch(); // 0
 
+// Bump epoch (CRDT-safe)
+const newEpoch = head.bumpEpoch(); // 1
+
 // Define and create workspace (Data Doc created internally)
 const workspace = defineWorkspace({
 	id: 'workspace456',
@@ -309,3 +381,8 @@ const workspace = defineWorkspace({
 const client = await workspace.create({ epoch });
 // client.ydoc is the Data Doc at guid "workspace456-0"
 ```
+
+## References
+
+- [learn.yjs.dev Counter Lesson](https://learn.yjs.dev/lessons/02-counter/) - The per-client key pattern
+- [skills/yjs/SKILL.md](../../../../skills/yjs/SKILL.md) - Single-Writer Keys pattern documentation
