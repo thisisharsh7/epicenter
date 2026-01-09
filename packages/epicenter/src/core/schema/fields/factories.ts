@@ -10,14 +10,18 @@ import type { TSchema, Static } from 'typebox';
 import { DateTimeString } from './datetime';
 import type {
 	BooleanFieldSchema,
+	CoverDefinition,
 	DateFieldSchema,
 	FieldOptions,
+	FieldsSchema,
+	IconDefinition,
 	IdFieldSchema,
 	IntegerFieldSchema,
 	JsonFieldSchema,
 	RealFieldSchema,
 	RichtextFieldSchema,
 	SelectFieldSchema,
+	TableDefinition,
 	TagsFieldSchema,
 	TextFieldSchema,
 } from './types';
@@ -326,5 +330,43 @@ export function json<const T extends TSchema>({
 		schema,
 		...(nullable && { nullable: true }),
 		...(defaultValue !== undefined && { default: defaultValue }),
+	};
+}
+
+/**
+ * Factory function to create a TableDefinition with sensible defaults.
+ *
+ * Requires `name` and `fields`; other metadata is optional.
+ * For tests where you don't care about the name, use `name: ''`.
+ *
+ * @example
+ * ```typescript
+ * // Production use - with meaningful name
+ * const posts = table({
+ *   name: 'Blog Posts',
+ *   fields: { id: id(), title: text(), published: boolean() },
+ *   description: 'Articles and blog posts',
+ * });
+ *
+ * // Test use - minimal
+ * const posts = table({
+ *   name: '',
+ *   fields: { id: id(), title: text() },
+ * });
+ * ```
+ */
+export function table<TFields extends FieldsSchema>(options: {
+	name: string;
+	fields: TFields;
+	icon?: IconDefinition | null;
+	cover?: CoverDefinition | null;
+	description?: string;
+}): TableDefinition<TFields> {
+	return {
+		name: options.name,
+		icon: options.icon ?? null,
+		cover: options.cover ?? null,
+		description: options.description ?? '',
+		fields: options.fields,
 	};
 }

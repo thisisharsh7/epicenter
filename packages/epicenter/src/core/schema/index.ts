@@ -6,6 +6,7 @@ export {
 	json,
 	real,
 	select,
+	table,
 	tags,
 	text,
 	richtext,
