@@ -23,29 +23,7 @@ Epicenter is a monorepo containing multiple applications. The main application r
    cd epicenter
    ```
 
-   <details>
-   <summary>New to forking? Click here for detailed steps</summary>
-
-   **Option A: GitHub CLI (one command)**
-
-   ```bash
-   gh repo fork EpicenterHQ/epicenter --clone
-   cd epicenter
-   ```
-
-   Requires [GitHub CLI](https://cli.github.com/).
-
-   **Option B: Web + git**
-   1. Click [Fork](https://github.com/EpicenterHQ/epicenter/fork) on GitHub
-   2. Clone your fork:
-      ```bash
-      git clone https://github.com/<your-username>/epicenter.git
-      cd epicenter
-      ```
-
-   **Learn more**: [How to Contribute to Open Source](https://egghead.io/courses/how-to-contribute-to-an-open-source-project-on-github) (free video series)
-
-   </details>
+   > New to open source? Check out [How to Contribute to Open Source](https://egghead.io/courses/how-to-contribute-to-an-open-source-project-on-github) (free video series).
 
 2. **Install dependencies**
 
