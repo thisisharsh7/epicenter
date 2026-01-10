@@ -126,8 +126,8 @@ This automatically handles installation and updates.
 
 #### Download Options
 
-| Installer Type    | Download                                                                                                                                        | Description                            |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| Installer Type    | Download                                                                                                                                              | Description                            |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
 | **MSI Installer** | [Whispering_7.11.0_x64_en-US_windows.msi](https://github.com/EpicenterHQ/epicenter/releases/download/v7.11.0/Whispering_7.11.0_x64_en-US_windows.msi) | Recommended Standard Windows installer |
 | **EXE Installer** | [Whispering_7.11.0_x64-setup_windows.exe](https://github.com/EpicenterHQ/epicenter/releases/download/v7.11.0/Whispering_7.11.0_x64-setup_windows.exe) | Alternative installer option           |
 
@@ -147,8 +147,8 @@ Whispering will appear in your Start Menu when complete.
 
 #### Download Options
 
-| Package Format  | Download                                                                                                                                      | Compatible With          |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| Package Format  | Download                                                                                                                                            | Compatible With          |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
 | **AppImage**    | [Whispering_7.11.0_amd64_linux.AppImage](https://github.com/EpicenterHQ/epicenter/releases/download/v7.11.0/Whispering_7.11.0_amd64_linux.AppImage) | All Linux distributions  |
 | **DEB Package** | [Whispering_7.11.0_amd64_linux.deb](https://github.com/EpicenterHQ/epicenter/releases/download/v7.11.0/Whispering_7.11.0_amd64_linux.deb)           | Debian, Ubuntu, Pop!\_OS |
 | **RPM Package** | [Whispering-7.11.0-1.x86_64_linux.rpm](https://github.com/EpicenterHQ/epicenter/releases/download/v7.11.0/Whispering-7.11.0-1.x86_64_linux.rpm)     | Fedora, RHEL, openSUSE   |
@@ -635,6 +635,8 @@ The architecture achieves extensive code reuse through build-time platform detec
 2. Change into the project directory: `cd epicenter`
 3. Install the necessary dependencies: `bun i`
 
+> Want to contribute? See [CONTRIBUTING.md](../../CONTRIBUTING.md) for fork and PR instructions.
+
 To run the desktop app and website:
 
 ```bash
@@ -786,47 +788,47 @@ Adding a new transcription service involves four main steps:
 
    // Add import for your models
    import {
-     YOUR_SERVICE_MODELS,
-     type YourServiceModel,
+   	YOUR_SERVICE_MODELS,
+   	type YourServiceModel,
    } from './cloud/your-service';
 
    // Add to the TranscriptionModel union type
    type TranscriptionModel =
-     | OpenAIModel
-     | GroqModel
-     | ElevenLabsModel
-     | DeepgramModel
-     | YourServiceModel;
+   	| OpenAIModel
+   	| GroqModel
+   	| ElevenLabsModel
+   	| DeepgramModel
+   	| YourServiceModel;
 
    // Add to TRANSCRIPTION_SERVICE_IDS array
    export const TRANSCRIPTION_SERVICE_IDS = [
-     'whispercpp',
-     'parakeet',
-     'Groq',
-     'OpenAI',
-     'ElevenLabs',
-     'Deepgram',
-     'speaches',
-     'YourService', // Add your service here
+   	'whispercpp',
+   	'parakeet',
+   	'Groq',
+   	'OpenAI',
+   	'ElevenLabs',
+   	'Deepgram',
+   	'speaches',
+   	'YourService', // Add your service here
    ] as const;
 
    // Add to TRANSCRIPTION_SERVICES array (in the appropriate section)
    export const TRANSCRIPTION_SERVICES = [
-     // ... existing services
-     // Add in the cloud services section:
-     {
-       id: 'YourService',
-       name: 'Your Service Name',
-       icon: yourServiceIcon,
-       invertInDarkMode: true, // or false, depending on your icon
-       description: 'Description of what makes your service special',
-       models: YOUR_SERVICE_MODELS,
-       defaultModel: YOUR_SERVICE_MODELS[0],
-       modelSettingKey: 'transcription.yourservice.model',
-       apiKeyField: 'apiKeys.yourservice',
-       location: 'cloud', // or 'local' or 'self-hosted'
-     },
-     // ... rest of services
+   	// ... existing services
+   	// Add in the cloud services section:
+   	{
+   		id: 'YourService',
+   		name: 'Your Service Name',
+   		icon: yourServiceIcon,
+   		invertInDarkMode: true, // or false, depending on your icon
+   		description: 'Description of what makes your service special',
+   		models: YOUR_SERVICE_MODELS,
+   		defaultModel: YOUR_SERVICE_MODELS[0],
+   		modelSettingKey: 'transcription.yourservice.model',
+   		apiKeyField: 'apiKeys.yourservice',
+   		location: 'cloud', // or 'local' or 'self-hosted'
+   	},
+   	// ... rest of services
    ] as const satisfies SatisfiedTranscriptionService[];
    ```
 
