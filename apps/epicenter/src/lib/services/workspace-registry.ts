@@ -4,19 +4,12 @@ import {
 	type RegistryDoc,
 	type HeadDoc,
 	type WorkspaceSchema,
-	type TableDefinitionMap,
-	type KvSchema,
 } from '@epicenter/hq';
 import {
 	registryPersistence,
 	headPersistence,
 } from '$lib/capabilities/tauri-persistence';
-
-/**
- * Workspace schema type used throughout the app.
- * Uses generic TableDefinitionMap and KvSchema for flexibility.
- */
-export type AppWorkspaceSchema = WorkspaceSchema<TableDefinitionMap, KvSchema>;
+import type * as Y from 'yjs';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Module State
@@ -24,11 +17,8 @@ export type AppWorkspaceSchema = WorkspaceSchema<TableDefinitionMap, KvSchema>;
 
 const REGISTRY_ID = 'local';
 
-let registry: RegistryDoc | null = null;
-let registryInitPromise: Promise<RegistryDoc> | null = null;
-
-const headDocs = new Map<string, HeadDoc>();
-const headInitPromises = new Map<string, Promise<HeadDoc>>();
+let registryPromise: Promise<RegistryDoc> | null = null;
+const headPromises = new Map<string, Promise<HeadDoc>>();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Registry Access
@@ -47,19 +37,14 @@ const headInitPromises = new Map<string, Promise<HeadDoc>>();
  * ```
  */
 export async function getRegistry(): Promise<RegistryDoc> {
-	if (registry) return registry;
-
-	// Avoid race conditions on concurrent calls
-	if (!registryInitPromise) {
-		registryInitPromise = (async () => {
+	if (!registryPromise) {
+		registryPromise = (async () => {
 			const doc = createRegistryDoc({ registryId: REGISTRY_ID });
 			await registryPersistence(doc.ydoc);
-			registry = doc;
 			return doc;
 		})();
 	}
-
-	return registryInitPromise;
+	return registryPromise;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -79,22 +64,16 @@ export async function getRegistry(): Promise<RegistryDoc> {
  * ```
  */
 export async function getHeadDoc(workspaceId: string): Promise<HeadDoc> {
-	const existing = headDocs.get(workspaceId);
-	if (existing) return existing;
-
-	// Avoid race conditions on concurrent calls for same workspace
-	let initPromise = headInitPromises.get(workspaceId);
-	if (!initPromise) {
-		initPromise = (async () => {
+	let promise = headPromises.get(workspaceId);
+	if (!promise) {
+		promise = (async () => {
 			const doc = createHeadDoc({ workspaceId });
 			await headPersistence(doc.ydoc, workspaceId);
-			headDocs.set(workspaceId, doc);
 			return doc;
 		})();
-		headInitPromises.set(workspaceId, initPromise);
+		headPromises.set(workspaceId, promise);
 	}
-
-	return initPromise;
+	return promise;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -106,11 +85,81 @@ export async function getHeadDoc(workspaceId: string): Promise<HeadDoc> {
  *
  * Called when deleting a workspace.
  */
-export function removeHeadDoc(workspaceId: string): void {
-	const head = headDocs.get(workspaceId);
-	if (head) {
+export async function removeHeadDoc(workspaceId: string): Promise<void> {
+	const promise = headPromises.get(workspaceId);
+	if (promise) {
+		const head = await promise;
 		head.destroy();
-		headDocs.delete(workspaceId);
-		headInitPromises.delete(workspaceId);
+		headPromises.delete(workspaceId);
 	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Schema Extraction
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Extract workspace schema from an already-loaded Y.Doc.
+ *
+ * This is a pure function with no I/O - it reads directly from the Y.Doc's
+ * in-memory state. Use this after persistence has synced.
+ *
+ * @example
+ * ```typescript
+ * const client = await workspace.create({ epoch, capabilities: { persistence } });
+ * await client.capabilities.persistence.whenSynced;
+ * const schema = extractSchemaFromYDoc(client.ydoc, workspaceId);
+ * ```
+ */
+export function extractSchemaFromYDoc(
+	ydoc: Y.Doc,
+	workspaceId: string,
+): WorkspaceSchema {
+	const metaMap = ydoc.getMap<string>('meta');
+	const schemaMap = ydoc.getMap('schema');
+
+	const tablesYMap = schemaMap.get('tables') as
+		| Y.Map<Y.Map<unknown>>
+		| undefined;
+	const tables: WorkspaceSchema['tables'] = {};
+
+	if (tablesYMap) {
+		for (const [tableName, tableMap] of tablesYMap.entries()) {
+			const fieldsMap = tableMap.get('fields') as Y.Map<unknown> | undefined;
+			const fields: Record<string, unknown> = {};
+			if (fieldsMap) {
+				for (const [fieldName, fieldDef] of fieldsMap.entries()) {
+					fields[fieldName] = fieldDef;
+				}
+			}
+			tables[tableName] = {
+				name: (tableMap.get('name') as string) ?? tableName,
+				icon:
+					(tableMap.get('icon') as WorkspaceSchema['tables'][string]['icon']) ??
+					null,
+				cover:
+					(tableMap.get(
+						'cover',
+					) as WorkspaceSchema['tables'][string]['cover']) ?? null,
+				description: (tableMap.get('description') as string) ?? '',
+				fields: fields as WorkspaceSchema['tables'][string]['fields'],
+			};
+		}
+	}
+
+	const kvYMap = schemaMap.get('kv') as Y.Map<unknown> | undefined;
+	const kv: WorkspaceSchema['kv'] = {};
+	if (kvYMap) {
+		for (const [key, value] of kvYMap.entries()) {
+			kv[key] = value as WorkspaceSchema['kv'][string];
+		}
+	}
+
+	return {
+		id: workspaceId,
+		slug: metaMap.get('slug') ?? workspaceId,
+		name: metaMap.get('name') ?? 'Untitled',
+		tables,
+		kv,
+	};
 }

@@ -1,22 +1,26 @@
 import { defineWorkspace } from '@epicenter/hq';
 import * as Y from 'yjs';
-import { getRegistry, getHeadDoc } from '$lib/services/workspace-registry';
+import {
+	getRegistry,
+	getHeadDoc,
+	extractSchemaFromYDoc,
+} from '$lib/services/workspace-registry';
 import { workspacePersistence } from '$lib/capabilities/tauri-persistence';
 import { error } from '@sveltejs/kit';
 import type { LayoutLoad } from './$types';
-import type { AppWorkspaceSchema } from '$lib/services/workspace-registry';
 
 /**
  * Load a workspace lazily by GUID.
  *
- * This is a self-contained loader that doesn't depend on bootstrap or schema cache.
- * It loads the workspace directly from persistence when navigating to the route.
+ * Uses the "empty schema" pattern: pass an empty schema to defineWorkspace,
+ * let persistence load the real schema, then extract it from the Y.Doc.
+ * This avoids creating a temporary Y.Doc just to read the schema.
  *
  * Flow:
  * 1. Verify workspace exists in registry
  * 2. Get epoch from head doc
- * 3. Load workspace doc and extract schema
- * 4. Create workspace client
+ * 3. Create client with empty schema (persistence loads the real one)
+ * 4. Extract schema from the loaded Y.Doc
  */
 export const load: LayoutLoad = async ({ params }) => {
 	const workspaceId = params.id;
@@ -34,12 +38,15 @@ export const load: LayoutLoad = async ({ params }) => {
 	const epoch = head.getEpoch();
 	console.log(`[Layout] Workspace epoch: ${epoch}`);
 
-	// Step 3: Load workspace doc and extract schema
-	const schema = await loadWorkspaceSchema(workspaceId, epoch);
-	console.log(`[Layout] Loaded schema: ${schema.name} (${schema.slug})`);
+	// Step 3: Create client with empty schema - persistence loads the real one
+	const workspace = defineWorkspace({
+		id: workspaceId,
+		slug: workspaceId,
+		name: '',
+		tables: {},
+		kv: {},
+	});
 
-	// Step 4: Create workspace client
-	const workspace = defineWorkspace(schema);
 	const client = await workspace.create({
 		epoch,
 		capabilities: {
@@ -50,6 +57,10 @@ export const load: LayoutLoad = async ({ params }) => {
 
 	// Wait for persistence to load existing data
 	await client.capabilities.persistence.whenSynced;
+
+	// Step 4: Extract real schema from the loaded Y.Doc
+	const schema = extractSchemaFromYDoc(client.ydoc, workspaceId);
+	console.log(`[Layout] Loaded schema: ${schema.name} (${schema.slug})`);
 
 	return {
 		/** The workspace schema (id, slug, name, tables, kv). */
@@ -62,83 +73,3 @@ export const load: LayoutLoad = async ({ params }) => {
 		epoch,
 	};
 };
-
-/**
- * Load a workspace schema from its Y.Doc.
- *
- * Creates a temporary Y.Doc to read the schema, then destroys it.
- * The actual workspace client will be created separately with its own Y.Doc.
- */
-async function loadWorkspaceSchema(
-	workspaceId: string,
-	epoch: number,
-): Promise<AppWorkspaceSchema> {
-	const docId = `${workspaceId}-${epoch}`;
-	const ydoc = new Y.Doc({ guid: docId, gc: false });
-
-	// Load from persistence
-	const persistence = await workspacePersistence(ydoc, workspaceId, epoch);
-	await persistence.whenSynced;
-
-	// Extract schema from Y.Doc
-	const metaMap = ydoc.getMap<string>('meta');
-	const schemaMap = ydoc.getMap('schema');
-
-	const name = metaMap.get('name') ?? 'Untitled';
-	const slug = metaMap.get('slug') ?? workspaceId;
-
-	// Extract tables from schema map
-	const tablesYMap = schemaMap.get('tables') as
-		| Y.Map<Y.Map<unknown>>
-		| undefined;
-	const tables: AppWorkspaceSchema['tables'] = {};
-
-	if (tablesYMap) {
-		for (const [tableName, tableMap] of tablesYMap.entries()) {
-			const fieldsMap = tableMap.get('fields') as Y.Map<unknown> | undefined;
-			const fields: Record<string, unknown> = {};
-
-			if (fieldsMap) {
-				for (const [fieldName, fieldDef] of fieldsMap.entries()) {
-					fields[fieldName] = fieldDef;
-				}
-			}
-
-			tables[tableName] = {
-				name: (tableMap.get('name') as string) ?? tableName,
-				icon:
-					(tableMap.get(
-						'icon',
-					) as AppWorkspaceSchema['tables'][string]['icon']) ?? null,
-				cover:
-					(tableMap.get(
-						'cover',
-					) as AppWorkspaceSchema['tables'][string]['cover']) ?? null,
-				description: (tableMap.get('description') as string) ?? '',
-				fields: fields as AppWorkspaceSchema['tables'][string]['fields'],
-			};
-		}
-	}
-
-	// Extract KV from schema map
-	const kvYMap = schemaMap.get('kv') as Y.Map<unknown> | undefined;
-	const kv: AppWorkspaceSchema['kv'] = {};
-
-	if (kvYMap) {
-		for (const [key, value] of kvYMap.entries()) {
-			kv[key] = value as AppWorkspaceSchema['kv'][string];
-		}
-	}
-
-	// Clean up temporary Y.Doc
-	persistence.destroy();
-	ydoc.destroy();
-
-	return {
-		id: workspaceId,
-		slug,
-		name,
-		tables,
-		kv,
-	};
-}

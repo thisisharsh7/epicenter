@@ -1,17 +1,21 @@
-import { defineQuery, defineMutation, queryClient } from './client';
 import {
-	getRegistry,
-	getHeadDoc,
-	removeHeadDoc,
-	type AppWorkspaceSchema,
-} from '$lib/services/workspace-registry';
-import { defineWorkspace, generateGuid } from '@epicenter/hq';
-import * as Y from 'yjs';
-import { workspacePersistence } from '$lib/capabilities/tauri-persistence';
-import { Ok, Err } from 'wellcrafted/result';
-import { createTaggedError } from 'wellcrafted/error';
+	defineWorkspace,
+	generateGuid,
+	type WorkspaceSchema,
+} from '@epicenter/hq';
 import { appLocalDataDir, join } from '@tauri-apps/api/path';
 import { revealItemInDir } from '@tauri-apps/plugin-opener';
+import { createTaggedError } from 'wellcrafted/error';
+import { Ok } from 'wellcrafted/result';
+import * as Y from 'yjs';
+import { workspacePersistence } from '$lib/capabilities/tauri-persistence';
+import {
+	extractSchemaFromYDoc,
+	getHeadDoc,
+	getRegistry,
+	removeHeadDoc,
+} from '$lib/services/workspace-registry';
+import { defineMutation, defineQuery, queryClient } from './client';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Error Types
@@ -55,8 +59,8 @@ export const workspaces = {
 				// Use GUID as placeholder name/slug until we have metadata in registry
 				name: id,
 				slug: id,
-				tables: {} as AppWorkspaceSchema['tables'],
-				kv: {} as AppWorkspaceSchema['kv'],
+				tables: {},
+				kv: {},
 			}));
 
 			return Ok(workspaces);
@@ -66,7 +70,8 @@ export const workspaces = {
 	/**
 	 * Get a single workspace by GUID.
 	 *
-	 * Loads the full schema from the workspace Y.Doc.
+	 * Uses the "empty schema" pattern: creates a client with empty schema,
+	 * lets persistence load the real schema, then extracts it.
 	 */
 	getWorkspace: (workspaceId: string) =>
 		defineQuery({
@@ -81,10 +86,32 @@ export const workspaces = {
 					});
 				}
 
-				// Load schema from Y.Doc
+				// Get epoch from head doc
 				const head = await getHeadDoc(workspaceId);
 				const epoch = head.getEpoch();
-				const schema = await loadWorkspaceSchema(workspaceId, epoch);
+
+				// Create client with empty schema - persistence loads the real one
+				const workspace = defineWorkspace({
+					id: workspaceId,
+					slug: workspaceId,
+					name: '',
+					tables: {},
+					kv: {},
+				});
+
+				const client = await workspace.create({
+					epoch,
+					capabilities: {
+						persistence: (ctx: { ydoc: Y.Doc }) =>
+							workspacePersistence(ctx.ydoc, workspaceId, epoch),
+					},
+				});
+
+				await client.capabilities.persistence.whenSynced;
+
+				// Extract schema and clean up
+				const schema = extractSchemaFromYDoc(client.ydoc, workspaceId);
+				await client.destroy();
 
 				return Ok(schema);
 			},
@@ -105,7 +132,7 @@ export const workspaces = {
 			const guid = generateGuid();
 
 			// Create schema
-			const schema: AppWorkspaceSchema = {
+			const schema: WorkspaceSchema = {
 				id: guid,
 				slug: input.slug,
 				name: input.name,
@@ -170,7 +197,7 @@ export const workspaces = {
 			registry.removeWorkspace(guid);
 
 			// Remove head doc from cache
-			removeHeadDoc(guid);
+			await removeHeadDoc(guid);
 
 			// Invalidate queries
 			queryClient.invalidateQueries({ queryKey: workspaceKeys.list() });
@@ -273,86 +300,3 @@ export const workspaces = {
 		},
 	}),
 };
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Internal Helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Load a workspace schema from its Y.Doc.
- *
- * Creates a temporary Y.Doc to read the schema, then destroys it.
- */
-async function loadWorkspaceSchema(
-	workspaceId: string,
-	epoch: number,
-): Promise<AppWorkspaceSchema> {
-	const docId = `${workspaceId}-${epoch}`;
-	const ydoc = new Y.Doc({ guid: docId, gc: false });
-
-	// Load from persistence
-	const persistence = await workspacePersistence(ydoc, workspaceId, epoch);
-	await persistence.whenSynced;
-
-	// Extract schema from Y.Doc
-	const metaMap = ydoc.getMap<string>('meta');
-	const schemaMap = ydoc.getMap('schema');
-
-	const name = metaMap.get('name') ?? 'Untitled';
-	const slug = metaMap.get('slug') ?? workspaceId;
-
-	// Extract tables from schema map
-	const tablesYMap = schemaMap.get('tables') as
-		| Y.Map<Y.Map<unknown>>
-		| undefined;
-	const tables: AppWorkspaceSchema['tables'] = {};
-
-	if (tablesYMap) {
-		for (const [tableName, tableMap] of tablesYMap.entries()) {
-			const fieldsMap = tableMap.get('fields') as Y.Map<unknown> | undefined;
-			const fields: Record<string, unknown> = {};
-
-			if (fieldsMap) {
-				for (const [fieldName, fieldDef] of fieldsMap.entries()) {
-					fields[fieldName] = fieldDef;
-				}
-			}
-
-			tables[tableName] = {
-				name: (tableMap.get('name') as string) ?? tableName,
-				icon:
-					(tableMap.get(
-						'icon',
-					) as AppWorkspaceSchema['tables'][string]['icon']) ?? null,
-				cover:
-					(tableMap.get(
-						'cover',
-					) as AppWorkspaceSchema['tables'][string]['cover']) ?? null,
-				description: (tableMap.get('description') as string) ?? '',
-				fields: fields as AppWorkspaceSchema['tables'][string]['fields'],
-			};
-		}
-	}
-
-	// Extract KV from schema map
-	const kvYMap = schemaMap.get('kv') as Y.Map<unknown> | undefined;
-	const kv: AppWorkspaceSchema['kv'] = {};
-
-	if (kvYMap) {
-		for (const [key, value] of kvYMap.entries()) {
-			kv[key] = value as AppWorkspaceSchema['kv'][string];
-		}
-	}
-
-	// Clean up temporary Y.Doc
-	persistence.destroy();
-	ydoc.destroy();
-
-	return {
-		id: workspaceId,
-		slug,
-		name,
-		tables,
-		kv,
-	};
-}
