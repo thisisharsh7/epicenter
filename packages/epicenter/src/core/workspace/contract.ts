@@ -93,7 +93,7 @@ export type Workspace<
 	 * Create a workspace client.
 	 *
 	 * @param options - Optional object with epoch and capabilities.
-	 *   - `epoch`: Data Doc version (defaults to 0). Get from Head Doc for multi-user sync.
+	 *   - `epoch`: Workspace Doc version (defaults to 0). Get from Head Doc for multi-user sync.
 	 *   - `capabilities`: Capability factories that add functionality like persistence, sync, or SQL queries.
 	 *     Each capability receives context and can return exports accessible via `client.capabilities.{name}`.
 	 *
@@ -319,7 +319,7 @@ export function defineWorkspace<
 		 *   between capabilities. Each should be independent.
 		 *
 		 * @param options - Optional configuration
-		 * @param options.epoch - Data Doc version (defaults to 0). The Y.Doc GUID
+		 * @param options.epoch - Workspace Doc version (defaults to 0). The Y.Doc GUID
 		 *   is `{workspaceId}-{epoch}`. Change this intentionally to create a
 		 *   separate document namespace (e.g., for migrations or sync isolation).
 		 *   Get from Head Doc for multi-user sync scenarios.
@@ -376,7 +376,7 @@ export function defineWorkspace<
 				InferCapabilityExports<TCapabilityFactories>
 			>
 		> {
-			// Create Data Y.Doc with deterministic GUID
+			// Create Workspace Y.Doc with deterministic GUID
 			// gc: false is required for revision history snapshots to work
 			const docId = `${config.id}-${epoch}` as const;
 			const ydoc = new Y.Doc({ guid: docId, gc: false });

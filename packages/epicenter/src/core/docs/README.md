@@ -12,38 +12,38 @@ This module provides typed wrappers for the Y.Doc types that power collaborative
 │   ────────────         ────────              ─────────────────              │
 │                                                                             │
 │   ┌───────────┐       ┌───────────┐        ┌───────────────────┐           │
-│   │ workspaces│       │   epoch   │        │ Creates Data Doc  │           │
-│   │  - abc123 │       │     2     │        │ internally with   │           │
+│   │ workspaces│       │   epoch   │        │Creates Workspace  │           │
+│   │  - abc123 │       │     2     │        │ Doc internally    │           │
 │   │  - xyz789 │       │           │        │ schema + tables   │           │
 │   └─────┬─────┘       └─────┬─────┘        └─────────┬─────────┘           │
 │         │                   │                        │                      │
 │         ▼                   ▼                        ▼                      │
 │                                                                             │
-│      GUID            +   EPOCH         =      DATA DOC ID                   │
+│      GUID            +   EPOCH         =      WORKSPACE DOC ID              │
 │    "abc123"               2                   "abc123-2"                    │
 │                                                                             │
 │   ───────────────────────────────────────────────────────────────────────  │
 │                                                                             │
 │   Fetch GUID          Fetch version         Create WorkspaceClient          │
-│   from Registry       from Head Doc         (Data Doc is internal)          │
+│   from Registry       from Head Doc         (Workspace Doc is internal)     │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**The pattern:** Two exported helpers (Registry, Head) + internal Data Doc creation via `workspace.create()`.
+**The pattern:** Two exported helpers (Registry, Head) + internal Workspace Doc creation via `workspace.create()`.
 
-| Step | Document | Fetches                | Y.Doc GUID              | API                   |
-| ---- | -------- | ---------------------- | ----------------------- | --------------------- |
-| 1    | Registry | GUID (workspace ID)    | `{registryId}`          | `createRegistryDoc()` |
-| 2    | Head     | Epoch (version number) | `{workspaceId}`         | `createHeadDoc()`     |
-| 3    | Data     | Schema + Data          | `{workspaceId}-{epoch}` | `workspace.create()`  |
+| Step | Document  | Fetches                | Y.Doc GUID              | API                   |
+| ---- | --------- | ---------------------- | ----------------------- | --------------------- |
+| 1    | Registry  | GUID (workspace ID)    | `{registryId}`          | `createRegistryDoc()` |
+| 2    | Head      | Epoch (version number) | `{workspaceId}`         | `createHeadDoc()`     |
+| 3    | Workspace | Schema + Data          | `{workspaceId}-{epoch}` | `workspace.create()`  |
 
 ## Why Three Documents?
 
 A single Y.Doc per workspace seems simpler, but creates problems:
 
 1. **Different sync scopes**: Registry syncs only to YOUR devices; workspace data syncs to ALL collaborators
-2. **Epoch migrations**: Bumping epochs requires a stable pointer (Head) separate from data (Data)
+2. **Epoch migrations**: Bumping epochs requires a stable pointer (Head) separate from content (Workspace Doc)
 3. **Discovery**: Users need to know which workspaces they have access to before loading them
 
 ## Document Types
@@ -75,10 +75,10 @@ A single Y.Doc per workspace seems simpler, but creates problems:
 │  Purpose: "What's the current data epoch?"                       │
 └─────────────────────────────────────────────────────────────────┘
                               │
-                              │ Read epoch, compute Data doc ID
+                              │ Read epoch, compute Workspace Doc ID
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  DATA Y.Doc (created internally by workspace.create())           │
+│  WORKSPACE Y.Doc (created internally by workspace.create())      │
 │  ID: {workspaceId}-{epoch}                                       │
 │  Scope: Shared (syncs with all workspace collaborators)          │
 │                                                                  │
@@ -205,11 +205,11 @@ const epoch = head.getEpoch();
 
 // Optional: Subscribe to epoch changes for live migrations
 head.observeEpoch((newEpoch) => {
-	// Reconnect to new Data Doc when epoch bumps
+	// Reconnect to new Workspace Doc when epoch bumps
 });
 
 // ═══════════════════════════════════════════════════════════════
-// STEP 3: Create Client (Data Doc created internally)
+// STEP 3: Create Client (Workspace Doc created internally)
 // ═══════════════════════════════════════════════════════════════
 const workspace = defineWorkspace({
 	id: workspaceId, // GUID only (epoch passed to .create())
@@ -228,9 +228,9 @@ const client = await workspace.create({
 client.tables.posts.upsert({ id: '1', title: 'Hello' });
 ```
 
-## Why Separate Head from Data?
+## Why Separate Head from Workspace Doc?
 
-Data Docs are **immutable by ID**:
+Workspace Docs are **immutable by ID**:
 
 - `abc123-0` is epoch 0's data
 - `abc123-1` is epoch 1's data
@@ -243,7 +243,7 @@ The Head Doc is the **stable pointer**. Its GUID never changes (`abc123`), but i
 1. Create new client at epoch 3: `workspace.create({ epoch: 3 })`
 2. Migrate data from old client to new client
 3. Bump Head Doc: `head.bumpEpoch()`
-4. All clients observing Head reconnect to the new Data Doc
+4. All clients observing Head reconnect to the new Workspace Doc
 
 ## Epoch System
 
@@ -266,7 +266,7 @@ Epoch 2: Compacted data (fresh Y.Doc)
 1. Create new client at `epoch + 1`
 2. Migrate/transform data from old client to new client
 3. Call `head.bumpEpoch()` (safe for concurrent bumps)
-4. All clients observing Head reconnect to new Data Doc
+4. All clients observing Head reconnect to new Workspace Doc
 
 **Concurrent bump safety**: If two clients both call `bumpEpoch()` simultaneously,
 they both propose the same "next" epoch. After sync, `getEpoch()` returns that
@@ -337,7 +337,7 @@ const client = await workspace.create({
 | `registry-doc.ts` | `createRegistryDoc()` | Personal workspace index  |
 | `head-doc.ts`     | `createHeadDoc()`     | Epoch pointer (CRDT-safe) |
 
-**Note:** Data Doc creation is handled internally by `workspace.create()` in the workspace module.
+**Note:** Workspace Doc creation is handled internally by `workspace.create()` in the workspace module.
 
 ## Schema Storage
 
@@ -378,7 +378,7 @@ const epoch = head.getEpoch(); // 0
 // Bump epoch (CRDT-safe)
 const newEpoch = head.bumpEpoch(); // 1
 
-// Define and create workspace (Data Doc created internally)
+// Define and create workspace (Workspace Doc created internally)
 const workspace = defineWorkspace({
 	id: 'workspace456',
 	slug: 'blog',
@@ -388,7 +388,7 @@ const workspace = defineWorkspace({
 });
 
 const client = await workspace.create({ epoch });
-// client.ydoc is the Data Doc at guid "workspace456-0"
+// client.ydoc is the Workspace Doc at guid "workspace456-0"
 ```
 
 ## References

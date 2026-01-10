@@ -4,7 +4,7 @@ import * as Y from 'yjs';
  * Create a Head Y.Doc wrapper for managing workspace epoch state.
  *
  * Each workspace has one Head Y.Doc that syncs with all collaborators.
- * It stores the current epoch number, which determines which Data Y.Doc to use.
+ * It stores the current epoch number, which determines which Workspace Y.Doc to use.
  *
  * Y.Doc ID: `{workspaceId}` (no epoch suffix)
  *
@@ -65,10 +65,10 @@ import * as Y from 'yjs';
  * // Bump epoch safely (handles concurrent bumps)
  * const newEpoch = head.bumpEpoch(); // 1
  *
- * // Observe epoch changes (for reconnecting to new data doc)
+ * // Observe epoch changes (for reconnecting to new Workspace Doc)
  * const unsubscribe = head.observeEpoch((newEpoch) => {
- *   const dataDocId = `${head.workspaceId}-${newEpoch}`;
- *   // Reconnect to new data doc
+ *   const workspaceDocId = `${head.workspaceId}-${newEpoch}`;
+ *   // Reconnect to new Workspace Doc
  * });
  * ```
  *
@@ -256,7 +256,7 @@ export function createHeadDoc(options: { workspaceId: string; ydoc?: Y.Doc }) {
 		 * Observe epoch changes.
 		 *
 		 * Fires when any client proposes a new epoch, which may change the
-		 * max epoch. Use this to reconnect to the new Data Y.Doc.
+		 * max epoch. Use this to reconnect to the new Workspace Y.Doc.
 		 *
 		 * The callback receives the new max epoch (computed via `getEpoch()`).
 		 *
@@ -267,8 +267,8 @@ export function createHeadDoc(options: { workspaceId: string; ydoc?: Y.Doc }) {
 		 * ```typescript
 		 * const unsubscribe = head.observeEpoch((newEpoch) => {
 		 *   console.log(`Epoch changed to ${newEpoch}`);
-		 *   const dataDocId = `${head.workspaceId}-${newEpoch}`;
-		 *   // Reconnect to new data doc...
+		 *   const workspaceDocId = `${head.workspaceId}-${newEpoch}`;
+		 *   // Reconnect to new Workspace Doc...
 		 * });
 		 *
 		 * // Later: stop observing
