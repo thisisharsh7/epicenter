@@ -1,7 +1,7 @@
 import { stat } from 'node:fs/promises';
 import { dirname, join, parse, resolve } from 'node:path';
 import type { ProjectDir } from '../core/types';
-import type { WorkspaceClient } from '../core/workspace/contract';
+import type { WorkspaceClient } from '../core/workspace/workspace';
 
 type AnyWorkspaceClient = WorkspaceClient<any, any, any>;
 

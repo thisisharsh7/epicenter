@@ -1,3 +1,66 @@
+/**
+ * Workspace definition and creation for YJS-first collaborative workspaces.
+ *
+ * This module provides the core workspace API:
+ * - {@link defineWorkspace} - Factory to create workspace definitions
+ * - {@link Workspace} - The workspace object with `.create()` method
+ * - {@link WorkspaceClient} - The runtime client for interacting with data
+ *
+ * ## Architecture Overview
+ *
+ * ```
+ * ┌─────────────────────────────────────────────────────────────────────────────┐
+ * │  Two-Phase Initialization                                                   │
+ * │                                                                             │
+ * │   defineWorkspace(config)              workspace.create(options)            │
+ * │   ─────────────────────────            ────────────────────────             │
+ * │                                                                             │
+ * │   ┌─────────────────────┐              ┌─────────────────────┐              │
+ * │   │ WorkspaceDefinition │    epoch     │  WorkspaceClient    │              │
+ * │   │                     │ ──────────▶  │                     │              │
+ * │   │ • id (GUID)         │ capabilities │  • Y.Doc instance   │              │
+ * │   │ • slug              │              │  • tables helpers   │              │
+ * │   │ • name              │              │  • kv helpers       │              │
+ * │   │ • tables schema     │              │  • capabilities     │              │
+ * │   │ • kv schema         │              │  • whenSynced       │              │
+ * │   └─────────────────────┘              └─────────────────────┘              │
+ * │                                                                             │
+ * │   Static (no I/O)                      Dynamic (creates Y.Doc)              │
+ * └─────────────────────────────────────────────────────────────────────────────┘
+ * ```
+ *
+ * ## Sync Construction Pattern
+ *
+ * This module implements the "sync construction, async property" pattern:
+ *
+ * - `workspace.create()` returns **immediately** with a client object
+ * - Async initialization (persistence, sync) tracked via `client.whenSynced`
+ * - UI frameworks use `whenSynced` as a render gate
+ *
+ * ```typescript
+ * // Sync construction - returns immediately
+ * const client = workspace.create({ capabilities: { sqlite } });
+ *
+ * // Sync access works immediately (operates on in-memory Y.Doc)
+ * client.tables.posts.upsert({ id: '1', title: 'Hello' });
+ *
+ * // Await when you need initialization complete
+ * await client.whenSynced;
+ * ```
+ *
+ * For Node.js scripts that prefer async semantics, see {@link ./node.ts}.
+ *
+ * ## Related Modules
+ *
+ * - {@link ../lifecycle.ts} - Lifecycle protocol (`whenSynced`, `destroy`)
+ * - {@link ../capability.ts} - Capability factory types
+ * - {@link ../docs/head-doc.ts} - Head Doc for epoch management
+ * - {@link ../docs/registry-doc.ts} - Registry Doc for workspace discovery
+ * - {@link ./node.ts} - Node.js async wrapper
+ *
+ * @module
+ */
+
 import { Value } from 'typebox/value';
 import * as Y from 'yjs';
 import type {
@@ -62,29 +125,43 @@ export type WorkspaceDefinition<
  * A workspace object returned by `defineWorkspace()`.
  *
  * Contains the schema (tables, kv, id, slug) and a `.create()` method
- * to instantiate a runtime client.
+ * to instantiate a runtime client. The `.create()` method uses **sync construction**:
+ * it returns immediately with a client, and async initialization is tracked via
+ * `client.whenSynced`.
  *
  * @example No capabilities (ephemeral, in-memory)
  * ```typescript
- * const client = await workspace.create();
+ * const client = workspace.create();
+ * // Client is usable immediately (in-memory Y.Doc)
+ * client.tables.posts.upsert({ id: '1', title: 'Hello' });
  * ```
  *
- * @example With capabilities
+ * @example With capabilities and render gate
  * ```typescript
- * const client = await workspace.create({
+ * const client = workspace.create({
  *   capabilities: { sqlite, persistence },
  * });
+ *
+ * // In Svelte - wait for initialization before rendering children
+ * {#await client.whenSynced}
+ *   <Loading />
+ * {:then}
+ *   <App />
+ * {/await}
  * ```
  *
- * @example Capabilities with options
+ * @example Await when needed
  * ```typescript
- * const client = await workspace.create({
- *   capabilities: {
- *     sqlite: sqlite({ debounceMs: 50 }),
- *     persistence,
- *   },
+ * const client = workspace.create({
+ *   capabilities: { sqlite, persistence },
  * });
+ *
+ * // If you need to ensure persistence loaded before proceeding:
+ * await client.whenSynced;
+ * const posts = client.tables.posts.getAllValid();
  * ```
+ *
+ * @see {@link ./node.ts} - For async `create()` that awaits internally (Node.js scripts)
  */
 export type Workspace<
 	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,

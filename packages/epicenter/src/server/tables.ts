@@ -3,7 +3,7 @@ import { Elysia } from 'elysia';
 import { Ok } from 'wellcrafted/result';
 import type { Row, FieldSchemaMap } from '../core/schema';
 import { tableSchemaToArktype } from '../core/schema';
-import type { WorkspaceClient } from '../core/workspace/contract';
+import type { WorkspaceClient } from '../core/workspace/workspace';
 
 type AnyWorkspaceClient = WorkspaceClient<any, any, any>;
 

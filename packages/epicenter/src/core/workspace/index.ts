@@ -11,5 +11,5 @@ export type {
 	Workspace,
 	WorkspaceClient,
 	WorkspaceDefinition,
-} from './contract';
-export { defineWorkspace } from './contract';
+} from './workspace';
+export { defineWorkspace } from './workspace';

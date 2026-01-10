@@ -1,20 +1,103 @@
 /**
  * Node.js/CLI convenience wrapper for workspace creation.
  *
- * Provides an async `defineWorkspace()` that awaits `whenSynced` internally,
- * returning a fully initialized client without the `whenSynced` property.
+ * This module provides an **async** version of `defineWorkspace()` for environments
+ * where the "sync construction + render gate" pattern isn't needed. Instead of
+ * returning immediately with a `whenSynced` promise, the Node version awaits
+ * initialization internally and returns a fully-ready client.
  *
- * Use this for CLI scripts, servers, and migrations where you want to
- * await creation rather than use a render gate pattern.
+ * ## When to use this vs the browser version
  *
- * @example
+ * | Environment | Import | `create()` returns | Use case |
+ * |-------------|--------|-------------------|----------|
+ * | Browser/UI | `@epicenter/hq` | `WorkspaceClient` (sync) | Render gates, reactive UI |
+ * | Node.js/CLI | `@epicenter/hq/node` | `Promise<WorkspaceClient>` | Scripts, servers, migrations |
+ *
+ * ## Architecture
+ *
+ * This is a thin wrapper around the sync version from {@link ./workspace.ts}:
+ *
+ * ```
+ * ┌─────────────────────────────────────────────────────────────────────┐
+ * │  @epicenter/hq (browser)                                            │
+ * │                                                                     │
+ * │    workspace.create()  →  WorkspaceClient { whenSynced, ... }       │
+ * │         │                        │                                  │
+ * │         │                        └── UI awaits client.whenSynced    │
+ * │         │                                                           │
+ * └─────────│───────────────────────────────────────────────────────────┘
+ *           │
+ *           │  (wraps)
+ *           ▼
+ * ┌─────────────────────────────────────────────────────────────────────┐
+ * │  @epicenter/hq/node (this module)                                   │
+ * │                                                                     │
+ * │    workspace.create()  →  Promise<WorkspaceClient>                  │
+ * │         │                        │                                  │
+ * │         │                        └── whenSynced already resolved    │
+ * │         │                             (property omitted)            │
+ * │         │                                                           │
+ * │    Internally:                                                      │
+ * │      const syncClient = syncWorkspace.create();                     │
+ * │      await syncClient.whenSynced;                                   │
+ * │      return { ...syncClient, whenSynced: undefined };               │
+ * └─────────────────────────────────────────────────────────────────────┘
+ * ```
+ *
+ * ## Implementation details
+ *
+ * The actual workspace creation logic lives in {@link ./workspace.ts | workspace.ts}:
+ * - {@link defineWorkspace} - The sync factory that creates workspace definitions
+ * - {@link WorkspaceClient} - The full client type with `whenSynced`
+ * - {@link Lifecycle} - The protocol defining `whenSynced` and `destroy`
+ *
+ * This module simply:
+ * 1. Calls the sync `defineWorkspace()` from workspace.ts
+ * 2. Wraps `.create()` to await `whenSynced` internally
+ * 3. Returns the client without the `whenSynced` property
+ *
+ * @example Basic usage
+ * ```typescript
+ * import { defineWorkspace, id, text } from '@epicenter/hq/node';
+ *
+ * const workspace = defineWorkspace({
+ *   id: 'abc123',
+ *   slug: 'blog',
+ *   name: 'Blog',
+ *   tables: { posts: { fields: { id: id(), title: text() } } },
+ *   kv: {},
+ * });
+ *
+ * // Async - awaits initialization internally
+ * const client = await workspace.create({
+ *   capabilities: { sqlite, persistence },
+ * });
+ *
+ * // Ready to use immediately
+ * client.tables.posts.upsert({ id: '1', title: 'Hello' });
+ * await client.destroy();
+ * ```
+ *
+ * @example Migration script
  * ```typescript
  * import { defineWorkspace } from '@epicenter/hq/node';
  *
- * const workspace = defineWorkspace({ id, slug, name, tables, kv });
- * const client = await workspace.create({ capabilities: { sqlite } });
- * // Ready to use - no need to await whenSynced
+ * async function migrate() {
+ *   const oldClient = await workspace.create({ epoch: 1 });
+ *   const newClient = await workspace.create({ epoch: 2 });
+ *
+ *   for (const post of oldClient.tables.posts.getAllValid()) {
+ *     newClient.tables.posts.upsert(migratePost(post));
+ *   }
+ *
+ *   await oldClient.destroy();
+ *   await newClient.destroy();
+ * }
  * ```
+ *
+ * @see {@link ./workspace.ts} - The sync implementation that powers this wrapper
+ * @see {@link ../lifecycle.ts} - The Lifecycle protocol (`whenSynced`, `destroy`)
+ * @see {@link ../capability.ts} - Capability factory types and `defineCapabilities`
  *
  * @module
  */
@@ -27,15 +110,52 @@ import type { Lifecycle } from '../lifecycle';
 import type { KvDefinitionMap, TableDefinitionMap } from '../schema';
 import {
 	defineWorkspace as defineWorkspaceSync,
-	type WorkspaceDefinition,
 	type WorkspaceClient as WorkspaceClientSync,
-} from './contract';
+	type WorkspaceDefinition,
+	type Workspace as WorkspaceSync,
+} from './workspace';
 
 /**
- * Workspace client type for Node.js (without whenSynced - already resolved).
+ * Workspace client type for Node.js environments.
  *
- * This type omits `whenSynced` since the async `create()` wrapper
- * awaits it internally before returning.
+ * This type is derived from the browser {@link WorkspaceClientSync | WorkspaceClient}
+ * with the `whenSynced` property omitted. Since the Node.js `create()` method
+ * awaits initialization internally, `whenSynced` has already resolved by the
+ * time you receive the client.
+ *
+ * ## Relationship to browser client
+ *
+ * ```
+ * WorkspaceClient (browser)              WorkspaceClient (node)
+ * ├── id: string                         ├── id: string
+ * ├── slug: string                       ├── slug: string
+ * ├── tables: Tables<T>                  ├── tables: Tables<T>
+ * ├── kv: Kv<K>                          ├── kv: Kv<K>
+ * ├── capabilities: C                    ├── capabilities: C
+ * ├── ydoc: Y.Doc                        ├── ydoc: Y.Doc
+ * ├── whenSynced: Promise<void>  ──────► (omitted - already resolved)
+ * ├── destroy(): Promise<void>           ├── destroy(): Promise<void>
+ * └── [Symbol.asyncDispose]              └── [Symbol.asyncDispose]
+ * ```
+ *
+ * ## Why omit `whenSynced`?
+ *
+ * In browser/UI contexts, `whenSynced` enables the render gate pattern:
+ *
+ * ```svelte
+ * {#await client.whenSynced}
+ *   <Loading />
+ * {:then}
+ *   <App />
+ * {/await}
+ * ```
+ *
+ * In Node.js scripts, this pattern isn't useful. You just want to `await`
+ * creation and start working. So we await internally and remove the property
+ * to signal "this client is ready."
+ *
+ * @see {@link WorkspaceClientSync} - The browser version with `whenSynced`
+ * @see {@link ./workspace.ts} - Where `WorkspaceClientSync` is defined
  */
 export type WorkspaceClient<
 	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
@@ -54,19 +174,85 @@ export type WorkspaceClient<
 >;
 
 /**
- * Workspace type for Node.js with async create() method.
+ * Workspace type for Node.js with async `create()` method.
+ *
+ * This type extends the browser {@link WorkspaceSync | Workspace} but overrides
+ * the `create()` method to return a `Promise` instead of returning synchronously.
+ * This makes it natural to use in async/await Node.js code.
+ *
+ * ## Type derivation
+ *
+ * We derive from the sync `Workspace` to ensure schema properties (`id`, `slug`,
+ * `name`, `tables`, `kv`) stay in sync. Only `create()` is overridden:
+ *
+ * ```typescript
+ * // Browser (sync construction)
+ * Workspace.create() → WorkspaceClient { whenSynced: Promise<void>, ... }
+ *
+ * // Node (async construction)
+ * Workspace.create() → Promise<WorkspaceClient { /* no whenSynced *\/ }>
+ * ```
+ *
+ * ## Why not just use the browser version?
+ *
+ * You *can* use the browser version in Node.js:
+ *
+ * ```typescript
+ * import { defineWorkspace } from '@epicenter/hq';
+ * const client = workspace.create({ capabilities });
+ * await client.whenSynced;
+ * ```
+ *
+ * But this requires you to remember the two-step dance. The Node version
+ * provides a simpler mental model for scripts and servers:
+ *
+ * ```typescript
+ * import { defineWorkspace } from '@epicenter/hq/node';
+ * const client = await workspace.create({ capabilities });
+ * // Done. Ready to use.
+ * ```
+ *
+ * @see {@link WorkspaceSync} - The browser version with sync `create()`
+ * @see {@link ./workspace.ts} - Where `WorkspaceSync` and `defineWorkspace` live
  */
 export type Workspace<
 	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
 	TKvDefinitionMap extends KvDefinitionMap = KvDefinitionMap,
-> = WorkspaceDefinition<TTableDefinitionMap, TKvDefinitionMap> & {
+> = Omit<WorkspaceSync<TTableDefinitionMap, TKvDefinitionMap>, 'create'> & {
 	/**
-	 * Create a workspace client (async - awaits whenSynced internally).
+	 * Create a workspace client asynchronously.
 	 *
-	 * Unlike the browser version, this returns a Promise that resolves
-	 * when all capabilities are fully initialized.
+	 * This method wraps the sync {@link WorkspaceSync.create | browser create()}
+	 * and awaits `whenSynced` internally. When the Promise resolves, all
+	 * capabilities are fully initialized and ready to use.
 	 *
-	 * @example
+	 * ## What happens under the hood
+	 *
+	 * ```typescript
+	 * // This:
+	 * const client = await workspace.create({ capabilities });
+	 *
+	 * // Is equivalent to:
+	 * const syncClient = syncWorkspace.create({ capabilities });
+	 * await syncClient.whenSynced;
+	 * const { whenSynced: _, ...client } = syncClient;
+	 * ```
+	 *
+	 * ## Options
+	 *
+	 * @param options.epoch - Workspace Doc version (defaults to 0). Creates
+	 *   a Y.Doc with GUID `{workspaceId}-{epoch}`. Change this intentionally
+	 *   to create separate document namespaces (migrations, sync isolation).
+	 *   See {@link ./workspace.ts | workspace.ts} for epoch semantics.
+	 *
+	 * @param options.capabilities - Factory functions that add features like
+	 *   persistence, sync, or SQL queries. Each factory receives context and
+	 *   returns exports accessible via `client.capabilities.{name}`.
+	 *   See {@link ../capability.ts | capability.ts} for factory types.
+	 *
+	 * @returns Promise resolving to a fully-initialized client (no `whenSynced`)
+	 *
+	 * @example Basic usage
 	 * ```typescript
 	 * const client = await workspace.create({
 	 *   capabilities: { sqlite, persistence },
@@ -74,6 +260,33 @@ export type Workspace<
 	 * // Ready to use immediately
 	 * client.tables.posts.upsert({ id: '1', title: 'Hello' });
 	 * ```
+	 *
+	 * @example With epoch from Head Doc
+	 * ```typescript
+	 * import { createHeadDoc } from '@epicenter/hq';
+	 *
+	 * const head = createHeadDoc({ workspaceId: workspace.id });
+	 * await head.whenSynced;
+	 * const epoch = head.getEpoch();
+	 *
+	 * const client = await workspace.create({
+	 *   epoch,
+	 *   capabilities: { sqlite, persistence },
+	 * });
+	 * ```
+	 *
+	 * @example Cleanup with try/finally
+	 * ```typescript
+	 * const client = await workspace.create({ capabilities });
+	 * try {
+	 *   await runMigration(client);
+	 * } finally {
+	 *   await client.destroy();
+	 * }
+	 * ```
+	 *
+	 * @see {@link WorkspaceSync.create} - The sync version (browser)
+	 * @see {@link ../capability.ts} - Capability factory documentation
 	 */
 	create<
 		TCapabilityFactories extends CapabilityFactoryMap<
@@ -93,21 +306,82 @@ export type Workspace<
 };
 
 /**
- * Define a workspace with async create() for Node.js/CLI usage.
+ * Define a workspace with async `create()` for Node.js/CLI usage.
  *
- * This is a convenience wrapper around the browser `defineWorkspace()`.
- * The `create()` method awaits `whenSynced` internally so you get a
- * fully initialized client without needing a render gate.
+ * This factory wraps the browser {@link defineWorkspaceSync | defineWorkspace()}
+ * from {@link ./workspace.ts | workspace.ts}, providing a more ergonomic API for
+ * non-UI environments. The only difference is how `create()` behaves:
  *
- * @example
+ * | Version | `create()` returns | `whenSynced` |
+ * |---------|-------------------|--------------|
+ * | Browser | `WorkspaceClient` (sync) | Property on client |
+ * | Node | `Promise<WorkspaceClient>` | Awaited internally |
+ *
+ * ## How it works
+ *
+ * The implementation is simple — we delegate to the sync version and add an
+ * async wrapper:
+ *
  * ```typescript
- * import { defineWorkspace } from '@epicenter/hq/node';
+ * // Simplified implementation
+ * function defineWorkspace(config) {
+ *   const syncWorkspace = defineWorkspaceSync(config);
+ *   return {
+ *     ...config,
+ *     async create(options) {
+ *       const client = syncWorkspace.create(options);
+ *       await client.whenSynced;
+ *       return omit(client, 'whenSynced');
+ *     },
+ *   };
+ * }
+ * ```
+ *
+ * All the real work (Y.Doc creation, schema merging, capability initialization)
+ * happens in {@link defineWorkspaceSync | the sync version}.
+ *
+ * ## When to use this vs the browser version
+ *
+ * **Use this (Node version) for:**
+ * - CLI scripts
+ * - Migration scripts
+ * - Server-side code
+ * - Tests
+ * - Any async/await context without UI render gates
+ *
+ * **Use the browser version for:**
+ * - Svelte/React/Vue apps with render gates
+ * - Code that needs to show loading state during initialization
+ * - Module-level exports where you can't use top-level await
+ *
+ * @param config - Workspace configuration. Same as browser version.
+ * @param config.id - Globally unique identifier (GUID) for sync coordination.
+ *   Generate with `generateGuid()`.
+ * @param config.slug - Human-readable slug for URLs, paths, CLI commands.
+ * @param config.name - Display name shown in UI.
+ * @param config.tables - Table definitions with fields, icons, covers.
+ *   See {@link ../schema/fields/types.ts | field types} for available field factories.
+ * @param config.kv - Key-value store definitions.
+ *
+ * @returns A workspace with async `create()` method
+ *
+ * @example Basic usage
+ * ```typescript
+ * import { defineWorkspace, id, text, generateGuid } from '@epicenter/hq/node';
  *
  * const workspace = defineWorkspace({
  *   id: generateGuid(),
  *   slug: 'blog',
  *   name: 'Blog',
- *   tables: { posts: { ... } },
+ *   tables: {
+ *     posts: {
+ *       name: 'Posts',
+ *       icon: { type: 'emoji', value: '📝' },
+ *       cover: null,
+ *       description: 'Blog posts',
+ *       fields: { id: id(), title: text() },
+ *     },
+ *   },
  *   kv: {},
  * });
  *
@@ -120,6 +394,32 @@ export type Workspace<
  * client.tables.posts.upsert({ id: '1', title: 'Hello' });
  * await client.destroy();
  * ```
+ *
+ * @example Server with multiple workspaces
+ * ```typescript
+ * const blogClient = await blogWorkspace.create({ capabilities });
+ * const authClient = await authWorkspace.create({ capabilities });
+ *
+ * const server = createServer([blogClient, authClient], { port: 3913 });
+ * server.start();
+ * ```
+ *
+ * @example Migration between epochs
+ * ```typescript
+ * const oldClient = await workspace.create({ epoch: 1, capabilities });
+ * const newClient = await workspace.create({ epoch: 2, capabilities });
+ *
+ * for (const row of oldClient.tables.posts.getAllValid()) {
+ *   newClient.tables.posts.upsert(migrateRow(row));
+ * }
+ *
+ * await Promise.all([oldClient.destroy(), newClient.destroy()]);
+ * ```
+ *
+ * @see {@link defineWorkspaceSync} - The sync browser version (in workspace.ts)
+ * @see {@link ./workspace.ts} - Full implementation details
+ * @see {@link ../lifecycle.ts} - Lifecycle protocol (`whenSynced`, `destroy`)
+ * @see {@link ../capability.ts} - Capability factory types
  */
 export function defineWorkspace<
 	TTableDefinitionMap extends TableDefinitionMap,
@@ -127,11 +427,22 @@ export function defineWorkspace<
 >(
 	config: WorkspaceDefinition<TTableDefinitionMap, TKvDefinitionMap>,
 ): Workspace<TTableDefinitionMap, TKvDefinitionMap> {
+	// Delegate to the sync factory from workspace.ts
 	const syncWorkspace = defineWorkspaceSync(config);
 
 	return {
+		// Spread config to include id, slug, name, tables, kv
 		...config,
 
+		/**
+		 * Create a workspace client asynchronously.
+		 *
+		 * Delegates to {@link WorkspaceSync.create | sync create()} and awaits
+		 * `whenSynced` before returning. The returned client has no `whenSynced`
+		 * property since initialization is already complete.
+		 *
+		 * @see {@link Workspace.create} for full documentation
+		 */
 		async create<
 			TCapabilityFactories extends CapabilityFactoryMap<
 				TTableDefinitionMap,
@@ -146,41 +457,74 @@ export function defineWorkspace<
 				InferCapabilityExports<TCapabilityFactories>
 			>
 		> {
+			// Call the sync create() from workspace.ts
 			const client = syncWorkspace.create(options);
 
-			// Await whenSynced internally
+			// Await whenSynced internally — this is the key difference from browser
 			await client.whenSynced;
 
-			// Return client without whenSynced property
+			// Return client without whenSynced property (it's already resolved)
 			// eslint-disable-next-line @typescript-eslint/no-unused-vars
 			const { whenSynced: _, ...clientWithoutWhenSynced } = client;
 
-			return clientWithoutWhenSynced as WorkspaceClient<
-				TTableDefinitionMap,
-				TKvDefinitionMap,
-				InferCapabilityExports<TCapabilityFactories>
-			>;
+			return clientWithoutWhenSynced;
 		},
 	};
 }
 
-// Re-export common types and utilities for convenience
-export type { WorkspaceDefinition } from './contract';
+// ─────────────────────────────────────────────────────────────────────────────
+// Re-exports for convenience
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Re-export types from workspace.ts for consumers of the Node entrypoint.
+ *
+ * @see {@link ./workspace.ts} - Where these types are defined
+ */
+export type { WorkspaceDefinition } from './workspace';
+
+/**
+ * Re-export schema field factories for defining workspace tables.
+ *
+ * These are the building blocks for table definitions:
+ *
+ * ```typescript
+ * import { defineWorkspace, id, text, boolean, date } from '@epicenter/hq/node';
+ *
+ * const workspace = defineWorkspace({
+ *   tables: {
+ *     posts: {
+ *       fields: {
+ *         id: id(),           // Primary key (always required)
+ *         title: text(),      // NOT NULL text
+ *         published: boolean({ default: false }),
+ *         createdAt: date(),  // Temporal-aware date with timezone
+ *       },
+ *     },
+ *   },
+ * });
+ * ```
+ *
+ * @see {@link ../schema/fields/factories.ts} - Field factory implementations
+ * @see {@link ../schema/fields/types.ts} - Field type definitions
+ */
 export {
-	// Schema utilities
+	// Field factories for table definitions
 	boolean,
-	cover,
 	date,
-	generateGuid,
-	generateId,
-	icon,
 	id,
 	integer,
 	json,
 	real,
 	richtext,
 	select,
-	table,
 	tags,
 	text,
+	// Table metadata helpers
+	cover,
+	icon,
+	table,
+	// ID generation utilities
+	generateGuid,
+	generateId,
 } from '../schema';

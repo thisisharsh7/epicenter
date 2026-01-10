@@ -136,8 +136,8 @@ export type {
 	Workspace,
 	WorkspaceClient,
 	WorkspaceDefinition,
-} from './core/workspace/contract';
-export { defineWorkspace } from './core/workspace/contract';
+} from './core/workspace/workspace';
+export { defineWorkspace } from './core/workspace/workspace';
 
 // Y.Doc wrappers for collaborative workspace architecture
 export type {
