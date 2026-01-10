@@ -105,8 +105,7 @@ Currently, **Whispering** (`apps/whispering`) is the most mature application and
    ```
 
    Create a PR to merge your fork's branch into `EpicenterHQ/epicenter:main`:
-   - **GitHub CLI**: `gh pr create --repo EpicenterHQ/epicenter`
-   - **Web**: Go to [EpicenterHQ/epicenter](https://github.com/EpicenterHQ/epicenter) — GitHub usually shows a "Compare & pull request" banner for recent pushes
+   Go to [EpicenterHQ/epicenter](https://github.com/EpicenterHQ/epicenter) — GitHub usually shows a "Compare & pull request" banner for recent pushes.
 
 <details>
 <summary>Tips for new contributors</summary>
@@ -121,7 +120,7 @@ git checkout main
 git merge upstream/main
 ```
 
-> Note: `upstream` is set automatically if you used `gh repo fork`. Otherwise, add it:
+> Note: Add the upstream remote to sync with the main repo:
 >
 > ```bash
 > git remote add upstream https://github.com/EpicenterHQ/epicenter.git
