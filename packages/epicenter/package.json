@@ -5,6 +5,7 @@
 	"types": "./src/index.ts",
 	"exports": {
 		".": "./src/index.ts",
+		"./node": "./src/core/workspace/node.ts",
 		"./capabilities/persistence": {
 			"browser": "./src/capabilities/persistence/index.browser.ts",
 			"node": "./src/capabilities/persistence/index.node.ts",

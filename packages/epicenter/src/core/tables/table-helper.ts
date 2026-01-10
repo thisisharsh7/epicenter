@@ -4,10 +4,10 @@ import * as Y from 'yjs';
 import type {
 	PartialRow,
 	Row,
-	FieldDefinitions,
+	FieldSchemaMap,
 	TableDefinitionMap,
 } from '../schema';
-import { fieldsDefinitionToTypebox } from '../schema';
+import { fieldsSchemaToTypebox } from '../schema';
 
 /**
  * A single validation error from TypeBox schema validation.
@@ -180,7 +180,7 @@ export function createTableHelpers<
  * User A edits title, User B edits views → After sync: both changes preserved
  * ```
  */
-function createTableHelper<TFieldDefinitions extends FieldDefinitions>({
+function createTableHelper<TFieldSchemaMap extends FieldSchemaMap>({
 	ydoc,
 	tableName,
 	ytables,
@@ -189,11 +189,11 @@ function createTableHelper<TFieldDefinitions extends FieldDefinitions>({
 	ydoc: Y.Doc;
 	tableName: string;
 	ytables: TablesMap;
-	schema: TFieldDefinitions;
+	schema: TFieldSchemaMap;
 }) {
-	type TRow = Row<TFieldDefinitions>;
+	type TRow = Row<TFieldSchemaMap>;
 
-	const typeboxSchema = fieldsDefinitionToTypebox(schema);
+	const typeboxSchema = fieldsSchemaToTypebox(schema);
 	const rowValidator = Compile(typeboxSchema);
 
 	/**
@@ -308,7 +308,7 @@ function createTableHelper<TFieldDefinitions extends FieldDefinitions>({
 		name: tableName,
 		schema,
 
-		update(partialRow: PartialRow<TFieldDefinitions>): UpdateResult {
+		update(partialRow: PartialRow<TFieldSchemaMap>): UpdateResult {
 			const rowMap = getRow(partialRow.id);
 			if (!rowMap) return { status: 'not_found_locally' };
 
@@ -341,7 +341,7 @@ function createTableHelper<TFieldDefinitions extends FieldDefinitions>({
 			});
 		},
 
-		updateMany(rows: PartialRow<TFieldDefinitions>[]): UpdateManyResult {
+		updateMany(rows: PartialRow<TFieldSchemaMap>[]): UpdateManyResult {
 			const applied: string[] = [];
 			const notFoundLocally: string[] = [];
 
@@ -755,5 +755,6 @@ function createTableHelper<TFieldDefinitions extends FieldDefinitions>({
 	};
 }
 
-export type TableHelper<TFieldDefinitions extends FieldDefinitions> =
-	ReturnType<typeof createTableHelper<TFieldDefinitions>>;
+export type TableHelper<TFieldSchemaMap extends FieldSchemaMap> = ReturnType<
+	typeof createTableHelper<TFieldSchemaMap>
+>;

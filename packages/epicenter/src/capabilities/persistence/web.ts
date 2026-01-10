@@ -3,7 +3,7 @@ import type {
 	CapabilityFactory,
 	CapabilityContext,
 } from '../../core/capability';
-import type { KvSchema, TableDefinitionMap } from '../../core/schema';
+import type { KvDefinitionMap, TableDefinitionMap } from '../../core/schema';
 
 /**
  * YJS document persistence capability using IndexedDB.
@@ -94,10 +94,10 @@ import type { KvSchema, TableDefinitionMap } from '../../core/schema';
  */
 export const persistence = (<
 	TTableDefinitionMap extends TableDefinitionMap,
-	TKvSchema extends KvSchema,
+	TKvDefinitionMap extends KvDefinitionMap,
 >({
 	ydoc,
-}: CapabilityContext<TTableDefinitionMap, TKvSchema>) => {
+}: CapabilityContext<TTableDefinitionMap, TKvDefinitionMap>) => {
 	// y-indexeddb handles both loading and saving automatically
 	// Uses the YDoc's guid as the IndexedDB database name
 	const persistence = new IndexeddbPersistence(ydoc.guid, ydoc);
@@ -112,4 +112,4 @@ export const persistence = (<
 		}),
 		destroy: () => persistence.destroy(),
 	};
-}) satisfies CapabilityFactory<TableDefinitionMap, KvSchema>;
+}) satisfies CapabilityFactory<TableDefinitionMap, KvDefinitionMap>;

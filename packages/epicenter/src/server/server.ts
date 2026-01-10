@@ -1,7 +1,7 @@
 import { openapi } from '@elysiajs/openapi';
 import { Elysia } from 'elysia';
 import type { Actions } from '../core/actions';
-import type { WorkspaceClient } from '../core/workspace/contract';
+import type { WorkspaceClient } from '../core/workspace/workspace';
 import { collectActionPaths, createActionsRouter } from './actions';
 import { createSyncPlugin } from './sync';
 import { createTablesPlugin } from './tables';

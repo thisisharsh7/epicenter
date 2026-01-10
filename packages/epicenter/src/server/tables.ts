@@ -1,9 +1,9 @@
 import { type } from 'arktype';
 import { Elysia } from 'elysia';
 import { Ok } from 'wellcrafted/result';
-import type { Row, FieldDefinitions } from '../core/schema';
+import type { Row, FieldSchemaMap } from '../core/schema';
 import { tableSchemaToArktype } from '../core/schema';
-import type { WorkspaceClient } from '../core/workspace/contract';
+import type { WorkspaceClient } from '../core/workspace/workspace';
 
 type AnyWorkspaceClient = WorkspaceClient<any, any, any>;
 
@@ -46,8 +46,8 @@ export function createTablesPlugin(
 			app.post(
 				basePath,
 				({ body }) => {
-					tableHelper.upsert(body as Row<FieldDefinitions>);
-					return Ok({ id: (body as Row<FieldDefinitions>).id });
+					tableHelper.upsert(body as Row<FieldSchemaMap>);
+					return Ok({ id: (body as Row<FieldSchemaMap>).id });
 				},
 				{
 					body: tableSchemaToArktype(tableHelper.schema),
@@ -60,7 +60,7 @@ export function createTablesPlugin(
 				({ params, body }) => {
 					const result = tableHelper.update({
 						id: params.id,
-						...(body as Partial<Row<FieldDefinitions>>),
+						...(body as Partial<Row<FieldSchemaMap>>),
 					});
 					return Ok(result);
 				},

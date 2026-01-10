@@ -11,8 +11,8 @@ import {
 } from '../../core/capability';
 import type { TableHelper } from '../../core/tables/create-tables';
 import type {
-	FieldDefinitions,
-	KvSchema,
+	FieldSchemaMap,
+	KvDefinitionMap,
 	Row,
 	TableDefinitionMap,
 } from '../../core/schema';
@@ -139,11 +139,11 @@ type TableConfigs<TTableDefinitionMap extends TableDefinitionMap> = {
  * Internal resolved config with all required fields.
  * This is what the provider uses internally after merging user config with defaults.
  */
-type ResolvedTableConfig<TFieldDefinitions extends FieldDefinitions> = {
+type ResolvedTableConfig<TFieldSchemaMap extends FieldSchemaMap> = {
 	directory: AbsolutePath;
-	serialize: MarkdownSerializer<TFieldDefinitions>['serialize'];
-	parseFilename: MarkdownSerializer<TFieldDefinitions>['deserialize']['parseFilename'];
-	deserialize: MarkdownSerializer<TFieldDefinitions>['deserialize']['fromContent'];
+	serialize: MarkdownSerializer<TFieldSchemaMap>['serialize'];
+	parseFilename: MarkdownSerializer<TFieldSchemaMap>['deserialize']['parseFilename'];
+	deserialize: MarkdownSerializer<TFieldSchemaMap>['deserialize']['fromContent'];
 };
 
 /**
@@ -277,9 +277,9 @@ export type MarkdownCapabilityConfig<
 
 export const markdown = async <
 	TTableDefinitionMap extends TableDefinitionMap,
-	TKvSchema extends KvSchema,
+	TKvDefinitionMap extends KvDefinitionMap,
 >(
-	context: CapabilityContext<TTableDefinitionMap, TKvSchema>,
+	context: CapabilityContext<TTableDefinitionMap, TKvDefinitionMap>,
 	config: MarkdownCapabilityConfig<TTableDefinitionMap>,
 ) => {
 	const { id, tables } = context;
@@ -405,9 +405,9 @@ export const markdown = async <
 			/**
 			 * Write a YJS row to markdown file
 			 */
-			async function writeRowToMarkdown<
-				TFieldDefinitions extends FieldDefinitions,
-			>(row: Row<TFieldDefinitions>) {
+			async function writeRowToMarkdown<TFieldSchemaMap extends FieldSchemaMap>(
+				row: Row<TFieldSchemaMap>,
+			) {
 				const { frontmatter, body, filename } = tableConfig.serialize({
 					row,
 					table,

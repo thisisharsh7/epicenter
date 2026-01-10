@@ -120,3 +120,46 @@ Think of schemas as **data that describes data**:
 ```
 
 The field schema is the source of truth. Other formats are derived representations.
+
+## Naming Conventions
+
+The codebase distinguishes between **Schema** (raw type constraints) and **Definition** (metadata + schema):
+
+| Concept       | Single Item           | Map of Items         | Generic Parameter     |
+| ------------- | --------------------- | -------------------- | --------------------- |
+| **Field**     | `TextFieldSchema`     | `FieldSchemaMap`     | `TFieldSchemaMap`     |
+| **Table**     | `TableDefinition`     | `TableDefinitionMap` | `TTableDefinitionMap` |
+| **KV**        | `KvDefinition`        | `KvDefinitionMap`    | `TKvDefinitionMap`    |
+| **Workspace** | `WorkspaceDefinition` | N/A                  | N/A                   |
+
+**Schema** = raw type/constraint description (no metadata beyond the type discriminant):
+
+```typescript
+// FieldSchema examples
+{ type: 'text', nullable: true }
+{ type: 'select', options: ['a', 'b'] }
+{ type: 'integer', default: 0 }
+```
+
+**Definition** = metadata + schema(s):
+
+```typescript
+// TableDefinition: name, icon, cover, description + fields (FieldSchemaMap)
+{
+  name: 'Blog Posts',
+  icon: { type: 'emoji', value: '📝' },
+  cover: null,
+  description: 'All blog posts',
+  fields: { id: id(), title: text(), published: boolean() }
+}
+
+// KvDefinition: name, icon, description + field (single FieldSchema)
+{
+  name: 'Theme',
+  icon: { type: 'emoji', value: '🎨' },
+  description: 'Application color theme',
+  field: { type: 'select', options: ['light', 'dark'] }
+}
+```
+
+This distinction keeps the naming predictable: if you're working with raw type constraints, look for `Schema`; if you need metadata, look for `Definition`.

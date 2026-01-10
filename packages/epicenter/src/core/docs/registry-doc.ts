@@ -1,9 +1,11 @@
 import * as Y from 'yjs';
 
-import type {
-	InferProviderExports,
-	ProviderExports,
-	ProviderFactoryMap,
+import {
+	defineExports,
+	type InferProviderExports,
+	type Lifecycle,
+	type MaybePromise,
+	type ProviderFactoryMap,
 } from './provider-types.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -164,25 +166,41 @@ export function createRegistryDoc(options: {
 		withProviders<T extends ProviderFactoryMap>(factories: T) {
 			const providers = {} as InferProviderExports<T>;
 			const initPromises: Promise<void>[] = [];
-			const destroyFns: (() => void | Promise<void>)[] = [];
 
-			// Initialize all providers (async factories)
+			// Pre-seed providers with placeholder lifecycle so runtime matches type shape.
+			// Also create destroy functions that reference current exports (handles late binding).
+			const destroyFns: (() => MaybePromise<void>)[] = [];
+			for (const id of Object.keys(factories)) {
+				(providers as Record<string, unknown>)[id] = defineExports();
+				destroyFns.push(() =>
+					// Non-null assertion safe: we just set this key above
+					(providers as Record<string, Lifecycle>)[id]!.destroy(),
+				);
+			}
+
+			// Initialize all providers (sync or async factories)
 			for (const [id, factory] of Object.entries(factories)) {
 				initPromises.push(
-					factory({ ydoc }).then((exports) => {
+					Promise.resolve(factory({ ydoc })).then((result) => {
+						// Always normalize at boundary
+						const exports = defineExports(
+							result as Record<string, unknown> | undefined,
+						);
 						(providers as Record<string, unknown>)[id] = exports;
-						destroyFns.push(exports.destroy);
 					}),
 				);
 			}
 
-			// Wait for all factories, then collect whenSynced promises
-			const whenSynced = Promise.all(initPromises)
+			// Use allSettled so init failures don't block destroy
+			const whenProvidersInitializedSettled = Promise.allSettled(
+				initPromises,
+			).then(() => {});
+
+			// whenSynced is fail-fast (any rejection rejects the whole thing)
+			const whenSynced = whenProvidersInitializedSettled
 				.then(() =>
 					Promise.all(
-						Object.values(providers).map(
-							(p) => (p as ProviderExports).whenSynced,
-						),
+						Object.values(providers).map((p) => (p as Lifecycle).whenSynced),
 					),
 				)
 				.then(() => {});
@@ -196,8 +214,16 @@ export function createRegistryDoc(options: {
 
 				/** Destroy providers and the underlying Y.Doc. */
 				async destroy() {
-					await Promise.all(destroyFns.map((fn) => fn()));
-					ydoc.destroy();
+					// Wait for init to settle (not complete) - never block on init failures
+					await whenProvidersInitializedSettled;
+
+					try {
+						// Use allSettled so one destroy failure doesn't block others
+						await Promise.allSettled(destroyFns.map((fn) => fn()));
+					} finally {
+						// Always release doc resources
+						ydoc.destroy();
+					}
 				},
 			};
 		},

@@ -183,6 +183,87 @@ If yes, write a factory function instead. Return an object with methods. Accept 
 
 Your future self will thank you.
 
+## Real-World Example: Database Stores
+
+Here's a concrete example from our [YJS vs SQLite benchmark](./yjs-storage-efficiency/README.md). The benchmark compares storage performance, but notice how cleanly the code reads:
+
+```typescript
+// Factory creates the store, closing over the database
+function createSqliteStore(path: string) {
+	const db = new Database(path);
+
+	// Setup happens once at creation
+	db.exec(`CREATE TABLE IF NOT EXISTS records (...)`);
+	const insertStmt = db.prepare(`INSERT INTO records VALUES (...)`);
+
+	return {
+		insertAll(records) {
+			const tx = db.transaction(() => {
+				for (const r of records) insertStmt.run(r);
+			});
+			tx();
+		},
+
+		deleteAll() {
+			db.exec('DELETE FROM records');
+		},
+
+		readAll() {
+			return db.query('SELECT * FROM records').all();
+		},
+
+		close() {
+			db.close();
+		},
+	};
+}
+```
+
+Usage is clean:
+
+```typescript
+const sqlite = createSqliteStore('./data.db');
+
+sqlite.insertAll(records); // No db argument!
+sqlite.deleteAll(); // Clean API
+const all = sqlite.readAll(); // Methods know their database
+
+sqlite.close();
+```
+
+The same pattern works for YJS:
+
+```typescript
+function createYjsStore() {
+	const doc = new Y.Doc();
+	const recordsMap = doc.getMap('records');
+
+	return {
+		insertAll(records) {
+			doc.transact(() => {
+				for (const r of records) {
+					recordsMap.set(r.id, r);
+				}
+			});
+		},
+
+		deleteAll() {
+			doc.transact(() => {
+				for (const key of recordsMap.keys()) {
+					recordsMap.delete(key);
+				}
+			});
+		},
+
+		readAll() {
+			return Array.from(recordsMap.values());
+		},
+	};
+}
+```
+
+Both stores have the same interface. The implementation details are hidden. Testing is trivial—just call the methods.
+
 ## Further Reading
 
 - [The Universal Factory Function Signature](./universal-factory-signature.md) — why every factory uses this signature

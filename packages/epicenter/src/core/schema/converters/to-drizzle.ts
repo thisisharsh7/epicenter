@@ -17,8 +17,8 @@ import { date, json, tags } from '../../../capabilities/sqlite/builders';
 import type { DateTimeString } from '../fields/datetime';
 import type {
 	BooleanFieldSchema,
-	FieldDefinition,
-	FieldDefinitions,
+	FieldSchema,
+	FieldSchemaMap,
 	DateFieldSchema,
 	IdFieldSchema,
 	IntegerFieldSchema,
@@ -31,7 +31,7 @@ import type {
 	TextFieldSchema,
 } from '../fields/types';
 
-import { isNullableFieldDefinition } from '../fields/helpers';
+import { isNullableFieldSchema } from '../fields/helpers';
 
 export function toSqlIdentifier(displayName: string): string {
 	return slugify(displayName, { separator: '_' });
@@ -93,24 +93,24 @@ export function convertTableDefinitionsToDrizzle<
 /** Convert a single table schema to a Drizzle SQLiteTable. */
 function convertTableSchemaToDrizzle<
 	TTableName extends string,
-	TFieldDefinitions extends FieldDefinitions,
->(tableName: TTableName, fieldsSchema: TFieldDefinitions) {
+	TFieldSchemaMap extends FieldSchemaMap,
+>(tableName: TTableName, fieldsSchema: TFieldSchemaMap) {
 	const columns = Object.fromEntries(
 		Object.keys(fieldsSchema).map((fieldKey) => {
-			const schema = fieldsSchema[fieldKey as keyof TFieldDefinitions]!;
+			const schema = fieldsSchema[fieldKey as keyof TFieldSchemaMap]!;
 			const sqlColumnName = schema.name
 				? toSqlIdentifier(schema.name)
 				: fieldKey;
-			return [fieldKey, convertFieldDefinitionToDrizzle(sqlColumnName, schema)];
+			return [fieldKey, convertFieldSchemaToDrizzle(sqlColumnName, schema)];
 		}),
 	) as {
-		[Key in keyof TFieldDefinitions]: FieldToDrizzle<TFieldDefinitions[Key]>;
+		[Key in keyof TFieldSchemaMap]: FieldToDrizzle<TFieldSchemaMap[Key]>;
 	};
 
 	return sqliteTable(tableName, columns);
 }
 
-type FieldToDrizzle<C extends FieldDefinition> = C extends IdFieldSchema
+type FieldToDrizzle<C extends FieldSchema> = C extends IdFieldSchema
 	? IsPrimaryKey<
 			NotNull<SQLiteTextBuilderInitial<'', [string, ...string[]], undefined>>
 		>
@@ -211,11 +211,11 @@ type FieldToDrizzle<C extends FieldDefinition> = C extends IdFieldSchema
 												>
 										: never;
 
-function convertFieldDefinitionToDrizzle<C extends FieldDefinition>(
+function convertFieldSchemaToDrizzle<C extends FieldSchema>(
 	columnName: string,
 	schema: C,
 ): FieldToDrizzle<C> {
-	const isNullable = isNullableFieldDefinition(schema);
+	const isNullable = isNullableFieldSchema(schema);
 
 	switch (schema.type) {
 		case 'id':
@@ -299,8 +299,6 @@ function convertFieldDefinitionToDrizzle<C extends FieldDefinition>(
 		}
 
 		default:
-			throw new Error(
-				`Unknown field type: ${(schema as FieldDefinition).type}`,
-			);
+			throw new Error(`Unknown field type: ${(schema as FieldSchema).type}`);
 	}
 }

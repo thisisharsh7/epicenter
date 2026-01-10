@@ -13,7 +13,7 @@ import type {
 	CoverDefinition,
 	DateFieldSchema,
 	FieldOptions,
-	FieldsSchema,
+	FieldSchemaMap,
 	IconDefinition,
 	IdFieldSchema,
 	IntegerFieldSchema,
@@ -50,7 +50,7 @@ import type {
  * });
  * ```
  */
-export function table<TFields extends FieldsSchema>(options: {
+export function table<TFields extends FieldSchemaMap>(options: {
 	name: string;
 	fields: TFields;
 	icon?: IconDefinition | null;

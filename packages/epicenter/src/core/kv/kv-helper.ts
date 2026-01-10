@@ -2,11 +2,8 @@ import { type ArkErrors, type } from 'arktype';
 import { createTaggedError } from 'wellcrafted/error';
 import type * as Y from 'yjs';
 
-import type { KvDefinitionMap, KvFieldDefinition, KvValue } from '../schema';
-import {
-	fieldDefinitionToYjsArktype,
-	isNullableFieldDefinition,
-} from '../schema';
+import type { KvDefinitionMap, KvFieldSchema, KvValue } from '../schema';
+import { fieldSchemaToYjsArktype, isNullableFieldSchema } from '../schema';
 
 /**
  * Change event for a KV value.
@@ -62,7 +59,7 @@ export function createKvHelpers<TKvDefinitionMap extends KvDefinitionMap>({
 			createKvHelper({
 				keyName,
 				ykvMap,
-				fieldDefinition: definition.field,
+				fieldSchema: definition.field,
 			}),
 		]),
 	) as {
@@ -70,19 +67,19 @@ export function createKvHelpers<TKvDefinitionMap extends KvDefinitionMap>({
 	};
 }
 
-export function createKvHelper<TFieldDefinition extends KvFieldDefinition>({
+export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 	keyName,
 	ykvMap,
-	fieldDefinition,
+	fieldSchema,
 }: {
 	keyName: string;
 	ykvMap: Y.Map<KvValue>;
-	fieldDefinition: TFieldDefinition;
+	fieldSchema: TFieldSchema;
 }) {
-	type TValue = KvValue<TFieldDefinition>;
+	type TValue = KvValue<TFieldSchema>;
 
-	const nullable = isNullableFieldDefinition(fieldDefinition);
-	const validator = fieldDefinitionToYjsArktype(fieldDefinition);
+	const nullable = isNullableFieldSchema(fieldSchema);
+	const validator = fieldSchemaToYjsArktype(fieldSchema);
 
 	return {
 		/** The name of this KV key */
@@ -101,7 +98,7 @@ export function createKvHelper<TFieldDefinition extends KvFieldDefinition>({
 		 * console.log(kv.theme.field.default); // 'light'
 		 * ```
 		 */
-		field: fieldDefinition,
+		field: fieldSchema,
 
 		/**
 		 * Get the current value for this KV key.
@@ -130,11 +127,8 @@ export function createKvHelper<TFieldDefinition extends KvFieldDefinition>({
 
 			// Handle undefined: default → null → not_found
 			if (rawValue === undefined) {
-				if (
-					'default' in fieldDefinition &&
-					fieldDefinition.default !== undefined
-				) {
-					return { status: 'valid', value: fieldDefinition.default as TValue };
+				if ('default' in fieldSchema && fieldSchema.default !== undefined) {
+					return { status: 'valid', value: fieldSchema.default as TValue };
 				}
 				if (nullable) {
 					return { status: 'valid', value: null as TValue };
@@ -253,11 +247,8 @@ export function createKvHelper<TFieldDefinition extends KvFieldDefinition>({
 		 * ```
 		 */
 		reset(): void {
-			if (
-				'default' in fieldDefinition &&
-				fieldDefinition.default !== undefined
-			) {
-				this.set(fieldDefinition.default as TValue);
+			if ('default' in fieldSchema && fieldSchema.default !== undefined) {
+				this.set(fieldSchema.default as TValue);
 			} else if (nullable) {
 				this.set(null as TValue);
 			} else {
@@ -277,6 +268,6 @@ export function createKvHelper<TFieldDefinition extends KvFieldDefinition>({
 	};
 }
 
-export type KvHelper<TFieldDefinition extends KvFieldDefinition> = ReturnType<
-	typeof createKvHelper<TFieldDefinition>
+export type KvHelper<TFieldSchema extends KvFieldSchema> = ReturnType<
+	typeof createKvHelper<TFieldSchema>
 >;

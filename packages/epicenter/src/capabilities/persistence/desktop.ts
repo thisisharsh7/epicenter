@@ -3,7 +3,7 @@ import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import * as Y from 'yjs';
 import type { CapabilityContext } from '../../core/capability';
-import type { KvSchema, TableDefinitionMap } from '../../core/schema';
+import type { KvDefinitionMap, TableDefinitionMap } from '../../core/schema';
 
 /**
  * Configuration for the persistence capability.
@@ -44,9 +44,9 @@ export type PersistenceConfig = {
  */
 export const persistence = async <
 	TTableDefinitionMap extends TableDefinitionMap,
-	TKvSchema extends KvSchema,
+	TKvDefinitionMap extends KvDefinitionMap,
 >(
-	{ ydoc }: CapabilityContext<TTableDefinitionMap, TKvSchema>,
+	{ ydoc }: CapabilityContext<TTableDefinitionMap, TKvDefinitionMap>,
 	{ filePath }: PersistenceConfig,
 ) => {
 	await mkdir(path.dirname(filePath), { recursive: true });

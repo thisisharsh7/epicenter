@@ -66,14 +66,17 @@ export type {
 } from './core/capability';
 // Capability system
 export { defineCapabilities } from './core/capability';
+// Lifecycle protocol (shared by providers and capabilities)
+export type { Lifecycle, MaybePromise } from './core/lifecycle';
+export { defineExports, LifecycleExports } from './core/lifecycle';
 export type {
 	BooleanFieldSchema,
 	CellValue,
 	CoverDefinition,
 	DateFieldSchema,
 	DateIsoString,
-	FieldDefinition,
-	FieldDefinitions,
+	FieldSchema,
+	FieldSchemaMap,
 	FieldMetadata,
 	FieldOptions,
 	FieldType,
@@ -83,8 +86,9 @@ export type {
 	IdFieldSchema,
 	IntegerFieldSchema,
 	JsonFieldSchema,
-	KvFieldDefinition,
-	KvSchema,
+	KvDefinition,
+	KvDefinitionMap,
+	KvFieldSchema,
 	KvValue,
 	PartialRow,
 	RealFieldSchema,
@@ -109,7 +113,7 @@ export {
 	icon,
 	id,
 	integer,
-	isNullableFieldDefinition,
+	isNullableFieldSchema,
 	ISO_DATETIME_REGEX,
 	json,
 	real,
@@ -131,9 +135,9 @@ export type { AbsolutePath, ProjectDir } from './core/types';
 export type {
 	Workspace,
 	WorkspaceClient,
-	WorkspaceSchema,
-} from './core/workspace/contract';
-export { defineWorkspace } from './core/workspace/contract';
+	WorkspaceDefinition,
+} from './core/workspace/workspace';
+export { defineWorkspace } from './core/workspace/workspace';
 
 // Y.Doc wrappers for collaborative workspace architecture
 export type {
