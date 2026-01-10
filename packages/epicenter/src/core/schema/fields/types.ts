@@ -33,10 +33,7 @@
  * - `helpers.ts` - isNullableFieldSchema helper
  */
 
-import type {
-	StandardSchemaV1,
-	StandardSchemaWithJSONSchema,
-} from '../standard/types';
+import type { TSchema, Static } from 'typebox';
 import type { DateTimeString } from './datetime';
 
 // ============================================================================
@@ -232,34 +229,33 @@ export type TagsFieldSchema<
 };
 
 /**
- * JSON field schema - arbitrary JSON validated by a Standard Schema.
+ * JSON field schema - arbitrary JSON validated by a TypeBox schema.
  *
- * The `schema` property holds a Standard Schema (ArkType, Zod v4.2+, Valibot)
- * that validates the JSON value. The schema must support JSON Schema conversion
- * for MCP/OpenAPI compatibility (use StandardSchemaWithJSONSchema).
- *
- * **Avoid in schema property:**
- * - Transforms: `.pipe()`, `.transform()`
- * - Custom validation: `.filter()`, `.refine()`
- * - Non-JSON types: `bigint`, `symbol`, `Date`, `Map`, `Set`
+ * The `schema` property holds a TypeBox schema (TSchema), which IS JSON Schema.
+ * TypeBox schemas are plain JSON objects that can be:
+ * - Stored directly in Y.Doc (no conversion needed)
+ * - Compiled to JIT validators using `Compile()` from `typebox/compile`
+ * - Used for TypeScript type inference via `Static<typeof schema>`
  *
  * @example
  * ```typescript
+ * import { Type } from 'typebox';
+ *
  * {
  *   type: 'json',
- *   schema: type({ theme: 'string', darkMode: 'boolean' }),
+ *   schema: Type.Object({ theme: Type.String(), darkMode: Type.Boolean() }),
  *   default: { theme: 'dark', darkMode: true }
  * }
  * ```
  */
 export type JsonFieldSchema<
-	TSchema extends StandardSchemaWithJSONSchema = StandardSchemaWithJSONSchema,
+	T extends TSchema = TSchema,
 	TNullable extends boolean = boolean,
 > = FieldMetadata & {
 	type: 'json';
-	schema: TSchema;
+	schema: T;
 	nullable?: TNullable;
-	default?: StandardSchemaV1.InferOutput<TSchema>;
+	default?: Static<T>;
 };
 
 // ============================================================================
@@ -349,12 +345,10 @@ export type CellValue<C extends FieldSchema = FieldSchema> =
 										? IsNullable<C> extends true
 											? TOptions[number][] | null
 											: TOptions[number][]
-										: C extends JsonFieldSchema<
-													infer TSchema extends StandardSchemaWithJSONSchema
-												>
+										: C extends JsonFieldSchema<infer T extends TSchema>
 											? IsNullable<C> extends true
-												? StandardSchemaV1.InferOutput<TSchema> | null
-												: StandardSchemaV1.InferOutput<TSchema>
+												? Static<T> | null
+												: Static<T>
 											: never;
 
 // ============================================================================

@@ -5,8 +5,9 @@
  * object methods like .partial() and .merge().
  */
 
-import type { StandardSchemaV1 } from '../standard/types';
 import { type Type, type } from 'arktype';
+import { jsonSchemaToType } from '@ark/json-schema';
+import type { TSchema, Static } from 'typebox';
 import type { ObjectType } from 'arktype/internal/variants/object.ts';
 import type {
 	BooleanFieldSchema,
@@ -72,10 +73,13 @@ export type FieldSchemaToArktype<C extends FieldSchema> =
 										? TNullable extends true
 											? Type<TOptions[number][] | null>
 											: Type<TOptions[number][]>
-										: C extends JsonFieldSchema<infer TSchema, infer TNullable>
+										: C extends JsonFieldSchema<
+													infer T extends TSchema,
+													infer TNullable
+												>
 											? TNullable extends true
-												? Type<StandardSchemaV1.InferOutput<TSchema> | null>
-												: Type<StandardSchemaV1.InferOutput<TSchema>>
+												? Type<Static<T> | null>
+												: Type<Static<T>>
 											: never;
 
 /**
@@ -191,7 +195,11 @@ export function fieldSchemaToArktype<C extends FieldSchema>(
 				: type.string.array();
 			break;
 		case 'json':
-			baseType = fieldSchema.schema as unknown as Type<unknown, {}>;
+			// TypeBox schemas ARE JSON Schema - convert to ArkType at runtime.
+			// TODO: Remove cast when @ark/json-schema updates to arktype >=2.1.29
+			// Type cast needed due to @ark/json-schema using older arktype version (2.1.23 vs 2.1.29).
+			// Runtime behavior is correct; only TS types differ.
+			baseType = jsonSchemaToType(fieldSchema.schema) as unknown as Type;
 			break;
 	}
 

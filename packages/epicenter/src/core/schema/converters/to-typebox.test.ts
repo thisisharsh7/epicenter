@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { Value } from 'typebox/value';
 import { Compile } from 'typebox/compile';
-import { type } from 'arktype';
+import { Type } from 'typebox';
 import {
 	id,
 	integer,
@@ -244,10 +244,10 @@ describe('fieldSchemaToTypebox', () => {
 	});
 
 	describe('json', () => {
-		test('validates against embedded StandardSchema', () => {
+		test('validates against embedded TypeBox schema', () => {
 			const schema = fieldSchemaToTypebox(
 				json({
-					schema: type({ name: 'string', age: 'number' }),
+					schema: Type.Object({ name: Type.String(), age: Type.Number() }),
 				}),
 			);
 			expect(Value.Check(schema, { name: 'John', age: 30 })).toBe(true);
@@ -257,7 +257,7 @@ describe('fieldSchemaToTypebox', () => {
 		test('rejects invalid structure', () => {
 			const schema = fieldSchemaToTypebox(
 				json({
-					schema: type({ name: 'string', age: 'number' }),
+					schema: Type.Object({ name: Type.String(), age: Type.Number() }),
 				}),
 			);
 			expect(Value.Check(schema, { name: 123, age: 30 })).toBe(false);
@@ -269,7 +269,7 @@ describe('fieldSchemaToTypebox', () => {
 		test('nullable accepts null', () => {
 			const schema = fieldSchemaToTypebox(
 				json({
-					schema: type({ key: 'string' }),
+					schema: Type.Object({ key: Type.String() }),
 					nullable: true,
 				}),
 			);
@@ -280,9 +280,11 @@ describe('fieldSchemaToTypebox', () => {
 		test('validates nested objects', () => {
 			const schema = fieldSchemaToTypebox(
 				json({
-					schema: type({
-						user: { name: 'string', email: 'string' },
-						settings: { theme: '"light" | "dark"' },
+					schema: Type.Object({
+						user: Type.Object({ name: Type.String(), email: Type.String() }),
+						settings: Type.Object({
+							theme: Type.Union([Type.Literal('light'), Type.Literal('dark')]),
+						}),
 					}),
 				}),
 			);
@@ -303,7 +305,10 @@ describe('fieldSchemaToTypebox', () => {
 		test('validates arrays in schema', () => {
 			const schema = fieldSchemaToTypebox(
 				json({
-					schema: type({ items: 'string[]', count: 'number' }),
+					schema: Type.Object({
+						items: Type.Array(Type.String()),
+						count: Type.Number(),
+					}),
 				}),
 			);
 			expect(Value.Check(schema, { items: ['a', 'b'], count: 2 })).toBe(true);
@@ -391,7 +396,7 @@ describe('tableSchemaToTypebox', () => {
 			publishedAt: date({ nullable: true }),
 			status: select({ options: ['draft', 'published'] }),
 			tags: tags({ options: ['tech', 'news'] }),
-			metadata: json({ schema: type({ author: 'string' }) }),
+			metadata: json({ schema: Type.Object({ author: Type.String() }) }),
 		});
 
 		expect(
@@ -455,7 +460,10 @@ describe('JSON Schema pass-through for json fields', () => {
 		const schema = tableSchemaToTypebox({
 			id: id(),
 			settings: json({
-				schema: type({ theme: '"light" | "dark"', fontSize: 'number' }),
+				schema: Type.Object({
+					theme: Type.Union([Type.Literal('light'), Type.Literal('dark')]),
+					fontSize: Type.Number(),
+				}),
 			}),
 		});
 
@@ -471,7 +479,9 @@ describe('JSON Schema pass-through for json fields', () => {
 	test('json field validation errors include path information', () => {
 		const schema = tableSchemaToTypebox({
 			id: id(),
-			config: json({ schema: type({ name: 'string', count: 'number' }) }),
+			config: json({
+				schema: Type.Object({ name: Type.String(), count: Type.Number() }),
+			}),
 		});
 
 		const validator = Compile(schema);
@@ -486,7 +496,7 @@ describe('JSON Schema pass-through for json fields', () => {
 	test('array composition works with JSON Schema via manual construction', () => {
 		const rowSchema = tableSchemaToTypebox({
 			id: id(),
-			data: json({ schema: type({ value: 'number' }) }),
+			data: json({ schema: Type.Object({ value: Type.Number() }) }),
 		});
 
 		const arraySchema = { type: 'array', items: rowSchema };
@@ -508,9 +518,9 @@ describe('JSON Schema pass-through for json fields', () => {
 		const schema = tableSchemaToTypebox({
 			id: id(),
 			nested: json({
-				schema: type({
-					user: { name: 'string', email: 'string' },
-					preferences: { notifications: 'boolean' },
+				schema: Type.Object({
+					user: Type.Object({ name: Type.String(), email: Type.String() }),
+					preferences: Type.Object({ notifications: Type.Boolean() }),
 				}),
 			}),
 		});
@@ -561,7 +571,7 @@ describe('Compile (JIT validation)', () => {
 			title: text(),
 			status: select({ options: ['draft', 'published'] }),
 			tags: tags({ options: ['tech', 'news'] }),
-			metadata: json({ schema: type({ author: 'string' }) }),
+			metadata: json({ schema: Type.Object({ author: Type.String() }) }),
 		});
 
 		const validator = Compile(schema);

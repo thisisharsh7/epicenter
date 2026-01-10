@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { type } from 'arktype';
+import { Type } from 'typebox';
 import { id, integer, json, select, text } from '../../schema';
 import { tableSchemaToArktype } from './to-arktype';
 
@@ -113,9 +114,9 @@ describe('tableSchemaToArktype', () => {
 			id: id(),
 			title: text(),
 			metadata: json({
-				schema: type({
-					author: 'string',
-					tags: type.string.array(),
+				schema: Type.Object({
+					author: Type.String(),
+					tags: Type.Array(Type.String()),
 				}),
 			}),
 			status: select({ options: ['draft', 'published'] }),

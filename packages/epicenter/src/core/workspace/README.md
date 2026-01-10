@@ -1,21 +1,53 @@
 # Workspace
 
-A workspace is a self-contained domain module with its own schema and providers.
+A workspace is a self-contained domain module with its own schema and capabilities.
+
+## Two-Phase Initialization
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   defineWorkspace()                    .create()                            │
+│   ─────────────────                    ─────────                            │
+│                                                                             │
+│   ┌─────────────────┐                 ┌─────────────────┐                  │
+│   │ Pure Definition │                 │ Runtime Client  │                  │
+│   │                 │      epoch      │                 │                  │
+│   │ - id (GUID)     │ ─────────────▶  │ - Data Doc      │                  │
+│   │ - slug          │   capabilities  │ - Tables        │                  │
+│   │ - name          │                 │ - KV            │                  │
+│   │ - tables schema │                 │ - Capabilities  │                  │
+│   │ - kv schema     │                 │                 │                  │
+│   └─────────────────┘                 └─────────────────┘                  │
+│                                                                             │
+│   Static (no I/O)                     Dynamic (creates Y.Doc)               │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+- **`defineWorkspace()`**: Pure schema definition. No I/O. Just describes the shape.
+- **`.create()`**: Creates the runtime client. Connects to the Data Doc at the specified epoch.
 
 ## What is a Workspace?
 
 Each workspace creates its own independent client:
 
 ```typescript
+// Step 1: Define the workspace (pure, no I/O)
 const blogWorkspace = defineWorkspace({
-	id: 'blog',
+	id: 'abc123xyz789012', // GUID (epoch is NOT here)
+	slug: 'blog',
+	name: 'Blog',
 	tables: { posts: { id: id(), title: text() } },
+	kv: {},
 });
 
-// Create a client with providers
-const blogClient = await blogWorkspace
-	.withProviders({ sqlite: sqliteProvider })
-	.create();
+// Step 2: Create client at a specific epoch
+const blogClient = await blogWorkspace.create({
+	epoch: 0, // Which Data Doc to connect to (defaults to 0)
+	sqlite, // Capabilities
+	persistence,
+});
 
 // Use the client
 blogClient.tables.posts.upsert({ id: '1', title: 'Hello' });
@@ -24,17 +56,65 @@ const posts = blogClient.tables.posts.getAllValid();
 
 Each workspace has:
 
-- **Tables**: Define your data structure with typed columns
-- **Providers**: Persistence and sync capabilities (SQLite, IndexedDB, markdown, etc.)
+- **id**: Globally unique identifier (GUID) for sync coordination
+- **slug**: Human-readable identifier for URLs, paths, CLI commands
+- **name**: Display name shown in UI
+- **tables**: Schema definition for typed tables
+- **kv**: Schema definition for key-value store
+
+## The Epoch Parameter
+
+The `epoch` determines which Data Doc to connect to:
+
+```typescript
+// New workspace or prototyping (epoch defaults to 0)
+const client = await workspace.create({ sqlite });
+
+// Specific epoch (from Head Doc)
+const head = createHeadDoc({ workspaceId: workspace.id });
+const epoch = head.getEpoch(); // e.g., 2
+const client = await workspace.create({ epoch, sqlite });
+
+// Migration: connect to multiple epochs
+const oldClient = await workspace.create({ epoch: 1 });
+const newClient = await workspace.create({ epoch: 2 });
+// Migrate data from old to new...
+```
+
+See `../docs/README.md` for the full three-document architecture.
+
+## What Happens in `.create()`
+
+When you call `.create({ epoch, ...capabilities })`:
+
+```
+1. Create Data Doc at {id}-{epoch}
+   └── Y.Doc with guid = "abc123xyz789012-0"
+
+2. Check if schema exists in Y.Doc
+   └── If not, this is a new workspace
+
+3. Merge code schema into Y.Doc schema
+   └── Tables: add new fields, update changed fields
+   └── KV: add new keys, update changed keys
+   └── Idempotent: same values = no-op
+
+4. Create table and KV helpers
+   └── Typed CRUD operations backed by Y.Doc
+
+5. Run capability factories
+   └── SQLite, persistence, sync, etc.
+
+6. Return WorkspaceClient
+   └── Ready to use!
+```
 
 ## Writing Functions
 
 Write regular functions that use your client:
 
 ```typescript
-const client = await blogWorkspace
-	.withProviders({ sqlite: sqliteProvider })
-	.create();
+const client = await blogWorkspace.create({ epoch: 0, sqlite, persistence });
 
 function createPost(title: string) {
 	const id = generateId();
@@ -59,19 +139,51 @@ app.get('/posts', () => getPublishedPosts());
 ## Client Properties
 
 ```typescript
-const client = await blogWorkspace
-	.withProviders({ sqlite: sqliteProvider })
-	.create();
+const client = await blogWorkspace.create({ epoch: 0, sqlite, persistence });
 
-client.id;         // 'blog' - workspace ID
-client.tables;     // YJS-backed table operations
-client.kv;         // Key-value store
-client.providers;  // Provider exports
-client.paths;      // Filesystem paths (undefined in browser)
-client.ydoc;       // Underlying YJS document
+client.id;            // Globally unique ID for sync (e.g., 'abc123xyz789012')
+client.slug;          // Human-readable slug (e.g., 'blog')
+client.tables;        // YJS-backed table operations
+client.kv;            // Key-value store
+client.capabilities;  // Capability exports
+client.ydoc;          // Underlying YJS document (Data Doc)
 
 await client.destroy();           // Cleanup resources
 await using client = await ...;   // Auto-cleanup with dispose
+```
+
+## Full Flow with Head Doc
+
+For multi-user apps with epoch migrations:
+
+```typescript
+// 1. Get epoch from Head Doc
+const head = createHeadDoc({ workspaceId: 'abc123xyz789012' });
+await syncProvider.connect(head.ydoc);
+const epoch = head.getEpoch();
+
+// 2. Define workspace (can be done once, reused)
+const blogWorkspace = defineWorkspace({
+	id: 'abc123xyz789012',
+	slug: 'blog',
+	name: 'Blog',
+	tables: { posts: { id: id(), title: text() } },
+	kv: {},
+});
+
+// 3. Create client at that epoch
+const client = await blogWorkspace.create({ epoch, sqlite, persistence });
+
+// 4. Subscribe to epoch changes (optional)
+head.observeEpoch(async (newEpoch) => {
+	await client.destroy();
+	const newClient = await blogWorkspace.create({
+		epoch: newEpoch,
+		sqlite,
+		persistence,
+	});
+	// Update your app's reference to newClient
+});
 ```
 
 ## Creating Servers
@@ -103,9 +215,11 @@ Use regular JavaScript imports for dependencies:
 
 ```typescript
 // auth-client.ts
-export const authClient = await authWorkspace
-	.withProviders({ sqlite: sqliteProvider })
-	.create();
+export const authClient = await authWorkspace.create({
+	epoch: 0,
+	sqlite,
+	persistence,
+});
 
 // blog-client.ts
 import { authClient } from './auth-client';
@@ -130,9 +244,11 @@ Multiple scripts can safely run using `await using`:
 ```typescript
 // Script 1: Import data
 {
-	await using client = await blogWorkspace
-		.withProviders({ sqlite: sqliteProvider })
-		.create();
+	await using client = await blogWorkspace.create({
+		epoch: 0,
+		sqlite,
+		persistence,
+	});
 
 	client.tables.posts.upsert({ id: '1', title: 'Hello' });
 	// Auto-disposed when block exits
@@ -140,11 +256,44 @@ Multiple scripts can safely run using `await using`:
 
 // Script 2: Process data (runs after Script 1)
 {
-	await using client = await blogWorkspace
-		.withProviders({ sqlite: sqliteProvider })
-		.create();
+	await using client = await blogWorkspace.create({
+		epoch: 0,
+		sqlite,
+		persistence,
+	});
 
 	const posts = client.tables.posts.getAllValid();
 	// Auto-disposed when block exits
 }
+```
+
+## Migration Example
+
+Same workspace definition, different epochs:
+
+```typescript
+const workspace = defineWorkspace({
+	id: 'abc123xyz789012',
+	slug: 'blog',
+	name: 'Blog',
+	tables: { posts: { id: id(), title: text(), content: text() } },
+	kv: {},
+});
+
+// Connect to old and new epochs
+const oldClient = await workspace.create({ epoch: 1 });
+const newClient = await workspace.create({ epoch: 2 });
+
+// Migrate data
+for (const post of oldClient.tables.posts.getAllValid()) {
+	newClient.tables.posts.upsert(migratePost(post));
+}
+
+// Update Head Doc to point to new epoch
+const head = createHeadDoc({ workspaceId: workspace.id });
+head.setEpoch(2);
+
+// Cleanup
+await oldClient.destroy();
+await newClient.destroy();
 ```

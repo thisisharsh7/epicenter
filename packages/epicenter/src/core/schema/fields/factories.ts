@@ -6,11 +6,8 @@
  */
 
 import type { Temporal } from 'temporal-polyfill';
+import type { TSchema, Static } from 'typebox';
 import { DateTimeString } from './datetime';
-import type {
-	StandardSchemaV1,
-	StandardSchemaWithJSONSchema,
-} from '../standard/types';
 import type {
 	BooleanFieldSchema,
 	DateFieldSchema,
@@ -297,21 +294,21 @@ export function tags<const TOptions extends readonly [string, ...string[]]>({
 	};
 }
 
-export function json<const TSchema extends StandardSchemaWithJSONSchema>(
+export function json<const T extends TSchema>(
 	opts: FieldOptions & {
-		schema: TSchema;
+		schema: T;
 		nullable: true;
-		default?: StandardSchemaV1.InferOutput<TSchema>;
+		default?: Static<T>;
 	},
-): JsonFieldSchema<TSchema, true>;
-export function json<const TSchema extends StandardSchemaWithJSONSchema>(
+): JsonFieldSchema<T, true>;
+export function json<const T extends TSchema>(
 	opts: FieldOptions & {
-		schema: TSchema;
+		schema: T;
 		nullable?: false;
-		default?: StandardSchemaV1.InferOutput<TSchema>;
+		default?: Static<T>;
 	},
-): JsonFieldSchema<TSchema, false>;
-export function json<const TSchema extends StandardSchemaWithJSONSchema>({
+): JsonFieldSchema<T, false>;
+export function json<const T extends TSchema>({
 	schema,
 	nullable = false,
 	default: defaultValue,
@@ -319,10 +316,10 @@ export function json<const TSchema extends StandardSchemaWithJSONSchema>({
 	description = '',
 	icon = null,
 }: FieldOptions & {
-	schema: TSchema;
+	schema: T;
 	nullable?: boolean;
-	default?: StandardSchemaV1.InferOutput<TSchema>;
-}): JsonFieldSchema<TSchema, boolean> {
+	default?: Static<T>;
+}): JsonFieldSchema<T, boolean> {
 	return {
 		type: 'json',
 		name,

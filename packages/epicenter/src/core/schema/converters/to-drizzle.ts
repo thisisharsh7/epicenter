@@ -1,5 +1,5 @@
 import slugify from '@sindresorhus/slugify';
-import type { StandardSchemaV1 } from '../standard/types';
+import type { TSchema, Static } from 'typebox';
 import type { $Type, IsPrimaryKey, NotNull } from 'drizzle-orm';
 import {
 	integer,
@@ -235,13 +235,16 @@ type FieldToDrizzle<C extends FieldSchema> = C extends IdFieldSchema
 													enumValues: undefined;
 												}>
 											>
-									: C extends JsonFieldSchema<infer TSchema, infer TNullable>
+									: C extends JsonFieldSchema<
+												infer T extends TSchema,
+												infer TNullable
+											>
 										? TNullable extends true
 											? SQLiteCustomColumnBuilder<{
 													name: '';
 													dataType: 'custom';
 													columnType: 'SQLiteCustomColumn';
-													data: StandardSchemaV1.InferOutput<TSchema>;
+													data: Static<T>;
 													driverParam: string;
 													enumValues: undefined;
 												}>
@@ -250,7 +253,7 @@ type FieldToDrizzle<C extends FieldSchema> = C extends IdFieldSchema
 														name: '';
 														dataType: 'custom';
 														columnType: 'SQLiteCustomColumn';
-														data: StandardSchemaV1.InferOutput<TSchema>;
+														data: Static<T>;
 														driverParam: string;
 														enumValues: undefined;
 													}>
