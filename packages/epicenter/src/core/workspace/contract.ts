@@ -5,11 +5,11 @@ import type {
 	InferCapabilityExports,
 } from '../capability';
 import { createKv, type Kv } from '../kv/core';
-import { LifecycleExports } from '../lifecycle';
+import { defineExports, type Lifecycle, type MaybePromise } from '../lifecycle';
 import type { KvDefinitionMap, TableDefinitionMap } from '../schema';
 import type {
 	CoverDefinition,
-	FieldDefinition,
+	FieldSchema,
 	IconDefinition,
 	KvDefinition,
 } from '../schema/fields/types';
@@ -186,9 +186,9 @@ export type Workspace<
 export type WorkspaceClient<
 	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
 	TKvDefinitionMap extends KvDefinitionMap = KvDefinitionMap,
-	TCapabilityExports extends Record<string, LifecycleExports> = Record<
+	TCapabilityExports extends Record<string, Lifecycle> = Record<
 		string,
-		LifecycleExports
+		Lifecycle
 	>,
 > = {
 	/** Globally unique identifier for sync coordination. */
@@ -419,7 +419,18 @@ export function defineWorkspace<
 			// Initialize capability exports object and tracking arrays
 			const capabilities = {} as InferCapabilityExports<TCapabilityFactories>;
 			const initPromises: Promise<void>[] = [];
-			const destroyFns: Array<() => void | Promise<void>> = [];
+
+			// Pre-seed capabilities with placeholder lifecycle so runtime matches type shape.
+			// Also create destroy functions that reference current exports (handles late binding).
+			const destroyFns: Array<() => MaybePromise<void>> = [];
+			for (const capabilityId of Object.keys(capabilityFactories)) {
+				(capabilities as Record<string, unknown>)[capabilityId] =
+					defineExports();
+				destroyFns.push(() =>
+					// Non-null assertion safe: we just set this key above
+					(capabilities as Record<string, Lifecycle>)[capabilityId]!.destroy(),
+				);
+			}
 
 			// Start capability factories (without awaiting)
 			for (const [capabilityId, capabilityFactory] of Object.entries(
@@ -436,34 +447,41 @@ export function defineWorkspace<
 							kv,
 						}),
 					).then((result) => {
-						// Handle void returns (factories that don't export anything)
-						const exports = result ?? LifecycleExports();
+						// Always normalize at boundary - handles void, plain objects, and full lifecycle
+						const exports = defineExports(
+							result as Record<string, unknown> | undefined,
+						);
 						(capabilities as Record<string, unknown>)[capabilityId] = exports;
-						destroyFns.push(exports.destroy);
 					}),
 				);
 			}
 
-			// whenSynced resolves when all capabilities are initialized AND their whenSynced resolves
-			const whenCapabilitiesInitialized = Promise.all(initPromises).then(
-				() => {},
-			);
+			// Use allSettled so init failures don't block destroy
+			const whenCapabilitiesInitializedSettled = Promise.allSettled(
+				initPromises,
+			).then(() => {});
 
-			const whenSynced = whenCapabilitiesInitialized
+			// whenSynced is fail-fast (any rejection rejects the whole thing)
+			// This is intentional - UI render gates should show error state
+			const whenSynced = whenCapabilitiesInitializedSettled
 				.then(() =>
 					Promise.all(
-						Object.values(capabilities).map(
-							(c) => (c as LifecycleExports).whenSynced,
-						),
+						Object.values(capabilities).map((c) => (c as Lifecycle).whenSynced),
 					),
 				)
 				.then(() => {});
 
 			const destroy = async () => {
-				// Wait for initialization to complete before destroying
-				await whenCapabilitiesInitialized;
-				await Promise.all(destroyFns.map((fn) => fn()));
-				ydoc.destroy();
+				// Wait for init to settle (not complete) - never block on init failures
+				await whenCapabilitiesInitializedSettled;
+
+				try {
+					// Use allSettled so one destroy failure doesn't block others
+					await Promise.allSettled(destroyFns.map((fn) => fn()));
+				} finally {
+					// Always release doc resources
+					ydoc.destroy();
+				}
 			};
 
 			return {
@@ -489,7 +507,7 @@ export function defineWorkspace<
  * Type for the inner Y.Map that stores table schema with metadata.
  */
 type TableSchemaMap = Y.Map<
-	string | IconDefinition | CoverDefinition | null | Y.Map<FieldDefinition>
+	string | IconDefinition | CoverDefinition | null | Y.Map<FieldSchema>
 >;
 
 /**
@@ -526,7 +544,7 @@ function mergeSchemaIntoYDoc(
 			let tableMap = tablesSchemaMap.get(tableName);
 			if (!tableMap) {
 				tableMap = new Y.Map() as TableSchemaMap;
-				tableMap.set('fields', new Y.Map<FieldDefinition>());
+				tableMap.set('fields', new Y.Map<FieldSchema>());
 				tablesSchemaMap.set(tableName, tableMap);
 			}
 
@@ -560,9 +578,7 @@ function mergeSchemaIntoYDoc(
 			}
 
 			// Merge fields
-			let fieldsMap = tableMap.get('fields') as
-				| Y.Map<FieldDefinition>
-				| undefined;
+			let fieldsMap = tableMap.get('fields') as Y.Map<FieldSchema> | undefined;
 			if (!fieldsMap) {
 				fieldsMap = new Y.Map();
 				tableMap.set('fields', fieldsMap);

@@ -23,7 +23,7 @@ import type {
 	CapabilityFactoryMap,
 	InferCapabilityExports,
 } from '../capability';
-import type { LifecycleExports } from '../lifecycle';
+import type { Lifecycle } from '../lifecycle';
 import type { KvDefinitionMap, TableDefinitionMap } from '../schema';
 import {
 	defineWorkspace as defineWorkspaceSync,
@@ -40,9 +40,9 @@ import {
 export type WorkspaceClient<
 	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
 	TKvDefinitionMap extends KvDefinitionMap = KvDefinitionMap,
-	TCapabilityExports extends Record<string, LifecycleExports> = Record<
+	TCapabilityExports extends Record<string, Lifecycle> = Record<
 		string,
-		LifecycleExports
+		Lifecycle
 	>,
 > = Omit<
 	WorkspaceClientSync<

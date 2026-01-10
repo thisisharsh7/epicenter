@@ -65,17 +65,18 @@ export type {
 	InferCapabilityExports,
 } from './core/capability';
 // Capability system
-export { defineCapabilities, LifecycleExports } from './core/capability';
+export { defineCapabilities } from './core/capability';
 // Lifecycle protocol (shared by providers and capabilities)
-export type { MaybePromise } from './core/lifecycle';
+export type { Lifecycle, MaybePromise } from './core/lifecycle';
+export { defineExports, LifecycleExports } from './core/lifecycle';
 export type {
 	BooleanFieldSchema,
 	CellValue,
 	CoverDefinition,
 	DateFieldSchema,
 	DateIsoString,
-	FieldDefinition,
-	FieldDefinitions,
+	FieldSchema,
+	FieldSchemaMap,
 	FieldMetadata,
 	FieldOptions,
 	FieldType,
@@ -87,7 +88,7 @@ export type {
 	JsonFieldSchema,
 	KvDefinition,
 	KvDefinitionMap,
-	KvFieldDefinition,
+	KvFieldSchema,
 	KvValue,
 	PartialRow,
 	RealFieldSchema,
@@ -112,7 +113,7 @@ export {
 	icon,
 	id,
 	integer,
-	isNullableFieldDefinition,
+	isNullableFieldSchema,
 	ISO_DATETIME_REGEX,
 	json,
 	real,
