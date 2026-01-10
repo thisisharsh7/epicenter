@@ -2,17 +2,11 @@ import { defineQuery, defineMutation, queryClient } from './client';
 import {
 	getRegistry,
 	getHeadDoc,
-	getAllWorkspaceSchemas,
-	getWorkspaceSchema,
-	findWorkspaceBySlug,
-	setWorkspaceSchema,
-	removeWorkspaceSchema,
 	removeHeadDoc,
-	isSlugTaken,
 	type AppWorkspaceSchema,
 } from '$lib/services/workspace-registry';
 import { defineWorkspace, generateGuid } from '@epicenter/hq';
-import type * as Y from 'yjs';
+import * as Y from 'yjs';
 import { workspacePersistence } from '$lib/capabilities/tauri-persistence';
 import { Ok, Err } from 'wellcrafted/result';
 import { createTaggedError } from 'wellcrafted/error';
@@ -45,37 +39,52 @@ export const workspaces = {
 	/**
 	 * List all workspaces from the registry.
 	 *
-	 * Returns cached schemas. Requires bootstrap() to have been called.
+	 * Returns workspace GUIDs with minimal metadata. For full schema details,
+	 * use getWorkspace() which loads from the workspace Y.Doc.
 	 */
 	listWorkspaces: defineQuery({
 		queryKey: workspaceKeys.list(),
 		queryFn: async () => {
-			// Get all schemas from the in-memory cache
-			const schemas = getAllWorkspaceSchemas();
-			return Ok(schemas);
+			const registry = await getRegistry();
+			const guids = registry.getWorkspaceIds();
+
+			// Return minimal workspace info (just GUIDs)
+			// Full schema is loaded lazily when navigating to the workspace
+			const workspaces = guids.map((id) => ({
+				id,
+				// Use GUID as placeholder name/slug until we have metadata in registry
+				name: id,
+				slug: id,
+				tables: {} as AppWorkspaceSchema['tables'],
+				kv: {} as AppWorkspaceSchema['kv'],
+			}));
+
+			return Ok(workspaces);
 		},
 	}),
 
 	/**
-	 * Get a single workspace by slug or GUID.
+	 * Get a single workspace by GUID.
+	 *
+	 * Loads the full schema from the workspace Y.Doc.
 	 */
-	getWorkspace: (slugOrGuid: string) =>
+	getWorkspace: (workspaceId: string) =>
 		defineQuery({
-			queryKey: workspaceKeys.detail(slugOrGuid),
+			queryKey: workspaceKeys.detail(workspaceId),
 			queryFn: async () => {
-				// Try direct GUID lookup first
-				let schema = getWorkspaceSchema(slugOrGuid);
+				const registry = await getRegistry();
 
-				// Fall back to slug lookup
-				if (!schema) {
-					schema = findWorkspaceBySlug(slugOrGuid);
-				}
-
-				if (!schema) {
+				// Check if workspace exists in registry
+				if (!registry.hasWorkspace(workspaceId)) {
 					return WorkspaceErr({
-						message: `Workspace "${slugOrGuid}" not found`,
+						message: `Workspace "${workspaceId}" not found`,
 					});
 				}
+
+				// Load schema from Y.Doc
+				const head = await getHeadDoc(workspaceId);
+				const epoch = head.getEpoch();
+				const schema = await loadWorkspaceSchema(workspaceId, epoch);
 
 				return Ok(schema);
 			},
@@ -92,13 +101,6 @@ export const workspaces = {
 	createWorkspace: defineMutation({
 		mutationKey: ['workspaces', 'create'],
 		mutationFn: async (input: { name: string; slug: string }) => {
-			// Check if slug already exists
-			if (isSlugTaken(input.slug)) {
-				return WorkspaceErr({
-					message: `Workspace with slug "${input.slug}" already exists`,
-				});
-			}
-
 			// Generate GUID for sync coordination
 			const guid = generateGuid();
 
@@ -133,9 +135,7 @@ export const workspaces = {
 			await client.capabilities.persistence.whenSynced;
 			await client.destroy();
 
-			// Cache the schema
-			setWorkspaceSchema(guid, schema);
-			console.log(`[createWorkspace] Cached schema:`, {
+			console.log(`[createWorkspace] Created workspace:`, {
 				guid,
 				slug: schema.slug,
 				name: schema.name,
@@ -151,7 +151,7 @@ export const workspaces = {
 	/**
 	 * Delete a workspace.
 	 *
-	 * Removes from registry and cache. Does NOT delete files on disk.
+	 * Removes from registry and head doc cache. Does NOT delete files on disk.
 	 * (File cleanup can be added later if needed)
 	 */
 	deleteWorkspace: defineMutation({
@@ -169,8 +169,7 @@ export const workspaces = {
 			// Remove from registry
 			registry.removeWorkspace(guid);
 
-			// Remove from caches
-			removeWorkspaceSchema(guid);
+			// Remove head doc from cache
 			removeHeadDoc(guid);
 
 			// Invalidate queries
@@ -274,3 +273,86 @@ export const workspaces = {
 		},
 	}),
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Internal Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Load a workspace schema from its Y.Doc.
+ *
+ * Creates a temporary Y.Doc to read the schema, then destroys it.
+ */
+async function loadWorkspaceSchema(
+	workspaceId: string,
+	epoch: number,
+): Promise<AppWorkspaceSchema> {
+	const docId = `${workspaceId}-${epoch}`;
+	const ydoc = new Y.Doc({ guid: docId, gc: false });
+
+	// Load from persistence
+	const persistence = await workspacePersistence(ydoc, workspaceId, epoch);
+	await persistence.whenSynced;
+
+	// Extract schema from Y.Doc
+	const metaMap = ydoc.getMap<string>('meta');
+	const schemaMap = ydoc.getMap('schema');
+
+	const name = metaMap.get('name') ?? 'Untitled';
+	const slug = metaMap.get('slug') ?? workspaceId;
+
+	// Extract tables from schema map
+	const tablesYMap = schemaMap.get('tables') as
+		| Y.Map<Y.Map<unknown>>
+		| undefined;
+	const tables: AppWorkspaceSchema['tables'] = {};
+
+	if (tablesYMap) {
+		for (const [tableName, tableMap] of tablesYMap.entries()) {
+			const fieldsMap = tableMap.get('fields') as Y.Map<unknown> | undefined;
+			const fields: Record<string, unknown> = {};
+
+			if (fieldsMap) {
+				for (const [fieldName, fieldDef] of fieldsMap.entries()) {
+					fields[fieldName] = fieldDef;
+				}
+			}
+
+			tables[tableName] = {
+				name: (tableMap.get('name') as string) ?? tableName,
+				icon:
+					(tableMap.get(
+						'icon',
+					) as AppWorkspaceSchema['tables'][string]['icon']) ?? null,
+				cover:
+					(tableMap.get(
+						'cover',
+					) as AppWorkspaceSchema['tables'][string]['cover']) ?? null,
+				description: (tableMap.get('description') as string) ?? '',
+				fields: fields as AppWorkspaceSchema['tables'][string]['fields'],
+			};
+		}
+	}
+
+	// Extract KV from schema map
+	const kvYMap = schemaMap.get('kv') as Y.Map<unknown> | undefined;
+	const kv: AppWorkspaceSchema['kv'] = {};
+
+	if (kvYMap) {
+		for (const [key, value] of kvYMap.entries()) {
+			kv[key] = value as AppWorkspaceSchema['kv'][string];
+		}
+	}
+
+	// Clean up temporary Y.Doc
+	persistence.destroy();
+	ydoc.destroy();
+
+	return {
+		id: workspaceId,
+		slug,
+		name,
+		tables,
+		kv,
+	};
+}
