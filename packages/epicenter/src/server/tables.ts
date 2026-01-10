@@ -5,7 +5,7 @@ import type { Row, TableSchema } from '../core/schema';
 import { tableSchemaToArktype } from '../core/schema';
 import type { WorkspaceClient } from '../core/workspace/contract';
 
-type AnyWorkspaceClient = WorkspaceClient<string, any, any, any>;
+type AnyWorkspaceClient = WorkspaceClient<any, any, any>;
 
 export function createTablesPlugin(
 	workspaceClients: Record<string, AnyWorkspaceClient>,

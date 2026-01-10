@@ -5,6 +5,7 @@ import {
 	defineWorkspace,
 	eq,
 	generateId,
+	generateGuid,
 	id,
 	integer,
 	isNotNull,
@@ -25,7 +26,8 @@ const projectDir = import.meta.dirname;
 const epicenterDir = join(projectDir, '..');
 
 export default defineWorkspace({
-	id: 'blog',
+	id: generateGuid(),
+	slug: 'blog',
 	name: 'Blog',
 	kv: {},
 
@@ -61,7 +63,11 @@ export default defineWorkspace({
 			markdown(ctx, {
 				directory: join(projectDir, ctx.id),
 				logsDir: join(epicenterDir, 'markdown', 'logs'),
-				diagnosticsPath: join(epicenterDir, 'markdown', `${ctx.id}.diagnostics.json`),
+				diagnosticsPath: join(
+					epicenterDir,
+					'markdown',
+					`${ctx.id}.diagnostics.json`,
+				),
 				tableConfigs: {
 					posts: {
 						serialize: ({ row: { id, content, ...row } }) => ({

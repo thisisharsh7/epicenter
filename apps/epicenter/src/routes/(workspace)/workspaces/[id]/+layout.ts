@@ -23,7 +23,7 @@ export const load: LayoutLoad = async ({ params }) => {
 
 	const workspace = defineWorkspace({
 		id: workspaceFile.id,
-		guid: workspaceFile.guid,
+		slug: workspaceFile.slug,
 		name: workspaceFile.name,
 		tables,
 		kv: workspaceFile.kv,

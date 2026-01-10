@@ -13,7 +13,7 @@ export type ServerOptions = {
 	actions?: Actions;
 };
 
-type AnyWorkspaceClient = WorkspaceClient<string, any, any, any>;
+type AnyWorkspaceClient = WorkspaceClient<any, any, any>;
 
 /**
  * Create an HTTP server that exposes workspace clients as REST APIs and WebSocket sync.

@@ -18,16 +18,15 @@ import type { KvSchema, TablesSchema, TablesWithMetadata } from '../schema';
  * Use `defineWorkspace()` to create a `Workspace` object with a `.create()` method.
  */
 export type WorkspaceSchema<
-	TId extends string = string,
 	TTablesSchema extends TablesSchema | TablesWithMetadata =
 		| TablesSchema
 		| TablesWithMetadata,
 	TKvSchema extends KvSchema = KvSchema,
 > = {
 	/** Globally unique identifier for sync coordination. Generate with `generateGuid()`. */
-	guid: string;
+	id: string;
 	/** Human-readable slug for URLs, paths, and CLI commands. */
-	id: TId;
+	slug: string;
 	/** Display name shown in UI. */
 	name: string;
 	/** Table definitions with metadata. */
@@ -39,7 +38,7 @@ export type WorkspaceSchema<
 /**
  * A workspace object returned by `defineWorkspace()`.
  *
- * Contains the schema (tables, kv, id, guid) and a `.create()` method
+ * Contains the schema (tables, kv, id, slug) and a `.create()` method
  * to instantiate a runtime client.
  *
  * @example No capabilities (ephemeral, in-memory)
@@ -61,10 +60,9 @@ export type WorkspaceSchema<
  * ```
  */
 export type Workspace<
-	TId extends string = string,
 	TTablesSchema extends TablesSchema = TablesSchema,
 	TKvSchema extends KvSchema = KvSchema,
-> = WorkspaceSchema<TId, TTablesSchema, TKvSchema> & {
+> = WorkspaceSchema<TTablesSchema, TKvSchema> & {
 	/**
 	 * Create a workspace client.
 	 *
@@ -93,7 +91,7 @@ export type Workspace<
 	 */
 	create<TCapabilities extends CapabilityMap<TTablesSchema, TKvSchema> = {}>(
 		capabilities?: TCapabilities,
-	): Promise<WorkspaceClient<TId, TTablesSchema, TKvSchema, TCapabilities>>;
+	): Promise<WorkspaceClient<TTablesSchema, TKvSchema, TCapabilities>>;
 };
 
 /**
@@ -112,9 +110,9 @@ export type Workspace<
  *
  * // Your own functions that use the client
  * function createPost(title: string) {
- *   const id = generateId();
- *   client.tables.posts.upsert({ id, title, published: false });
- *   return { id };
+ *   const rowId = generateId();
+ *   client.tables.posts.upsert({ id: rowId, title, published: false });
+ *   return { id: rowId };
  * }
  *
  * function getAllPosts() {
@@ -133,7 +131,6 @@ export type Workspace<
  * ```
  */
 export type WorkspaceClient<
-	TId extends string = string,
 	TTablesSchema extends TablesSchema = TablesSchema,
 	TKvSchema extends KvSchema = KvSchema,
 	TCapabilities extends CapabilityMap<TTablesSchema, TKvSchema> = CapabilityMap<
@@ -141,8 +138,11 @@ export type WorkspaceClient<
 		TKvSchema
 	>,
 > = {
-	guid: string;
-	id: TId;
+	/** Globally unique identifier for sync coordination. */
+	id: string;
+	/** Human-readable slug for URLs, paths, and CLI commands. */
+	slug: string;
+	/** Typed table helpers for CRUD operations. */
 	tables: Tables<TTablesSchema>;
 	/** Key-value store for simple values. */
 	kv: Kv<TKvSchema>;
@@ -172,21 +172,20 @@ type InitializedWorkspace<
  * Initialize a workspace: create YJS doc, tables, kv, and run capability factories.
  *
  * This is an internal function called by `.create()`. It:
- * 1. Creates a YJS document with `{guid}-0` as the doc GUID (epoch 0, reserved for future epoch support)
+ * 1. Creates a YJS document with `{id}-0` as the doc GUID (epoch 0, reserved for future epoch support)
  * 2. Creates typed table and kv helpers backed by the YJS doc
  * 3. Runs all capability factories in parallel
  * 4. Returns everything needed to construct a WorkspaceClient
  */
 async function initializeWorkspace<
-	TId extends string,
 	TTablesSchema extends TablesSchema,
 	TKvSchema extends KvSchema,
 	TCapabilities extends CapabilityMap<TTablesSchema, TKvSchema>,
 >(
-	config: WorkspaceSchema<TId, TTablesSchema, TKvSchema>,
+	config: WorkspaceSchema<TTablesSchema, TKvSchema>,
 	capabilityFactories: TCapabilities,
 ): Promise<InitializedWorkspace<TTablesSchema, TKvSchema, TCapabilities>> {
-	const ydoc = new Y.Doc({ guid: `${config.guid}-0` });
+	const ydoc = new Y.Doc({ guid: `${config.id}-0` });
 	const tables = createTables(ydoc, config.tables);
 	const kv = createKv(ydoc, config.kv);
 
@@ -195,7 +194,7 @@ async function initializeWorkspace<
 			Object.entries(capabilityFactories).map(
 				async ([capabilityId, capabilityFn]) => {
 					const result = await capabilityFn({
-						id: config.id,
+						id: config.slug,
 						capabilityId,
 						ydoc,
 						tables,
@@ -233,9 +232,9 @@ async function initializeWorkspace<
  * @example
  * ```typescript
  * const workspace = defineWorkspace({
- *   id: 'blog',
+ *   id: generateGuid(),
+ *   slug: 'blog',
  *   name: 'Blog',
- *   guid: generateGuid(),
  *   tables: {
  *     posts: { id: id(), title: text(), published: boolean({ default: false }) },
  *   },
@@ -256,21 +255,20 @@ async function initializeWorkspace<
  * await client.destroy();
  * ```
  *
- * @param config - Workspace configuration (id, name, guid, tables, kv)
+ * @param config - Workspace configuration (id, slug, name, tables, kv)
  * @returns A Workspace object with a `.create()` method
  */
 export function defineWorkspace<
-	const TId extends string,
 	TTablesSchema extends TablesSchema,
 	TKvSchema extends KvSchema = Record<string, never>,
 >(
-	config: WorkspaceSchema<TId, TTablesSchema, TKvSchema>,
-): Workspace<TId, TTablesSchema, TKvSchema> {
-	if (!config.guid || typeof config.guid !== 'string') {
-		throw new Error('Workspace must have a valid GUID');
-	}
+	config: WorkspaceSchema<TTablesSchema, TKvSchema>,
+): Workspace<TTablesSchema, TKvSchema> {
 	if (!config.id || typeof config.id !== 'string') {
-		throw new Error('Workspace must have a valid string ID');
+		throw new Error('Workspace must have a valid ID');
+	}
+	if (!config.slug || typeof config.slug !== 'string') {
+		throw new Error('Workspace must have a valid slug');
 	}
 
 	return {
@@ -280,7 +278,7 @@ export function defineWorkspace<
 			TCapabilities extends CapabilityMap<TTablesSchema, TKvSchema> = {},
 		>(
 			capabilities?: TCapabilities,
-		): Promise<WorkspaceClient<TId, TTablesSchema, TKvSchema, TCapabilities>> {
+		): Promise<WorkspaceClient<TTablesSchema, TKvSchema, TCapabilities>> {
 			const { ydoc, tables, kv, capabilityExports, cleanup } =
 				await initializeWorkspace(
 					config,
@@ -288,8 +286,8 @@ export function defineWorkspace<
 				);
 
 			return {
-				guid: config.guid,
 				id: config.id,
+				slug: config.slug,
 				ydoc,
 				tables,
 				kv,
