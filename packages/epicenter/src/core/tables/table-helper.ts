@@ -7,7 +7,7 @@ import type {
 	FieldDefinitions,
 	TableDefinitionMap,
 } from '../schema';
-import { fieldsSchemaToTypebox } from '../schema';
+import { fieldsDefinitionToTypebox } from '../schema';
 
 /**
  * A single validation error from TypeBox schema validation.
@@ -193,7 +193,7 @@ function createTableHelper<TFieldDefinitions extends FieldDefinitions>({
 }) {
 	type TRow = Row<TFieldDefinitions>;
 
-	const typeboxSchema = fieldsSchemaToTypebox(schema);
+	const typeboxSchema = fieldsDefinitionToTypebox(schema);
 	const rowValidator = Compile(typeboxSchema);
 
 	/**
