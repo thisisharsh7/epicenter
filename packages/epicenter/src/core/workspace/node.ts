@@ -27,7 +27,7 @@ import type { LifecycleExports } from '../lifecycle';
 import type { KvDefinitionMap, TableDefinitionMap } from '../schema';
 import {
 	defineWorkspace as defineWorkspaceSync,
-	type WorkspaceSchema,
+	type WorkspaceDefinition,
 	type WorkspaceClient as WorkspaceClientSync,
 } from './contract';
 
@@ -59,7 +59,7 @@ export type WorkspaceClient<
 export type Workspace<
 	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
 	TKvDefinitionMap extends KvDefinitionMap = KvDefinitionMap,
-> = WorkspaceSchema<TTableDefinitionMap, TKvDefinitionMap> & {
+> = WorkspaceDefinition<TTableDefinitionMap, TKvDefinitionMap> & {
 	/**
 	 * Create a workspace client (async - awaits whenSynced internally).
 	 *
@@ -125,7 +125,7 @@ export function defineWorkspace<
 	TTableDefinitionMap extends TableDefinitionMap,
 	TKvDefinitionMap extends KvDefinitionMap = Record<string, never>,
 >(
-	config: WorkspaceSchema<TTableDefinitionMap, TKvDefinitionMap>,
+	config: WorkspaceDefinition<TTableDefinitionMap, TKvDefinitionMap>,
 ): Workspace<TTableDefinitionMap, TKvDefinitionMap> {
 	const syncWorkspace = defineWorkspaceSync(config);
 
@@ -165,7 +165,7 @@ export function defineWorkspace<
 }
 
 // Re-export common types and utilities for convenience
-export type { WorkspaceSchema } from './contract';
+export type { WorkspaceDefinition } from './contract';
 export {
 	// Schema utilities
 	boolean,

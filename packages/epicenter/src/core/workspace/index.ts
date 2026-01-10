@@ -10,6 +10,6 @@ export { defineCapabilities } from '../capability';
 export type {
 	Workspace,
 	WorkspaceClient,
-	WorkspaceSchema,
+	WorkspaceDefinition,
 } from './contract';
 export { defineWorkspace } from './contract';

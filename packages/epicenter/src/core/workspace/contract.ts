@@ -20,14 +20,14 @@ import { createTables, type Tables } from '../tables/create-tables';
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * A workspace schema defines the pure data shape of a workspace.
+ * A workspace definition describes the pure data shape of a workspace.
  *
  * This type is fully JSON-serializable and contains no methods or runtime behavior.
  * It represents the configuration passed to `defineWorkspace()`.
  *
  * Use `defineWorkspace()` to create a `Workspace` object with a `.create()` method.
  */
-export type WorkspaceSchema<
+export type WorkspaceDefinition<
 	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
 	TKvDefinitionMap extends KvDefinitionMap = KvDefinitionMap,
 > = {
@@ -89,7 +89,7 @@ export type WorkspaceSchema<
 export type Workspace<
 	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
 	TKvDefinitionMap extends KvDefinitionMap = KvDefinitionMap,
-> = WorkspaceSchema<TTableDefinitionMap, TKvDefinitionMap> & {
+> = WorkspaceDefinition<TTableDefinitionMap, TKvDefinitionMap> & {
 	/**
 	 * Create a workspace client (sync construction).
 	 *
@@ -278,7 +278,7 @@ export function defineWorkspace<
 	TTableDefinitionMap extends TableDefinitionMap,
 	TKvDefinitionMap extends KvDefinitionMap = Record<string, never>,
 >(
-	config: WorkspaceSchema<TTableDefinitionMap, TKvDefinitionMap>,
+	config: WorkspaceDefinition<TTableDefinitionMap, TKvDefinitionMap>,
 ): Workspace<TTableDefinitionMap, TKvDefinitionMap> {
 	if (!config.id || typeof config.id !== 'string') {
 		throw new Error('Workspace must have a valid ID');

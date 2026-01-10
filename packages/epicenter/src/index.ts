@@ -134,7 +134,7 @@ export type { AbsolutePath, ProjectDir } from './core/types';
 export type {
 	Workspace,
 	WorkspaceClient,
-	WorkspaceSchema,
+	WorkspaceDefinition,
 } from './core/workspace/contract';
 export { defineWorkspace } from './core/workspace/contract';
 
