@@ -7,7 +7,6 @@
 	import { Button } from '@epicenter/ui/button';
 	import { Badge } from '@epicenter/ui/badge';
 	import { isNullableFieldSchema, type FieldSchema } from '@epicenter/hq';
-	import { getTableFields, getTableMetadata } from '$lib/utils/normalize-table';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
@@ -25,12 +24,8 @@
 		return data.workspace.tables[tableId];
 	});
 
-	const tableFields = $derived(
-		tableEntry ? getTableFields(tableEntry) : undefined,
-	);
-	const tableMetadata = $derived(
-		tableId && tableEntry ? getTableMetadata(tableId, tableEntry) : undefined,
-	);
+	const tableFields = $derived(tableEntry?.fields);
+	const tableName = $derived(tableEntry?.name ?? tableId);
 
 	const columns = $derived(
 		tableFields ? (Object.entries(tableFields) as [string, FieldSchema][]) : [],
@@ -71,7 +66,7 @@
 		<!-- Header -->
 		<div class="flex items-center justify-between">
 			<div>
-				<h1 class="text-2xl font-semibold">{tableMetadata?.name ?? tableId}</h1>
+				<h1 class="text-2xl font-semibold">{tableName}</h1>
 				<p class="text-muted-foreground text-sm">
 					{columns.length} column{columns.length === 1 ? '' : 's'} · {rows.length}
 					row{rows.length === 1 ? '' : 's'}

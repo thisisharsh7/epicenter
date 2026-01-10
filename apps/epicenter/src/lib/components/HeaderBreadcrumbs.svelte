@@ -3,7 +3,6 @@
 	import { createQuery } from '@tanstack/svelte-query';
 	import * as Breadcrumb from '@epicenter/ui/breadcrumb';
 	import { rpc } from '$lib/query';
-	import { getTableMetadata } from '$lib/utils/normalize-table';
 
 	const workspaceId = $derived(page.params.id);
 	const tableId = $derived(page.params.tableId);
@@ -19,7 +18,7 @@
 		if (!tableId || !workspace.data?.tables) return tableId;
 		const table = workspace.data.tables[tableId];
 		if (!table) return tableId;
-		return getTableMetadata(tableId, table).name;
+		return table.name;
 	});
 </script>
 

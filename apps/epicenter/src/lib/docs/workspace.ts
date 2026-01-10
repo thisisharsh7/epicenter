@@ -1,5 +1,6 @@
 import { defineWorkspace, type WorkspaceDefinition } from '@epicenter/hq';
 import * as Y from 'yjs';
+import { persistYDocAsJson } from '$lib/providers/tauri-json-persistence';
 import { persistYDoc } from '$lib/providers/tauri-persistence';
 
 /**
@@ -44,6 +45,12 @@ export function createWorkspaceClient(
 		capabilities: {
 			persistence: (ctx: { ydoc: Y.Doc }) =>
 				persistYDoc(ctx.ydoc, ['workspaces', definition.id, `${epoch}.yjs`]),
+			jsonPersistence: (ctx: { ydoc: Y.Doc }) =>
+				persistYDocAsJson(ctx.ydoc, [
+					'workspaces',
+					definition.id,
+					`${epoch}.json`,
+				]),
 		},
 	});
 }

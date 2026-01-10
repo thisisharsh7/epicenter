@@ -10,7 +10,6 @@
 	import { createTableDialog } from '$lib/components/CreateTableDialog.svelte';
 	import { createSettingDialog } from '$lib/components/CreateSettingDialog.svelte';
 	import { confirmationDialog } from '$lib/components/ConfirmationDialog.svelte';
-	import { getTableMetadata } from '$lib/utils/normalize-table';
 	import { rpc } from '$lib/query';
 	import { createQuery, createMutation } from '@tanstack/svelte-query';
 	import TableIcon from '@lucide/svelte/icons/table-2';
@@ -35,7 +34,9 @@
 		workspace.data
 			? Object.entries(workspace.data.tables).map(([key, table]) => ({
 					key,
-					...getTableMetadata(key, table),
+					name: table.name,
+					icon: table.icon,
+					description: table.description,
 				}))
 			: [],
 	);
