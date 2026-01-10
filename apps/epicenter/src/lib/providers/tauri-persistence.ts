@@ -30,18 +30,19 @@ export function persistYDoc(
 	ydoc: Y.Doc,
 	pathSegments: string[],
 ): ProviderExports {
-	// Track resolved file path (set during initialization)
-	let filePath: string | null = null;
-
 	// For logging - join segments with '/' for human-readable output
 	const logPath = pathSegments.join('/');
 
+	// Resolve paths once, cache the promise
+	const pathsPromise = (async () => {
+		const baseDir = await appLocalDataDir();
+		const filePath = await join(baseDir, ...pathSegments);
+		return { baseDir, filePath };
+	})();
+
 	// Async initialization - becomes whenSynced
 	const whenSynced = (async () => {
-		const baseDir = await appLocalDataDir();
-
-		// Use Tauri's join() for cross-platform path handling
-		filePath = await join(baseDir, ...pathSegments);
+		const { baseDir, filePath } = await pathsPromise;
 
 		// Ensure parent directory exists
 		if (pathSegments.length > 1) {
@@ -73,10 +74,10 @@ export function persistYDoc(
 
 	// Save handler - waits for initialization before saving
 	const saveHandler = async () => {
-		await whenSynced; // Ensure filePath is resolved
+		const { filePath } = await pathsPromise;
 		try {
 			const state = Y.encodeStateAsUpdate(ydoc);
-			await writeFile(filePath!, state);
+			await writeFile(filePath, state);
 		} catch (error) {
 			console.error(`[Persistence] Failed to save ${logPath}:`, error);
 		}
