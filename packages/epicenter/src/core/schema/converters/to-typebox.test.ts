@@ -14,7 +14,7 @@ import {
 	date,
 	richtext,
 } from '../../schema';
-import { tableSchemaToTypebox, fieldSchemaToTypebox } from './to-typebox';
+import { fieldsSchemaToTypebox, fieldSchemaToTypebox } from './to-typebox';
 
 describe('fieldSchemaToTypebox', () => {
 	describe('id', () => {
@@ -318,9 +318,9 @@ describe('fieldSchemaToTypebox', () => {
 	});
 });
 
-describe('tableSchemaToTypebox', () => {
+describe('fieldsSchemaToTypebox', () => {
 	test('creates valid TypeBox object schema', () => {
-		const schema = tableSchemaToTypebox({
+		const schema = fieldsSchemaToTypebox({
 			id: id(),
 			title: text(),
 		});
@@ -329,7 +329,7 @@ describe('tableSchemaToTypebox', () => {
 	});
 
 	test('validates complete row', () => {
-		const schema = tableSchemaToTypebox({
+		const schema = fieldsSchemaToTypebox({
 			id: id(),
 			title: text(),
 			count: integer(),
@@ -347,7 +347,7 @@ describe('tableSchemaToTypebox', () => {
 	});
 
 	test('rejects missing required fields', () => {
-		const schema = tableSchemaToTypebox({
+		const schema = fieldsSchemaToTypebox({
 			id: id(),
 			title: text(),
 			count: integer(),
@@ -359,7 +359,7 @@ describe('tableSchemaToTypebox', () => {
 	});
 
 	test('handles mixed nullable and non-nullable fields', () => {
-		const schema = tableSchemaToTypebox({
+		const schema = fieldsSchemaToTypebox({
 			id: id(),
 			required: text(),
 			optional: text({ nullable: true }),
@@ -386,7 +386,7 @@ describe('tableSchemaToTypebox', () => {
 	});
 
 	test('validates complex schema with all field types', () => {
-		const schema = tableSchemaToTypebox({
+		const schema = fieldsSchemaToTypebox({
 			id: id(),
 			title: text(),
 			content: richtext(),
@@ -431,7 +431,7 @@ describe('tableSchemaToTypebox', () => {
 	});
 
 	test('rejects row with wrong field types', () => {
-		const schema = tableSchemaToTypebox({
+		const schema = fieldsSchemaToTypebox({
 			id: id(),
 			title: text(),
 			count: integer(),
@@ -457,7 +457,7 @@ describe('tableSchemaToTypebox', () => {
 
 describe('JSON Schema pass-through for json fields', () => {
 	test('json field produces valid JSON Schema that TypeBox can compile', () => {
-		const schema = tableSchemaToTypebox({
+		const schema = fieldsSchemaToTypebox({
 			id: id(),
 			settings: json({
 				schema: Type.Object({
@@ -477,7 +477,7 @@ describe('JSON Schema pass-through for json fields', () => {
 	});
 
 	test('json field validation errors include path information', () => {
-		const schema = tableSchemaToTypebox({
+		const schema = fieldsSchemaToTypebox({
 			id: id(),
 			config: json({
 				schema: Type.Object({ name: Type.String(), count: Type.Number() }),
@@ -494,7 +494,7 @@ describe('JSON Schema pass-through for json fields', () => {
 	});
 
 	test('array composition works with JSON Schema via manual construction', () => {
-		const rowSchema = tableSchemaToTypebox({
+		const rowSchema = fieldsSchemaToTypebox({
 			id: id(),
 			data: json({ schema: Type.Object({ value: Type.Number() }) }),
 		});
@@ -515,7 +515,7 @@ describe('JSON Schema pass-through for json fields', () => {
 	});
 
 	test('nested json schema validates correctly', () => {
-		const schema = tableSchemaToTypebox({
+		const schema = fieldsSchemaToTypebox({
 			id: id(),
 			nested: json({
 				schema: Type.Object({
@@ -551,7 +551,7 @@ describe('JSON Schema pass-through for json fields', () => {
 
 describe('Compile (JIT validation)', () => {
 	test('compiled validator produces same results as Value.Check', () => {
-		const schema = tableSchemaToTypebox({
+		const schema = fieldsSchemaToTypebox({
 			id: id(),
 			title: text(),
 			count: integer(),
@@ -566,7 +566,7 @@ describe('Compile (JIT validation)', () => {
 	});
 
 	test('compiled validator validates complex schema', () => {
-		const schema = tableSchemaToTypebox({
+		const schema = fieldsSchemaToTypebox({
 			id: id(),
 			title: text(),
 			status: select({ options: ['draft', 'published'] }),
@@ -598,7 +598,7 @@ describe('Compile (JIT validation)', () => {
 	});
 
 	test('compiled validator handles nullable fields', () => {
-		const schema = tableSchemaToTypebox({
+		const schema = fieldsSchemaToTypebox({
 			id: id(),
 			name: text({ nullable: true }),
 			count: integer({ nullable: true }),
@@ -611,7 +611,7 @@ describe('Compile (JIT validation)', () => {
 	});
 
 	test('compiled validator can report errors', () => {
-		const schema = tableSchemaToTypebox({
+		const schema = fieldsSchemaToTypebox({
 			id: id(),
 			count: integer(),
 		});
@@ -624,7 +624,7 @@ describe('Compile (JIT validation)', () => {
 	});
 
 	test('compiled validator is reusable', () => {
-		const schema = tableSchemaToTypebox({
+		const schema = fieldsSchemaToTypebox({
 			id: id(),
 			value: integer(),
 		});

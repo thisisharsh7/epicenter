@@ -1,6 +1,6 @@
 import { WebsocketProvider } from 'y-websocket';
-import type { Capability } from '../core/capability';
-import type { TablesSchema } from '../core/schema';
+import type { CapabilityFactory } from '../core/capability';
+import type { KvSchema, TableDefinitionMap } from '../core/schema';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MULTI-DEVICE SYNC ARCHITECTURE
@@ -222,9 +222,12 @@ export type WebsocketSyncConfig = {
  * providers.forEach(p => p.on('sync', () => console.log('Synced!')));
  * ```
  */
-export function websocketSync<TSchema extends TablesSchema>(
+export function websocketSync<
+	TTableDefinitionMap extends TableDefinitionMap,
+	TKvSchema extends KvSchema,
+>(
 	config: WebsocketSyncConfig,
-): Capability<TSchema> {
+): CapabilityFactory<TTableDefinitionMap, TKvSchema> {
 	return ({ ydoc }) => {
 		const provider = new WebsocketProvider(
 			config.url,

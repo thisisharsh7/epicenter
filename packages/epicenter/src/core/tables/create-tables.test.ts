@@ -1,18 +1,21 @@
 import { describe, expect, test } from 'bun:test';
 import * as Y from 'yjs';
-import { boolean, id, integer, tags, text, richtext } from '../schema';
+import { boolean, id, integer, tags, text, richtext, table } from '../schema';
 import { createTables } from './create-tables';
 
 describe('createTables', () => {
 	test('should create and retrieve rows correctly', () => {
 		const ydoc = new Y.Doc({ guid: 'test-workspace' });
 		const doc = createTables(ydoc, {
-			posts: {
-				id: id(),
-				title: text(),
-				view_count: integer(),
-				published: boolean(),
-			},
+			posts: table({
+				name: '',
+				fields: {
+					id: id(),
+					title: text(),
+					view_count: integer(),
+					published: boolean(),
+				},
+			}),
 		});
 
 		// Create a row
@@ -36,12 +39,15 @@ describe('createTables', () => {
 	test('should handle batch operations', () => {
 		const ydoc = new Y.Doc({ guid: 'test-workspace' });
 		const doc = createTables(ydoc, {
-			posts: {
-				id: id(),
-				title: text(),
-				view_count: integer(),
-				published: boolean(),
-			},
+			posts: table({
+				name: '',
+				fields: {
+					id: id(),
+					title: text(),
+					view_count: integer(),
+					published: boolean(),
+				},
+			}),
 		});
 
 		// Create multiple rows
@@ -66,12 +72,15 @@ describe('createTables', () => {
 	test('should filter and find rows correctly', () => {
 		const ydoc = new Y.Doc({ guid: 'test-workspace' });
 		const doc = createTables(ydoc, {
-			posts: {
-				id: id(),
-				title: text(),
-				view_count: integer(),
-				published: boolean(),
-			},
+			posts: table({
+				name: '',
+				fields: {
+					id: id(),
+					title: text(),
+					view_count: integer(),
+					published: boolean(),
+				},
+			}),
 		});
 
 		doc.posts.upsertMany([
@@ -95,12 +104,15 @@ describe('createTables', () => {
 	test('should return not_found status for non-existent rows', () => {
 		const ydoc = new Y.Doc({ guid: 'test-workspace' });
 		const doc = createTables(ydoc, {
-			posts: {
-				id: id(),
-				title: text(),
-				view_count: integer(),
-				published: boolean(),
-			},
+			posts: table({
+				name: '',
+				fields: {
+					id: id(),
+					title: text(),
+					view_count: integer(),
+					published: boolean(),
+				},
+			}),
 		});
 
 		// Test get() with non-existent id
@@ -118,11 +130,14 @@ describe('createTables', () => {
 	test('should store and retrieve richtext and tags correctly', () => {
 		const ydoc = new Y.Doc({ guid: 'test-workspace' });
 		const doc = createTables(ydoc, {
-			posts: {
-				id: id(),
-				title: richtext(),
-				tags: tags({ options: ['typescript', 'javascript', 'python'] }),
-			},
+			posts: table({
+				name: '',
+				fields: {
+					id: id(),
+					title: richtext(),
+					tags: tags({ options: ['typescript', 'javascript', 'python'] }),
+				},
+			}),
 		});
 
 		doc.posts.upsert({
@@ -155,11 +170,14 @@ describe('createTables', () => {
 	test('rows are plain JSON-serializable objects', () => {
 		const ydoc = new Y.Doc({ guid: 'test-workspace' });
 		const doc = createTables(ydoc, {
-			posts: {
-				id: id(),
-				title: text(),
-				published: boolean(),
-			},
+			posts: table({
+				name: '',
+				fields: {
+					id: id(),
+					title: text(),
+					published: boolean(),
+				},
+			}),
 		});
 
 		doc.posts.upsert({ id: '1', title: 'Test', published: false });
@@ -180,11 +198,14 @@ describe('createTables', () => {
 		test('onAdd fires when row is added via upsert', () => {
 			const ydoc = new Y.Doc({ guid: 'test-observe' });
 			const tables = createTables(ydoc, {
-				posts: {
-					id: id(),
-					title: text(),
-					published: boolean(),
-				},
+				posts: table({
+					name: '',
+					fields: {
+						id: id(),
+						title: text(),
+						published: boolean(),
+					},
+				}),
 			});
 
 			const addedRows: string[] = [];
@@ -205,11 +226,14 @@ describe('createTables', () => {
 		test('onUpdate fires when row field is modified', () => {
 			const ydoc = new Y.Doc({ guid: 'test-observe' });
 			const tables = createTables(ydoc, {
-				posts: {
-					id: id(),
-					title: text(),
-					view_count: integer(),
-				},
+				posts: table({
+					name: '',
+					fields: {
+						id: id(),
+						title: text(),
+						view_count: integer(),
+					},
+				}),
 			});
 
 			tables.posts.upsert({ id: 'post-1', title: 'Original', view_count: 0 });
@@ -236,10 +260,13 @@ describe('createTables', () => {
 		test('onDelete fires when row is removed', () => {
 			const ydoc = new Y.Doc({ guid: 'test-observe' });
 			const tables = createTables(ydoc, {
-				posts: {
-					id: id(),
-					title: text(),
-				},
+				posts: table({
+					name: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
+				}),
 			});
 
 			tables.posts.upsert({ id: 'post-1', title: 'First' });
@@ -262,10 +289,13 @@ describe('createTables', () => {
 		test('callbacks receive raw row data', () => {
 			const ydoc = new Y.Doc({ guid: 'test-observe' });
 			const tables = createTables(ydoc, {
-				posts: {
-					id: id(),
-					title: text(),
-				},
+				posts: table({
+					name: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
+				}),
 			});
 
 			const receivedRows: Array<{ id: string; title: string }> = [];
@@ -293,10 +323,13 @@ describe('createTables', () => {
 			const ytables: TablesMap = ydoc.getMap('tables');
 
 			const tables = createTables(ydoc, {
-				posts: {
-					id: id(),
-					count: integer(),
-				},
+				posts: table({
+					name: '',
+					fields: {
+						id: id(),
+						count: integer(),
+					},
+				}),
 			});
 
 			let receivedResult: unknown = null;
@@ -331,10 +364,13 @@ describe('createTables', () => {
 		test('unsubscribe stops callbacks', () => {
 			const ydoc = new Y.Doc({ guid: 'test-observe' });
 			const tables = createTables(ydoc, {
-				posts: {
-					id: id(),
-					title: text(),
-				},
+				posts: table({
+					name: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
+				}),
 			});
 
 			const addedIds: string[] = [];
@@ -356,10 +392,13 @@ describe('createTables', () => {
 		test('transaction batching: upsertMany fires callback once with all changes', () => {
 			const ydoc = new Y.Doc({ guid: 'test-batch' });
 			const tables = createTables(ydoc, {
-				posts: {
-					id: id(),
-					title: text(),
-				},
+				posts: table({
+					name: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
+				}),
 			});
 
 			let callbackCount = 0;
@@ -390,11 +429,14 @@ describe('createTables', () => {
 		test('transaction batching: multiple updates in transact fires callback once', () => {
 			const ydoc = new Y.Doc({ guid: 'test-batch-update' });
 			const tables = createTables(ydoc, {
-				posts: {
-					id: id(),
-					title: text(),
-					view_count: integer(),
-				},
+				posts: table({
+					name: '',
+					fields: {
+						id: id(),
+						title: text(),
+						view_count: integer(),
+					},
+				}),
 			});
 
 			tables.posts.upsertMany([
@@ -428,10 +470,13 @@ describe('createTables', () => {
 		test('transaction batching: mixed operations in transact fires callback once', () => {
 			const ydoc = new Y.Doc({ guid: 'test-batch-mixed' });
 			const tables = createTables(ydoc, {
-				posts: {
-					id: id(),
-					title: text(),
-				},
+				posts: table({
+					name: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
+				}),
 			});
 
 			tables.posts.upsert({ id: 'post-1', title: 'First' });
@@ -461,10 +506,13 @@ describe('createTables', () => {
 		test('transaction batching: deleteMany fires callback once', () => {
 			const ydoc = new Y.Doc({ guid: 'test-batch-delete' });
 			const tables = createTables(ydoc, {
-				posts: {
-					id: id(),
-					title: text(),
-				},
+				posts: table({
+					name: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
+				}),
 			});
 
 			tables.posts.upsertMany([
@@ -495,11 +543,14 @@ describe('createTables', () => {
 		test('same-row dedupe: multiple updates in one transaction emits final value', () => {
 			const ydoc = new Y.Doc({ guid: 'test-dedupe' });
 			const tables = createTables(ydoc, {
-				posts: {
-					id: id(),
-					title: text(),
-					view_count: integer(),
-				},
+				posts: table({
+					name: '',
+					fields: {
+						id: id(),
+						title: text(),
+						view_count: integer(),
+					},
+				}),
 			});
 
 			tables.posts.upsert({ id: 'post-1', title: 'Original', view_count: 0 });
@@ -552,10 +603,13 @@ describe('createTables', () => {
 			const ytables: TablesMap = ydoc.getMap('tables');
 
 			const tables = createTables(ydoc, {
-				posts: {
-					id: id(),
-					title: text(),
-				},
+				posts: table({
+					name: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
+				}),
 			});
 
 			const changes: Array<{ action: string; id: string }> = [];
@@ -583,14 +637,20 @@ describe('createTables', () => {
 		test('observer isolation: changes in other tables do not trigger callback', () => {
 			const ydoc = new Y.Doc({ guid: 'test-isolation' });
 			const tables = createTables(ydoc, {
-				posts: {
-					id: id(),
-					title: text(),
-				},
-				comments: {
-					id: id(),
-					content: text(),
-				},
+				posts: table({
+					name: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
+				}),
+				comments: table({
+					name: '',
+					fields: {
+						id: id(),
+						content: text(),
+					},
+				}),
 			});
 
 			const postsChanges: string[] = [];
@@ -613,10 +673,13 @@ describe('createTables', () => {
 		test('callback fires after transaction completes, not during', () => {
 			const ydoc = new Y.Doc({ guid: 'test-timing' });
 			const tables = createTables(ydoc, {
-				posts: {
-					id: id(),
-					title: text(),
-				},
+				posts: table({
+					name: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
+				}),
 			});
 
 			tables.posts.upsert({ id: 'post-1', title: 'Original' });
@@ -638,10 +701,13 @@ describe('createTables', () => {
 		test('multiple subscribers receive same changes', () => {
 			const ydoc = new Y.Doc({ guid: 'test-multi-sub' });
 			const tables = createTables(ydoc, {
-				posts: {
-					id: id(),
-					title: text(),
-				},
+				posts: table({
+					name: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
+				}),
 			});
 
 			const subscriber1Changes: string[] = [];

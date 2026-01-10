@@ -2,16 +2,15 @@ import { Value } from 'typebox/value';
 import * as Y from 'yjs';
 import type {
 	CapabilityExports,
-	CapabilityMap,
+	CapabilityFactoryMap,
 	InferCapabilityExports,
 } from '../capability';
 import { createKv, type Kv } from '../kv/core';
-import type { KvSchema, TablesSchema, TablesWithMetadata } from '../schema';
+import type { KvSchema, TableDefinitionMap } from '../schema';
 import type {
 	CoverDefinition,
 	FieldSchema,
 	IconDefinition,
-	TableDefinition,
 } from '../schema/fields/types';
 import { createTables, type Tables } from '../tables/create-tables';
 
@@ -28,9 +27,7 @@ import { createTables, type Tables } from '../tables/create-tables';
  * Use `defineWorkspace()` to create a `Workspace` object with a `.create()` method.
  */
 export type WorkspaceSchema<
-	TTablesSchema extends TablesSchema | TablesWithMetadata =
-		| TablesSchema
-		| TablesWithMetadata,
+	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
 	TKvSchema extends KvSchema = KvSchema,
 > = {
 	/** Globally unique identifier for sync coordination. Generate with `generateGuid()`. */
@@ -39,8 +36,23 @@ export type WorkspaceSchema<
 	slug: string;
 	/** Display name shown in UI. */
 	name: string;
-	/** Table definitions with metadata. */
-	tables: TTablesSchema;
+	/**
+	 * Table definitions with metadata (name, icon, cover, description, fields).
+	 *
+	 * @example
+	 * ```typescript
+	 * tables: {
+	 *   posts: {
+	 *     name: 'Posts',
+	 *     icon: { type: 'emoji', value: '📝' },
+	 *     cover: null,
+	 *     description: 'Blog posts',
+	 *     fields: { id: id(), title: text() },
+	 *   },
+	 * }
+	 * ```
+	 */
+	tables: TTableDefinitionMap;
 	/** Key-value store schema. */
 	kv: TKvSchema;
 };
@@ -74,9 +86,9 @@ export type WorkspaceSchema<
  * ```
  */
 export type Workspace<
-	TTablesSchema extends TablesSchema = TablesSchema,
+	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
 	TKvSchema extends KvSchema = KvSchema,
-> = WorkspaceSchema<TTablesSchema, TKvSchema> & {
+> = WorkspaceSchema<TTableDefinitionMap, TKvSchema> & {
 	/**
 	 * Create a workspace client.
 	 *
@@ -119,11 +131,20 @@ export type Workspace<
 	 * ```
 	 */
 	create<
-		TCapabilities extends CapabilityMap<TTablesSchema, TKvSchema> = {},
+		TCapabilityFactories extends CapabilityFactoryMap<
+			TTableDefinitionMap,
+			TKvSchema
+		> = {},
 	>(options?: {
 		epoch?: number;
-		capabilities?: TCapabilities;
-	}): Promise<WorkspaceClient<TTablesSchema, TKvSchema, TCapabilities>>;
+		capabilities?: TCapabilityFactories;
+	}): Promise<
+		WorkspaceClient<
+			TTableDefinitionMap,
+			TKvSchema,
+			InferCapabilityExports<TCapabilityFactories>
+		>
+	>;
 };
 
 /**
@@ -163,11 +184,11 @@ export type Workspace<
  * ```
  */
 export type WorkspaceClient<
-	TTablesSchema extends TablesSchema = TablesSchema,
+	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
 	TKvSchema extends KvSchema = KvSchema,
-	TCapabilities extends CapabilityMap<TTablesSchema, TKvSchema> = CapabilityMap<
-		TTablesSchema,
-		TKvSchema
+	TCapabilityExports extends Record<string, CapabilityExports> = Record<
+		string,
+		CapabilityExports
 	>,
 > = {
 	/** Globally unique identifier for sync coordination. */
@@ -175,11 +196,11 @@ export type WorkspaceClient<
 	/** Human-readable slug for URLs, paths, and CLI commands. */
 	slug: string;
 	/** Typed table helpers for CRUD operations. */
-	tables: Tables<TTablesSchema>;
+	tables: Tables<TTableDefinitionMap>;
 	/** Key-value store for simple values. */
 	kv: Kv<TKvSchema>;
 	/** Exports from initialized capabilities. */
-	capabilities: InferCapabilityExports<TCapabilities>;
+	capabilities: TCapabilityExports;
 	/** The underlying YJS document. */
 	ydoc: Y.Doc;
 	/** Clean up resources (close capabilities, destroy YJS doc). */
@@ -206,7 +227,17 @@ export type WorkspaceClient<
  *   slug: 'blog',
  *   name: 'Blog',
  *   tables: {
- *     posts: { id: id(), title: text(), published: boolean({ default: false }) },
+ *     posts: {
+ *       name: 'Posts',
+ *       icon: { type: 'emoji', value: '📝' },
+ *       cover: null,
+ *       description: 'Blog posts and articles',
+ *       fields: {
+ *         id: id(),
+ *         title: text(),
+ *         published: boolean({ default: false }),
+ *       },
+ *     },
  *   },
  *   kv: {},
  * });
@@ -231,11 +262,11 @@ export type WorkspaceClient<
  * @returns A Workspace definition with a `.create()` method
  */
 export function defineWorkspace<
-	TTablesSchema extends TablesSchema,
+	TTableDefinitionMap extends TableDefinitionMap,
 	TKvSchema extends KvSchema = Record<string, never>,
 >(
-	config: WorkspaceSchema<TTablesSchema, TKvSchema>,
-): Workspace<TTablesSchema, TKvSchema> {
+	config: WorkspaceSchema<TTableDefinitionMap, TKvSchema>,
+): Workspace<TTableDefinitionMap, TKvSchema> {
 	if (!config.id || typeof config.id !== 'string') {
 		throw new Error('Workspace must have a valid ID');
 	}
@@ -328,14 +359,23 @@ export function defineWorkspace<
 		 * ```
 		 */
 		async create<
-			TCapabilities extends CapabilityMap<TTablesSchema, TKvSchema> = {},
+			TCapabilityFactories extends CapabilityFactoryMap<
+				TTableDefinitionMap,
+				TKvSchema
+			> = {},
 		>({
 			epoch = 0,
-			capabilities = {} as TCapabilities,
+			capabilities: capabilityFactories = {} as TCapabilityFactories,
 		}: {
 			epoch?: number;
-			capabilities?: TCapabilities;
-		} = {}): Promise<WorkspaceClient<TTablesSchema, TKvSchema, TCapabilities>> {
+			capabilities?: TCapabilityFactories;
+		} = {}): Promise<
+			WorkspaceClient<
+				TTableDefinitionMap,
+				TKvSchema,
+				InferCapabilityExports<TCapabilityFactories>
+			>
+		> {
 			// Create Data Y.Doc with deterministic GUID
 			const docId = `${config.id}-${epoch}` as const;
 			const ydoc = new Y.Doc({ guid: docId });
@@ -349,7 +389,7 @@ export function defineWorkspace<
 				metaMap.set('slug', config.slug);
 			}
 
-			// Merge code schema into Y.Doc schema (idempotent, CRDT handles conflicts)
+			// Merge full table definitions (with metadata) into Y.Doc schema
 			mergeSchemaIntoYDoc(ydoc, config.tables, config.kv);
 
 			// Create table and kv helpers bound to the Y.Doc
@@ -359,9 +399,9 @@ export function defineWorkspace<
 			// Run capability factories in parallel
 			const capabilityExports = Object.fromEntries(
 				await Promise.all(
-					Object.entries(capabilities).map(
-						async ([capabilityId, capabilityFn]) => {
-							const result = await capabilityFn({
+					Object.entries(capabilityFactories).map(
+						async ([capabilityId, capabilityFactory]) => {
+							const result = await capabilityFactory({
 								id: config.id,
 								slug: config.slug,
 								capabilityId,
@@ -373,7 +413,7 @@ export function defineWorkspace<
 						},
 					),
 				),
-			) as InferCapabilityExports<TCapabilities>;
+			) as InferCapabilityExports<TCapabilityFactories>;
 
 			const destroy = async () => {
 				await Promise.all(
@@ -410,15 +450,6 @@ type TableSchemaMap = Y.Map<
 >;
 
 /**
- * Check if a table value is TablesWithMetadata format (has 'fields' property).
- */
-function isTableDefinition(
-	value: Record<string, FieldSchema> | TableDefinition,
-): value is TableDefinition {
-	return 'fields' in value && typeof value.fields === 'object';
-}
-
-/**
  * Merge code-defined schema into Y.Doc schema.
  *
  * Uses pure merge semantics:
@@ -430,7 +461,7 @@ function isTableDefinition(
  */
 function mergeSchemaIntoYDoc(
 	ydoc: Y.Doc,
-	tables: TablesSchema | TablesWithMetadata,
+	tables: TableDefinitionMap,
 	kv: KvSchema,
 ) {
 	const schemaMap = ydoc.getMap<Y.Map<unknown>>('schema');
@@ -447,18 +478,7 @@ function mergeSchemaIntoYDoc(
 	const kvSchemaMap = schemaMap.get('kv') as Y.Map<FieldSchema>;
 
 	ydoc.transact(() => {
-		for (const [tableName, tableValue] of Object.entries(tables)) {
-			// Determine if this is TablesWithMetadata or TablesSchema format
-			const tableDefinition: TableDefinition = isTableDefinition(tableValue)
-				? tableValue
-				: {
-						name: tableName,
-						icon: null,
-						cover: null,
-						description: '',
-						fields: tableValue,
-					};
-
+		for (const [tableName, tableDefinition] of Object.entries(tables)) {
 			// Get or create the table schema map
 			let tableMap = tablesSchemaMap.get(tableName);
 			if (!tableMap) {

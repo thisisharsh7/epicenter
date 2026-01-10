@@ -1,12 +1,12 @@
 export {
 	boolean,
 	date,
-	defineTable,
 	id,
 	integer,
 	json,
 	real,
 	select,
+	table,
 	tags,
 	text,
 	richtext,
@@ -35,9 +35,7 @@ export type {
 	Row,
 	SelectFieldSchema,
 	TableDefinition,
-	TableSchema,
-	TablesSchema,
-	TablesWithMetadata,
+	TableDefinitionMap,
 	TagsFieldSchema,
 	TextFieldSchema,
 } from './fields/types.js';
@@ -57,7 +55,7 @@ export {
 export type { FieldSchemaToTypebox } from './converters/to-typebox.js';
 export {
 	fieldSchemaToTypebox,
-	tableSchemaToTypebox,
+	fieldsSchemaToTypebox,
 } from './converters/to-typebox.js';
 
 export type { WorkspaceSchemaToDrizzleTables } from './converters/to-drizzle.js';

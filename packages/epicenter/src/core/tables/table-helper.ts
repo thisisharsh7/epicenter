@@ -1,8 +1,13 @@
 import { Compile } from 'typebox/compile';
 import type { TLocalizedValidationError } from 'typebox/error';
 import * as Y from 'yjs';
-import type { PartialRow, Row, TableSchema, TablesSchema } from '../schema';
-import { tableSchemaToTypebox } from '../schema';
+import type {
+	PartialRow,
+	Row,
+	FieldsSchema,
+	TableDefinitionMap,
+} from '../schema';
+import { fieldsSchemaToTypebox } from '../schema';
 
 /**
  * A single validation error from TypeBox schema validation.
@@ -133,24 +138,33 @@ export type TableRowChange<TRow> =
 /**
  * Creates a type-safe collection of table helpers for all tables in a schema.
  */
-export function createTableHelpers<TTablesSchema extends TablesSchema>({
+export function createTableHelpers<
+	TTableDefinitionMap extends TableDefinitionMap,
+>({
 	ydoc,
-	schema,
+	tableDefinitions,
 }: {
 	ydoc: Y.Doc;
-	schema: TTablesSchema;
+	tableDefinitions: TTableDefinitionMap;
 }) {
 	const ytables: TablesMap = ydoc.getMap('tables');
 
 	return Object.fromEntries(
-		Object.entries(schema).map(([tableName, tableSchema]) => {
+		Object.entries(tableDefinitions).map(([tableName, tableDefinition]) => {
 			return [
 				tableName,
-				createTableHelper({ ydoc, tableName, ytables, schema: tableSchema }),
+				createTableHelper({
+					ydoc,
+					tableName,
+					ytables,
+					schema: tableDefinition.fields,
+				}),
 			];
 		}),
 	) as {
-		[TTableName in keyof TTablesSchema]: TableHelper<TTablesSchema[TTableName]>;
+		[TTableName in keyof TTableDefinitionMap]: TableHelper<
+			TTableDefinitionMap[TTableName]['fields']
+		>;
 	};
 }
 
@@ -166,7 +180,7 @@ export function createTableHelpers<TTablesSchema extends TablesSchema>({
  * User A edits title, User B edits views → After sync: both changes preserved
  * ```
  */
-function createTableHelper<TTableSchema extends TableSchema>({
+function createTableHelper<TFieldsSchema extends FieldsSchema>({
 	ydoc,
 	tableName,
 	ytables,
@@ -175,11 +189,11 @@ function createTableHelper<TTableSchema extends TableSchema>({
 	ydoc: Y.Doc;
 	tableName: string;
 	ytables: TablesMap;
-	schema: TTableSchema;
+	schema: TFieldsSchema;
 }) {
-	type TRow = Row<TTableSchema>;
+	type TRow = Row<TFieldsSchema>;
 
-	const typeboxSchema = tableSchemaToTypebox(schema);
+	const typeboxSchema = fieldsSchemaToTypebox(schema);
 	const rowValidator = Compile(typeboxSchema);
 
 	/**
@@ -294,7 +308,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 		name: tableName,
 		schema,
 
-		update(partialRow: PartialRow<TTableSchema>): UpdateResult {
+		update(partialRow: PartialRow<TFieldsSchema>): UpdateResult {
 			const rowMap = getRow(partialRow.id);
 			if (!rowMap) return { status: 'not_found_locally' };
 
@@ -327,7 +341,7 @@ function createTableHelper<TTableSchema extends TableSchema>({
 			});
 		},
 
-		updateMany(rows: PartialRow<TTableSchema>[]): UpdateManyResult {
+		updateMany(rows: PartialRow<TFieldsSchema>[]): UpdateManyResult {
 			const applied: string[] = [];
 			const notFoundLocally: string[] = [];
 
@@ -741,6 +755,6 @@ function createTableHelper<TTableSchema extends TableSchema>({
 	};
 }
 
-export type TableHelper<TTableSchema extends TableSchema> = ReturnType<
-	typeof createTableHelper<TTableSchema>
+export type TableHelper<TFieldsSchema extends FieldsSchema> = ReturnType<
+	typeof createTableHelper<TFieldsSchema>
 >;

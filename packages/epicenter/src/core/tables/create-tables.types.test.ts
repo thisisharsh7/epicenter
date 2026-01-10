@@ -1,6 +1,15 @@
 import { describe, expect, test } from 'bun:test';
 import * as Y from 'yjs';
-import { boolean, id, integer, select, tags, text, richtext } from '../schema';
+import {
+	boolean,
+	id,
+	integer,
+	richtext,
+	select,
+	table,
+	tags,
+	text,
+} from '../schema';
 import { createTables } from './create-tables';
 
 /**
@@ -12,14 +21,17 @@ import { createTables } from './create-tables';
 describe('YjsDoc Type Inference', () => {
 	test('should infer row types from schema', () => {
 		const doc = createTables(new Y.Doc({ guid: 'test-workspace' }), {
-			posts: {
-				id: id(),
-				title: text(),
-				content: richtext(),
-				tags: tags({ options: ['tech', 'personal', 'work'] }),
-				view_count: integer(),
-				published: boolean(),
-			},
+			posts: table({
+				name: '',
+				fields: {
+					id: id(),
+					title: text(),
+					content: richtext(),
+					tags: tags({ options: ['tech', 'personal', 'work'] }),
+					view_count: integer(),
+					published: boolean(),
+				},
+			}),
 		});
 
 		// Test upsert() - accepts plain values (strings for richtext, arrays for tags)
@@ -52,12 +64,15 @@ describe('YjsDoc Type Inference', () => {
 
 	test('should infer types for getAll()', () => {
 		const doc = createTables(new Y.Doc({ guid: 'test-workspace' }), {
-			products: {
-				id: id(),
-				name: text(),
-				price: integer(),
-				in_stock: boolean(),
-			},
+			products: table({
+				name: '',
+				fields: {
+					id: id(),
+					name: text(),
+					price: integer(),
+					in_stock: boolean(),
+				},
+			}),
 		});
 
 		doc.products.upsertMany([
@@ -74,12 +89,15 @@ describe('YjsDoc Type Inference', () => {
 
 	test('should infer predicate parameter types in filter()', () => {
 		const doc = createTables(new Y.Doc({ guid: 'test-workspace' }), {
-			tasks: {
-				id: id(),
-				title: text(),
-				completed: boolean(),
-				priority: select({ options: ['low', 'medium', 'high'] }),
-			},
+			tasks: table({
+				name: '',
+				fields: {
+					id: id(),
+					title: text(),
+					completed: boolean(),
+					priority: select({ options: ['low', 'medium', 'high'] }),
+				},
+			}),
 		});
 
 		doc.tasks.upsertMany([
@@ -98,11 +116,14 @@ describe('YjsDoc Type Inference', () => {
 
 	test('should infer predicate parameter types in find()', () => {
 		const doc = createTables(new Y.Doc({ guid: 'test-workspace' }), {
-			items: {
-				id: id(),
-				name: text(),
-				quantity: integer(),
-			},
+			items: table({
+				name: '',
+				fields: {
+					id: id(),
+					name: text(),
+					quantity: integer(),
+				},
+			}),
 		});
 
 		doc.items.upsertMany([
@@ -121,11 +142,14 @@ describe('YjsDoc Type Inference', () => {
 
 	test('should infer observer handler parameter types', () => {
 		const doc = createTables(new Y.Doc({ guid: 'test-workspace' }), {
-			notifications: {
-				id: id(),
-				message: text(),
-				read: boolean(),
-			},
+			notifications: table({
+				name: '',
+				fields: {
+					id: id(),
+					message: text(),
+					read: boolean(),
+				},
+			}),
 		});
 
 		const addedNotifications: Array<{
@@ -156,12 +180,15 @@ describe('YjsDoc Type Inference', () => {
 
 	test('should handle nullable richtext types correctly', () => {
 		const doc = createTables(new Y.Doc({ guid: 'test-workspace' }), {
-			articles: {
-				id: id(),
-				title: text(),
-				description: richtext(), // string | null
-				content: richtext(), // string | null
-			},
+			articles: table({
+				name: '',
+				fields: {
+					id: id(),
+					title: text(),
+					description: richtext(), // string | null
+					content: richtext(), // string | null
+				},
+			}),
 		});
 
 		// Test with null values
@@ -197,20 +224,26 @@ describe('YjsDoc Type Inference', () => {
 
 	test('should handle multi-table schemas with proper type inference', () => {
 		const doc = createTables(new Y.Doc({ guid: 'test-workspace' }), {
-			authors: {
-				id: id(),
-				name: text(),
-				bio: richtext(),
-			},
-			books: {
-				id: id(),
-				author_id: text(),
-				title: text(),
-				chapters: tags({
-					options: ['Chapter 1', 'Chapter 2', 'Chapter 3'],
-				}),
-				published: boolean(),
-			},
+			authors: table({
+				name: '',
+				fields: {
+					id: id(),
+					name: text(),
+					bio: richtext(),
+				},
+			}),
+			books: table({
+				name: '',
+				fields: {
+					id: id(),
+					author_id: text(),
+					title: text(),
+					chapters: tags({
+						options: ['Chapter 1', 'Chapter 2', 'Chapter 3'],
+					}),
+					published: boolean(),
+				},
+			}),
 		});
 
 		// Test authors table - richtext stores ID reference
@@ -247,11 +280,14 @@ describe('YjsDoc Type Inference', () => {
 
 	test('should properly type upsertMany with array of rows', () => {
 		const doc = createTables(new Y.Doc({ guid: 'test-workspace' }), {
-			comments: {
-				id: id(),
-				text: text(),
-				upvotes: integer(),
-			},
+			comments: table({
+				name: '',
+				fields: {
+					id: id(),
+					text: text(),
+					upvotes: integer(),
+				},
+			}),
 		});
 
 		// Hover over the array to verify element type
@@ -268,13 +304,16 @@ describe('YjsDoc Type Inference', () => {
 
 	test('should handle richtext and tags in complex scenarios', () => {
 		const doc = createTables(new Y.Doc({ guid: 'test-workspace' }), {
-			documents: {
-				id: id(),
-				title: text(),
-				body: richtext(),
-				notes: richtext(),
-				tags: tags({ options: ['tag1', 'tag2'] }),
-			},
+			documents: table({
+				name: '',
+				fields: {
+					id: id(),
+					title: text(),
+					body: richtext(),
+					notes: richtext(),
+					tags: tags({ options: ['tag1', 'tag2'] }),
+				},
+			}),
 		});
 
 		// Upsert with plain values (richtext stores ID, tags stores array)

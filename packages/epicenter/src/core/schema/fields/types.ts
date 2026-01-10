@@ -371,12 +371,6 @@ export type CellValue<C extends FieldSchema = FieldSchema> =
 export type FieldsSchema = { id: IdFieldSchema } & Record<string, FieldSchema>;
 
 /**
- * Table schema - maps field names to field schemas.
- * Alias for FieldsSchema, used when defining tables.
- */
-export type TableSchema = FieldsSchema;
-
-/**
  * Table definition with metadata for UI display.
  * Use this type for the full table definition including metadata.
  *
@@ -409,26 +403,14 @@ export type TableDefinition<TFields extends FieldsSchema = FieldsSchema> = {
 };
 
 /**
- * Tables schema - maps table keys to table field schemas.
- * This is the simple format for defining tables inline.
+ * Map of table names to their full definitions (metadata + fields).
+ *
+ * This is the required format for `defineWorkspace().tables` and the type
+ * that flows through the entire system (capabilities, table helpers, etc.).
  *
  * @example
  * ```typescript
- * const blogTables = {
- *   posts: { id: id(), title: text() },
- *   authors: { id: id(), name: text() },
- * } satisfies TablesSchema;
- * ```
- */
-export type TablesSchema = Record<string, TableSchema>;
-
-/**
- * Tables with metadata - maps table keys to full table definitions.
- * Use this when you need table metadata (name, icon, cover, description).
- *
- * @example
- * ```typescript
- * const blogTables: TablesWithMetadata = {
+ * const blogTables: TableDefinitionMap = {
  *   posts: {
  *     name: 'Posts',
  *     icon: { type: 'emoji', value: '📝' },
@@ -439,7 +421,7 @@ export type TablesSchema = Record<string, TableSchema>;
  * };
  * ```
  */
-export type TablesWithMetadata = Record<string, TableDefinition>;
+export type TableDefinitionMap = Record<string, TableDefinition>;
 
 // ============================================================================
 // Row Types

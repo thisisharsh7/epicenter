@@ -1,8 +1,8 @@
 export type {
-	Capability,
+	CapabilityFactory,
+	CapabilityFactoryMap,
 	CapabilityContext,
 	CapabilityExports,
-	CapabilityMap,
 	InferCapabilityExports,
 } from '../capability';
 export { defineCapabilities } from '../capability';

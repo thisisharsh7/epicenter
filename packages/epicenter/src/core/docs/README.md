@@ -206,7 +206,7 @@ const workspace = defineWorkspace({
 	},
 });
 
-// Or with table metadata (TablesWithMetadata format)
+// Or with table metadata (TableDefinitionMap format)
 const workspace = defineWorkspace({
 	tables: {
 		posts: {

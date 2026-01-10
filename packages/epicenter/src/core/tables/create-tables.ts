@@ -1,6 +1,6 @@
 import { regex } from 'arkregex';
 import type * as Y from 'yjs';
-import type { TablesSchema } from '../schema';
+import type { TableDefinitionMap } from '../schema';
 import { createTableHelpers, type TableHelper } from './table-helper';
 
 /**
@@ -64,7 +64,7 @@ export type {
  * is `clearAll`, which is a mutation action to clear all tables.
  *
  * @param ydoc - An existing Y.Doc instance (already loaded/initialized)
- * @param schema - Table schema definitions
+ * @param tableDefinitions - Table definition map (includes metadata and fields)
  * @returns Object with flattened table helpers and a clearAll mutation
  *
  * @example
@@ -72,10 +72,16 @@ export type {
  * const ydoc = new Y.Doc({ guid: 'workspace-123' });
  * const db = createTables(ydoc, {
  *   posts: {
- *     id: id(),
- *     title: text(),
- *     published: boolean(),
- *   }
+ *     name: 'Posts',
+ *     icon: null,
+ *     cover: null,
+ *     description: 'Blog posts',
+ *     fields: {
+ *       id: id(),
+ *       title: text(),
+ *       published: boolean(),
+ *     },
+ *   },
  * });
  *
  * // Tables are accessed directly
@@ -86,12 +92,12 @@ export type {
  * db.clearAll();
  * ```
  */
-export function createTables<TTablesSchema extends TablesSchema>(
+export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 	ydoc: Y.Doc,
-	schema: TTablesSchema,
+	tableDefinitions: TTableDefinitionMap,
 ) {
 	// Validate table names
-	for (const tableName of Object.keys(schema)) {
+	for (const tableName of Object.keys(tableDefinitions)) {
 		if (tableName.startsWith('$')) {
 			throw new Error(
 				`Table name "${tableName}" is invalid: cannot start with "$" (reserved for utilities)`,
@@ -105,8 +111,8 @@ export function createTables<TTablesSchema extends TablesSchema>(
 	}
 
 	// Validate column names for each table
-	for (const [tableName, tableSchema] of Object.entries(schema)) {
-		for (const columnName of Object.keys(tableSchema)) {
+	for (const [tableName, tableDefinition] of Object.entries(tableDefinitions)) {
+		for (const columnName of Object.keys(tableDefinition.fields)) {
 			if (!COLUMN_NAME_PATTERN.test(columnName)) {
 				throw new Error(
 					`Column name "${columnName}" in table "${tableName}" is invalid: must start with a lowercase letter and contain only letters, numbers, and underscores (e.g., "title", "createdAt", "count2")`,
@@ -115,7 +121,7 @@ export function createTables<TTablesSchema extends TablesSchema>(
 		}
 	}
 
-	const tableHelpers = createTableHelpers({ ydoc, schema });
+	const tableHelpers = createTableHelpers({ ydoc, tableDefinitions });
 
 	return {
 		...tableHelpers,
@@ -140,7 +146,7 @@ export function createTables<TTablesSchema extends TablesSchema>(
 		 */
 		$all() {
 			return Object.values(tableHelpers) as TableHelper<
-				TTablesSchema[keyof TTablesSchema]
+				TTableDefinitionMap[keyof TTableDefinitionMap]['fields']
 			>[];
 		},
 
@@ -174,10 +180,12 @@ export function createTables<TTablesSchema extends TablesSchema>(
 		 */
 		$zip<
 			TConfigs extends {
-				[K in keyof TTablesSchema & string]: unknown;
+				[K in keyof TTableDefinitionMap & string]: unknown;
 			},
 		>(configs: TConfigs) {
-			const names = Object.keys(schema) as Array<keyof TTablesSchema & string>;
+			const names = Object.keys(tableDefinitions) as Array<
+				keyof TTableDefinitionMap & string
+			>;
 
 			return names.map((name) => ({
 				name,
@@ -185,12 +193,12 @@ export function createTables<TTablesSchema extends TablesSchema>(
 				paired: configs[name],
 			})) as Array<
 				{
-					[K in keyof TTablesSchema & string]: {
+					[K in keyof TTableDefinitionMap & string]: {
 						name: K;
-						table: TableHelper<TTablesSchema[K]>;
+						table: TableHelper<TTableDefinitionMap[K]['fields']>;
 						paired: TConfigs[K];
 					};
-				}[keyof TTablesSchema & string]
+				}[keyof TTableDefinitionMap & string]
 			>;
 		},
 
@@ -199,7 +207,7 @@ export function createTables<TTablesSchema extends TablesSchema>(
 		 */
 		clearAll(): void {
 			ydoc.transact(() => {
-				for (const tableName of Object.keys(schema)) {
+				for (const tableName of Object.keys(tableDefinitions)) {
 					tableHelpers[tableName as keyof typeof tableHelpers].clear();
 				}
 			});
@@ -211,6 +219,6 @@ export function createTables<TTablesSchema extends TablesSchema>(
  * Type alias for the return type of createTables.
  * Useful for typing function parameters that accept a tables instance.
  */
-export type Tables<TTablesSchema extends TablesSchema> = ReturnType<
-	typeof createTables<TTablesSchema>
+export type Tables<TTableDefinitionMap extends TableDefinitionMap> = ReturnType<
+	typeof createTables<TTableDefinitionMap>
 >;
