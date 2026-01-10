@@ -1,5 +1,5 @@
 import type { ProviderExports } from '@epicenter/hq';
-import { appLocalDataDir, join } from '@tauri-apps/api/path';
+import { appLocalDataDir, dirname, join } from '@tauri-apps/api/path';
 import { mkdir, readFile, writeFile } from '@tauri-apps/plugin-fs';
 import * as Y from 'yjs';
 
@@ -59,13 +59,10 @@ export function persistYDoc(
 			const { baseDir, filePath } = await pathsPromise;
 
 			// Ensure parent directory exists
-			if (pathSegments.length > 1) {
-				const parentSegments = pathSegments.slice(0, -1);
-				const parentDir = await join(baseDir, ...parentSegments);
-				await mkdir(parentDir, { recursive: true }).catch(() => {
-					// Directory might already exist - that's fine
-				});
-			}
+			const parentDir = await dirname(filePath);
+			await mkdir(parentDir, { recursive: true }).catch(() => {
+				// Directory might already exist - that's fine
+			});
 
 			// Load existing state from disk
 			let isNewFile = false;
