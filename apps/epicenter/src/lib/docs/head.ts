@@ -29,6 +29,6 @@ import { persistYDoc } from '$lib/providers/tauri-persistence';
 export function createHead(workspaceId: string) {
 	return createHeadDoc({ workspaceId }).withProviders({
 		persistence: (ctx) =>
-			persistYDoc(ctx.ydoc, `workspaces/${workspaceId}/head.yjs`),
+			persistYDoc(ctx.ydoc, ['workspaces', workspaceId, 'head.yjs']),
 	});
 }

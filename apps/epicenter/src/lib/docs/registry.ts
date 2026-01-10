@@ -33,5 +33,5 @@ const REGISTRY_ID = 'local';
 export const registry = createRegistryDoc({
 	registryId: REGISTRY_ID,
 }).withProviders({
-	persistence: (ctx) => persistYDoc(ctx.ydoc, 'registry.yjs'),
+	persistence: (ctx) => persistYDoc(ctx.ydoc, ['registry.yjs']),
 });

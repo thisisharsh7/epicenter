@@ -51,7 +51,7 @@ export const load: LayoutLoad = async ({ params }) => {
 		epoch,
 		capabilities: {
 			persistence: (ctx: { ydoc: Y.Doc }) =>
-				persistYDoc(ctx.ydoc, `workspaces/${workspaceId}/${epoch}.yjs`),
+				persistYDoc(ctx.ydoc, ['workspaces', workspaceId, `${epoch}.yjs`]),
 		},
 	});
 

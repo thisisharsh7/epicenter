@@ -6,35 +6,47 @@ import * as Y from 'yjs';
 /**
  * Persist a Y.Doc to a file path relative to appLocalDataDir.
  *
- * Uses Tauri's path APIs for cross-platform compatibility.
+ * Accepts path segments as an array for explicit cross-platform path handling.
+ * Segments are joined using Tauri's path APIs, ensuring correct separators
+ * on all platforms (Windows backslashes, Unix forward slashes).
+ *
  * Follows the sync-construction pattern: returns immediately with a
  * `whenSynced` promise that resolves when initial load is complete.
  *
+ * @param ydoc - The Y.Doc to persist
+ * @param pathSegments - Path segments relative to appLocalDataDir
+ * @returns Provider exports with `whenSynced` promise and `destroy` cleanup
+ *
  * @example
  * ```typescript
- * const persistence = persistYDoc(ydoc, 'workspaces/abc123/head.yjs');
+ * const persistence = persistYDoc(ydoc, ['workspaces', workspaceId, 'head.yjs']);
  * await persistence.whenSynced; // Wait for initial load from disk
+ *
+ * // Clean up when done
+ * persistence.destroy();
  * ```
  */
 export function persistYDoc(
 	ydoc: Y.Doc,
-	relativePath: string,
+	pathSegments: string[],
 ): ProviderExports {
 	// Track resolved file path (set during initialization)
 	let filePath: string | null = null;
+
+	// For logging - join segments with '/' for human-readable output
+	const logPath = pathSegments.join('/');
 
 	// Async initialization - becomes whenSynced
 	const whenSynced = (async () => {
 		const baseDir = await appLocalDataDir();
 
 		// Use Tauri's join() for cross-platform path handling
-		const pathParts = relativePath.split('/');
-		filePath = await join(baseDir, ...pathParts);
+		filePath = await join(baseDir, ...pathSegments);
 
 		// Ensure parent directory exists
-		if (pathParts.length > 1) {
-			const parentParts = pathParts.slice(0, -1);
-			const parentDir = await join(baseDir, ...parentParts);
+		if (pathSegments.length > 1) {
+			const parentSegments = pathSegments.slice(0, -1);
+			const parentDir = await join(baseDir, ...parentSegments);
 			await mkdir(parentDir, { recursive: true }).catch(() => {
 				// Directory might already exist - that's fine
 			});
@@ -45,11 +57,11 @@ export function persistYDoc(
 		try {
 			const savedState = await readFile(filePath);
 			Y.applyUpdate(ydoc, new Uint8Array(savedState));
-			console.log(`[Persistence] Loaded from ${relativePath}`);
+			console.log(`[Persistence] Loaded from ${logPath}`);
 		} catch {
 			// File doesn't exist yet - that's fine, we'll create it on first update
 			isNewFile = true;
-			console.log(`[Persistence] Creating new file at ${relativePath}`);
+			console.log(`[Persistence] Creating new file at ${logPath}`);
 		}
 
 		// If this is a new file, save initial state
@@ -66,7 +78,7 @@ export function persistYDoc(
 			const state = Y.encodeStateAsUpdate(ydoc);
 			await writeFile(filePath!, state);
 		} catch (error) {
-			console.error(`[Persistence] Failed to save ${relativePath}:`, error);
+			console.error(`[Persistence] Failed to save ${logPath}:`, error);
 		}
 	};
 
