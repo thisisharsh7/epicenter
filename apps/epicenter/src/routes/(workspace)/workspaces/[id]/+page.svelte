@@ -6,7 +6,7 @@
 	import { Button } from '@epicenter/ui/button';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 
-	const workspaceId = $derived(page.params.slug);
+	const workspaceId = $derived(page.params.id);
 
 	const workspace = createQuery(() => ({
 		...rpc.workspaces.getWorkspace(workspaceId ?? '').options,

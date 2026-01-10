@@ -23,20 +23,20 @@ export const load: LayoutLoad = async ({ params }) => {
 	// This handles the case where the user reloads the page directly on a workspace URL
 	await bootstrap();
 
-	console.log(`[Layout] Loading workspace: ${params.slug}`);
+	console.log(`[Layout] Loading workspace: ${params.id}`);
 
-	// Step 1: Find workspace by slug (from URL param)
-	// Also try GUID lookup in case someone navigates with GUID directly
-	const schemaBySlug = findWorkspaceBySlug(params.slug);
-	const schemaByGuid = getWorkspaceSchema(params.slug);
-	const schema = schemaBySlug ?? schemaByGuid;
+	// Step 1: Find workspace by ID (from URL param)
+	// Also try slug lookup for backwards compatibility
+	const schemaByGuid = getWorkspaceSchema(params.id);
+	const schemaBySlug = findWorkspaceBySlug(params.id);
+	const schema = schemaByGuid ?? schemaBySlug;
 
-	console.log(`[Layout] Schema by slug:`, schemaBySlug?.slug);
 	console.log(`[Layout] Schema by GUID:`, schemaByGuid?.slug);
+	console.log(`[Layout] Schema by slug:`, schemaBySlug?.slug);
 
 	if (!schema) {
-		console.error(`[Layout] Workspace not found: ${params.slug}`);
-		error(404, { message: `Workspace "${params.slug}" not found` });
+		console.error(`[Layout] Workspace not found: ${params.id}`);
+		error(404, { message: `Workspace "${params.id}" not found` });
 	}
 
 	console.log(`[Layout] Found schema:`, schema.name, schema.slug);

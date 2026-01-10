@@ -10,7 +10,7 @@
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import SearchXIcon from '@lucide/svelte/icons/search-x';
 
-	const workspaceId = $derived(page.params.slug);
+	const workspaceId = $derived(page.params.id);
 	const settingKey = $derived(page.params.key);
 
 	const workspace = createQuery(() => ({
