@@ -385,8 +385,8 @@ export function defineWorkspace<
 		 * 2. **Metadata merged** — Workspace name and slug are written to the doc's
 		 *    meta map (idempotent; only updates if values differ).
 		 *
-		 * 3. **Schema merged** — Code-defined table/kv schemas are merged into the
-		 *    doc's schema map. New fields are added, changed fields are updated,
+		 * 3. **Definition merged** — Code-defined table/kv definitions are merged into the
+		 *    doc's definition map. New fields are added, changed fields are updated,
 		 *    existing identical fields are untouched. Safe to call repeatedly.
 		 *
 		 * 4. **Helpers created** — Typed `tables` and `kv` helpers are bound to
@@ -486,8 +486,8 @@ export function defineWorkspace<
 				metaMap.set('slug', config.slug);
 			}
 
-			// Merge full table definitions (with metadata) into Y.Doc schema
-			mergeSchemaIntoYDoc(ydoc, config.tables, config.kv);
+			// Merge full table definitions (with metadata) into Y.Doc definition
+			mergeDefinitionIntoYDoc(ydoc, config.tables, config.kv);
 
 			// Create table and kv helpers bound to the Y.Doc
 			const tables = createTables(ydoc, config.tables);
@@ -581,14 +581,14 @@ export function defineWorkspace<
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Type for the inner Y.Map that stores table schema with metadata.
+ * Type for the inner Y.Map that stores a table definition with metadata.
  */
-type TableSchemaMap = Y.Map<
+type TableDefinitionYMap = Y.Map<
 	string | IconDefinition | CoverDefinition | null | Y.Map<FieldSchema>
 >;
 
 /**
- * Merge code-defined schema into Y.Doc schema.
+ * Merge code-defined workspace definition into Y.Doc.
  *
  * Uses pure merge semantics:
  * - If table/field doesn't exist → add it
@@ -597,32 +597,34 @@ type TableSchemaMap = Y.Map<
  *
  * Idempotent and safe for concurrent calls.
  */
-function mergeSchemaIntoYDoc(
+function mergeDefinitionIntoYDoc(
 	ydoc: Y.Doc,
 	tables: TableDefinitionMap,
 	kv: KvDefinitionMap,
 ) {
-	const schemaMap = ydoc.getMap<Y.Map<unknown>>('schema');
+	const definitionMap = ydoc.getMap<Y.Map<unknown>>('definition');
 
-	// Initialize schema submaps if not present
-	if (!schemaMap.has('tables')) {
-		schemaMap.set('tables', new Y.Map());
+	// Initialize definition submaps if not present
+	if (!definitionMap.has('tables')) {
+		definitionMap.set('tables', new Y.Map());
 	}
-	if (!schemaMap.has('kv')) {
-		schemaMap.set('kv', new Y.Map());
+	if (!definitionMap.has('kv')) {
+		definitionMap.set('kv', new Y.Map());
 	}
 
-	const tablesSchemaMap = schemaMap.get('tables') as Y.Map<TableSchemaMap>;
-	const kvSchemaMap = schemaMap.get('kv') as Y.Map<KvDefinition>;
+	const tablesDefMap = definitionMap.get(
+		'tables',
+	) as Y.Map<TableDefinitionYMap>;
+	const kvDefMap = definitionMap.get('kv') as Y.Map<KvDefinition>;
 
 	ydoc.transact(() => {
 		for (const [tableName, tableDefinition] of Object.entries(tables)) {
-			// Get or create the table schema map
-			let tableMap = tablesSchemaMap.get(tableName);
+			// Get or create the table definition map
+			let tableMap = tablesDefMap.get(tableName);
 			if (!tableMap) {
-				tableMap = new Y.Map() as TableSchemaMap;
+				tableMap = new Y.Map() as TableDefinitionYMap;
 				tableMap.set('fields', new Y.Map<FieldSchema>());
-				tablesSchemaMap.set(tableName, tableMap);
+				tablesDefMap.set(tableName, tableMap);
 			}
 
 			// Merge table metadata
@@ -673,10 +675,10 @@ function mergeSchemaIntoYDoc(
 		}
 
 		for (const [keyName, kvDefinition] of Object.entries(kv)) {
-			const existing = kvSchemaMap.get(keyName);
+			const existing = kvDefMap.get(keyName);
 
 			if (!existing || !Value.Equal(existing, kvDefinition)) {
-				kvSchemaMap.set(keyName, kvDefinition);
+				kvDefMap.set(keyName, kvDefinition);
 			}
 		}
 	});
