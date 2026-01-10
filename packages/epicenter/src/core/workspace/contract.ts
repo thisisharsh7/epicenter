@@ -1,3 +1,4 @@
+import { Value } from 'typebox/value';
 import * as Y from 'yjs';
 import type {
 	CapabilityExports,
@@ -13,6 +14,10 @@ import type {
 	TableDefinition,
 } from '../schema/fields/types';
 import { createTables, type Tables } from '../tables/create-tables';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Public API: Types
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * A workspace schema defines the pure data shape of a workspace.
@@ -184,156 +189,8 @@ export type WorkspaceClient<
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Schema Merge Utilities (inlined from data-doc.ts)
+// Public API: Functions
 // ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Deep equality check for field schemas.
- * Compares all properties including metadata (name, description, icon).
- */
-function deepEqualFieldSchema(a: FieldSchema, b: FieldSchema): boolean {
-	if (a.type !== b.type) return false;
-	if (a.name !== b.name) return false;
-	if (a.description !== b.description) return false;
-
-	if (a.icon !== b.icon) {
-		if (!a.icon || !b.icon) return false;
-		if (a.icon.type !== b.icon.type) return false;
-		if (a.icon.type === 'emoji' && b.icon.type === 'emoji') {
-			if (a.icon.value !== b.icon.value) return false;
-		} else if (a.icon.type === 'external' && b.icon.type === 'external') {
-			if (a.icon.url !== b.icon.url) return false;
-		}
-	}
-
-	return JSON.stringify(a) === JSON.stringify(b);
-}
-
-/**
- * Check if a table value is TablesWithMetadata format (has 'fields' property).
- */
-function isTableDefinition(
-	value: Record<string, FieldSchema> | TableDefinition,
-): value is TableDefinition {
-	return 'fields' in value && typeof value.fields === 'object';
-}
-
-/**
- * Type for the inner Y.Map that stores table schema with metadata.
- */
-type TableSchemaMap = Y.Map<
-	string | IconDefinition | CoverDefinition | null | Y.Map<FieldSchema>
->;
-
-/**
- * Merge code-defined schema into Y.Doc schema.
- *
- * Uses pure merge semantics:
- * - If table/field doesn't exist → add it
- * - If table/field exists with different value → update it
- * - If table/field exists with same value → no-op (CRDT handles)
- *
- * Idempotent and safe for concurrent calls.
- */
-function mergeSchemaIntoYDoc(
-	ydoc: Y.Doc,
-	tables: TablesSchema | TablesWithMetadata,
-	kv: KvSchema,
-) {
-	const schemaMap = ydoc.getMap<Y.Map<unknown>>('schema');
-
-	// Initialize schema submaps if not present
-	if (!schemaMap.has('tables')) {
-		schemaMap.set('tables', new Y.Map());
-	}
-	if (!schemaMap.has('kv')) {
-		schemaMap.set('kv', new Y.Map());
-	}
-
-	const tablesSchemaMap = schemaMap.get('tables') as Y.Map<TableSchemaMap>;
-	const kvSchemaMap = schemaMap.get('kv') as Y.Map<FieldSchema>;
-
-	ydoc.transact(() => {
-		for (const [tableName, tableValue] of Object.entries(tables)) {
-			// Determine if this is TablesWithMetadata or TablesSchema format
-			const tableDefinition: TableDefinition = isTableDefinition(tableValue)
-				? tableValue
-				: {
-						name: tableName,
-						icon: null,
-						cover: null,
-						description: '',
-						fields: tableValue,
-					};
-
-			// Get or create the table schema map
-			let tableMap = tablesSchemaMap.get(tableName);
-			if (!tableMap) {
-				tableMap = new Y.Map() as TableSchemaMap;
-				tableMap.set('fields', new Y.Map<FieldSchema>());
-				tablesSchemaMap.set(tableName, tableMap);
-			}
-
-			// Merge table metadata
-			const currentName = tableMap.get('name') as string | undefined;
-			if (currentName !== tableDefinition.name) {
-				tableMap.set('name', tableDefinition.name);
-			}
-
-			const currentIcon = tableMap.get('icon') as
-				| IconDefinition
-				| null
-				| undefined;
-			if (
-				JSON.stringify(currentIcon) !== JSON.stringify(tableDefinition.icon)
-			) {
-				tableMap.set('icon', tableDefinition.icon);
-			}
-
-			const currentCover = tableMap.get('cover') as
-				| CoverDefinition
-				| null
-				| undefined;
-			if (
-				JSON.stringify(currentCover) !== JSON.stringify(tableDefinition.cover)
-			) {
-				tableMap.set('cover', tableDefinition.cover);
-			}
-
-			const currentDescription = tableMap.get('description') as
-				| string
-				| undefined;
-			if (currentDescription !== tableDefinition.description) {
-				tableMap.set('description', tableDefinition.description);
-			}
-
-			// Merge fields
-			let fieldsMap = tableMap.get('fields') as Y.Map<FieldSchema> | undefined;
-			if (!fieldsMap) {
-				fieldsMap = new Y.Map();
-				tableMap.set('fields', fieldsMap);
-			}
-
-			for (const [fieldName, fieldSchema] of Object.entries(
-				tableDefinition.fields,
-			)) {
-				const existing = fieldsMap.get(fieldName);
-
-				if (!existing || !deepEqualFieldSchema(existing, fieldSchema)) {
-					fieldsMap.set(fieldName, fieldSchema);
-				}
-			}
-		}
-
-		for (const [keyName, fieldSchema] of Object.entries(kv)) {
-			const existing = kvSchemaMap.get(keyName);
-
-			if (!existing || !deepEqualFieldSchema(existing, fieldSchema)) {
-				kvSchemaMap.set(keyName, fieldSchema);
-			}
-		}
-	});
-}
 
 /**
  * Define a collaborative workspace with YJS-first architecture.
@@ -539,4 +396,130 @@ export function defineWorkspace<
 			};
 		},
 	};
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Internal: Schema Merge Utilities
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Type for the inner Y.Map that stores table schema with metadata.
+ */
+type TableSchemaMap = Y.Map<
+	string | IconDefinition | CoverDefinition | null | Y.Map<FieldSchema>
+>;
+
+/**
+ * Check if a table value is TablesWithMetadata format (has 'fields' property).
+ */
+function isTableDefinition(
+	value: Record<string, FieldSchema> | TableDefinition,
+): value is TableDefinition {
+	return 'fields' in value && typeof value.fields === 'object';
+}
+
+/**
+ * Merge code-defined schema into Y.Doc schema.
+ *
+ * Uses pure merge semantics:
+ * - If table/field doesn't exist → add it
+ * - If table/field exists with different value → update it
+ * - If table/field exists with same value → no-op (CRDT handles)
+ *
+ * Idempotent and safe for concurrent calls.
+ */
+function mergeSchemaIntoYDoc(
+	ydoc: Y.Doc,
+	tables: TablesSchema | TablesWithMetadata,
+	kv: KvSchema,
+) {
+	const schemaMap = ydoc.getMap<Y.Map<unknown>>('schema');
+
+	// Initialize schema submaps if not present
+	if (!schemaMap.has('tables')) {
+		schemaMap.set('tables', new Y.Map());
+	}
+	if (!schemaMap.has('kv')) {
+		schemaMap.set('kv', new Y.Map());
+	}
+
+	const tablesSchemaMap = schemaMap.get('tables') as Y.Map<TableSchemaMap>;
+	const kvSchemaMap = schemaMap.get('kv') as Y.Map<FieldSchema>;
+
+	ydoc.transact(() => {
+		for (const [tableName, tableValue] of Object.entries(tables)) {
+			// Determine if this is TablesWithMetadata or TablesSchema format
+			const tableDefinition: TableDefinition = isTableDefinition(tableValue)
+				? tableValue
+				: {
+						name: tableName,
+						icon: null,
+						cover: null,
+						description: '',
+						fields: tableValue,
+					};
+
+			// Get or create the table schema map
+			let tableMap = tablesSchemaMap.get(tableName);
+			if (!tableMap) {
+				tableMap = new Y.Map() as TableSchemaMap;
+				tableMap.set('fields', new Y.Map<FieldSchema>());
+				tablesSchemaMap.set(tableName, tableMap);
+			}
+
+			// Merge table metadata
+			const currentName = tableMap.get('name') as string | undefined;
+			if (currentName !== tableDefinition.name) {
+				tableMap.set('name', tableDefinition.name);
+			}
+
+			const currentIcon = tableMap.get('icon') as
+				| IconDefinition
+				| null
+				| undefined;
+			if (!Value.Equal(currentIcon, tableDefinition.icon)) {
+				tableMap.set('icon', tableDefinition.icon);
+			}
+
+			const currentCover = tableMap.get('cover') as
+				| CoverDefinition
+				| null
+				| undefined;
+			if (!Value.Equal(currentCover, tableDefinition.cover)) {
+				tableMap.set('cover', tableDefinition.cover);
+			}
+
+			const currentDescription = tableMap.get('description') as
+				| string
+				| undefined;
+			if (currentDescription !== tableDefinition.description) {
+				tableMap.set('description', tableDefinition.description);
+			}
+
+			// Merge fields
+			let fieldsMap = tableMap.get('fields') as Y.Map<FieldSchema> | undefined;
+			if (!fieldsMap) {
+				fieldsMap = new Y.Map();
+				tableMap.set('fields', fieldsMap);
+			}
+
+			for (const [fieldName, fieldSchema] of Object.entries(
+				tableDefinition.fields,
+			)) {
+				const existing = fieldsMap.get(fieldName);
+
+				if (!existing || !Value.Equal(existing, fieldSchema)) {
+					fieldsMap.set(fieldName, fieldSchema);
+				}
+			}
+		}
+
+		for (const [keyName, fieldSchema] of Object.entries(kv)) {
+			const existing = kvSchemaMap.get(keyName);
+
+			if (!existing || !Value.Equal(existing, fieldSchema)) {
+				kvSchemaMap.set(keyName, fieldSchema);
+			}
+		}
+	});
 }
