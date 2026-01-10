@@ -57,6 +57,13 @@ If data enters serialized and leaves serialized, keep it serialized in the middl
 - Short sentences. Fragments fine.
 - End with table or one-liner, not conclusion paragraph
 
+### Style Preferences
+
+- **Lead with solution**: Show the pattern first, then explain the problem as context (not the other way around)
+- **Blockquotes for key insights**: Put the core insight in a blockquote near the top. Repeat it later if it reinforces understanding.
+- **Inline links**: Link to related patterns within the prose, not just in a "References" section at the end
+- **Tight prose**: Cut sections that don't add value. If the code is self-explanatory, don't over-explain.
+
 ---
 
 ## Narrative Mode
@@ -90,6 +97,7 @@ But here's the weird part: the DateTime functions lived in `datetime.ts`. Why we
 - Show before/after code
 - End with a transferable principle
 - Mix short and long sentences
+- Use blockquotes to highlight realizations or key insights
 
 ---
 
