@@ -39,7 +39,7 @@ Rename `x-component` to `type` (the discriminant). Remove redundant JSON Schema 
 
 ```typescript
 // NEW: Minimal, Notion-like
-type FieldSchema =
+type FieldDefinition =
 	| { type: 'id' }
 	| { type: 'text'; nullable?: boolean; default?: string }
 	| { type: 'richtext' } // always nullable with default null
@@ -147,7 +147,7 @@ export type JsonFieldSchema<
 	default?: StandardSchemaV1.InferOutput<TSchema>;
 };
 
-export type FieldSchema =
+export type FieldDefinition =
 	| IdFieldSchema
 	| TextFieldSchema
 	| RichtextFieldSchema
@@ -159,7 +159,7 @@ export type FieldSchema =
 	| TagsFieldSchema
 	| JsonFieldSchema;
 
-export type FieldType = FieldSchema['type'];
+export type FieldType = FieldDefinition['type'];
 ```
 
 ### Table Definition with Metadata
@@ -171,12 +171,17 @@ export type FieldType = FieldSchema['type'];
  * Schema for a single field (column) in a table.
  * Must always include an 'id' field with IdFieldSchema.
  */
-export type FieldsSchema = { id: IdFieldSchema } & Record<string, FieldSchema>;
+export type FieldDefinitions = { id: IdFieldSchema } & Record<
+	string,
+	FieldDefinition
+>;
 
 /**
  * Table definition with metadata for UI display.
  */
-export type TableDefinition<TFields extends FieldsSchema = FieldsSchema> = {
+export type TableDefinition<
+	TFields extends FieldDefinitions = FieldDefinitions,
+> = {
 	/** Display name shown in UI (e.g., "Blog Posts") */
 	name: string;
 	/** Emoji icon (e.g., "📝") - required for Notion-like UX */
@@ -195,9 +200,9 @@ export type TableDefinition<TFields extends FieldsSchema = FieldsSchema> = {
 export type TablesSchema = Record<string, TableDefinition>;
 
 /**
- * @deprecated Use FieldsSchema instead.
+ * @deprecated Use FieldDefinitions instead.
  */
-export type TableSchema = FieldsSchema;
+export type TableSchema = FieldDefinitions;
 ```
 
 ### Workspace Schema with Metadata
@@ -364,7 +369,7 @@ export function json<const TSchema extends StandardSchemaWithJSONSchema>(opts: {
  * });
  * ```
  */
-export function defineTable<const TFields extends FieldsSchema>(
+export function defineTable<const TFields extends FieldDefinitions>(
 	definition: TableDefinition<TFields>,
 ): TableDefinition<TFields> {
 	return definition;
@@ -378,13 +383,13 @@ All converters need to switch on `type` instead of `x-component`:
 ```typescript
 // packages/epicenter/src/core/schema/converters/to-arktype.ts
 
-export function fieldSchemaToArktype<C extends FieldSchema>(
-	fieldSchema: C,
-): FieldSchemaToArktype<C> {
+export function fieldDefinitionToArktype<C extends FieldDefinition>(
+	fieldDefinition: C,
+): FieldDefinitionToArktype<C> {
 	let baseType: Type<unknown, {}>;
 
 	switch (
-		fieldSchema.type // Changed from fieldSchema['x-component']
+		fieldDefinition.type // Changed from fieldDefinition['x-component']
 	) {
 		case 'id':
 		case 'text':
@@ -406,27 +411,27 @@ export function fieldSchemaToArktype<C extends FieldSchema>(
 			baseType = type('string').narrow(DateTimeString.is);
 			break;
 		case 'select':
-			baseType = type.enumerated(...fieldSchema.options);
+			baseType = type.enumerated(...fieldDefinition.options);
 			break;
 		case 'tags':
-			baseType = fieldSchema.options
-				? type.enumerated(...fieldSchema.options).array()
+			baseType = fieldDefinition.options
+				? type.enumerated(...fieldDefinition.options).array()
 				: type('string[]');
 			break;
 		case 'json':
-			baseType = fieldSchema.schema as unknown as Type<unknown, {}>;
+			baseType = fieldDefinition.schema as unknown as Type<unknown, {}>;
 			break;
 		default:
 			throw new Error(
-				`Unknown field type: ${(fieldSchema as FieldSchema).type}`,
+				`Unknown field type: ${(fieldDefinition as FieldDefinition).type}`,
 			);
 	}
 
 	// Handle nullability
-	const isNullable = isNullableFieldSchema(fieldSchema);
+	const isNullable = isNullableFieldDefinition(fieldDefinition);
 	return (
 		isNullable ? baseType.or(type('null')) : baseType
-	) as FieldSchemaToArktype<C>;
+	) as FieldDefinitionToArktype<C>;
 }
 ```
 
@@ -435,8 +440,8 @@ export function fieldSchemaToArktype<C extends FieldSchema>(
 ```typescript
 // packages/epicenter/src/core/schema/fields/nullability.ts
 
-export function isNullableFieldSchema(
-	schema: Pick<FieldSchema, 'type'> & { nullable?: boolean },
+export function isNullableFieldDefinition(
+	schema: Pick<FieldDefinition, 'type'> & { nullable?: boolean },
 ): boolean {
 	// Richtext is always nullable
 	if (schema.type === 'richtext') return true;
@@ -455,11 +460,13 @@ export function isNullableFieldSchema(
 import type { JSONSchema7 } from 'json-schema';
 
 /**
- * Converts a minimal FieldSchema to JSON Schema.
+ * Converts a minimal FieldDefinition to JSON Schema.
  * Use this for MCP, OpenAPI, external tool interop.
  */
-export function fieldSchemaToJsonSchema(field: FieldSchema): JSONSchema7 {
-	const isNullable = isNullableFieldSchema(field);
+export function fieldDefinitionToJsonSchema(
+	field: FieldDefinition,
+): JSONSchema7 {
+	const isNullable = isNullableFieldDefinition(field);
 
 	switch (field.type) {
 		case 'id':
@@ -534,7 +541,7 @@ export function fieldSchemaToJsonSchema(field: FieldSchema): JSONSchema7 {
 			} as JSONSchema7;
 
 		default:
-			throw new Error(`Unknown field type: ${(field as FieldSchema).type}`);
+			throw new Error(`Unknown field type: ${(field as FieldDefinition).type}`);
 	}
 }
 ```

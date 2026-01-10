@@ -8,14 +8,14 @@
 
 The `packages/epicenter/src/core/schema/converters/` folder mixes two conceptually different schema systems:
 
-1. **FieldSchema converters** - Convert Epicenter's custom schema DSL (`id()`, `text()`, `select()`) to various formats for storage/validation
+1. **FieldDefinition converters** - Convert Epicenter's custom schema DSL (`id()`, `text()`, `select()`) to various formats for storage/validation
 2. **Standard Schema converters** - Convert external schemas (ArkType, Zod, etc.) to JSON Schema for CLI/MCP/OpenAPI
 
 These have different input types, different consumers, and different purposes. The current organization obscures this distinction.
 
 ## The Two Schema Systems
 
-### 1. FieldSchema System (Epicenter's Custom DSL)
+### 1. FieldDefinition System (Epicenter's Custom DSL)
 
 **What it is**: Epicenter's domain-specific language for defining table and KV schemas.
 
@@ -42,7 +42,7 @@ json(); // JSON column with arktype validation
 - Generating ArkType validators for row validation
 - Generating ArkType-YJS validators for YJS row validation
 
-**Type**: `FieldSchema` (defined in `types.ts`)
+**Type**: `FieldDefinition` (defined in `types.ts`)
 
 ### 2. Standard Schema System (External Schemas)
 
@@ -62,20 +62,20 @@ json(); // JSON column with arktype validation
 ```
 packages/epicenter/src/core/schema/
 ├── converters/
-│   ├── arktype.ts              # FieldSchema → ArkType
-│   ├── arktype-yjs.ts          # FieldSchema → ArkType (YJS types)
+│   ├── arktype.ts              # FieldDefinition → ArkType
+│   ├── arktype-yjs.ts          # FieldDefinition → ArkType (YJS types)
 │   ├── arktype-yjs.test.ts
 │   ├── arktype.test.ts
 │   ├── arktype-fallback.ts     # ArkType JSON Schema fallbacks
-│   ├── drizzle.ts              # FieldSchema → Drizzle columns
+│   ├── drizzle.ts              # FieldDefinition → Drizzle columns
 │   └── json-schema.ts          # StandardSchema → JSON Schema
-├── fields.ts                   # FieldSchema factory functions
-├── types.ts                    # FieldSchema type definitions
+├── fields.ts                   # FieldDefinition factory functions
+├── types.ts                    # FieldDefinition type definitions
 ├── standard-schema.ts          # StandardSchema type definitions
-├── validation.ts               # Creates validators from FieldSchema
+├── validation.ts               # Creates validators from FieldDefinition
 ├── validation.test.ts
-├── nullability.ts              # FieldSchema nullability utilities
-├── serialization.ts            # FieldSchema value serialization
+├── nullability.ts              # FieldDefinition nullability utilities
+├── serialization.ts            # FieldDefinition value serialization
 ├── date-with-timezone.ts       # DateWithTimezone utilities
 ├── id.ts                       # ID generation
 ├── regex.ts                    # Regex patterns
@@ -86,13 +86,13 @@ packages/epicenter/src/core/schema/
 
 ## Dependency Graph
 
-### FieldSchema Converters
+### FieldDefinition Converters
 
-| File             | Converts                                             | Consumers                             |
-| ---------------- | ---------------------------------------------------- | ------------------------------------- |
-| `arktype.ts`     | `FieldSchema` → `arktype.Type`                       | `validation.ts`                       |
-| `arktype-yjs.ts` | `FieldSchema` → `arktype.Type` (with Y.Text/Y.Array) | `validation.ts`                       |
-| `drizzle.ts`     | `TableSchema` → Drizzle `SQLiteTable`                | `providers/sqlite/sqlite-provider.ts` |
+| File             | Converts                                                 | Consumers                             |
+| ---------------- | -------------------------------------------------------- | ------------------------------------- |
+| `arktype.ts`     | `FieldDefinition` → `arktype.Type`                       | `validation.ts`                       |
+| `arktype-yjs.ts` | `FieldDefinition` → `arktype.Type` (with Y.Text/Y.Array) | `validation.ts`                       |
+| `drizzle.ts`     | `TableSchema` → Drizzle `SQLiteTable`                    | `providers/sqlite/sqlite-provider.ts` |
 
 ### Standard Schema Converters
 
@@ -120,7 +120,7 @@ packages/epicenter/src/core/schema/
          │                                     │
          ▼                                     ▼
 ┌─────────────────────────────┐    ┌─────────────────────────────┐
-│   FIELDSCHEMA CONVERTERS    │    │  STANDARD SCHEMA CONVERTERS │
+│  FIELDDEFINITION CONVERTERS │    │  STANDARD SCHEMA CONVERTERS │
 ├─────────────────────────────┤    ├─────────────────────────────┤
 │ • arktype.ts                │    │ • json-schema.ts            │
 │ • arktype-yjs.ts            │    │ • arktype-fallback.ts       │
@@ -128,29 +128,29 @@ packages/epicenter/src/core/schema/
 └─────────────────────────────┘    └─────────────────────────────┘
          │                                     │
          ▼                                     ▼
-   FieldSchema                          StandardSchemaV1
+   FieldDefinition                       StandardSchemaV1
    (id(), text(), select())             (type({...}), z.object())
 ```
 
 ## Key Functions in Each File
 
-### FieldSchema Converters
+### FieldDefinition Converters
 
 **`arktype.ts`**:
 
-- `tableSchemaToArktypeType<TSchema>(schema)` - Converts full table schema to arktype validator
-- `fieldSchemaToArktypeType<C>(fieldSchema)` - Converts single field to arktype type string
+- `tableSchemaToArktype<TSchema>(schema)` - Converts full table schema to arktype validator
+- `fieldDefinitionToArktype<C>(fieldDefinition)` - Converts single field to arktype type string
 
 **`arktype-yjs.ts`**:
 
-- `tableSchemaToYjsArktypeType<TSchema>(schema)` - Like above but uses Y.Text/Y.Array for ytext/tags columns
-- `fieldSchemaToYjsArktypeType<C>(fieldSchema)` - Like above for single field
+- `tableSchemaToYjsArktype<TSchema>(schema)` - Like above but uses Y.Text/Y.Array for ytext/tags columns
+- `fieldDefinitionToYjsArktype<C>(fieldDefinition)` - Like above for single field
 
 **`drizzle.ts`**:
 
 - `convertWorkspaceSchemaToDrizzle(schema)` - Converts workspace schema to Drizzle tables
 - `convertTableSchemaToDrizzle(tableName, tableSchema)` - Converts single table
-- `convertFieldSchemaToDrizzle(name, field)` - Converts single field to Drizzle column builder
+- `convertFieldDefinitionToDrizzle(name, field)` - Converts single field to Drizzle column builder
 
 ### Standard Schema Converters
 
@@ -185,8 +185,8 @@ Rename files to make the distinction obvious at a glance:
 
 ```
 schema/
-├── fields/                         # FieldSchema system
-│   ├── types.ts                    # FieldSchema type definitions
+├── fields/                         # FieldDefinition system
+│   ├── types.ts                    # FieldDefinition type definitions
 │   ├── factories.ts                # id(), text(), select() - renamed from fields.ts
 │   ├── nullability.ts
 │   ├── serialization.ts
@@ -223,7 +223,7 @@ cli/
 ├── standard-schema-to-json.ts       # Moved from schema/converters/json-schema.ts
 └── arktype-json-fallback.ts         # Moved from schema/converters/arktype-fallback.ts
 
-schema/converters/                   # Now purely FieldSchema converters
+schema/converters/                   # Now purely FieldDefinition converters
 ├── arktype.ts
 ├── arktype-yjs.ts
 └── drizzle.ts
@@ -233,14 +233,14 @@ Or create a shared location:
 
 ```
 core/
-├── schema/                          # FieldSchema only
+├── schema/                          # FieldDefinition only
 └── standard-schema/                 # Standard Schema utilities
     ├── types.ts
     ├── to-json-schema.ts
     └── arktype-fallback.ts
 ```
 
-**Pros**: Schema folder becomes purely about FieldSchema
+**Pros**: Schema folder becomes purely about FieldDefinition
 **Cons**: `generateJsonSchema` is currently exported from `schema/index.ts` and would need a new home
 
 ## Recommendation
@@ -279,11 +279,10 @@ export {
 	ytext,
 } from './fields';
 
-// FieldSchema → ArkType
-export type { FieldSchemaToArktypeType } from './converters/arktype';
-export { tableSchemaToArktypeType } from './converters/arktype';
+// FieldDefinition → ArkType
+export type { FieldDefinitionToArktype } from './converters/arktype';
 
-// FieldSchema → Drizzle
+// FieldDefinition → Drizzle
 export type { WorkspaceSchemaToDrizzleTables } from './converters/drizzle';
 export {
 	convertTableSchemaToDrizzle,
@@ -298,7 +297,7 @@ export { generateJsonSchema } from './converters/json-schema';
 
 ## Open Questions
 
-1. Should `validation.ts` stay at the root or move into `fields/`? It operates on FieldSchema but is a major consumer.
+1. Should `validation.ts` stay at the root or move into `fields/`? It operates on FieldDefinition but is a major consumer.
 
 2. Should `standard-schema.ts` (type definitions) stay at root or move into a `standard/` folder?
 
@@ -329,4 +328,4 @@ This analysis was done in conversation on 2026-01-01. Key insights:
 
 - User noticed the conceptual mixing while reviewing `standard-json-schema-to-yargs.ts`
 - Four parallel explore agents confirmed the two-system hypothesis
-- Dependency analysis showed zero overlap between FieldSchema and Standard Schema converter consumers
+- Dependency analysis showed zero overlap between FieldDefinition and Standard Schema converter consumers

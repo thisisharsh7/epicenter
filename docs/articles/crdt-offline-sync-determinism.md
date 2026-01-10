@@ -62,6 +62,12 @@ That's a narrow intersection in practice.
 
 **Because determinism is more important than "fairness."**
 
+Here's how dmonad (Yjs creator) explains it:
+
+> "Systems for conflict resolution should not rely on time (as in 'wall clock time'). First of all, time is not synced between devices. Secondly, who is to say that changes from desktop client should supersede changes from mobile client just because they happened 'later' (however you wanna measure this)?"
+>
+> — [dmonad, GitHub issue #520](https://github.com/yjs/yjs/issues/520)
+
 ### The core problem with timestamps
 
 ```
@@ -107,6 +113,13 @@ DEVICES MIGHT DISAGREE. DATA CORRUPTION.
 
 Yjs chose determinism because **non-convergence is catastrophic**. A "wrong" winner is annoying; data corruption is fatal.
 
+The actual conflict resolution happens in Yjs source ([updates.js#L357](https://github.com/yjs/yjs/blob/main/src/utils/updates.js#L357)):
+
+```javascript
+// Higher clientID wins when comparing different clients
+return dec2.curr.id.client - dec1.curr.id.client;
+```
+
 ---
 
 ## When Would You Want Timestamp LWW?
@@ -131,4 +144,10 @@ The goal isn't "fair" conflict resolution. The goal is **every device agreeing o
 
 _Related:_
 
+- [The Point of CRDTs Is Consistency, Not Fairness](./crdt-consistency-not-fairness.md) - The core insight: determinism beats intuition
 - [The Surprising Truth About "Last Write Wins" in CRDTs](./crdt-last-write-wins-surprise.md) - Why CRDTs use clientID ordering instead of timestamps
+
+_Primary sources:_
+
+- [GitHub issue #520](https://github.com/yjs/yjs/issues/520) - Maintainer confirms higher clientID wins
+- [Yjs INTERNALS.md](https://github.com/yjs/yjs/blob/main/INTERNALS.md) - Technical documentation

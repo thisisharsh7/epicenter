@@ -5,7 +5,7 @@
 
 ## Overview
 
-Add a `to-typebox.ts` converter that transforms FieldSchema definitions into TypeBox schemas. TypeBox schemas can be compiled to highly optimized JIT validators, offering significant performance benefits over runtime validation.
+Add a `to-typebox.ts` converter that transforms FieldDefinition definitions into TypeBox schemas. TypeBox schemas can be compiled to highly optimized JIT validators, offering significant performance benefits over runtime validation.
 
 ## Background
 
@@ -47,20 +47,20 @@ if (result.issues) {
 // result.value contains the validated output
 ```
 
-## Field Schema to TypeBox Mapping
+## Field Definition to TypeBox Mapping
 
-| FieldSchema | TypeBox Equivalent                                                     |
-| ----------- | ---------------------------------------------------------------------- |
-| `id`        | `Type.String()`                                                        |
-| `text`      | `Type.String()` + nullable handling                                    |
-| `richtext`  | `Type.Union([Type.String(), Type.Null()])` (always nullable)           |
-| `integer`   | `Type.Integer()` + nullable handling                                   |
-| `real`      | `Type.Number()` + nullable handling                                    |
-| `boolean`   | `Type.Boolean()` + nullable handling                                   |
-| `date`      | `Type.String({ pattern: DATE_TIME_STRING_REGEX.source })`              |
-| `select`    | `Type.Union([Type.Literal('opt1'), ...])`                              |
-| `tags`      | `Type.Array(Type.Union([...literals]))` or `Type.Array(Type.String())` |
-| `json`      | `Type.Refine(Type.Unknown(), standardSchemaValidate)`                  |
+| FieldDefinition | TypeBox Equivalent                                                     |
+| --------------- | ---------------------------------------------------------------------- |
+| `id`            | `Type.String()`                                                        |
+| `text`          | `Type.String()` + nullable handling                                    |
+| `richtext`      | `Type.Union([Type.String(), Type.Null()])` (always nullable)           |
+| `integer`       | `Type.Integer()` + nullable handling                                   |
+| `real`          | `Type.Number()` + nullable handling                                    |
+| `boolean`       | `Type.Boolean()` + nullable handling                                   |
+| `date`          | `Type.String({ pattern: DATE_TIME_STRING_REGEX.source })`              |
+| `select`        | `Type.Union([Type.Literal('opt1'), ...])`                              |
+| `tags`          | `Type.Array(Type.Union([...literals]))` or `Type.Array(Type.String())` |
+| `json`          | `Type.Refine(Type.Unknown(), standardSchemaValidate)`                  |
 
 ### Nullable Handling
 
@@ -78,7 +78,7 @@ Since JSON fields embed StandardSchema (arktype, zod, etc.) and TypeBox doesn't 
 Type.Refine(
 	Type.Unknown(),
 	(value) => {
-		const result = jsonFieldSchema.schema['~standard'].validate(value);
+		const result = jsonFieldDefinition.schema['~standard'].validate(value);
 		if (result instanceof Promise) return false; // async not supported
 		return !result.issues;
 	},
@@ -98,17 +98,17 @@ Type.Refine(
 
 ```typescript
 // Type mapping
-export type FieldSchemaToTypebox<C extends FieldSchema> = TSchema;
+export type FieldDefinitionToTypebox<C extends FieldDefinition> = TSchema;
 
 // Convert single field
-export function fieldSchemaToTypebox<C extends FieldSchema>(
-	fieldSchema: C,
-): FieldSchemaToTypebox<C>;
+export function fieldDefinitionToTypebox<C extends FieldDefinition>(
+	fieldDefinition: C,
+): FieldDefinitionToTypebox<C>;
 
 // Convert table schema to TypeBox object
-export function tableSchemaToTypebox<TTableSchema extends TableSchema>(
-	tableSchema: TTableSchema,
-): TObject;
+export function fieldsDefinitionToTypebox<
+	TFieldDefinitions extends FieldDefinitions,
+>(fieldsDefinition: TFieldDefinitions): TObject;
 ```
 
 ## Todo
@@ -122,14 +122,14 @@ export function tableSchemaToTypebox<TTableSchema extends TableSchema>(
 
 ### Implementation Summary
 
-Created `to-typebox.ts` converter that transforms FieldSchema definitions into TypeBox TSchema objects. The implementation follows the same pattern as the existing `to-arktype.ts` converter.
+Created `to-typebox.ts` converter that transforms FieldDefinition definitions into TypeBox TSchema objects. The implementation follows the same pattern as the existing `to-arktype.ts` converter.
 
 ### Files Created/Modified
 
 1. **`packages/epicenter/src/core/schema/converters/to-typebox.ts`** - Main converter with:
-   - `FieldSchemaToTypebox<C>` type mapping
-   - `fieldSchemaToTypebox()` - single field conversion
-   - `tableSchemaToTypebox()` - full table conversion
+   - `FieldDefinitionToTypebox<C>` type mapping
+   - `fieldDefinitionToTypebox()` - single field conversion
+   - `fieldsDefinitionToTypebox()` - full table conversion
 
 2. **`packages/epicenter/src/core/schema/converters/to-typebox.test.ts`** - 16 tests covering all field types
 

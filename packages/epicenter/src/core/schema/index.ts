@@ -1,15 +1,18 @@
 export {
 	boolean,
+	cover,
 	date,
+	icon,
 	id,
 	integer,
 	json,
 	real,
+	richtext,
 	select,
+	setting,
 	table,
 	tags,
 	text,
-	richtext,
 } from './fields/factories.js';
 
 export type {
@@ -17,16 +20,18 @@ export type {
 	CellValue,
 	CoverDefinition,
 	DateFieldSchema,
+	FieldDefinition,
+	FieldDefinitions,
 	FieldMetadata,
 	FieldOptions,
-	FieldSchema,
-	FieldsSchema,
 	FieldType,
 	IconDefinition,
 	IdFieldSchema,
 	IntegerFieldSchema,
 	JsonFieldSchema,
-	KvFieldSchema,
+	KvDefinition,
+	KvDefinitionMap,
+	KvFieldDefinition,
 	KvSchema,
 	KvValue,
 	PartialRow,
@@ -40,32 +45,31 @@ export type {
 	TextFieldSchema,
 } from './fields/types.js';
 
-export type { FieldSchemaToArktype } from './converters/to-arktype.js';
+export type { FieldDefinitionToArktype } from './converters/to-arktype.js';
 export {
-	fieldSchemaToArktype,
+	fieldDefinitionToArktype,
 	tableSchemaToArktype,
 } from './converters/to-arktype.js';
 
-export type { FieldSchemaToYjsArktype } from './converters/to-arktype-yjs.js';
+export type { FieldDefinitionToYjsArktype } from './converters/to-arktype-yjs.js';
 export {
-	fieldSchemaToYjsArktype,
+	fieldDefinitionToYjsArktype,
 	tableSchemaToYjsArktype,
 } from './converters/to-arktype-yjs.js';
 
-export type { FieldSchemaToTypebox } from './converters/to-typebox.js';
+export type { FieldDefinitionToTypebox } from './converters/to-typebox.js';
 export {
-	fieldSchemaToTypebox,
-	fieldsSchemaToTypebox,
+	fieldDefinitionToTypebox,
+	fieldsDefinitionToTypebox,
 } from './converters/to-typebox.js';
 
-export type { WorkspaceSchemaToDrizzleTables } from './converters/to-drizzle.js';
+export type { TableDefinitionsToDrizzle } from './converters/to-drizzle.js';
 export {
-	convertTableSchemaToDrizzle,
-	convertWorkspaceSchemaToDrizzle,
+	convertTableDefinitionsToDrizzle,
 	toSqlIdentifier,
 } from './converters/to-drizzle.js';
 
-export { isNullableFieldSchema } from './fields/helpers.js';
+export { isNullableFieldDefinition } from './fields/helpers.js';
 
 export type {
 	StandardJSONSchemaV1,

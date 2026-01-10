@@ -21,6 +21,25 @@ Most CRDT libraries (like Yjs, the backbone of apps like Notion, Figma plugins, 
 
 Instead, they use something called **clientID ordering**. Each device gets a random ID when it connects. When conflicts happen, the device with the _higher_ ID wins.
 
+This is confirmed directly by Kevin Jahns (dmonad), the creator of Yjs:
+
+> "The 'winner' is decided by `ydoc.clientID` of the document (which is a generated number). The higher clientID wins."
+>
+> — [dmonad, GitHub issue #520](https://github.com/yjs/yjs/issues/520)
+
+You can see this directly in the Yjs source code ([updates.js#L357](https://github.com/yjs/yjs/blob/main/src/utils/updates.js#L357)):
+
+```javascript
+// From Yjs source - conflict resolution sorting
+lazyStructDecoders.sort((dec1, dec2) => {
+	if (dec1.curr.id.client === dec2.curr.id.client) {
+		return dec1.curr.id.clock - dec2.curr.id.clock; // Same client: higher clock wins
+	} else {
+		return dec2.curr.id.client - dec1.curr.id.client; // Different clients: higher clientID wins
+	}
+});
+```
+
 ```
 Alice's laptop: clientID = 500
 Bob's phone: clientID = 800
@@ -39,7 +58,11 @@ Alice wins. Even though Bob edited an hour later.
 
 ## Why Would Anyone Design It This Way?
 
-Because timestamps are broken in distributed systems.
+Because timestamps are broken in distributed systems. Here's how dmonad explains the design philosophy:
+
+> "Systems for conflict resolution should not rely on time (as in 'wall clock time'). First of all, time is not synced between devices. Secondly, who is to say that changes from desktop client should supersede changes from mobile client just because they happened 'later' (however you wanna measure this)?"
+>
+> — [dmonad, GitHub issue #520](https://github.com/yjs/yjs/issues/520)
 
 **Clock skew is real:**
 
@@ -56,6 +79,16 @@ Because timestamps are broken in distributed systems.
 **The result:** If you use timestamps, Alice's fast clock means she _always_ wins, even when Bob edited genuinely later. That's worse than random.
 
 ClientID ordering is arbitrary, but it's _deterministic_. Every device will converge to the same state. That's the actual goal of CRDTs: convergence, not fairness.
+
+As one community member put it:
+
+> "This is expected behavior. CRDT won't guarantee that result is always correct for each round, it only guarantees result is same for every client."
+>
+> — [GitHub issue #520 discussion](https://github.com/yjs/yjs/issues/520)
+
+From the [Yjs INTERNALS.md](https://github.com/yjs/yjs/blob/main/INTERNALS.md):
+
+> "Maps are lists of entries. The last inserted entry for each key is used, and all other duplicates for each key are flagged as deleted."
 
 ## But I Really Want "Later Edit Wins"
 
@@ -124,6 +157,7 @@ Next time you're building a collaborative feature, remember: the "last" in Last 
 
 _Related:_
 
+- [The Point of CRDTs Is Consistency, Not Fairness](./crdt-consistency-not-fairness.md) - The core insight: determinism beats intuition
 - [CRDT Offline Sync: Why Determinism Beats "Fairness"](./crdt-offline-sync-determinism.md) - Concrete scenarios walking through what happens when devices go offline
 
 _Further reading:_
@@ -131,3 +165,5 @@ _Further reading:_
 - [Yjs Internals](https://github.com/yjs/yjs/blob/main/INTERNALS.md)
 - [y-lwwmap](https://github.com/rozek/y-lwwmap) - Timestamp-based LWW for Yjs
 - [Automerge Conflicts](https://automerge.org/docs/reference/documents/conflicts) - Alternative that exposes all conflicting values
+- [GitHub issue #520](https://github.com/yjs/yjs/issues/520) - "Earlier changes on disconnected device overwrite later changes"
+- [GitHub issue #510](https://github.com/yjs/yjs/issues/510) - "Merged document randomly picks up different values"

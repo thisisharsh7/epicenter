@@ -5,17 +5,17 @@
 
 ## Implementation Status
 
-### Phase 5: Remove StoredFieldSchema ✅ COMPLETE
+### Phase 5: Remove StoredFieldDefinition ✅ COMPLETE
 
 Simplified by eliminating the intermediate type entirely:
 
-| Before                                                              | After                 | Rationale                   |
-| ------------------------------------------------------------------- | --------------------- | --------------------------- |
-| `FieldSchema` → `prepareForStorage()` → `StoredFieldSchema` → Y.Doc | `FieldSchema` → Y.Doc | No conversion needed        |
-| `StoredFieldSchema` type definition                                 | Removed               | Redundant intermediate type |
-| `prepareForStorage()` function                                      | Removed               | Was just a type cast        |
+| Before                                                                      | After                     | Rationale                   |
+| --------------------------------------------------------------------------- | ------------------------- | --------------------------- |
+| `FieldDefinition` → `prepareForStorage()` → `StoredFieldDefinition` → Y.Doc | `FieldDefinition` → Y.Doc | No conversion needed        |
+| `StoredFieldDefinition` type definition                                     | Removed                   | Redundant intermediate type |
+| `prepareForStorage()` function                                              | Removed                   | Was just a type cast        |
 
-**Key insight**: Since TypeBox schemas ARE JSON Schema, `FieldSchema` is directly serializable. No intermediate type or conversion function is needed.
+**Key insight**: Since TypeBox schemas ARE JSON Schema, `FieldDefinition` is directly serializable. No intermediate type or conversion function is needed.
 
 ### Phase 4: TypeBox for JSON Fields ✅ COMPLETE
 
@@ -41,14 +41,14 @@ json({
 });
 ```
 
-### Phase 3: Unified FieldSchema Storage ✅ COMPLETE
+### Phase 3: Unified FieldDefinition Storage ✅ COMPLETE
 
-`FieldSchema` now stores full metadata for Notion-like collaborative editing:
+`FieldDefinition` now stores full metadata for Notion-like collaborative editing:
 
-| Before                                      | After                         | Rationale                                            |
-| ------------------------------------------- | ----------------------------- | ---------------------------------------------------- |
-| `SerializedFieldSchema` (stripped metadata) | `FieldSchema` (full metadata) | Enables collaborative editing                        |
-| `name`, `description`, `icon` stripped      | Preserved in Y.Doc            | Users can rename fields, add descriptions, set icons |
+| Before                                          | After                             | Rationale                                            |
+| ----------------------------------------------- | --------------------------------- | ---------------------------------------------------- |
+| `SerializedFieldDefinition` (stripped metadata) | `FieldDefinition` (full metadata) | Enables collaborative editing                        |
+| `name`, `description`, `icon` stripped          | Preserved in Y.Doc                | Users can rename fields, add descriptions, set icons |
 
 **Key insight**: The original design stripped metadata because "nobody uses it" — but that was circular reasoning. For Notion-like collaborative schema editing, metadata must be stored in Y.Doc.
 
@@ -103,9 +103,9 @@ packages/epicenter/src/index.ts                    # Exports new doc types
 ### Commits (on branch `feat/workspace-id-slug-terminology`)
 
 ```
-748371a refactor(schema): remove StoredFieldSchema, use FieldSchema directly
+748371a refactor(schema): remove StoredFieldDefinition, use FieldDefinition directly
 62db83c refactor(schema): use TypeBox for json field schemas
-1e4228e refactor(schema): unify FieldSchema storage in Y.Doc for collaborative editing
+1e4228e refactor(schema): unify FieldDefinition storage in Y.Doc for collaborative editing
 2f7df8c feat(epicenter): integrate DataDoc with schema seeding into workspace
 d36d4cd feat(epicenter): add collaborative Y.Doc wrappers for 3-document architecture
 e756241 docs(spec): add collaborative workspace config spec and handoff
@@ -259,9 +259,9 @@ data.setName('My Workspace');
 // Schema (merge semantics - idempotent, call on every create)
 data.hasSchema();                      // boolean
 data.mergeSchema(tables, kv);          // Merge code schema into Y.Doc (preserves metadata)
-data.getTableSchema('posts');          // Map<fieldName, FieldSchema>
+data.getTableSchema('posts');          // Map<fieldName, FieldDefinition>
 data.getTableNames();                  // string[]
-data.getKvSchema('theme');             // FieldSchema
+data.getKvSchema('theme');             // FieldDefinition
 data.getKvNames();                     // string[]
 data.addTableField('posts', 'newField', text());
 data.removeTableField('posts', 'oldField');

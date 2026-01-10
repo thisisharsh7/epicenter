@@ -1,18 +1,20 @@
-export type { FieldSchemaToArktype } from './to-arktype';
-export { fieldSchemaToArktype, tableSchemaToArktype } from './to-arktype';
+export type { FieldDefinitionToArktype } from './to-arktype';
+export { fieldDefinitionToArktype, tableSchemaToArktype } from './to-arktype';
 
-export type { FieldSchemaToYjsArktype } from './to-arktype-yjs';
+export type { FieldDefinitionToYjsArktype } from './to-arktype-yjs';
 export {
-	fieldSchemaToYjsArktype,
+	fieldDefinitionToYjsArktype,
 	tableSchemaToYjsArktype,
 } from './to-arktype-yjs';
 
-export type { FieldSchemaToTypebox } from './to-typebox';
-export { fieldSchemaToTypebox, fieldsSchemaToTypebox } from './to-typebox';
-
-export type { WorkspaceSchemaToDrizzleTables } from './to-drizzle';
+export type { FieldDefinitionToTypebox } from './to-typebox';
 export {
-	convertTableSchemaToDrizzle,
-	convertWorkspaceSchemaToDrizzle,
+	fieldDefinitionToTypebox,
+	fieldsDefinitionToTypebox,
+} from './to-typebox';
+
+export type { TableDefinitionsToDrizzle } from './to-drizzle';
+export {
+	convertTableDefinitionsToDrizzle,
 	toSqlIdentifier,
 } from './to-drizzle';

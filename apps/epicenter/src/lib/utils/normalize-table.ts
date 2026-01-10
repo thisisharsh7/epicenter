@@ -1,8 +1,8 @@
-import type { FieldsSchema, TableDefinition } from '@epicenter/hq';
+import type { FieldDefinitions, TableDefinition } from '@epicenter/hq';
 
 /**
  * Check if a table entry is in the new TableDefinition format (has `fields` property)
- * or the old bare FieldsSchema format (fields directly on the object).
+ * or the old bare FieldDefinitions format (fields directly on the object).
  */
 export function isTableDefinition(table: unknown): table is TableDefinition {
 	return (
@@ -19,15 +19,15 @@ export function isTableDefinition(table: unknown): table is TableDefinition {
  * Old format: { id: { type: 'id' }, title: { type: 'text' } }
  * New format: { name: '...', icon: ..., fields: { id: { type: 'id' } } }
  */
-export function getTableFields(table: unknown): FieldsSchema | undefined {
+export function getTableFields(table: unknown): FieldDefinitions | undefined {
 	if (!table || typeof table !== 'object') return undefined;
 
 	if (isTableDefinition(table)) {
 		return table.fields;
 	}
 
-	// Old format - the table object IS the fields schema
-	// Check if it has an 'id' field with 'type' property to confirm it's a FieldsSchema
+	// Old format - the table object IS the field definitions
+	// Check if it has an 'id' field with 'type' property to confirm it's FieldDefinitions
 	const maybeFields = table as Record<string, unknown>;
 	if (
 		maybeFields.id &&
@@ -35,7 +35,7 @@ export function getTableFields(table: unknown): FieldsSchema | undefined {
 		maybeFields.id !== null &&
 		'type' in maybeFields.id
 	) {
-		return table as FieldsSchema;
+		return table as FieldDefinitions;
 	}
 
 	return undefined;
