@@ -9,7 +9,7 @@
 		let isSlugManuallyEdited = $state(false);
 		let error = $state<string | null>(null);
 		let onConfirm = $state<
-			((data: { name: string; id: string }) => void | Promise<unknown>) | null
+			((data: { name: string; slug: string }) => void | Promise<unknown>) | null
 		>(null);
 
 		return {
@@ -50,7 +50,7 @@
 			open(opts: {
 				onConfirm: (data: {
 					name: string;
-					id: string;
+					slug: string;
 				}) => void | Promise<unknown>;
 			}) {
 				onConfirm = opts.onConfirm;
@@ -87,8 +87,8 @@
 				if (!name.trim() || !slug.trim()) return;
 
 				error = null;
-				const finalId = toKebabCase(slug.trim());
-				const result = onConfirm({ name: name.trim(), id: finalId });
+				const finalSlug = toKebabCase(slug.trim());
+				const result = onConfirm({ name: name.trim(), slug: finalSlug });
 
 				if (result instanceof Promise) {
 					isPending = true;

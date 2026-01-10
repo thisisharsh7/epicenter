@@ -84,7 +84,8 @@ But here's the weird part: the DateTime functions lived in `datetime.ts`. Why we
 
 ### Rules
 
-- First person, specific details ("750 lines", not "a large file")
+- Specific details ("750 lines", not "a large file")
+- First person is optional—direct statements ("Agent skills aren't complicated") can be stronger than manufactured drama ("I spent way too long thinking...")
 - Build to an insight, don't start with it
 - Show before/after code
 - End with a transferable principle

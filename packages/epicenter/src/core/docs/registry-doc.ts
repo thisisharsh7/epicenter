@@ -56,7 +56,7 @@ export function createRegistryDoc(options: {
 		 * Add a workspace to the registry.
 		 *
 		 * This marks that the user has access to this workspace.
-		 * The workspace data itself lives in separate Head and Data Y.Docs.
+		 * The workspace data itself lives in separate Head and Workspace Y.Docs.
 		 */
 		addWorkspace(workspaceId: string) {
 			workspacesMap.set(workspaceId, true);

@@ -45,10 +45,11 @@
 				title="New Workspace"
 				onclick={() =>
 					createWorkspaceDialog.open({
-						onConfirm: async ({ name, id }) => {
-							await createWorkspace.mutateAsync({ name, id });
+						onConfirm: async ({ name, slug }) => {
+							const result = await createWorkspace.mutateAsync({ name, slug });
 							await invalidateAll();
-							goto(`/workspaces/${id}`);
+							// Navigate using the returned workspace ID (GUID)
+							goto(`/workspaces/${result.id}`);
 						},
 					})}
 			>

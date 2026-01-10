@@ -29,8 +29,8 @@
 			<Button
 				onclick={() =>
 					createWorkspaceDialog.open({
-						onConfirm: async ({ name, id }) => {
-							await createWorkspace.mutateAsync({ name, id });
+						onConfirm: async ({ name, slug }) => {
+							await createWorkspace.mutateAsync({ name, slug });
 						},
 					})}
 				disabled={createWorkspace.isPending}
@@ -43,15 +43,15 @@
 	{#if workspaces.isPending}
 		<p class="text-muted-foreground">Loading workspaces...</p>
 	{:else if workspaces.error}
-		<p class="text-destructive">Error: {workspaces.error.message}</p>
+		<p class="text-destructive">Error loading workspaces</p>
 	{:else if workspaces.data?.length === 0}
 		<div class="rounded-lg border border-dashed p-8 text-center">
 			<p class="text-muted-foreground mb-4">No workspaces yet</p>
 			<Button
 				onclick={() =>
 					createWorkspaceDialog.open({
-						onConfirm: async ({ name, id }) => {
-							await createWorkspace.mutateAsync({ name, id });
+						onConfirm: async ({ name, slug }) => {
+							await createWorkspace.mutateAsync({ name, slug });
 						},
 					})}
 			>
@@ -66,7 +66,9 @@
 					class="hover:bg-accent block rounded-lg border p-4 transition-colors"
 				>
 					<h2 class="font-medium">{workspace.name}</h2>
-					<p class="text-muted-foreground text-sm">{workspace.id}</p>
+					<p class="text-muted-foreground text-sm font-mono text-xs">
+						{workspace.id}
+					</p>
 				</a>
 			{/each}
 		</div>

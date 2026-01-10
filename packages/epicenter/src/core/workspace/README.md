@@ -13,7 +13,7 @@ A workspace is a self-contained domain module with its own schema and capabiliti
 │   ┌─────────────────┐                 ┌─────────────────┐                  │
 │   │ Pure Definition │                 │ Runtime Client  │                  │
 │   │                 │      epoch      │                 │                  │
-│   │ - id (GUID)     │ ─────────────▶  │ - Data Doc      │                  │
+│   │ - id (GUID)     │ ─────────────▶  │ - Workspace Doc │                  │
 │   │ - slug          │   capabilities  │ - Tables        │                  │
 │   │ - name          │                 │ - KV            │                  │
 │   │ - tables schema │                 │ - Capabilities  │                  │
@@ -26,7 +26,7 @@ A workspace is a self-contained domain module with its own schema and capabiliti
 ```
 
 - **`defineWorkspace()`**: Pure schema definition. No I/O. Just describes the shape.
-- **`.create()`**: Creates the runtime client. Connects to the Data Doc at the specified epoch.
+- **`.create()`**: Creates the runtime client. Connects to the Workspace Doc at the specified epoch.
 
 ## What is a Workspace?
 
@@ -44,7 +44,7 @@ const blogWorkspace = defineWorkspace({
 
 // Step 2: Create client at a specific epoch
 const blogClient = await blogWorkspace.create({
-	epoch: 0, // Which Data Doc to connect to (defaults to 0)
+	epoch: 0, // Which Workspace Doc to connect to (defaults to 0)
 	capabilities: { sqlite, persistence },
 });
 
@@ -63,7 +63,7 @@ Each workspace has:
 
 ## The Epoch Parameter
 
-The `epoch` determines which Data Doc to connect to.
+The `epoch` determines which Workspace Doc to connect to.
 
 **CRDT Safety**: The Head Doc uses a per-client MAX pattern to handle concurrent
 epoch bumps safely. Each client writes their proposal to their own key; `getEpoch()`
@@ -96,7 +96,7 @@ See `../docs/README.md` for the full three-document architecture.
 When you call `.create({ epoch, capabilities })`:
 
 ```
-1. Create Data Doc at {id}-{epoch}
+1. Create Workspace Doc at {id}-{epoch}
    └── Y.Doc with guid = "abc123xyz789012-0"
 
 2. Check if schema exists in Y.Doc
@@ -160,7 +160,7 @@ client.slug;          // Human-readable slug (e.g., 'blog')
 client.tables;        // YJS-backed table operations
 client.kv;            // Key-value store
 client.capabilities;  // Capability exports
-client.ydoc;          // Underlying YJS document (Data Doc)
+client.ydoc;          // Underlying YJS document (Workspace Doc)
 
 await client.destroy();           // Cleanup resources
 await using client = await ...;   // Auto-cleanup with dispose
