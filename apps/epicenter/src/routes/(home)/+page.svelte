@@ -62,11 +62,13 @@
 		<div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
 			{#each workspaces.data ?? [] as workspace (workspace.id)}
 				<a
-					href="/workspaces/{workspace.slug}"
+					href="/workspaces/{workspace.id}"
 					class="hover:bg-accent block rounded-lg border p-4 transition-colors"
 				>
 					<h2 class="font-medium">{workspace.name}</h2>
-					<p class="text-muted-foreground text-sm">{workspace.slug}</p>
+					<p class="text-muted-foreground text-sm font-mono text-xs">
+						{workspace.id}
+					</p>
 				</a>
 			{/each}
 		</div>

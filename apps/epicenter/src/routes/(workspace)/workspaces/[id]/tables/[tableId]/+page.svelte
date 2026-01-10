@@ -62,7 +62,7 @@
 				</Empty.Description>
 			</Empty.Header>
 			<Empty.Content>
-				<Button variant="outline" href="/workspaces/{data.workspace.slug}">
+				<Button variant="outline" href="/workspaces/{data.workspace.id}">
 					Back to workspace
 				</Button>
 			</Empty.Content>

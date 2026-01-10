@@ -46,9 +46,10 @@
 				onclick={() =>
 					createWorkspaceDialog.open({
 						onConfirm: async ({ name, slug }) => {
-							await createWorkspace.mutateAsync({ name, slug });
+							const result = await createWorkspace.mutateAsync({ name, slug });
 							await invalidateAll();
-							goto(`/workspaces/${slug}`);
+							// Navigate using the returned workspace ID (GUID)
+							goto(`/workspaces/${result.id}`);
 						},
 					})}
 			>
@@ -68,7 +69,7 @@
 							<Sidebar.MenuItem>
 								<Sidebar.MenuButton>
 									{#snippet child({ props })}
-										<a href="/workspaces/{workspace.slug}" {...props}>
+										<a href="/workspaces/{workspace.id}" {...props}>
 											<FolderIcon />
 											<span>{workspace.name}</span>
 										</a>
