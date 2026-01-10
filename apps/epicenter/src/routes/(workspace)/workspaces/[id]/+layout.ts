@@ -25,7 +25,8 @@ export const load: LayoutLoad = async ({ params }) => {
 	console.log(`[Layout] Loading workspace: ${workspaceId}`);
 
 	// Step 1: Verify workspace exists in registry
-	// Registry is already synced (root layout awaits whenSynced)
+	// Await registry sync first - resolves immediately if already synced
+	await registry.whenSynced;
 	if (!registry.hasWorkspace(workspaceId)) {
 		console.error(`[Layout] Workspace not found in registry: ${workspaceId}`);
 		error(404, { message: `Workspace "${workspaceId}" not found` });
