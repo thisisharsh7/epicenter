@@ -9,6 +9,11 @@ import type * as Y from 'yjs';
 import type { Tables } from './tables/create-tables';
 import type { Kv } from './kv/core';
 import type { KvSchema, TableDefinitionMap } from './schema';
+import { LifecycleExports, type MaybePromise } from './lifecycle';
+
+// Re-export lifecycle utilities for capability authors
+export { LifecycleExports, type MaybePromise } from './lifecycle';
+
 /**
  * Context provided to each capability function.
  *
@@ -117,12 +122,24 @@ export type CapabilityContext<
 
 /**
  * Capability exports - returned values accessible via `client.capabilities.{name}`.
+ *
+ * Both `whenSynced` and `destroy` are required. Use `LifecycleExports()` at your
+ * return site to fill in defaults for fields you don't need to customize.
+ *
+ * @example
+ * ```typescript
+ * // Capability with custom lifecycle
+ * return LifecycleExports({
+ *   db: sqliteDb,
+ *   whenSynced: initPromise,
+ *   destroy: () => db.close(),
+ * });
+ *
+ * // Capability with default lifecycle (no async init, no cleanup)
+ * return LifecycleExports({ db: sqliteDb });
+ * ```
  */
-export type CapabilityExports = {
-	whenSynced?: Promise<unknown>;
-	destroy?: () => void | Promise<void>;
-	[key: string]: unknown;
-};
+export type CapabilityExports = LifecycleExports;
 
 /**
  * A capability factory function that attaches functionality to a workspace.
@@ -136,7 +153,7 @@ export type CapabilityFactory<
 	TExports extends CapabilityExports = CapabilityExports,
 > = (
 	context: CapabilityContext<TTableDefinitionMap, TKvSchema>,
-) => TExports | void | Promise<TExports | void>;
+) => MaybePromise<TExports | void>;
 
 /**
  * A map of capability factory functions keyed by capability ID.
@@ -151,10 +168,10 @@ export type CapabilityFactoryMap<
 > = Record<string, CapabilityFactory<TTableDefinitionMap, TKvSchema>>;
 
 /**
- * Utility type to infer the exports from a capability factory map.
+ * Utility type to infer exports from a capability factory map.
  *
  * Maps each capability key to its return type (unwrapped from Promise if async).
- * Factories that return void produce empty objects.
+ * Factories returning `void` get base `CapabilityExports` (just lifecycle fields).
  */
 export type InferCapabilityExports<TCapabilityFactories> = {
 	[K in keyof TCapabilityFactories]: TCapabilityFactories[K] extends CapabilityFactory<
@@ -164,13 +181,33 @@ export type InferCapabilityExports<TCapabilityFactories> = {
 	>
 		? TExports extends CapabilityExports
 			? TExports
-			: Record<string, never>
-		: Record<string, never>;
+			: CapabilityExports
+		: CapabilityExports;
 };
 
 /**
- * Helper to define capability exports with proper typing.
+ * Helper to define capability exports with proper typing and lifecycle normalization.
+ *
+ * Automatically fills in missing `whenSynced` and `destroy` fields with defaults.
+ * Use this at the return site of your capability factory.
+ *
+ * @example
+ * ```typescript
+ * return defineCapabilities({
+ *   db: sqliteDb,
+ *   // whenSynced and destroy are auto-filled if omitted
+ * });
+ *
+ * // Or with custom lifecycle
+ * return defineCapabilities({
+ *   db: sqliteDb,
+ *   whenSynced: initPromise,
+ *   destroy: () => db.close(),
+ * });
+ * ```
  */
-export function defineCapabilities<T extends CapabilityExports>(exports: T): T {
-	return exports;
+export function defineCapabilities<T extends Record<string, unknown>>(
+	exports: T,
+): LifecycleExports<T> {
+	return LifecycleExports(exports);
 }

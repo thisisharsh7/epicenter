@@ -1,4 +1,8 @@
 import type * as Y from 'yjs';
+import { LifecycleExports } from '../lifecycle';
+
+// Re-export lifecycle utilities for convenience
+export { LifecycleExports, type MaybePromise } from '../lifecycle';
 
 /**
  * Context provided to provider factories.
@@ -13,20 +17,19 @@ export type ProviderContext = {
 /**
  * Exports returned by a provider factory.
  *
- * Both `whenSynced` and `destroy` are required.
+ * Alias for LifecycleExports; both `whenSynced` and `destroy` are required.
  */
-export type ProviderExports = {
-	whenSynced: Promise<unknown>;
-	destroy: () => void | Promise<void>;
-	[key: string]: unknown;
-};
+export type ProviderExports = LifecycleExports;
 
 /**
- * A provider factory function. Always async.
+ * A provider factory function.
+ *
+ * Supports both sync and async factories (sync construction pattern).
+ * Sync factories return immediately; async work is tracked via `whenSynced`.
  */
 export type ProviderFactory<
 	TExports extends ProviderExports = ProviderExports,
-> = (context: ProviderContext) => Promise<TExports>;
+> = (context: ProviderContext) => TExports | Promise<TExports>;
 
 /**
  * Map of provider factories keyed by provider ID.
