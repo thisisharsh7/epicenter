@@ -1,15 +1,15 @@
 import { Value } from 'typebox/value';
 import * as Y from 'yjs';
 import type {
-	CapabilityExports,
 	CapabilityFactoryMap,
 	InferCapabilityExports,
 } from '../capability';
 import { createKv, type Kv } from '../kv/core';
+import { LifecycleExports } from '../lifecycle';
 import type { KvSchema, TableDefinitionMap } from '../schema';
 import type {
 	CoverDefinition,
-	FieldSchema,
+	FieldDefinition,
 	IconDefinition,
 } from '../schema/fields/types';
 import { createTables, type Tables } from '../tables/create-tables';
@@ -90,7 +90,10 @@ export type Workspace<
 	TKvSchema extends KvSchema = KvSchema,
 > = WorkspaceSchema<TTableDefinitionMap, TKvSchema> & {
 	/**
-	 * Create a workspace client.
+	 * Create a workspace client (sync construction).
+	 *
+	 * Returns immediately with a client object. Capabilities are initialized
+	 * in the background; use `client.whenSynced` to await full initialization.
 	 *
 	 * @param options - Optional object with epoch and capabilities.
 	 *   - `epoch`: Workspace Doc version (defaults to 0). Get from Head Doc for multi-user sync.
@@ -99,35 +102,33 @@ export type Workspace<
 	 *
 	 * @example No options (ephemeral, in-memory, epoch 0)
 	 * ```typescript
-	 * const client = await workspace.create();
+	 * const client = workspace.create();
+	 * await client.whenSynced; // Optional: wait for initialization
 	 * ```
 	 *
-	 * @example With capabilities only
+	 * @example With capabilities and render gate
 	 * ```typescript
-	 * const client = await workspace.create({
+	 * const client = workspace.create({
 	 *   capabilities: { sqlite, persistence },
 	 * });
+	 *
+	 * // In UI (e.g., Svelte)
+	 * {#await client.whenSynced}
+	 *   <Loading />
+	 * {:then}
+	 *   <App />
+	 * {/await}
 	 * ```
 	 *
 	 * @example With epoch from Head Doc
 	 * ```typescript
 	 * const head = createHeadDoc({ workspaceId: workspace.id });
 	 * const epoch = head.getEpoch();
-	 * const client = await workspace.create({
+	 * const client = workspace.create({
 	 *   epoch,
 	 *   capabilities: { sqlite, persistence },
 	 * });
-	 * ```
-	 *
-	 * @example Capabilities with options
-	 * ```typescript
-	 * const client = await workspace.create({
-	 *   epoch: 0,
-	 *   capabilities: {
-	 *     sqlite: sqlite({ debounceMs: 50 }),
-	 *     persistence,
-	 *   },
-	 * });
+	 * await client.whenSynced;
 	 * ```
 	 */
 	create<
@@ -138,12 +139,10 @@ export type Workspace<
 	>(options?: {
 		epoch?: number;
 		capabilities?: TCapabilityFactories;
-	}): Promise<
-		WorkspaceClient<
-			TTableDefinitionMap,
-			TKvSchema,
-			InferCapabilityExports<TCapabilityFactories>
-		>
+	}): WorkspaceClient<
+		TTableDefinitionMap,
+		TKvSchema,
+		InferCapabilityExports<TCapabilityFactories>
 	>;
 };
 
@@ -186,9 +185,9 @@ export type Workspace<
 export type WorkspaceClient<
 	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
 	TKvSchema extends KvSchema = KvSchema,
-	TCapabilityExports extends Record<string, CapabilityExports> = Record<
+	TCapabilityExports extends Record<string, LifecycleExports> = Record<
 		string,
-		CapabilityExports
+		LifecycleExports
 	>,
 > = {
 	/** Globally unique identifier for sync coordination. */
@@ -203,6 +202,19 @@ export type WorkspaceClient<
 	capabilities: TCapabilityExports;
 	/** The underlying YJS document. */
 	ydoc: Y.Doc;
+	/**
+	 * Resolves when all capabilities are initialized and ready.
+	 *
+	 * Use this as a render gate in UI frameworks:
+	 * ```svelte
+	 * {#await client.whenSynced}
+	 *   <Loading />
+	 * {:then}
+	 *   <App />
+	 * {/await}
+	 * ```
+	 */
+	whenSynced: Promise<void>;
 	/** Clean up resources (close capabilities, destroy YJS doc). */
 	destroy(): Promise<void>;
 	/** Symbol.asyncDispose for `await using` support. */
@@ -278,7 +290,10 @@ export function defineWorkspace<
 		...config,
 
 		/**
-		 * Create a runtime client for this workspace.
+		 * Create a runtime client for this workspace (sync construction).
+		 *
+		 * Returns immediately with a usable client. Capabilities are initialized
+		 * in the background; use `client.whenSynced` to await full initialization.
 		 *
 		 * This is the second phase of the two-phase initialization:
 		 * 1. `defineWorkspace()` creates a static definition (schema + metadata)
@@ -299,11 +314,13 @@ export function defineWorkspace<
 		 * 4. **Helpers created** — Typed `tables` and `kv` helpers are bound to
 		 *    the Y.Doc for CRUD operations.
 		 *
-		 * 5. **Capabilities initialized** — Factory functions run in parallel,
-		 *    each receiving context (ydoc, tables, kv). Their exports become
-		 *    available on `client.capabilities`.
+		 * 5. **Capabilities started** — Factory functions run in parallel (without blocking).
+		 *    Their exports become available on `client.capabilities` after `whenSynced`.
 		 *
 		 * ## Important behaviors
+		 *
+		 * - **Sync construction**: The client is returned immediately. Use
+		 *   `client.whenSynced` as a render gate in UI frameworks.
 		 *
 		 * - **No automatic persistence**: Data lives only in memory unless you
 		 *   provide a persistence capability.
@@ -327,38 +344,41 @@ export function defineWorkspace<
 		 *   persistence, sync, or SQL queries. Each factory receives context and
 		 *   can return exports accessible via `client.capabilities.{name}`.
 		 *
-		 * @example No options (ephemeral, in-memory, epoch 0)
+		 * @example Sync construction with render gate
 		 * ```typescript
-		 * const client = await workspace.create();
-		 * ```
-		 *
-		 * @example With capabilities
-		 * ```typescript
-		 * const client = await workspace.create({
+		 * const client = workspace.create({
 		 *   capabilities: { sqlite, persistence },
 		 * });
-		 * // client.capabilities.sqlite is now available
+		 *
+		 * // In Svelte
+		 * {#await client.whenSynced}
+		 *   <Loading />
+		 * {:then}
+		 *   <App />
+		 * {/await}
 		 * ```
 		 *
 		 * @example With epoch from Head Doc (multi-user sync)
 		 * ```typescript
 		 * const head = createHeadDoc({ workspaceId: workspace.id });
 		 * const epoch = head.getEpoch();
-		 * const client = await workspace.create({
+		 * const client = workspace.create({
 		 *   epoch,
 		 *   capabilities: { sqlite, persistence, sync },
 		 * });
+		 * await client.whenSynced;
 		 * ```
 		 *
 		 * @example Automatic cleanup with `await using`
 		 * ```typescript
 		 * {
-		 *   await using client = await workspace.create();
+		 *   await using client = workspace.create();
+		 *   await client.whenSynced;
 		 *   client.tables.posts.upsert({ id: '1', title: 'Hello' });
 		 * } // Automatically cleaned up here
 		 * ```
 		 */
-		async create<
+		create<
 			TCapabilityFactories extends CapabilityFactoryMap<
 				TTableDefinitionMap,
 				TKvSchema
@@ -369,12 +389,10 @@ export function defineWorkspace<
 		}: {
 			epoch?: number;
 			capabilities?: TCapabilityFactories;
-		} = {}): Promise<
-			WorkspaceClient<
-				TTableDefinitionMap,
-				TKvSchema,
-				InferCapabilityExports<TCapabilityFactories>
-			>
+		} = {}): WorkspaceClient<
+			TTableDefinitionMap,
+			TKvSchema,
+			InferCapabilityExports<TCapabilityFactories>
 		> {
 			// Create Workspace Y.Doc with deterministic GUID
 			// gc: false is required for revision history snapshots to work
@@ -397,31 +415,53 @@ export function defineWorkspace<
 			const tables = createTables(ydoc, config.tables);
 			const kv = createKv(ydoc, config.kv);
 
-			// Run capability factories in parallel
-			const capabilityExports = Object.fromEntries(
-				await Promise.all(
-					Object.entries(capabilityFactories).map(
-						async ([capabilityId, capabilityFactory]) => {
-							const result = await capabilityFactory({
-								id: config.id,
-								slug: config.slug,
-								capabilityId,
-								ydoc,
-								tables,
-								kv,
-							});
-							return [capabilityId, result ?? {}];
-						},
+			// Initialize capability exports object and tracking arrays
+			const capabilities = {} as InferCapabilityExports<TCapabilityFactories>;
+			const initPromises: Promise<void>[] = [];
+			const destroyFns: Array<() => void | Promise<void>> = [];
+
+			// Start capability factories (without awaiting)
+			for (const [capabilityId, capabilityFactory] of Object.entries(
+				capabilityFactories,
+			)) {
+				initPromises.push(
+					Promise.resolve(
+						capabilityFactory({
+							id: config.id,
+							slug: config.slug,
+							capabilityId,
+							ydoc,
+							tables,
+							kv,
+						}),
+					).then((result) => {
+						// Handle void returns (factories that don't export anything)
+						const exports = result ?? LifecycleExports();
+						(capabilities as Record<string, unknown>)[capabilityId] = exports;
+						destroyFns.push(exports.destroy);
+					}),
+				);
+			}
+
+			// whenSynced resolves when all capabilities are initialized AND their whenSynced resolves
+			const whenCapabilitiesInitialized = Promise.all(initPromises).then(
+				() => {},
+			);
+
+			const whenSynced = whenCapabilitiesInitialized
+				.then(() =>
+					Promise.all(
+						Object.values(capabilities).map(
+							(c) => (c as LifecycleExports).whenSynced,
+						),
 					),
-				),
-			) as InferCapabilityExports<TCapabilityFactories>;
+				)
+				.then(() => {});
 
 			const destroy = async () => {
-				await Promise.all(
-					Object.values(capabilityExports).map((capability) =>
-						(capability as CapabilityExports).destroy?.(),
-					),
-				);
+				// Wait for initialization to complete before destroying
+				await whenCapabilitiesInitialized;
+				await Promise.all(destroyFns.map((fn) => fn()));
 				ydoc.destroy();
 			};
 
@@ -431,7 +471,8 @@ export function defineWorkspace<
 				ydoc,
 				tables,
 				kv,
-				capabilities: capabilityExports,
+				capabilities,
+				whenSynced,
 				destroy,
 				[Symbol.asyncDispose]: destroy,
 			};

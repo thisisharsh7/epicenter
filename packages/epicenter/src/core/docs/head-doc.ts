@@ -337,18 +337,21 @@ export function createHeadDoc(options: { workspaceId: string; ydoc?: Y.Doc }) {
 			const initPromises: Promise<void>[] = [];
 			const destroyFns: (() => void | Promise<void>)[] = [];
 
-			// Initialize all providers (async factories)
+			// Initialize all providers (sync or async factories)
 			for (const [id, factory] of Object.entries(factories)) {
 				initPromises.push(
-					factory({ ydoc }).then((exports) => {
+					Promise.resolve(factory({ ydoc })).then((exports) => {
 						(providers as Record<string, unknown>)[id] = exports;
 						destroyFns.push(exports.destroy);
 					}),
 				);
 			}
 
-			// Wait for all factories, then collect whenSynced promises
-			const whenSynced = Promise.all(initPromises)
+			// Wait for all factories to complete
+			const whenProvidersInitialized = Promise.all(initPromises).then(() => {});
+
+			// whenSynced resolves when all providers are initialized AND their whenSynced resolves
+			const whenSynced = whenProvidersInitialized
 				.then(() =>
 					Promise.all(
 						Object.values(providers).map(
@@ -367,6 +370,8 @@ export function createHeadDoc(options: { workspaceId: string; ydoc?: Y.Doc }) {
 
 				/** Destroy providers and the underlying Y.Doc. */
 				async destroy() {
+					// Wait for initialization to complete before destroying
+					await whenProvidersInitialized;
 					await Promise.all(destroyFns.map((fn) => fn()));
 					ydoc.destroy();
 				},
