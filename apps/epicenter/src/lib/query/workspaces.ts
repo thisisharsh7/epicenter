@@ -1,17 +1,12 @@
-import {
-	defineWorkspace,
-	generateGuid,
-	type WorkspaceSchema,
-} from '@epicenter/hq';
+import { generateGuid, type WorkspaceDefinition } from '@epicenter/hq';
 import { appLocalDataDir, join } from '@tauri-apps/api/path';
 import { revealItemInDir } from '@tauri-apps/plugin-opener';
 import { createTaggedError } from 'wellcrafted/error';
 import { Ok } from 'wellcrafted/result';
-import * as Y from 'yjs';
 import { registry } from '$lib/docs/registry';
 import { createHead } from '$lib/docs/head';
-import { persistYDoc } from '$lib/providers/tauri-persistence';
-import { extractSchemaFromYDoc } from '$lib/utils/extract-schema';
+import { createWorkspaceClient } from '$lib/docs/workspace';
+import { extractDefinitionFromYDoc } from '$lib/utils/extract-definition';
 import { defineMutation, defineQuery, queryClient } from './client';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -86,34 +81,25 @@ export const workspaces = {
 				const epoch = head.getEpoch();
 
 				// Create client with empty schema - persistence loads the real one
-				const workspace = defineWorkspace({
-					id: workspaceId,
-					slug: workspaceId,
-					name: '',
-					tables: {},
-					kv: {},
-				});
-
-				const client = workspace.create({
-					epoch,
-					capabilities: {
-						persistence: (ctx: { ydoc: Y.Doc }) =>
-							persistYDoc(ctx.ydoc, [
-								'workspaces',
-								workspaceId,
-								`${epoch}.yjs`,
-							]),
+				const client = createWorkspaceClient(
+					{
+						id: workspaceId,
+						slug: workspaceId,
+						name: '',
+						tables: {},
+						kv: {},
 					},
-				});
+					epoch,
+				);
 
 				// Wait for persistence to finish loading existing data from disk
 				await client.whenSynced;
 
-				// Extract schema and clean up
-				const schema = extractSchemaFromYDoc(client.ydoc, workspaceId);
+				// Extract definition and clean up
+				const definition = extractSchemaFromYDoc(client.ydoc, workspaceId);
 				await client.destroy();
 
-				return Ok(schema);
+				return Ok(definition);
 			},
 		}),
 
@@ -131,8 +117,8 @@ export const workspaces = {
 			// Generate GUID for sync coordination
 			const guid = generateGuid();
 
-			// Create schema
-			const schema: WorkspaceSchema = {
+			// Create definition
+			const definition: WorkspaceDefinition = {
 				id: guid,
 				slug: input.slug,
 				name: input.name,
@@ -148,15 +134,8 @@ export const workspaces = {
 			await head.whenSynced;
 
 			// Create workspace client to initialize the workspace doc
-			// This writes the schema to the Y.Doc
-			const workspace = defineWorkspace(schema);
-			const client = workspace.create({
-				epoch: 0,
-				capabilities: {
-					persistence: (ctx: { ydoc: Y.Doc }) =>
-						persistYDoc(ctx.ydoc, ['workspaces', guid, '0.yjs']),
-				},
-			});
+			// This writes the definition to the Y.Doc
+			const client = createWorkspaceClient(definition, 0);
 
 			// Wait for persistence to finish saving initial state to disk
 			await client.whenSynced;
@@ -164,14 +143,14 @@ export const workspaces = {
 
 			console.log(`[createWorkspace] Created workspace:`, {
 				guid,
-				slug: schema.slug,
-				name: schema.name,
+				slug: definition.slug,
+				name: definition.name,
 			});
 
 			// Invalidate list query
 			queryClient.invalidateQueries({ queryKey: workspaceKeys.list() });
 
-			return Ok(schema);
+			return Ok(definition);
 		},
 	}),
 

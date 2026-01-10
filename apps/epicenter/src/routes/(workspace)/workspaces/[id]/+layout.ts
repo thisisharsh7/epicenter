@@ -1,24 +1,22 @@
-import { defineWorkspace } from '@epicenter/hq';
 import { error } from '@sveltejs/kit';
-import * as Y from 'yjs';
 import { createHead } from '$lib/docs/head';
 import { registry } from '$lib/docs/registry';
-import { persistYDoc } from '$lib/providers/tauri-persistence';
-import { extractSchemaFromYDoc } from '$lib/utils/extract-schema';
+import { createWorkspaceClient } from '$lib/docs/workspace';
+import { extractDefinitionFromYDoc } from '$lib/utils/extract-definition';
 import type { LayoutLoad } from './$types';
 
 /**
  * Load a workspace lazily by GUID.
  *
- * Uses the "empty schema" pattern: pass an empty schema to defineWorkspace,
- * let persistence load the real schema, then extract it from the Y.Doc.
- * This avoids creating a temporary Y.Doc just to read the schema.
+ * Uses the "empty definition" pattern: pass an empty definition to createWorkspaceClient,
+ * let persistence load the real definition, then extract it from the Y.Doc.
+ * This avoids creating a temporary Y.Doc just to read the definition.
  *
  * Flow:
  * 1. Verify workspace exists in registry
  * 2. Create head doc and get epoch
- * 3. Create client with empty schema (persistence loads the real one)
- * 4. Extract schema from the loaded Y.Doc
+ * 3. Create client with empty definition (persistence loads the real one)
+ * 4. Extract definition from the loaded Y.Doc
  */
 export const load: LayoutLoad = async ({ params }) => {
 	const workspaceId = params.id;
@@ -38,34 +36,31 @@ export const load: LayoutLoad = async ({ params }) => {
 	const epoch = head.getEpoch();
 	console.log(`[Layout] Workspace epoch: ${epoch}`);
 
-	// Step 3: Create client with empty schema - persistence loads the real one
-	const workspace = defineWorkspace({
-		id: workspaceId,
-		slug: workspaceId,
-		name: '',
-		tables: {},
-		kv: {},
-	});
-
-	const client = workspace.create({
-		epoch,
-		capabilities: {
-			persistence: (ctx: { ydoc: Y.Doc }) =>
-				persistYDoc(ctx.ydoc, ['workspaces', workspaceId, `${epoch}.yjs`]),
+	// Step 3: Create client with empty definition - persistence loads the real one
+	const client = createWorkspaceClient(
+		{
+			id: workspaceId,
+			slug: workspaceId,
+			name: '',
+			tables: {},
+			kv: {},
 		},
-	});
+		epoch,
+	);
 
 	// Wait for persistence to finish loading existing data from disk.
 	// Once this resolves, the Y.Doc contains all previously saved state.
 	await client.whenSynced;
 
-	// Step 4: Extract real schema from the loaded Y.Doc
-	const schema = extractSchemaFromYDoc(client.ydoc, workspaceId);
-	console.log(`[Layout] Loaded schema: ${schema.name} (${schema.slug})`);
+	// Step 4: Extract real definition from the loaded Y.Doc
+	const definition = extractDefinitionFromYDoc(client.ydoc, workspaceId);
+	console.log(
+		`[Layout] Loaded definition: ${definition.name} (${definition.slug})`,
+	);
 
 	return {
-		/** The workspace schema (id, slug, name, tables, kv). */
-		workspace: schema,
+		/** The workspace definition (id, slug, name, tables, kv). */
+		workspace: definition,
 		/** The live workspace client for CRUD operations. */
 		client,
 		/** The head doc for epoch management. */
