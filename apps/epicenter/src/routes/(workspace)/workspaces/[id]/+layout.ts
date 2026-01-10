@@ -1,11 +1,9 @@
 import { defineWorkspace } from '@epicenter/hq';
 import * as Y from 'yjs';
-import {
-	getRegistry,
-	getHeadDoc,
-	extractSchemaFromYDoc,
-} from '$lib/services/workspace-registry';
-import { workspacePersistence } from '$lib/capabilities/tauri-persistence';
+import { registry } from '$lib/docs/registry';
+import { createHead } from '$lib/docs/head';
+import { persistYDoc } from '$lib/providers/tauri-persistence';
+import { extractSchemaFromYDoc } from '$lib/utils/extract-schema';
 import { error } from '@sveltejs/kit';
 import type { LayoutLoad } from './$types';
 
@@ -18,7 +16,7 @@ import type { LayoutLoad } from './$types';
  *
  * Flow:
  * 1. Verify workspace exists in registry
- * 2. Get epoch from head doc
+ * 2. Create head doc and get epoch
  * 3. Create client with empty schema (persistence loads the real one)
  * 4. Extract schema from the loaded Y.Doc
  */
@@ -27,14 +25,15 @@ export const load: LayoutLoad = async ({ params }) => {
 	console.log(`[Layout] Loading workspace: ${workspaceId}`);
 
 	// Step 1: Verify workspace exists in registry
-	const registry = await getRegistry();
+	// Registry is already synced (root layout awaits whenSynced)
 	if (!registry.hasWorkspace(workspaceId)) {
 		console.error(`[Layout] Workspace not found in registry: ${workspaceId}`);
 		error(404, { message: `Workspace "${workspaceId}" not found` });
 	}
 
-	// Step 2: Get epoch from head doc
-	const head = await getHeadDoc(workspaceId);
+	// Step 2: Create head doc and get epoch
+	const head = createHead(workspaceId);
+	await head.whenSynced;
 	const epoch = head.getEpoch();
 	console.log(`[Layout] Workspace epoch: ${epoch}`);
 
@@ -51,7 +50,7 @@ export const load: LayoutLoad = async ({ params }) => {
 		epoch,
 		capabilities: {
 			persistence: (ctx: { ydoc: Y.Doc }) =>
-				workspacePersistence(ctx.ydoc, workspaceId, epoch),
+				persistYDoc(ctx.ydoc, `workspaces/${workspaceId}/${epoch}.yjs`),
 		},
 	});
 

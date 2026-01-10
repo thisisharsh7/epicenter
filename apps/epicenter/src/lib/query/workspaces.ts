@@ -8,13 +8,10 @@ import { revealItemInDir } from '@tauri-apps/plugin-opener';
 import { createTaggedError } from 'wellcrafted/error';
 import { Ok } from 'wellcrafted/result';
 import * as Y from 'yjs';
-import { workspacePersistence } from '$lib/capabilities/tauri-persistence';
-import {
-	extractSchemaFromYDoc,
-	getHeadDoc,
-	getRegistry,
-	removeHeadDoc,
-} from '$lib/services/workspace-registry';
+import { registry } from '$lib/docs/registry';
+import { createHead } from '$lib/docs/head';
+import { persistYDoc } from '$lib/providers/tauri-persistence';
+import { extractSchemaFromYDoc } from '$lib/utils/extract-schema';
 import { defineMutation, defineQuery, queryClient } from './client';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -49,7 +46,6 @@ export const workspaces = {
 	listWorkspaces: defineQuery({
 		queryKey: workspaceKeys.list(),
 		queryFn: async () => {
-			const registry = await getRegistry();
 			const guids = registry.getWorkspaceIds();
 
 			// Return minimal workspace info (just GUIDs)
@@ -77,8 +73,6 @@ export const workspaces = {
 		defineQuery({
 			queryKey: workspaceKeys.detail(workspaceId),
 			queryFn: async () => {
-				const registry = await getRegistry();
-
 				// Check if workspace exists in registry
 				if (!registry.hasWorkspace(workspaceId)) {
 					return WorkspaceErr({
@@ -87,7 +81,8 @@ export const workspaces = {
 				}
 
 				// Get epoch from head doc
-				const head = await getHeadDoc(workspaceId);
+				const head = createHead(workspaceId);
+				await head.whenSynced;
 				const epoch = head.getEpoch();
 
 				// Create client with empty schema - persistence loads the real one
@@ -103,7 +98,7 @@ export const workspaces = {
 					epoch,
 					capabilities: {
 						persistence: (ctx: { ydoc: Y.Doc }) =>
-							workspacePersistence(ctx.ydoc, workspaceId, epoch),
+							persistYDoc(ctx.ydoc, `workspaces/${workspaceId}/${epoch}.yjs`),
 					},
 				});
 
@@ -141,11 +136,11 @@ export const workspaces = {
 			};
 
 			// Add to registry (persisted automatically via registryPersistence)
-			const registry = await getRegistry();
 			registry.addWorkspace(guid);
 
 			// Initialize head doc at epoch 0
-			await getHeadDoc(guid);
+			const head = createHead(guid);
+			await head.whenSynced;
 
 			// Create workspace client to initialize the workspace doc
 			// This writes the schema to the Y.Doc
@@ -154,7 +149,7 @@ export const workspaces = {
 				epoch: 0,
 				capabilities: {
 					persistence: (ctx: { ydoc: Y.Doc }) =>
-						workspacePersistence(ctx.ydoc, guid, 0),
+						persistYDoc(ctx.ydoc, `workspaces/${guid}/0.yjs`),
 				},
 			});
 
@@ -184,8 +179,6 @@ export const workspaces = {
 	deleteWorkspace: defineMutation({
 		mutationKey: ['workspaces', 'delete'],
 		mutationFn: async (guid: string) => {
-			const registry = await getRegistry();
-
 			// Check if workspace exists
 			if (!registry.hasWorkspace(guid)) {
 				return WorkspaceErr({
@@ -196,8 +189,8 @@ export const workspaces = {
 			// Remove from registry
 			registry.removeWorkspace(guid);
 
-			// Remove head doc from cache
-			await removeHeadDoc(guid);
+			// Note: Head doc cleanup happens automatically when navigating away
+			// since head docs are now created per-navigation, not cached
 
 			// Invalidate queries
 			queryClient.invalidateQueries({ queryKey: workspaceKeys.list() });
