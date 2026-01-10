@@ -228,6 +228,7 @@ export type Workspace<
  * A fully initialized workspace client.
  *
  * This is the main interface for interacting with a workspace:
+ * - Access workspace definition via `client.definition.name/slug/tables/kv`
  * - Access tables via `client.tables.tableName.get/upsert/etc.`
  * - Access kv store via `client.kv.key.get/set/etc.`
  * - Access capability exports via `client.capabilities.capabilityId`
@@ -272,6 +273,21 @@ export type WorkspaceClient<
 	id: string;
 	/** Human-readable slug for URLs, paths, and CLI commands. */
 	slug: string;
+	/**
+	 * Workspace definition helper for reading/merging metadata.
+	 *
+	 * Read workspace metadata:
+	 * ```typescript
+	 * client.definition.name   // "My Blog"
+	 * client.definition.slug   // "blog"
+	 * ```
+	 *
+	 * Merge updated config (idempotent):
+	 * ```typescript
+	 * client.definition.merge({ name, slug, tables, kv });
+	 * ```
+	 */
+	definition: Definition;
 	/** Typed table helpers for CRUD operations. */
 	tables: Tables<TTableDefinitionMap>;
 	/** Key-value store for simple values. */
@@ -474,8 +490,9 @@ export function defineWorkspace<
 			const docId = `${config.id}-${epoch}` as const;
 			const ydoc = new Y.Doc({ guid: docId, gc: false });
 
-			// Merge workspace definition (name, slug, tables, kv) into Y.Doc
-			mergeDefinitionIntoYDoc(ydoc, config);
+			// Create definition helper and merge workspace config into Y.Doc
+			const definition = createDefinition(ydoc);
+			definition.merge(config);
 
 			// Create table and kv helpers bound to the Y.Doc
 			const tables = createTables(ydoc, config.tables);
@@ -552,6 +569,7 @@ export function defineWorkspace<
 			return {
 				id: config.id,
 				slug: config.slug,
+				definition,
 				ydoc,
 				tables,
 				kv,
@@ -565,7 +583,7 @@ export function defineWorkspace<
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Internal: Schema Merge Utilities
+// Internal: Definition Helper
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -576,7 +594,39 @@ type TableDefinitionYMap = Y.Map<
 >;
 
 /**
- * Merge code-defined workspace definition into Y.Doc.
+ * Helper for reading and merging workspace definition in Y.Doc.
+ *
+ * Similar to {@link Tables} and {@link Kv}, this provides a typed interface
+ * over the underlying Y.Map storage.
+ */
+export type Definition = {
+	/** Display name of the workspace. */
+	readonly name: string;
+	/** URL-friendly identifier. */
+	readonly slug: string;
+	/** Map of table definitions (name, icon, cover, description, fields). */
+	readonly tables: Y.Map<TableDefinitionYMap>;
+	/** Map of KV definitions. */
+	readonly kv: Y.Map<KvDefinition>;
+
+	/**
+	 * Merge a workspace definition into the Y.Doc.
+	 *
+	 * Uses pure merge semantics (idempotent, safe for concurrent calls):
+	 * - If value doesn't exist → add it
+	 * - If value exists with different value → update it
+	 * - If value exists with same value → no-op (CRDT handles)
+	 */
+	merge(config: {
+		name: string;
+		slug: string;
+		tables: TableDefinitionMap;
+		kv: KvDefinitionMap;
+	}): void;
+};
+
+/**
+ * Create a definition helper bound to a Y.Doc.
  *
  * ## Y.Doc Structure
  *
@@ -594,110 +644,131 @@ type TableDefinitionYMap = Y.Map<
  *
  * To reconstruct a full WorkspaceDefinition:
  * - `id`: Extract from `ydoc.guid.split('-')[0]`
- * - Everything else: Read from `ydoc.getMap('definition')`
+ * - Everything else: Read from the definition helper
  *
- * ## Merge Semantics
+ * @example
+ * ```typescript
+ * const definition = createDefinition(ydoc);
  *
- * Uses pure merge (idempotent, safe for concurrent calls):
- * - If value doesn't exist → add it
- * - If value exists with different value → update it
- * - If value exists with same value → no-op (CRDT handles)
+ * // Read current values
+ * console.log(definition.name);  // "My Blog"
+ * console.log(definition.slug);  // "blog"
+ *
+ * // Merge new config (idempotent)
+ * definition.merge({
+ *   name: 'My Blog',
+ *   slug: 'blog',
+ *   tables: { posts: { ... } },
+ *   kv: {},
+ * });
+ * ```
  */
-function mergeDefinitionIntoYDoc(
-	ydoc: Y.Doc,
-	config: {
-		name: string;
-		slug: string;
-		tables: TableDefinitionMap;
-		kv: KvDefinitionMap;
-	},
-) {
-	const definitionMap = ydoc.getMap<Y.Map<unknown> | string>('definition');
+function createDefinition(ydoc: Y.Doc): Definition {
+	const map = ydoc.getMap<Y.Map<unknown> | string>('definition');
 
-	// Merge workspace-level metadata
-	if (definitionMap.get('name') !== config.name) {
-		definitionMap.set('name', config.name);
+	// Initialize submaps if not present
+	if (!map.has('tables')) {
+		map.set('tables', new Y.Map());
 	}
-	if (definitionMap.get('slug') !== config.slug) {
-		definitionMap.set('slug', config.slug);
+	if (!map.has('kv')) {
+		map.set('kv', new Y.Map());
 	}
 
-	// Initialize definition submaps if not present
-	if (!definitionMap.has('tables')) {
-		definitionMap.set('tables', new Y.Map());
-	}
-	if (!definitionMap.has('kv')) {
-		definitionMap.set('kv', new Y.Map());
-	}
+	return {
+		get name() {
+			return (map.get('name') as string) ?? '';
+		},
+		get slug() {
+			return (map.get('slug') as string) ?? '';
+		},
+		get tables() {
+			return map.get('tables') as Y.Map<TableDefinitionYMap>;
+		},
+		get kv() {
+			return map.get('kv') as Y.Map<KvDefinition>;
+		},
 
-	const tablesDefMap = definitionMap.get(
-		'tables',
-	) as Y.Map<TableDefinitionYMap>;
-	const kvDefMap = definitionMap.get('kv') as Y.Map<KvDefinition>;
-
-	ydoc.transact(() => {
-		for (const [tableName, tableDefinition] of Object.entries(config.tables)) {
-			// Get or create the table definition map
-			let tableMap = tablesDefMap.get(tableName);
-			if (!tableMap) {
-				tableMap = new Y.Map() as TableDefinitionYMap;
-				tableMap.set('fields', new Y.Map<FieldSchema>());
-				tablesDefMap.set(tableName, tableMap);
+		merge(config) {
+			// Merge workspace-level metadata
+			if (map.get('name') !== config.name) {
+				map.set('name', config.name);
+			}
+			if (map.get('slug') !== config.slug) {
+				map.set('slug', config.slug);
 			}
 
-			// Merge table metadata
-			const currentName = tableMap.get('name') as string | undefined;
-			if (currentName !== tableDefinition.name) {
-				tableMap.set('name', tableDefinition.name);
-			}
+			const tablesDefMap = map.get('tables') as Y.Map<TableDefinitionYMap>;
+			const kvDefMap = map.get('kv') as Y.Map<KvDefinition>;
 
-			const currentIcon = tableMap.get('icon') as
-				| IconDefinition
-				| null
-				| undefined;
-			if (!Value.Equal(currentIcon, tableDefinition.icon)) {
-				tableMap.set('icon', tableDefinition.icon);
-			}
+			ydoc.transact(() => {
+				for (const [tableName, tableDefinition] of Object.entries(
+					config.tables,
+				)) {
+					// Get or create the table definition map
+					let tableMap = tablesDefMap.get(tableName);
+					if (!tableMap) {
+						tableMap = new Y.Map() as TableDefinitionYMap;
+						tableMap.set('fields', new Y.Map<FieldSchema>());
+						tablesDefMap.set(tableName, tableMap);
+					}
 
-			const currentCover = tableMap.get('cover') as
-				| CoverDefinition
-				| null
-				| undefined;
-			if (!Value.Equal(currentCover, tableDefinition.cover)) {
-				tableMap.set('cover', tableDefinition.cover);
-			}
+					// Merge table metadata
+					const currentName = tableMap.get('name') as string | undefined;
+					if (currentName !== tableDefinition.name) {
+						tableMap.set('name', tableDefinition.name);
+					}
 
-			const currentDescription = tableMap.get('description') as
-				| string
-				| undefined;
-			if (currentDescription !== tableDefinition.description) {
-				tableMap.set('description', tableDefinition.description);
-			}
+					const currentIcon = tableMap.get('icon') as
+						| IconDefinition
+						| null
+						| undefined;
+					if (!Value.Equal(currentIcon, tableDefinition.icon)) {
+						tableMap.set('icon', tableDefinition.icon);
+					}
 
-			// Merge fields
-			let fieldsMap = tableMap.get('fields') as Y.Map<FieldSchema> | undefined;
-			if (!fieldsMap) {
-				fieldsMap = new Y.Map();
-				tableMap.set('fields', fieldsMap);
-			}
+					const currentCover = tableMap.get('cover') as
+						| CoverDefinition
+						| null
+						| undefined;
+					if (!Value.Equal(currentCover, tableDefinition.cover)) {
+						tableMap.set('cover', tableDefinition.cover);
+					}
 
-			for (const [fieldName, fieldDefinition] of Object.entries(
-				tableDefinition.fields,
-			)) {
-				const existing = fieldsMap.get(fieldName);
+					const currentDescription = tableMap.get('description') as
+						| string
+						| undefined;
+					if (currentDescription !== tableDefinition.description) {
+						tableMap.set('description', tableDefinition.description);
+					}
 
-				if (!existing || !Value.Equal(existing, fieldDefinition)) {
-					fieldsMap.set(fieldName, fieldDefinition);
+					// Merge fields
+					let fieldsMap = tableMap.get('fields') as
+						| Y.Map<FieldSchema>
+						| undefined;
+					if (!fieldsMap) {
+						fieldsMap = new Y.Map();
+						tableMap.set('fields', fieldsMap);
+					}
+
+					for (const [fieldName, fieldDefinition] of Object.entries(
+						tableDefinition.fields,
+					)) {
+						const existing = fieldsMap.get(fieldName);
+
+						if (!existing || !Value.Equal(existing, fieldDefinition)) {
+							fieldsMap.set(fieldName, fieldDefinition);
+						}
+					}
 				}
-			}
-		}
 
-		for (const [keyName, kvDefinition] of Object.entries(config.kv)) {
-			const existing = kvDefMap.get(keyName);
+				for (const [keyName, kvDefinition] of Object.entries(config.kv)) {
+					const existing = kvDefMap.get(keyName);
 
-			if (!existing || !Value.Equal(existing, kvDefinition)) {
-				kvDefMap.set(keyName, kvDefinition);
-			}
-		}
-	});
+					if (!existing || !Value.Equal(existing, kvDefinition)) {
+						kvDefMap.set(keyName, kvDefinition);
+					}
+				}
+			});
+		},
+	};
 }
