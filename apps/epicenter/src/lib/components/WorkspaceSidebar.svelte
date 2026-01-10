@@ -98,10 +98,10 @@
 							{#each workspaces.data as ws (ws.id)}
 								<div class="group relative flex items-center">
 									<DropdownMenu.Item
-										onclick={() => goto(`/workspaces/${ws.id}`)}
+										onclick={() => goto(`/workspaces/${ws.slug}`)}
 										class={cn(
 											'flex-1 gap-2 p-2',
-											ws.id === workspaceId &&
+											ws.slug === workspaceId &&
 												'bg-accent text-accent-foreground',
 										)}
 									>

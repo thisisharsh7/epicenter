@@ -45,10 +45,10 @@
 				title="New Workspace"
 				onclick={() =>
 					createWorkspaceDialog.open({
-						onConfirm: async ({ name, id }) => {
-							await createWorkspace.mutateAsync({ name, id });
+						onConfirm: async ({ name, slug }) => {
+							await createWorkspace.mutateAsync({ name, slug });
 							await invalidateAll();
-							goto(`/workspaces/${id}`);
+							goto(`/workspaces/${slug}`);
 						},
 					})}
 			>
@@ -68,7 +68,7 @@
 							<Sidebar.MenuItem>
 								<Sidebar.MenuButton>
 									{#snippet child({ props })}
-										<a href="/workspaces/{workspace.id}" {...props}>
+										<a href="/workspaces/{workspace.slug}" {...props}>
 											<FolderIcon />
 											<span>{workspace.name}</span>
 										</a>
