@@ -382,17 +382,14 @@ export function defineWorkspace<
 		 * 1. **Y.Doc created** — A new YJS document with GUID `{id}-{epoch}`.
 		 *    The epoch creates isolated document namespaces for versioning/sync.
 		 *
-		 * 2. **Metadata merged** — Workspace name and slug are written to the doc's
-		 *    meta map (idempotent; only updates if values differ).
+		 * 2. **Definition merged** — Workspace definition (name, slug, tables, kv) is
+		 *    merged into the doc's definition map. New values are added, changed
+		 *    values are updated, identical values are untouched. Safe to call repeatedly.
 		 *
-		 * 3. **Definition merged** — Code-defined table/kv definitions are merged into the
-		 *    doc's definition map. New fields are added, changed fields are updated,
-		 *    existing identical fields are untouched. Safe to call repeatedly.
-		 *
-		 * 4. **Helpers created** — Typed `tables` and `kv` helpers are bound to
+		 * 3. **Helpers created** — Typed `tables` and `kv` helpers are bound to
 		 *    the Y.Doc for CRUD operations.
 		 *
-		 * 5. **Capabilities started** — Factory functions run in parallel (without blocking).
+		 * 4. **Capabilities started** — Factory functions run in parallel (without blocking).
 		 *    Their exports become available on `client.capabilities` after `whenSynced`.
 		 *
 		 * ## Important behaviors
@@ -477,17 +474,8 @@ export function defineWorkspace<
 			const docId = `${config.id}-${epoch}` as const;
 			const ydoc = new Y.Doc({ guid: docId, gc: false });
 
-			// Merge workspace metadata (update if different from config)
-			const metaMap = ydoc.getMap<string>('meta');
-			if (metaMap.get('name') !== config.name) {
-				metaMap.set('name', config.name);
-			}
-			if (metaMap.get('slug') !== config.slug) {
-				metaMap.set('slug', config.slug);
-			}
-
-			// Merge full table definitions (with metadata) into Y.Doc definition
-			mergeDefinitionIntoYDoc(ydoc, config.tables, config.kv);
+			// Merge workspace definition (name, slug, tables, kv) into Y.Doc
+			mergeDefinitionIntoYDoc(ydoc, config);
 
 			// Create table and kv helpers bound to the Y.Doc
 			const tables = createTables(ydoc, config.tables);
@@ -590,19 +578,49 @@ type TableDefinitionYMap = Y.Map<
 /**
  * Merge code-defined workspace definition into Y.Doc.
  *
- * Uses pure merge semantics:
- * - If table/field doesn't exist → add it
- * - If table/field exists with different value → update it
- * - If table/field exists with same value → no-op (CRDT handles)
+ * ## Y.Doc Structure
  *
- * Idempotent and safe for concurrent calls.
+ * The `'definition'` map is a 1:1 mapping of {@link WorkspaceDefinition},
+ * except `id` which lives in the doc GUID (`{id}-{epoch}`).
+ *
+ * ```
+ * Y.Doc (guid: "{id}-{epoch}")
+ * └── 'definition' (Y.Map)
+ *     ├── 'name'    → string           // WorkspaceDefinition.name
+ *     ├── 'slug'    → string           // WorkspaceDefinition.slug
+ *     ├── 'tables'  → Y.Map<...>       // WorkspaceDefinition.tables
+ *     └── 'kv'      → Y.Map<...>       // WorkspaceDefinition.kv
+ * ```
+ *
+ * To reconstruct a full WorkspaceDefinition:
+ * - `id`: Extract from `ydoc.guid.split('-')[0]`
+ * - Everything else: Read from `ydoc.getMap('definition')`
+ *
+ * ## Merge Semantics
+ *
+ * Uses pure merge (idempotent, safe for concurrent calls):
+ * - If value doesn't exist → add it
+ * - If value exists with different value → update it
+ * - If value exists with same value → no-op (CRDT handles)
  */
 function mergeDefinitionIntoYDoc(
 	ydoc: Y.Doc,
-	tables: TableDefinitionMap,
-	kv: KvDefinitionMap,
+	config: {
+		name: string;
+		slug: string;
+		tables: TableDefinitionMap;
+		kv: KvDefinitionMap;
+	},
 ) {
-	const definitionMap = ydoc.getMap<Y.Map<unknown>>('definition');
+	const definitionMap = ydoc.getMap<Y.Map<unknown> | string>('definition');
+
+	// Merge workspace-level metadata
+	if (definitionMap.get('name') !== config.name) {
+		definitionMap.set('name', config.name);
+	}
+	if (definitionMap.get('slug') !== config.slug) {
+		definitionMap.set('slug', config.slug);
+	}
 
 	// Initialize definition submaps if not present
 	if (!definitionMap.has('tables')) {
@@ -618,7 +636,7 @@ function mergeDefinitionIntoYDoc(
 	const kvDefMap = definitionMap.get('kv') as Y.Map<KvDefinition>;
 
 	ydoc.transact(() => {
-		for (const [tableName, tableDefinition] of Object.entries(tables)) {
+		for (const [tableName, tableDefinition] of Object.entries(config.tables)) {
 			// Get or create the table definition map
 			let tableMap = tablesDefMap.get(tableName);
 			if (!tableMap) {
@@ -674,7 +692,7 @@ function mergeDefinitionIntoYDoc(
 			}
 		}
 
-		for (const [keyName, kvDefinition] of Object.entries(kv)) {
+		for (const [keyName, kvDefinition] of Object.entries(config.kv)) {
 			const existing = kvDefMap.get(keyName);
 
 			if (!existing || !Value.Equal(existing, kvDefinition)) {
