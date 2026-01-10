@@ -40,39 +40,7 @@ export function persistYDoc(
 		return { baseDir, filePath };
 	})();
 
-	// Async initialization - becomes whenSynced
-	const whenSynced = (async () => {
-		const { baseDir, filePath } = await pathsPromise;
-
-		// Ensure parent directory exists
-		if (pathSegments.length > 1) {
-			const parentSegments = pathSegments.slice(0, -1);
-			const parentDir = await join(baseDir, ...parentSegments);
-			await mkdir(parentDir, { recursive: true }).catch(() => {
-				// Directory might already exist - that's fine
-			});
-		}
-
-		// Load existing state from disk
-		let isNewFile = false;
-		try {
-			const savedState = await readFile(filePath);
-			Y.applyUpdate(ydoc, new Uint8Array(savedState));
-			console.log(`[Persistence] Loaded from ${logPath}`);
-		} catch {
-			// File doesn't exist yet - that's fine, we'll create it on first update
-			isNewFile = true;
-			console.log(`[Persistence] Creating new file at ${logPath}`);
-		}
-
-		// If this is a new file, save initial state
-		if (isNewFile) {
-			const state = Y.encodeStateAsUpdate(ydoc);
-			await writeFile(filePath, state);
-		}
-	})();
-
-	// Save handler - waits for initialization before saving
+	// Save handler - awaits pathsPromise to ensure path is resolved
 	const saveHandler = async () => {
 		const { filePath } = await pathsPromise;
 		try {
@@ -83,11 +51,40 @@ export function persistYDoc(
 		}
 	};
 
-	// Attach observer synchronously - saves will queue until whenSynced resolves
+	// Attach observer synchronously - saves will queue until pathsPromise resolves
 	ydoc.on('update', saveHandler);
 
 	return {
-		whenSynced,
+		whenSynced: (async () => {
+			const { baseDir, filePath } = await pathsPromise;
+
+			// Ensure parent directory exists
+			if (pathSegments.length > 1) {
+				const parentSegments = pathSegments.slice(0, -1);
+				const parentDir = await join(baseDir, ...parentSegments);
+				await mkdir(parentDir, { recursive: true }).catch(() => {
+					// Directory might already exist - that's fine
+				});
+			}
+
+			// Load existing state from disk
+			let isNewFile = false;
+			try {
+				const savedState = await readFile(filePath);
+				Y.applyUpdate(ydoc, new Uint8Array(savedState));
+				console.log(`[Persistence] Loaded from ${logPath}`);
+			} catch {
+				// File doesn't exist yet - that's fine, we'll create it on first update
+				isNewFile = true;
+				console.log(`[Persistence] Creating new file at ${logPath}`);
+			}
+
+			// If this is a new file, save initial state
+			if (isNewFile) {
+				const state = Y.encodeStateAsUpdate(ydoc);
+				await writeFile(filePath, state);
+			}
+		})(),
 		destroy() {
 			ydoc.off('update', saveHandler);
 		},
