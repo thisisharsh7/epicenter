@@ -30,15 +30,6 @@ let registryInitPromise: Promise<RegistryDoc> | null = null;
 const headDocs = new Map<string, HeadDoc>();
 const headInitPromises = new Map<string, Promise<HeadDoc>>();
 
-/**
- * In-memory schema cache.
- *
- * Schemas are loaded from workspace docs on bootstrap and cached here.
- * When creating a new workspace, the schema is added to the cache before
- * the workspace doc is created.
- */
-const schemaCache = new Map<string, AppWorkspaceSchema>();
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Registry Access
 // ─────────────────────────────────────────────────────────────────────────────
@@ -104,99 +95,6 @@ export async function getHeadDoc(workspaceId: string): Promise<HeadDoc> {
 	}
 
 	return initPromise;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Schema Cache
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Store a workspace schema in the cache.
- *
- * Called when creating a new workspace or loading existing schemas from
- * workspace docs during bootstrap.
- */
-export function setWorkspaceSchema(
-	workspaceId: string,
-	schema: AppWorkspaceSchema,
-): void {
-	console.log(`[Registry] Caching schema:`, {
-		workspaceId,
-		slug: schema.slug,
-		cacheSize: schemaCache.size + 1,
-	});
-	schemaCache.set(workspaceId, schema);
-}
-
-/**
- * Get a workspace schema from the cache by GUID.
- *
- * Returns undefined if not cached.
- */
-export function getWorkspaceSchema(
-	workspaceId: string,
-): AppWorkspaceSchema | undefined {
-	return schemaCache.get(workspaceId);
-}
-
-/**
- * Remove a workspace schema from the cache.
- *
- * Called when deleting a workspace.
- */
-export function removeWorkspaceSchema(workspaceId: string): void {
-	schemaCache.delete(workspaceId);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Lookup Helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Find a workspace schema by its slug.
- *
- * Searches through cached schemas. Returns undefined if not found.
- *
- * @example
- * ```typescript
- * const schema = findWorkspaceBySlug('my-blog');
- * if (schema) {
- *   console.log(schema.id); // GUID
- * }
- * ```
- */
-export function findWorkspaceBySlug(
-	slug: string,
-): AppWorkspaceSchema | undefined {
-	console.log(
-		`[Registry] Looking for slug: "${slug}", cache size: ${schemaCache.size}`,
-	);
-	for (const schema of schemaCache.values()) {
-		console.log(
-			`[Registry] Checking: "${schema.slug}" === "${slug}" ?`,
-			schema.slug === slug,
-		);
-		if (schema.slug === slug) {
-			return schema;
-		}
-	}
-	return undefined;
-}
-
-/**
- * Get all workspace schemas from the cache.
- *
- * Returns an array of all cached schemas. The order is not guaranteed.
- */
-export function getAllWorkspaceSchemas(): AppWorkspaceSchema[] {
-	return Array.from(schemaCache.values());
-}
-
-/**
- * Check if a slug is already in use by another workspace.
- */
-export function isSlugTaken(slug: string): boolean {
-	return findWorkspaceBySlug(slug) !== undefined;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
