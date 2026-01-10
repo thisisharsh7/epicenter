@@ -1,4 +1,5 @@
 import { createRegistryDoc } from '@epicenter/hq';
+import { persistYDocAsJson } from '$lib/providers/tauri-json-persistence';
 import { persistYDoc } from '$lib/providers/tauri-persistence';
 
 const REGISTRY_ID = 'local';
@@ -34,4 +35,5 @@ export const registry = createRegistryDoc({
 	registryId: REGISTRY_ID,
 }).withProviders({
 	persistence: (ctx) => persistYDoc(ctx.ydoc, ['registry.yjs']),
+	jsonPersistence: (ctx) => persistYDocAsJson(ctx.ydoc, ['registry.json']),
 });
