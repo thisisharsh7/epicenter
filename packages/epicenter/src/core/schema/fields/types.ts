@@ -499,11 +499,6 @@ export type PartialRow<
 export type KvFieldDefinition = Exclude<FieldDefinition, IdFieldSchema>;
 
 /**
- * KV schema - maps key names to field definitions.
- */
-export type KvSchema = Record<string, KvFieldDefinition>;
-
-/**
  * Runtime value type for a KV entry.
  */
 export type KvValue<C extends KvFieldDefinition = KvFieldDefinition> =
@@ -540,8 +535,7 @@ export type KvDefinition<TField extends KvFieldDefinition = KvFieldDefinition> =
 /**
  * Map of KV key names to their full definitions (metadata + field).
  *
- * This is the format for `defineWorkspace().kv` when using the full definition style.
- * For simpler use cases, you can still use `KvSchema` (just field schemas, no metadata).
+ * This is the format for `defineWorkspace().kv`.
  *
  * @example
  * ```typescript

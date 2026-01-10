@@ -1,6 +1,6 @@
 import { WebsocketProvider } from 'y-websocket';
-import type { CapabilityFactory } from '../core/capability';
-import type { KvSchema, TableDefinitionMap } from '../core/schema';
+import { defineCapabilities, type CapabilityFactory } from '../core/capability';
+import type { KvDefinitionMap, TableDefinitionMap } from '../core/schema';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MULTI-DEVICE SYNC ARCHITECTURE
@@ -224,10 +224,10 @@ export type WebsocketSyncConfig = {
  */
 export function websocketSync<
 	TTableDefinitionMap extends TableDefinitionMap,
-	TKvSchema extends KvSchema,
+	TKvDefinitionMap extends KvDefinitionMap,
 >(
 	config: WebsocketSyncConfig,
-): CapabilityFactory<TTableDefinitionMap, TKvSchema> {
+): CapabilityFactory<TTableDefinitionMap, TKvDefinitionMap> {
 	return ({ ydoc }) => {
 		const provider = new WebsocketProvider(
 			config.url,
@@ -235,10 +235,10 @@ export function websocketSync<
 			ydoc,
 		);
 
-		return {
+		return defineCapabilities({
 			destroy: () => {
 				provider.destroy();
 			},
-		};
+		});
 	};
 }

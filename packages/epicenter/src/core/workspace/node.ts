@@ -24,7 +24,7 @@ import type {
 	InferCapabilityExports,
 } from '../capability';
 import type { LifecycleExports } from '../lifecycle';
-import type { KvSchema, TableDefinitionMap } from '../schema';
+import type { KvDefinitionMap, TableDefinitionMap } from '../schema';
 import {
 	defineWorkspace as defineWorkspaceSync,
 	type WorkspaceSchema,
@@ -39,13 +39,17 @@ import {
  */
 export type WorkspaceClient<
 	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
-	TKvSchema extends KvSchema = KvSchema,
+	TKvDefinitionMap extends KvDefinitionMap = KvDefinitionMap,
 	TCapabilityExports extends Record<string, LifecycleExports> = Record<
 		string,
 		LifecycleExports
 	>,
 > = Omit<
-	WorkspaceClientSync<TTableDefinitionMap, TKvSchema, TCapabilityExports>,
+	WorkspaceClientSync<
+		TTableDefinitionMap,
+		TKvDefinitionMap,
+		TCapabilityExports
+	>,
 	'whenSynced'
 >;
 
@@ -54,8 +58,8 @@ export type WorkspaceClient<
  */
 export type Workspace<
 	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
-	TKvSchema extends KvSchema = KvSchema,
-> = WorkspaceSchema<TTableDefinitionMap, TKvSchema> & {
+	TKvDefinitionMap extends KvDefinitionMap = KvDefinitionMap,
+> = WorkspaceSchema<TTableDefinitionMap, TKvDefinitionMap> & {
 	/**
 	 * Create a workspace client (async - awaits whenSynced internally).
 	 *
@@ -74,7 +78,7 @@ export type Workspace<
 	create<
 		TCapabilityFactories extends CapabilityFactoryMap<
 			TTableDefinitionMap,
-			TKvSchema
+			TKvDefinitionMap
 		> = {},
 	>(options?: {
 		epoch?: number;
@@ -82,7 +86,7 @@ export type Workspace<
 	}): Promise<
 		WorkspaceClient<
 			TTableDefinitionMap,
-			TKvSchema,
+			TKvDefinitionMap,
 			InferCapabilityExports<TCapabilityFactories>
 		>
 	>;
@@ -119,10 +123,10 @@ export type Workspace<
  */
 export function defineWorkspace<
 	TTableDefinitionMap extends TableDefinitionMap,
-	TKvSchema extends KvSchema = Record<string, never>,
+	TKvDefinitionMap extends KvDefinitionMap = Record<string, never>,
 >(
-	config: WorkspaceSchema<TTableDefinitionMap, TKvSchema>,
-): Workspace<TTableDefinitionMap, TKvSchema> {
+	config: WorkspaceSchema<TTableDefinitionMap, TKvDefinitionMap>,
+): Workspace<TTableDefinitionMap, TKvDefinitionMap> {
 	const syncWorkspace = defineWorkspaceSync(config);
 
 	return {
@@ -131,14 +135,14 @@ export function defineWorkspace<
 		async create<
 			TCapabilityFactories extends CapabilityFactoryMap<
 				TTableDefinitionMap,
-				TKvSchema
+				TKvDefinitionMap
 			> = {},
 		>(
 			options: { epoch?: number; capabilities?: TCapabilityFactories } = {},
 		): Promise<
 			WorkspaceClient<
 				TTableDefinitionMap,
-				TKvSchema,
+				TKvDefinitionMap,
 				InferCapabilityExports<TCapabilityFactories>
 			>
 		> {
@@ -153,7 +157,7 @@ export function defineWorkspace<
 
 			return clientWithoutWhenSynced as WorkspaceClient<
 				TTableDefinitionMap,
-				TKvSchema,
+				TKvDefinitionMap,
 				InferCapabilityExports<TCapabilityFactories>
 			>;
 		},

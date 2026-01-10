@@ -32,7 +32,6 @@ export type {
 	KvDefinition,
 	KvDefinitionMap,
 	KvFieldDefinition,
-	KvSchema,
 	KvValue,
 	PartialRow,
 	RealFieldSchema,

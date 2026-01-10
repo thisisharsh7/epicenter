@@ -12,7 +12,7 @@ import {
 import type { TableHelper } from '../../core/tables/create-tables';
 import type {
 	FieldDefinitions,
-	KvSchema,
+	KvDefinitionMap,
 	Row,
 	TableDefinitionMap,
 } from '../../core/schema';
@@ -277,9 +277,9 @@ export type MarkdownCapabilityConfig<
 
 export const markdown = async <
 	TTableDefinitionMap extends TableDefinitionMap,
-	TKvSchema extends KvSchema,
+	TKvDefinitionMap extends KvDefinitionMap,
 >(
-	context: CapabilityContext<TTableDefinitionMap, TKvSchema>,
+	context: CapabilityContext<TTableDefinitionMap, TKvDefinitionMap>,
 	config: MarkdownCapabilityConfig<TTableDefinitionMap>,
 ) => {
 	const { id, tables } = context;

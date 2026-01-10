@@ -2,7 +2,7 @@ import { mkdir, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import * as Y from 'yjs';
 import type { CapabilityContext } from '../../core/capability';
-import type { KvSchema, TableDefinitionMap } from '../../core/schema';
+import type { KvDefinitionMap, TableDefinitionMap } from '../../core/schema';
 
 const SNAPSHOT_EXTENSION = '.ysnap';
 const METADATA_EXTENSION = '.json';
@@ -125,9 +125,9 @@ export type LocalRevisionHistoryConfig = {
  */
 export async function localRevisionHistory<
 	TTableDefinitionMap extends TableDefinitionMap,
-	TKvSchema extends KvSchema,
+	TKvDefinitionMap extends KvDefinitionMap,
 >(
-	{ ydoc, id }: CapabilityContext<TTableDefinitionMap, TKvSchema>,
+	{ ydoc, id }: CapabilityContext<TTableDefinitionMap, TKvDefinitionMap>,
 	{ directory, debounceMs = 1000, maxVersions }: LocalRevisionHistoryConfig,
 ) {
 	// CRITICAL: Snapshots require gc: false

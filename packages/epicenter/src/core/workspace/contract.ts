@@ -6,11 +6,12 @@ import type {
 } from '../capability';
 import { createKv, type Kv } from '../kv/core';
 import { LifecycleExports } from '../lifecycle';
-import type { KvSchema, TableDefinitionMap } from '../schema';
+import type { KvDefinitionMap, TableDefinitionMap } from '../schema';
 import type {
 	CoverDefinition,
 	FieldDefinition,
 	IconDefinition,
+	KvDefinition,
 } from '../schema/fields/types';
 import { createTables, type Tables } from '../tables/create-tables';
 
@@ -28,7 +29,7 @@ import { createTables, type Tables } from '../tables/create-tables';
  */
 export type WorkspaceSchema<
 	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
-	TKvSchema extends KvSchema = KvSchema,
+	TKvDefinitionMap extends KvDefinitionMap = KvDefinitionMap,
 > = {
 	/** Globally unique identifier for sync coordination. Generate with `generateGuid()`. */
 	id: string;
@@ -53,8 +54,8 @@ export type WorkspaceSchema<
 	 * ```
 	 */
 	tables: TTableDefinitionMap;
-	/** Key-value store schema. */
-	kv: TKvSchema;
+	/** Key-value store definitions with metadata. */
+	kv: TKvDefinitionMap;
 };
 
 /**
@@ -87,8 +88,8 @@ export type WorkspaceSchema<
  */
 export type Workspace<
 	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
-	TKvSchema extends KvSchema = KvSchema,
-> = WorkspaceSchema<TTableDefinitionMap, TKvSchema> & {
+	TKvDefinitionMap extends KvDefinitionMap = KvDefinitionMap,
+> = WorkspaceSchema<TTableDefinitionMap, TKvDefinitionMap> & {
 	/**
 	 * Create a workspace client (sync construction).
 	 *
@@ -134,14 +135,14 @@ export type Workspace<
 	create<
 		TCapabilityFactories extends CapabilityFactoryMap<
 			TTableDefinitionMap,
-			TKvSchema
+			TKvDefinitionMap
 		> = {},
 	>(options?: {
 		epoch?: number;
 		capabilities?: TCapabilityFactories;
 	}): WorkspaceClient<
 		TTableDefinitionMap,
-		TKvSchema,
+		TKvDefinitionMap,
 		InferCapabilityExports<TCapabilityFactories>
 	>;
 };
@@ -184,7 +185,7 @@ export type Workspace<
  */
 export type WorkspaceClient<
 	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
-	TKvSchema extends KvSchema = KvSchema,
+	TKvDefinitionMap extends KvDefinitionMap = KvDefinitionMap,
 	TCapabilityExports extends Record<string, LifecycleExports> = Record<
 		string,
 		LifecycleExports
@@ -197,7 +198,7 @@ export type WorkspaceClient<
 	/** Typed table helpers for CRUD operations. */
 	tables: Tables<TTableDefinitionMap>;
 	/** Key-value store for simple values. */
-	kv: Kv<TKvSchema>;
+	kv: Kv<TKvDefinitionMap>;
 	/** Exports from initialized capabilities. */
 	capabilities: TCapabilityExports;
 	/** The underlying YJS document. */
@@ -275,10 +276,10 @@ export type WorkspaceClient<
  */
 export function defineWorkspace<
 	TTableDefinitionMap extends TableDefinitionMap,
-	TKvSchema extends KvSchema = Record<string, never>,
+	TKvDefinitionMap extends KvDefinitionMap = Record<string, never>,
 >(
-	config: WorkspaceSchema<TTableDefinitionMap, TKvSchema>,
-): Workspace<TTableDefinitionMap, TKvSchema> {
+	config: WorkspaceSchema<TTableDefinitionMap, TKvDefinitionMap>,
+): Workspace<TTableDefinitionMap, TKvDefinitionMap> {
 	if (!config.id || typeof config.id !== 'string') {
 		throw new Error('Workspace must have a valid ID');
 	}
@@ -381,7 +382,7 @@ export function defineWorkspace<
 		create<
 			TCapabilityFactories extends CapabilityFactoryMap<
 				TTableDefinitionMap,
-				TKvSchema
+				TKvDefinitionMap
 			> = {},
 		>({
 			epoch = 0,
@@ -391,7 +392,7 @@ export function defineWorkspace<
 			capabilities?: TCapabilityFactories;
 		} = {}): WorkspaceClient<
 			TTableDefinitionMap,
-			TKvSchema,
+			TKvDefinitionMap,
 			InferCapabilityExports<TCapabilityFactories>
 		> {
 			// Create Workspace Y.Doc with deterministic GUID
@@ -504,7 +505,7 @@ type TableSchemaMap = Y.Map<
 function mergeSchemaIntoYDoc(
 	ydoc: Y.Doc,
 	tables: TableDefinitionMap,
-	kv: KvSchema,
+	kv: KvDefinitionMap,
 ) {
 	const schemaMap = ydoc.getMap<Y.Map<unknown>>('schema');
 
@@ -517,7 +518,7 @@ function mergeSchemaIntoYDoc(
 	}
 
 	const tablesSchemaMap = schemaMap.get('tables') as Y.Map<TableSchemaMap>;
-	const kvSchemaMap = schemaMap.get('kv') as Y.Map<FieldDefinition>;
+	const kvSchemaMap = schemaMap.get('kv') as Y.Map<KvDefinition>;
 
 	ydoc.transact(() => {
 		for (const [tableName, tableDefinition] of Object.entries(tables)) {
@@ -578,11 +579,11 @@ function mergeSchemaIntoYDoc(
 			}
 		}
 
-		for (const [keyName, fieldDefinition] of Object.entries(kv)) {
+		for (const [keyName, kvDefinition] of Object.entries(kv)) {
 			const existing = kvSchemaMap.get(keyName);
 
-			if (!existing || !Value.Equal(existing, fieldDefinition)) {
-				kvSchemaMap.set(keyName, fieldDefinition);
+			if (!existing || !Value.Equal(existing, kvDefinition)) {
+				kvSchemaMap.set(keyName, kvDefinition);
 			}
 		}
 	});

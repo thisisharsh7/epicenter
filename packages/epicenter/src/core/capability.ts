@@ -8,7 +8,7 @@
 import type * as Y from 'yjs';
 import type { Tables } from './tables/create-tables';
 import type { Kv } from './kv/core';
-import type { KvSchema, TableDefinitionMap } from './schema';
+import type { KvDefinitionMap, TableDefinitionMap } from './schema';
 import { LifecycleExports, type MaybePromise } from './lifecycle';
 
 // Re-export lifecycle utilities for capability authors
@@ -86,7 +86,7 @@ export { LifecycleExports, type MaybePromise } from './lifecycle';
  */
 export type CapabilityContext<
 	TTableDefinitionMap extends TableDefinitionMap,
-	TKvSchema extends KvSchema,
+	TKvDefinitionMap extends KvDefinitionMap,
 > = {
 	/** Globally unique identifier for sync coordination. */
 	id: string;
@@ -117,7 +117,7 @@ export type CapabilityContext<
 	 * Typed KV helpers.
 	 * Use for simple key-value storage within the workspace.
 	 */
-	kv: Kv<TKvSchema>;
+	kv: Kv<TKvDefinitionMap>;
 };
 
 /**
@@ -149,10 +149,10 @@ export type CapabilityExports = LifecycleExports;
  */
 export type CapabilityFactory<
 	TTableDefinitionMap extends TableDefinitionMap,
-	TKvSchema extends KvSchema,
+	TKvDefinitionMap extends KvDefinitionMap,
 	TExports extends CapabilityExports = CapabilityExports,
 > = (
-	context: CapabilityContext<TTableDefinitionMap, TKvSchema>,
+	context: CapabilityContext<TTableDefinitionMap, TKvDefinitionMap>,
 ) => MaybePromise<TExports | void>;
 
 /**
@@ -164,8 +164,8 @@ export type CapabilityFactory<
  */
 export type CapabilityFactoryMap<
 	TTableDefinitionMap extends TableDefinitionMap,
-	TKvSchema extends KvSchema,
-> = Record<string, CapabilityFactory<TTableDefinitionMap, TKvSchema>>;
+	TKvDefinitionMap extends KvDefinitionMap,
+> = Record<string, CapabilityFactory<TTableDefinitionMap, TKvDefinitionMap>>;
 
 /**
  * Utility type to infer exports from a capability factory map.
@@ -176,7 +176,7 @@ export type CapabilityFactoryMap<
 export type InferCapabilityExports<TCapabilityFactories> = {
 	[K in keyof TCapabilityFactories]: TCapabilityFactories[K] extends CapabilityFactory<
 		TableDefinitionMap,
-		KvSchema,
+		KvDefinitionMap,
 		infer TExports
 	>
 		? TExports extends CapabilityExports

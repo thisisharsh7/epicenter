@@ -12,7 +12,11 @@ import {
 	defineCapabilities,
 	type CapabilityContext,
 } from '../../core/capability';
-import type { KvSchema, Row, TableDefinitionMap } from '../../core/schema';
+import type {
+	KvDefinitionMap,
+	Row,
+	TableDefinitionMap,
+} from '../../core/schema';
 import { convertTableDefinitionsToDrizzle } from '../../core/schema/converters/to-drizzle';
 import { createIndexLogger } from '../error-logger';
 
@@ -84,9 +88,9 @@ export type SqliteConfig = {
  */
 export const sqlite = async <
 	TTableDefinitionMap extends TableDefinitionMap,
-	TKvSchema extends KvSchema,
+	TKvDefinitionMap extends KvDefinitionMap,
 >(
-	{ slug, tables }: CapabilityContext<TTableDefinitionMap, TKvSchema>,
+	{ slug, tables }: CapabilityContext<TTableDefinitionMap, TKvDefinitionMap>,
 	config: SqliteConfig,
 ) => {
 	const { dbPath, logsDir, debounceMs = DEFAULT_DEBOUNCE_MS } = config;
