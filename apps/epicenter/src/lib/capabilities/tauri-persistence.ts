@@ -1,5 +1,5 @@
-import { mkdir, readFile, writeFile } from '@tauri-apps/plugin-fs';
 import { appLocalDataDir, join } from '@tauri-apps/api/path';
+import { mkdir, readFile, writeFile } from '@tauri-apps/plugin-fs';
 import * as Y from 'yjs';
 
 /**
@@ -11,6 +11,66 @@ export type PersistenceExports = {
 	/** Clean up resources and stop auto-saving. */
 	destroy(): void;
 };
+
+/**
+ * Persist the registry doc to `registry.yjs`.
+ *
+ * The registry stores which workspace GUIDs exist for this user.
+ * There is one registry per app installation.
+ *
+ * @example
+ * ```typescript
+ * const registry = createRegistryDoc({ registryId: 'local' });
+ * await registryPersistence(registry.ydoc);
+ * ```
+ */
+export function registryPersistence(ydoc: Y.Doc): Promise<PersistenceExports> {
+	return persistYDoc(ydoc, 'registry.yjs');
+}
+
+/**
+ * Persist a head doc to `workspaces/{workspaceId}/head.yjs`.
+ *
+ * The head doc stores the current epoch for a workspace using the
+ * CRDT-safe per-client MAX pattern.
+ *
+ * @example
+ * ```typescript
+ * const head = createHeadDoc({ workspaceId: 'abc123xyz789012' });
+ * await headPersistence(head.ydoc, 'abc123xyz789012');
+ * const epoch = head.getEpoch();
+ * ```
+ */
+export function headPersistence(
+	ydoc: Y.Doc,
+	workspaceId: string,
+): Promise<PersistenceExports> {
+	return persistYDoc(ydoc, `workspaces/${workspaceId}/head.yjs`);
+}
+
+/**
+ * Persist a workspace doc to `workspaces/{workspaceId}/{epoch}.yjs`.
+ *
+ * The workspace doc stores the actual schema and data at a specific epoch.
+ * Each epoch gets its own file, enabling migrations and compaction.
+ *
+ * @example
+ * ```typescript
+ * const client = await workspace.create({
+ *   epoch: 0,
+ *   capabilities: {
+ *     persistence: (ctx) => workspacePersistence(ctx.ydoc, workspaceId, 0),
+ *   },
+ * });
+ * ```
+ */
+export function workspacePersistence(
+	ydoc: Y.Doc,
+	workspaceId: string,
+	epoch: number,
+): Promise<PersistenceExports> {
+	return persistYDoc(ydoc, `workspaces/${workspaceId}/${epoch}.yjs`);
+}
 
 /**
  * Internal helper to persist a Y.Doc to a file path relative to appLocalDataDir.
@@ -72,64 +132,4 @@ async function persistYDoc(
 			ydoc.off('update', saveHandler);
 		},
 	};
-}
-
-/**
- * Persist the registry doc to `registry.yjs`.
- *
- * The registry stores which workspace GUIDs exist for this user.
- * There is one registry per app installation.
- *
- * @example
- * ```typescript
- * const registry = createRegistryDoc({ registryId: 'local' });
- * await registryPersistence(registry.ydoc);
- * ```
- */
-export function registryPersistence(ydoc: Y.Doc): Promise<PersistenceExports> {
-	return persistYDoc(ydoc, 'registry.yjs');
-}
-
-/**
- * Persist a head doc to `workspaces/{workspaceId}/head.yjs`.
- *
- * The head doc stores the current epoch for a workspace using the
- * CRDT-safe per-client MAX pattern.
- *
- * @example
- * ```typescript
- * const head = createHeadDoc({ workspaceId: 'abc123xyz789012' });
- * await headPersistence(head.ydoc, 'abc123xyz789012');
- * const epoch = head.getEpoch();
- * ```
- */
-export function headPersistence(
-	ydoc: Y.Doc,
-	workspaceId: string,
-): Promise<PersistenceExports> {
-	return persistYDoc(ydoc, `workspaces/${workspaceId}/head.yjs`);
-}
-
-/**
- * Persist a workspace doc to `workspaces/{workspaceId}/{epoch}.yjs`.
- *
- * The workspace doc stores the actual schema and data at a specific epoch.
- * Each epoch gets its own file, enabling migrations and compaction.
- *
- * @example
- * ```typescript
- * const client = await workspace.create({
- *   epoch: 0,
- *   capabilities: {
- *     persistence: (ctx) => workspacePersistence(ctx.ydoc, workspaceId, 0),
- *   },
- * });
- * ```
- */
-export function workspacePersistence(
-	ydoc: Y.Doc,
-	workspaceId: string,
-	epoch: number,
-): Promise<PersistenceExports> {
-	return persistYDoc(ydoc, `workspaces/${workspaceId}/${epoch}.yjs`);
 }
