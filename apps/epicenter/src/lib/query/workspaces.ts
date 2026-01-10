@@ -94,7 +94,7 @@ export const workspaces = {
 					kv: {},
 				});
 
-				const client = await workspace.create({
+				const client = workspace.create({
 					epoch,
 					capabilities: {
 						persistence: (ctx: { ydoc: Y.Doc }) =>
@@ -102,7 +102,8 @@ export const workspaces = {
 					},
 				});
 
-				await client.capabilities.persistence.whenSynced;
+				// Wait for persistence to finish loading existing data from disk
+				await client.whenSynced;
 
 				// Extract schema and clean up
 				const schema = extractSchemaFromYDoc(client.ydoc, workspaceId);
@@ -145,7 +146,7 @@ export const workspaces = {
 			// Create workspace client to initialize the workspace doc
 			// This writes the schema to the Y.Doc
 			const workspace = defineWorkspace(schema);
-			const client = await workspace.create({
+			const client = workspace.create({
 				epoch: 0,
 				capabilities: {
 					persistence: (ctx: { ydoc: Y.Doc }) =>
@@ -153,8 +154,8 @@ export const workspaces = {
 				},
 			});
 
-			// Wait for persistence then destroy (we just needed to create the file)
-			await client.capabilities.persistence.whenSynced;
+			// Wait for persistence to finish saving initial state to disk
+			await client.whenSynced;
 			await client.destroy();
 
 			console.log(`[createWorkspace] Created workspace:`, {

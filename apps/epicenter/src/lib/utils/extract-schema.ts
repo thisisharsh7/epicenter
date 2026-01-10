@@ -5,12 +5,12 @@ import * as Y from 'yjs';
  * Extract workspace schema from an already-loaded Y.Doc.
  *
  * This is a pure function with no I/O - it reads directly from the Y.Doc's
- * in-memory state. Use this after persistence has synced.
+ * in-memory state. Use this after persistence has finished loading from disk.
  *
  * @example
  * ```typescript
- * const client = await workspace.create({ epoch, providers: { persistence } });
- * await client.providers.persistence.whenSynced;
+ * const client = workspace.create({ epoch, capabilities: { persistence } });
+ * await client.whenSynced; // persistence has loaded existing data
  * const schema = extractSchemaFromYDoc(client.ydoc, workspaceId);
  * ```
  */

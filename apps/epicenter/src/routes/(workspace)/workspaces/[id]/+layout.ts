@@ -1,10 +1,10 @@
 import { defineWorkspace } from '@epicenter/hq';
+import { error } from '@sveltejs/kit';
 import * as Y from 'yjs';
-import { registry } from '$lib/docs/registry';
 import { createHead } from '$lib/docs/head';
+import { registry } from '$lib/docs/registry';
 import { persistYDoc } from '$lib/providers/tauri-persistence';
 import { extractSchemaFromYDoc } from '$lib/utils/extract-schema';
-import { error } from '@sveltejs/kit';
 import type { LayoutLoad } from './$types';
 
 /**
@@ -46,7 +46,7 @@ export const load: LayoutLoad = async ({ params }) => {
 		kv: {},
 	});
 
-	const client = await workspace.create({
+	const client = workspace.create({
 		epoch,
 		capabilities: {
 			persistence: (ctx: { ydoc: Y.Doc }) =>
@@ -54,8 +54,9 @@ export const load: LayoutLoad = async ({ params }) => {
 		},
 	});
 
-	// Wait for persistence to load existing data
-	await client.capabilities.persistence.whenSynced;
+	// Wait for persistence to finish loading existing data from disk.
+	// Once this resolves, the Y.Doc contains all previously saved state.
+	await client.whenSynced;
 
 	// Step 4: Extract real schema from the loaded Y.Doc
 	const schema = extractSchemaFromYDoc(client.ydoc, workspaceId);
