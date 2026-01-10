@@ -1,16 +1,16 @@
-export type { FieldDefinitionToArktype } from './to-arktype';
-export { fieldDefinitionToArktype, tableSchemaToArktype } from './to-arktype';
+export type { FieldSchemaToArktype } from './to-arktype';
+export { fieldSchemaToArktype, tableSchemaToArktype } from './to-arktype';
 
-export type { FieldDefinitionToYjsArktype } from './to-arktype-yjs';
+export type { FieldSchemaToYjsArktype } from './to-arktype-yjs';
 export {
-	fieldDefinitionToYjsArktype,
+	fieldSchemaToYjsArktype,
 	tableSchemaToYjsArktype,
 } from './to-arktype-yjs';
 
-export type { FieldDefinitionToTypebox } from './to-typebox';
+export type { FieldSchemaToTypebox } from './to-typebox';
 export {
-	fieldDefinitionToTypebox,
-	fieldsDefinitionToTypebox,
+	fieldSchemaToTypebox,
+	fieldsSchemaToTypebox,
 } from './to-typebox';
 
 export type { TableDefinitionsToDrizzle } from './to-drizzle';

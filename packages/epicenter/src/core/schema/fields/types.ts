@@ -30,7 +30,7 @@
  *
  * - `factories.ts` - Factory functions for creating field schemas
  * - `../converters/` - Converters for arktype, drizzle, typebox
- * - `helpers.ts` - isNullableFieldDefinition helper
+ * - `helpers.ts` - isNullableFieldSchema helper
  */
 
 import type { TSchema, Static } from 'typebox';
@@ -266,7 +266,7 @@ export type JsonFieldSchema<
  * Discriminated union of all field definition types.
  * Use `type` to narrow to a specific type.
  */
-export type FieldDefinition =
+export type FieldSchema =
 	| IdFieldSchema
 	| TextFieldSchema
 	| RichtextFieldSchema
@@ -282,7 +282,7 @@ export type FieldDefinition =
  * Extract the type name from a field definition.
  * One of: 'id', 'text', 'richtext', 'integer', 'real', 'boolean', 'date', 'select', 'tags', 'json'
  */
-export type FieldType = FieldDefinition['type'];
+export type FieldType = FieldSchema['type'];
 
 // ============================================================================
 // Value Types
@@ -298,7 +298,7 @@ export type FieldType = FieldDefinition['type'];
  * This also correctly handles RichtextFieldSchema (no nullable property)
  * because optional properties can be absent.
  */
-type IsNullable<C extends FieldDefinition> = C extends { nullable?: true }
+type IsNullable<C extends FieldSchema> = C extends { nullable?: true }
 	? true
 	: false;
 
@@ -312,7 +312,7 @@ type IsNullable<C extends FieldDefinition> = C extends { nullable?: true }
  *
  * Nullability is derived from the definition's `nullable` field.
  */
-export type CellValue<C extends FieldDefinition = FieldDefinition> =
+export type CellValue<C extends FieldSchema = FieldSchema> =
 	C extends IdFieldSchema
 		? string
 		: C extends TextFieldSchema
@@ -365,12 +365,12 @@ export type CellValue<C extends FieldDefinition = FieldDefinition> =
  *   id: id(),
  *   title: text(),
  *   status: select({ options: ['draft', 'published'] }),
- * } satisfies FieldDefinitions;
+ * } satisfies FieldSchemaMap;
  * ```
  */
-export type FieldDefinitions = { id: IdFieldSchema } & Record<
+export type FieldSchemaMap = { id: IdFieldSchema } & Record<
 	string,
-	FieldDefinition
+	FieldSchema
 >;
 
 /**
@@ -392,9 +392,7 @@ export type FieldDefinitions = { id: IdFieldSchema } & Record<
  * };
  * ```
  */
-export type TableDefinition<
-	TFields extends FieldDefinitions = FieldDefinitions,
-> = {
+export type TableDefinition<TFields extends FieldSchemaMap = FieldSchemaMap> = {
 	/** Display name shown in UI (e.g., "Blog Posts") */
 	name: string;
 	/** Icon for the table - emoji or external image URL */
@@ -458,10 +456,9 @@ export type TableDefinitionMap = Record<string, TableDefinition>;
  * const json = JSON.stringify(row);
  * ```
  */
-export type Row<TFieldDefinitions extends FieldDefinitions = FieldDefinitions> =
-	{
-		[K in keyof TFieldDefinitions]: CellValue<TFieldDefinitions[K]>;
-	};
+export type Row<TFieldSchemaMap extends FieldSchemaMap = FieldSchemaMap> = {
+	[K in keyof TFieldSchemaMap]: CellValue<TFieldSchemaMap[K]>;
+};
 
 /**
  * Partial row for updates. ID is required, all other fields are optional.
@@ -483,10 +480,10 @@ export type Row<TFieldDefinitions extends FieldDefinitions = FieldDefinitions> =
  * ```
  */
 export type PartialRow<
-	TFieldDefinitions extends FieldDefinitions = FieldDefinitions,
+	TFieldSchemaMap extends FieldSchemaMap = FieldSchemaMap,
 > = {
 	id: string;
-} & Partial<Omit<Row<TFieldDefinitions>, 'id'>>;
+} & Partial<Omit<Row<TFieldSchemaMap>, 'id'>>;
 
 // ============================================================================
 // Key-Value Schema Types
@@ -496,13 +493,12 @@ export type PartialRow<
  * Field definition for KV stores (excludes IdFieldSchema).
  * KV entries don't have IDs; they're keyed by string.
  */
-export type KvFieldDefinition = Exclude<FieldDefinition, IdFieldSchema>;
+export type KvFieldSchema = Exclude<FieldSchema, IdFieldSchema>;
 
 /**
  * Runtime value type for a KV entry.
  */
-export type KvValue<C extends KvFieldDefinition = KvFieldDefinition> =
-	CellValue<C>;
+export type KvValue<C extends KvFieldSchema = KvFieldSchema> = CellValue<C>;
 
 /**
  * KV entry definition with metadata for UI display.
@@ -520,17 +516,16 @@ export type KvValue<C extends KvFieldDefinition = KvFieldDefinition> =
  * };
  * ```
  */
-export type KvDefinition<TField extends KvFieldDefinition = KvFieldDefinition> =
-	{
-		/** Display name shown in UI (e.g., "Theme") */
-		name: string;
-		/** Icon for this KV entry - emoji or external image URL */
-		icon: IconDefinition | null;
-		/** Description shown in tooltips/docs */
-		description: string;
-		/** The field schema for this KV entry */
-		field: TField;
-	};
+export type KvDefinition<TField extends KvFieldSchema = KvFieldSchema> = {
+	/** Display name shown in UI (e.g., "Theme") */
+	name: string;
+	/** Icon for this KV entry - emoji or external image URL */
+	icon: IconDefinition | null;
+	/** Description shown in tooltips/docs */
+	description: string;
+	/** The field schema for this KV entry */
+	field: TField;
+};
 
 /**
  * Map of KV key names to their full definitions (metadata + field).

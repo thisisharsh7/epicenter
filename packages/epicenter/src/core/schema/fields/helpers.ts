@@ -1,16 +1,16 @@
 /**
- * @fileoverview Field definition helper functions
+ * @fileoverview Field schema helper functions
  *
- * Utility functions for introspecting field definitions. These helpers answer
- * questions about definition properties without transforming them to other formats.
+ * Utility functions for introspecting field schemas. These helpers answer
+ * questions about schema properties without transforming them to other formats.
  *
  * For format conversions (arktype, drizzle, typebox), see `../converters/`.
  */
 
-import type { FieldDefinition } from './types';
+import type { FieldSchema } from './types';
 
 /**
- * Determines if a field definition is nullable.
+ * Determines if a field schema is nullable.
  *
  * Nullability rules:
  * - `id`: Never nullable (primary key)
@@ -19,16 +19,16 @@ import type { FieldDefinition } from './types';
  *
  * @example
  * ```typescript
- * isNullableFieldDefinition({ type: 'text' });                    // false
- * isNullableFieldDefinition({ type: 'text', nullable: true });    // true
- * isNullableFieldDefinition({ type: 'id' });                      // false (always)
- * isNullableFieldDefinition({ type: 'richtext' });                // true (always)
+ * isNullableFieldSchema({ type: 'text' });                    // false
+ * isNullableFieldSchema({ type: 'text', nullable: true });    // true
+ * isNullableFieldSchema({ type: 'id' });                      // false (always)
+ * isNullableFieldSchema({ type: 'richtext' });                // true (always)
  * ```
  */
-export function isNullableFieldDefinition(
-	definition: Pick<FieldDefinition, 'type'> & { nullable?: boolean },
+export function isNullableFieldSchema(
+	schema: Pick<FieldSchema, 'type'> & { nullable?: boolean },
 ): boolean {
-	if (definition.type === 'id') return false;
-	if (definition.type === 'richtext') return true;
-	return definition.nullable === true;
+	if (schema.type === 'id') return false;
+	if (schema.type === 'richtext') return true;
+	return schema.nullable === true;
 }
