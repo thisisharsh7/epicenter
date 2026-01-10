@@ -1,5 +1,15 @@
 import * as Y from 'yjs';
 
+import type {
+	InferProviderExports,
+	ProviderExports,
+	ProviderFactoryMap,
+} from './provider-types.js';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Head Doc
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
  * Create a Head Y.Doc wrapper for managing workspace epoch state.
  *
@@ -293,6 +303,74 @@ export function createHeadDoc(options: { workspaceId: string; ydoc?: Y.Doc }) {
 		/** Destroy the head doc and clean up resources. */
 		destroy() {
 			ydoc.destroy();
+		},
+
+		/**
+		 * Attach providers and get an enhanced doc with `whenSynced`.
+		 *
+		 * This is the key pattern: construction is synchronous, but providers
+		 * may have async initialization tracked via `whenSynced`. The returned
+		 * object carries its own sync state—no external tracking needed.
+		 *
+		 * > The initialization of the client is synchronous. The async work is
+		 * > stored as a property you can await, while passing the reference around.
+		 *
+		 * @example
+		 * ```typescript
+		 * const head = createHeadDoc({ workspaceId: 'abc123' })
+		 *   .withProviders({
+		 *     persistence: (ctx) => headPersistence(ctx.ydoc),
+		 *   });
+		 *
+		 * // Sync access (immediate)
+		 * head.getEpoch();
+		 *
+		 * // Async gate (for UI render gate pattern)
+		 * await head.whenSynced;
+		 *
+		 * // Provider exports
+		 * head.providers.persistence;
+		 * ```
+		 */
+		withProviders<T extends ProviderFactoryMap>(factories: T) {
+			const providers = {} as InferProviderExports<T>;
+			const initPromises: Promise<void>[] = [];
+			const destroyFns: (() => void | Promise<void>)[] = [];
+
+			// Initialize all providers (async factories)
+			for (const [id, factory] of Object.entries(factories)) {
+				initPromises.push(
+					factory({ ydoc }).then((exports) => {
+						(providers as Record<string, unknown>)[id] = exports;
+						destroyFns.push(exports.destroy);
+					}),
+				);
+			}
+
+			// Wait for all factories, then collect whenSynced promises
+			const whenSynced = Promise.all(initPromises)
+				.then(() =>
+					Promise.all(
+						Object.values(providers).map(
+							(p) => (p as ProviderExports).whenSynced,
+						),
+					),
+				)
+				.then(() => {});
+
+			const base = this;
+
+			return {
+				...base,
+				providers,
+				whenSynced,
+
+				/** Destroy providers and the underlying Y.Doc. */
+				async destroy() {
+					await Promise.all(destroyFns.map((fn) => fn()));
+					ydoc.destroy();
+				},
+			};
 		},
 	};
 }
