@@ -65,7 +65,9 @@ export type {
 	InferCapabilityExports,
 } from './core/capability';
 // Capability system
-export { defineCapabilities } from './core/capability';
+export { defineCapabilities, LifecycleExports } from './core/capability';
+// Lifecycle protocol (shared by providers and capabilities)
+export type { MaybePromise } from './core/lifecycle';
 export type {
 	BooleanFieldSchema,
 	CellValue,
