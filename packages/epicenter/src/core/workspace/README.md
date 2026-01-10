@@ -45,8 +45,7 @@ const blogWorkspace = defineWorkspace({
 // Step 2: Create client at a specific epoch
 const blogClient = await blogWorkspace.create({
 	epoch: 0, // Which Data Doc to connect to (defaults to 0)
-	sqlite, // Capabilities
-	persistence,
+	capabilities: { sqlite, persistence },
 });
 
 // Use the client
@@ -68,12 +67,17 @@ The `epoch` determines which Data Doc to connect to:
 
 ```typescript
 // New workspace or prototyping (epoch defaults to 0)
-const client = await workspace.create({ sqlite });
+const client = await workspace.create({
+	capabilities: { sqlite },
+});
 
 // Specific epoch (from Head Doc)
 const head = createHeadDoc({ workspaceId: workspace.id });
 const epoch = head.getEpoch(); // e.g., 2
-const client = await workspace.create({ epoch, sqlite });
+const client = await workspace.create({
+	epoch,
+	capabilities: { sqlite },
+});
 
 // Migration: connect to multiple epochs
 const oldClient = await workspace.create({ epoch: 1 });
@@ -85,7 +89,7 @@ See `../docs/README.md` for the full three-document architecture.
 
 ## What Happens in `.create()`
 
-When you call `.create({ epoch, ...capabilities })`:
+When you call `.create({ epoch, capabilities })`:
 
 ```
 1. Create Data Doc at {id}-{epoch}
@@ -114,7 +118,10 @@ When you call `.create({ epoch, ...capabilities })`:
 Write regular functions that use your client:
 
 ```typescript
-const client = await blogWorkspace.create({ epoch: 0, sqlite, persistence });
+const client = await blogWorkspace.create({
+	epoch: 0,
+	capabilities: { sqlite, persistence },
+});
 
 function createPost(title: string) {
 	const id = generateId();
@@ -139,7 +146,10 @@ app.get('/posts', () => getPublishedPosts());
 ## Client Properties
 
 ```typescript
-const client = await blogWorkspace.create({ epoch: 0, sqlite, persistence });
+const client = await blogWorkspace.create({
+	epoch: 0,
+	capabilities: { sqlite, persistence },
+});
 
 client.id;            // Globally unique ID for sync (e.g., 'abc123xyz789012')
 client.slug;          // Human-readable slug (e.g., 'blog')
@@ -172,15 +182,17 @@ const blogWorkspace = defineWorkspace({
 });
 
 // 3. Create client at that epoch
-const client = await blogWorkspace.create({ epoch, sqlite, persistence });
+const client = await blogWorkspace.create({
+	epoch,
+	capabilities: { sqlite, persistence },
+});
 
 // 4. Subscribe to epoch changes (optional)
 head.observeEpoch(async (newEpoch) => {
 	await client.destroy();
 	const newClient = await blogWorkspace.create({
 		epoch: newEpoch,
-		sqlite,
-		persistence,
+		capabilities: { sqlite, persistence },
 	});
 	// Update your app's reference to newClient
 });
@@ -217,8 +229,7 @@ Use regular JavaScript imports for dependencies:
 // auth-client.ts
 export const authClient = await authWorkspace.create({
 	epoch: 0,
-	sqlite,
-	persistence,
+	capabilities: { sqlite, persistence },
 });
 
 // blog-client.ts
@@ -246,8 +257,7 @@ Multiple scripts can safely run using `await using`:
 {
 	await using client = await blogWorkspace.create({
 		epoch: 0,
-		sqlite,
-		persistence,
+		capabilities: { sqlite, persistence },
 	});
 
 	client.tables.posts.upsert({ id: '1', title: 'Hello' });
@@ -258,8 +268,7 @@ Multiple scripts can safely run using `await using`:
 {
 	await using client = await blogWorkspace.create({
 		epoch: 0,
-		sqlite,
-		persistence,
+		capabilities: { sqlite, persistence },
 	});
 
 	const posts = client.tables.posts.getAllValid();

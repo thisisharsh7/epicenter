@@ -83,11 +83,14 @@ export type CapabilityContext<
 	TTablesSchema extends TablesSchema = TablesSchema,
 	TKvSchema extends KvSchema = KvSchema,
 > = {
-	/** Workspace slug - human-readable identifier (e.g., 'blog', 'notes'). Used for storage paths and namespacing. */
+	/** Globally unique identifier for sync coordination. */
 	id: string;
 
+	/** Human-readable slug for URLs, paths, logs, and CLI commands (e.g., 'blog', 'notes'). */
+	slug: string;
+
 	/**
-	 * This capability's key from `.create({ key: ... })`.
+	 * This capability's key from `.create({ capabilities: { key: ... } })`.
 	 * Useful for namespacing storage paths or logging.
 	 */
 	capabilityId: string;

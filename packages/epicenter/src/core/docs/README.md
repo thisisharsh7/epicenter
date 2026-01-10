@@ -1,6 +1,6 @@
 # Y.Doc Architecture: Three Documents, One Client
 
-This module provides typed wrappers for the three Y.Doc types that power collaborative workspaces.
+This module provides typed wrappers for the Y.Doc types that power collaborative workspaces.
 
 ## Summary: The Three-Fetch Pattern
 
@@ -8,13 +8,13 @@ This module provides typed wrappers for the three Y.Doc types that power collabo
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                                                                             │
 │   STEP 1               STEP 2                STEP 3                         │
-│   Registry Doc         Head Doc              Data Doc                       │
-│   ────────────         ────────              ────────                       │
+│   Registry Doc         Head Doc              workspace.create()             │
+│   ────────────         ────────              ─────────────────              │
 │                                                                             │
 │   ┌───────────┐       ┌───────────┐        ┌───────────────────┐           │
-│   │ workspaces│       │   epoch   │        │ schema + tables   │           │
-│   │  - abc123 │       │     2     │        │ + kv + metadata   │           │
-│   │  - xyz789 │       │           │        │                   │           │
+│   │ workspaces│       │   epoch   │        │ Creates Data Doc  │           │
+│   │  - abc123 │       │     2     │        │ internally with   │           │
+│   │  - xyz789 │       │           │        │ schema + tables   │           │
 │   └─────┬─────┘       └─────┬─────┘        └─────────┬─────────┘           │
 │         │                   │                        │                      │
 │         ▼                   ▼                        ▼                      │
@@ -25,18 +25,18 @@ This module provides typed wrappers for the three Y.Doc types that power collabo
 │   ───────────────────────────────────────────────────────────────────────  │
 │                                                                             │
 │   Fetch GUID          Fetch version         Create WorkspaceClient          │
-│   from Registry       from Head Doc         with Data Doc                   │
+│   from Registry       from Head Doc         (Data Doc is internal)          │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**The pattern:** Three Y.Docs, each providing one piece of information needed to create a client.
+**The pattern:** Two exported helpers (Registry, Head) + internal Data Doc creation via `workspace.create()`.
 
-| Step | Document | Fetches                | Y.Doc GUID              |
-| ---- | -------- | ---------------------- | ----------------------- |
-| 1    | Registry | GUID (workspace ID)    | `{registryId}`          |
-| 2    | Head     | Epoch (version number) | `{workspaceId}`         |
-| 3    | Data     | Schema + Data          | `{workspaceId}-{epoch}` |
+| Step | Document | Fetches                | Y.Doc GUID              | API                   |
+| ---- | -------- | ---------------------- | ----------------------- | --------------------- |
+| 1    | Registry | GUID (workspace ID)    | `{registryId}`          | `createRegistryDoc()` |
+| 2    | Head     | Epoch (version number) | `{workspaceId}`         | `createHeadDoc()`     |
+| 3    | Data     | Schema + Data          | `{workspaceId}-{epoch}` | `workspace.create()`  |
 
 ## Why Three Documents?
 
@@ -76,7 +76,7 @@ A single Y.Doc per workspace seems simpler, but creates problems:
                               │ Read epoch, compute Data doc ID
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  DATA Y.Doc                                                      │
+│  DATA Y.Doc (created internally by workspace.create())           │
 │  ID: {workspaceId}-{epoch}                                       │
 │  Scope: Shared (syncs with all workspace collaborators)          │
 │                                                                  │
@@ -135,7 +135,7 @@ head.observeEpoch((newEpoch) => {
 });
 
 // ═══════════════════════════════════════════════════════════════
-// STEP 3: Data Doc - Create Client
+// STEP 3: Create Client (Data Doc created internally)
 // ═══════════════════════════════════════════════════════════════
 const workspace = defineWorkspace({
 	id: workspaceId, // GUID only (epoch passed to .create())
@@ -147,8 +147,7 @@ const workspace = defineWorkspace({
 
 const client = await workspace.create({
 	epoch, // From Head Doc (defaults to 0 if omitted)
-	sqlite,
-	persistence,
+	capabilities: { sqlite, persistence },
 });
 
 // Now you have a fully typed client
@@ -167,10 +166,10 @@ They're different Y.Docs with different GUIDs. You can't "upgrade" a Y.Doc in pl
 
 The Head Doc is the **stable pointer**. Its GUID never changes (`abc123`), but its `epoch` value can change. When you bump epochs:
 
-1. Create new Data Doc at `abc123-3`
-2. Migrate data from epoch 2 → epoch 3
-3. Update Head Doc: `epoch: 2` → `epoch: 3`
-4. All clients see the epoch change and reconnect to the new Data Doc
+1. Create new client at epoch 3: `workspace.create({ epoch: 3 })`
+2. Migrate data from old client to new client
+3. Update Head Doc: `head.setEpoch(3)`
+4. All clients observing Head reconnect to the new Data Doc
 
 ## Epoch System
 
@@ -190,10 +189,10 @@ Epoch 2: Compacted data (fresh Y.Doc)
 
 **To bump epochs:**
 
-1. Create new Data doc at `{workspaceId}-{epoch+1}`
-2. Migrate/transform data from old epoch
+1. Create new client at `epoch + 1`
+2. Migrate/transform data from old client to new client
 3. Call `head.setEpoch(epoch + 1)`
-4. All clients observing Head reconnect to new Data doc
+4. All clients observing Head reconnect to new Data Doc
 
 ## Schema Merge Semantics
 
@@ -220,9 +219,8 @@ const workspace = defineWorkspace({
 	},
 });
 
-// On create(), schema is merged into Y.Doc
+// On create(), schema is merged into Y.Doc internally
 const client = await workspace.create();
-// Internally: dataDoc.mergeSchema(tables, kv)
 ```
 
 **Merge rules:**
@@ -249,7 +247,9 @@ const workspace = defineWorkspace({
 });
 
 // Epoch defaults to 0
-const client = await workspace.create({ sqlite });
+const client = await workspace.create({
+	capabilities: { sqlite },
+});
 ```
 
 ## Files
@@ -258,15 +258,14 @@ const client = await workspace.create({ sqlite });
 | ----------------- | --------------------- | ------------------------ |
 | `registry-doc.ts` | `createRegistryDoc()` | Personal workspace index |
 | `head-doc.ts`     | `createHeadDoc()`     | Epoch pointer            |
-| `data-doc.ts`     | `createDataDoc()`     | Schema + data storage    |
+
+**Note:** Data Doc creation is handled internally by `workspace.create()` in the workspace module.
 
 ## Schema Storage
 
 The Y.Doc stores the full `FieldSchema` directly - no conversion needed:
 
 ```typescript
-import { Type } from 'typebox';
-
 // FieldSchema stored as-is in Y.Doc
 {
   type: 'text',
@@ -275,26 +274,20 @@ import { Type } from 'typebox';
   icon: { type: 'emoji', value: '📝' },
   nullable: true
 }
-
-// For json fields, TypeBox schemas ARE JSON Schema - stored directly
-{
-  type: 'json',
-  schema: Type.Object({ theme: Type.String() })  // This IS JSON Schema
-}
 ```
 
 **Why this works:**
 
-1. TypeBox schemas ARE JSON Schema - no conversion needed
-2. FieldSchema is fully JSON-serializable
-3. Enables Notion-like collaborative schema editing (rename fields, add descriptions, set icons)
-4. Changes sync via CRDT to all collaborators
-5. TypeScript types come from code schema (compile-time safety)
+1. FieldSchema is fully JSON-serializable
+2. Enables Notion-like collaborative schema editing (rename fields, add descriptions, set icons)
+3. Changes sync via CRDT to all collaborators
+4. TypeScript types come from code schema (compile-time safety)
 
 ## Usage
 
 ```typescript
-import { createRegistryDoc, createHeadDoc, createDataDoc } from './docs';
+import { createRegistryDoc, createHeadDoc } from './docs';
+import { defineWorkspace, id, text } from '@epicenter/hq';
 
 // Registry (user's workspace list)
 const registry = createRegistryDoc({ registryId: 'user123' });
@@ -302,25 +295,17 @@ registry.addWorkspace('workspace456');
 
 // Head (epoch pointer)
 const head = createHeadDoc({ workspaceId: 'workspace456' });
-console.log(head.getEpoch()); // 0
+const epoch = head.getEpoch(); // 0
 
-// Data (schema + data)
-const data = createDataDoc({ workspaceId: 'workspace456', epoch: 0 });
-
-// Set workspace metadata
-data.setName('My Workspace');
-data.setSlug('my-workspace');
-
-// Merge schema (accepts both TablesSchema and TablesWithMetadata)
-data.mergeSchema(tables, kv);
-
-// Get table definition including metadata
-const postsDef = data.getTableDefinition('posts');
-// { name: 'Blog Posts', icon: {...}, cover: null, description: '...', fields: {...} }
-
-// Update table metadata
-data.setTableMetadata('posts', {
-	name: 'Updated Posts',
-	icon: { type: 'emoji', value: '✍️' },
+// Define and create workspace (Data Doc created internally)
+const workspace = defineWorkspace({
+	id: 'workspace456',
+	slug: 'blog',
+	name: 'Blog',
+	tables: { posts: { id: id(), title: text() } },
+	kv: {},
 });
+
+const client = await workspace.create({ epoch });
+// client.ydoc is the Data Doc at guid "workspace456-0"
 ```
