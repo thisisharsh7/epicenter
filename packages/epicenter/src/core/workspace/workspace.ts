@@ -83,25 +83,67 @@ import { createTables, type Tables } from '../tables/create-tables';
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * A workspace definition describes the pure data shape of a workspace.
+ * A workspace definition describes the initial configuration for a workspace.
  *
  * This type is fully JSON-serializable and contains no methods or runtime behavior.
  * It represents the configuration passed to `defineWorkspace()`.
  *
- * Use `defineWorkspace()` to create a `Workspace` object with a `.create()` method.
+ * ## Initial Values vs Live State
+ *
+ * When you call `workspace.create()`, these values are **merged** into the Y.Doc's
+ * CRDT state. After creation, `name`, `slug`, `tables`, and `kv` become **live**
+ * collaborative state that can change via CRDT sync.
+ *
+ * - `id` — Immutable identity, baked into Y.Doc GUID. Never changes.
+ * - `name`, `slug` — Initial values; become live CRDT state after creation.
+ * - `tables`, `kv` — Initial definitions; merged into Y.Doc definition map.
+ *
+ * On the returned {@link WorkspaceClient}:
+ * - `client.id` — Static (same as definition)
+ * - `client.name`, `client.slug` — Live getters (read from CRDT on each access)
+ *
+ * @example
+ * ```typescript
+ * // Define with initial values
+ * const workspace = defineWorkspace({
+ *   id: generateGuid(),
+ *   slug: 'blog',           // initial slug
+ *   name: 'My Blog',        // initial name
+ *   tables: { posts: {...} },
+ *   kv: {},
+ * });
+ *
+ * // After creation, name/slug are live CRDT state
+ * const client = workspace.create();
+ * console.log(client.name);  // "My Blog" (from CRDT)
+ *
+ * // If a peer changes the name via CRDT sync...
+ * console.log(client.name);  // "Our Blog" (reflects live change)
+ * ```
  */
 export type WorkspaceDefinition<
 	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
 	TKvDefinitionMap extends KvDefinitionMap = KvDefinitionMap,
 > = {
-	/** Globally unique identifier for sync coordination. Generate with `generateGuid()`. */
+	/**
+	 * Immutable workspace identity for sync coordination.
+	 * Baked into the Y.Doc GUID — never changes after creation.
+	 * Generate with `generateGuid()`.
+	 */
 	id: string;
-	/** Human-readable slug for URLs, paths, and CLI commands. */
+	/**
+	 * Initial slug for URLs, paths, and CLI commands.
+	 * Becomes live CRDT state after creation (accessible via `client.slug`).
+	 */
 	slug: string;
-	/** Display name shown in UI. */
+	/**
+	 * Initial display name shown in UI.
+	 * Becomes live CRDT state after creation (accessible via `client.name`).
+	 */
 	name: string;
 	/**
-	 * Table definitions with metadata (name, icon, cover, description, fields).
+	 * Initial table definitions with metadata (name, icon, cover, description, fields).
+	 * Merged into Y.Doc definition map on creation.
 	 *
 	 * @example
 	 * ```typescript
@@ -117,7 +159,10 @@ export type WorkspaceDefinition<
 	 * ```
 	 */
 	tables: TTableDefinitionMap;
-	/** Key-value store definitions with metadata. */
+	/**
+	 * Initial key-value store definitions with metadata.
+	 * Merged into Y.Doc definition map on creation.
+	 */
 	kv: TKvDefinitionMap;
 };
 
