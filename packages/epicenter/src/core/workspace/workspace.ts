@@ -306,23 +306,6 @@ export type WorkspaceClient<
 	 */
 	readonly slug: string;
 
-	/**
-	 * Workspace definition helper for reading/merging metadata.
-	 *
-	 * Provides explicit access to live CRDT state and merge operations.
-	 * The root-level `client.name` and `client.slug` are shortcuts to these values.
-	 *
-	 * @example
-	 * ```typescript
-	 * // Read (equivalent to client.name / client.slug)
-	 * client.definition.name
-	 * client.definition.slug
-	 *
-	 * // Merge updated config (idempotent)
-	 * client.definition.merge({ name, slug, tables, kv });
-	 * ```
-	 */
-	readonly definition: Definition;
 	/** Typed table helpers for CRUD operations. */
 	tables: Tables<TTableDefinitionMap>;
 	/** Key-value store for simple values. */
@@ -609,7 +592,6 @@ export function defineWorkspace<
 				get slug() {
 					return definition.slug;
 				},
-				definition,
 				ydoc,
 				tables,
 				kv,
@@ -634,12 +616,9 @@ type TableDefinitionYMap = Y.Map<
 >;
 
 /**
- * Helper for reading and merging workspace definition in Y.Doc.
- *
- * Similar to {@link Tables} and {@link Kv}, this provides a typed interface
- * over the underlying Y.Map storage.
+ * Internal helper for reading and merging workspace definition in Y.Doc.
  */
-export type Definition = {
+type Definition = {
 	/** Display name of the workspace. */
 	readonly name: string;
 	/** URL-friendly identifier. */
