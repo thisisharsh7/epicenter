@@ -228,11 +228,16 @@ export type Workspace<
  * A fully initialized workspace client.
  *
  * This is the main interface for interacting with a workspace:
- * - Access workspace definition via `client.definition.name/slug/tables/kv`
+ * - Access live metadata via `client.name` / `client.slug` (CRDT-backed getters)
  * - Access tables via `client.tables.tableName.get/upsert/etc.`
  * - Access kv store via `client.kv.key.get/set/etc.`
  * - Access capability exports via `client.capabilities.capabilityId`
  * - Access the underlying YJS document via `client.ydoc`
+ *
+ * ## Identity vs Live State
+ *
+ * - `client.id` — **immutable** identity (from Y.Doc GUID, never changes)
+ * - `client.name`, `client.slug` — **live** CRDT state (reflects real-time changes)
  *
  * Write functions that use the client to compose your own "actions":
  *
@@ -269,25 +274,55 @@ export type WorkspaceClient<
 		Lifecycle
 	>,
 > = {
-	/** Globally unique identifier for sync coordination. */
-	id: string;
-	/** Human-readable slug for URLs, paths, and CLI commands. */
-	slug: string;
+	/**
+	 * Immutable workspace identity for sync coordination.
+	 * Derived from Y.Doc GUID — never changes after creation.
+	 */
+	readonly id: string;
+
+	/**
+	 * Live workspace name from CRDT state.
+	 * Reads from Y.Map on each access — reflects real-time collaborative changes.
+	 *
+	 * @example
+	 * ```typescript
+	 * console.log(client.name);  // "My Blog"
+	 * // After a peer renames the workspace...
+	 * console.log(client.name);  // "Our Blog" (updated via CRDT sync)
+	 * ```
+	 */
+	readonly name: string;
+
+	/**
+	 * Live workspace slug from CRDT state.
+	 * Reads from Y.Map on each access — reflects real-time collaborative changes.
+	 *
+	 * @example
+	 * ```typescript
+	 * console.log(client.slug);  // "blog"
+	 * // After a peer changes the slug...
+	 * console.log(client.slug);  // "my-blog" (updated via CRDT sync)
+	 * ```
+	 */
+	readonly slug: string;
+
 	/**
 	 * Workspace definition helper for reading/merging metadata.
 	 *
-	 * Read workspace metadata:
-	 * ```typescript
-	 * client.definition.name   // "My Blog"
-	 * client.definition.slug   // "blog"
-	 * ```
+	 * Provides explicit access to live CRDT state and merge operations.
+	 * The root-level `client.name` and `client.slug` are shortcuts to these values.
 	 *
-	 * Merge updated config (idempotent):
+	 * @example
 	 * ```typescript
+	 * // Read (equivalent to client.name / client.slug)
+	 * client.definition.name
+	 * client.definition.slug
+	 *
+	 * // Merge updated config (idempotent)
 	 * client.definition.merge({ name, slug, tables, kv });
 	 * ```
 	 */
-	definition: Definition;
+	readonly definition: Definition;
 	/** Typed table helpers for CRUD operations. */
 	tables: Tables<TTableDefinitionMap>;
 	/** Key-value store for simple values. */
@@ -568,7 +603,12 @@ export function defineWorkspace<
 
 			return {
 				id: config.id,
-				slug: config.slug,
+				get name() {
+					return definition.name;
+				},
+				get slug() {
+					return definition.slug;
+				},
 				definition,
 				ydoc,
 				tables,
