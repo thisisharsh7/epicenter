@@ -61,6 +61,7 @@
  * @module
  */
 
+import humanizeString from 'humanize-string';
 import { Value } from 'typebox/value';
 import * as Y from 'yjs';
 import type {
@@ -73,10 +74,18 @@ import type { KvDefinitionMap, TableDefinitionMap } from '../schema';
 import type {
 	CoverDefinition,
 	FieldSchema,
+	FieldSchemaMap,
 	IconDefinition,
 	KvDefinition,
+	KvFieldSchema,
+	TableDefinition,
 } from '../schema/fields/types';
 import { createTables, type Tables } from '../tables/create-tables';
+import {
+	DEFAULT_KV_ICON,
+	DEFAULT_TABLE_ICON,
+	isWorkspaceDefinition,
+} from './normalize';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public API: Types
@@ -383,51 +392,162 @@ export type WorkspaceClient<
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * Minimal workspace input config - id + tables (fields only) + kv (fields only).
+ * No `name` or `slug` property; they're derived from the ID.
+ */
+type WorkspaceInputConfig<
+	TTableInputMap extends Record<string, FieldSchemaMap>,
+	TKvInputMap extends Record<string, KvFieldSchema>,
+> = {
+	id: string;
+	tables: TTableInputMap;
+	kv: TKvInputMap;
+};
+
+/**
+ * Helper type to convert a map of TableInput to TableDefinitionMap.
+ * Preserves the keys but wraps each value in TableDefinition structure.
+ */
+type NormalizedTableDefinitionMap<
+	TTableInputMap extends Record<string, FieldSchemaMap>,
+> = {
+	[K in keyof TTableInputMap]: TableDefinition<TTableInputMap[K]>;
+};
+
+/**
+ * Helper type to convert a map of KvInput to KvDefinitionMap.
+ * Preserves the keys but wraps each value in KvDefinition structure.
+ */
+type NormalizedKvDefinitionMap<
+	TKvInputMap extends Record<string, KvFieldSchema>,
+> = {
+	[K in keyof TKvInputMap]: KvDefinition<TKvInputMap[K]>;
+};
+
+/**
+ * Normalize a workspace config to a full WorkspaceDefinition.
+ *
+ * Handles both WorkspaceInput (minimal) and WorkspaceDefinition (full).
+ * When given minimal input, derives name/slug and normalizes all tables/kv.
+ */
+function normalizeWorkspaceConfig(
+	config:
+		| WorkspaceDefinition<TableDefinitionMap, KvDefinitionMap>
+		| WorkspaceInputConfig<
+				Record<string, FieldSchemaMap>,
+				Record<string, KvFieldSchema>
+		  >,
+): WorkspaceDefinition<TableDefinitionMap, KvDefinitionMap> {
+	// If already a full definition, return as-is
+	if (isWorkspaceDefinition(config)) {
+		return config;
+	}
+
+	// Derive slug from ID: use last segment after dot, or full ID if no dot
+	const idParts = config.id.split('.');
+	const slug = idParts.length > 1 ? idParts[idParts.length - 1]! : config.id;
+
+	// Normalize all tables
+	const tables: TableDefinitionMap = {};
+	for (const [key, value] of Object.entries(config.tables)) {
+		// Check if it's already a TableDefinition (has 'fields' and 'name' properties)
+		const maybeTableDef = value as Record<string, unknown>;
+		if ('fields' in maybeTableDef && 'name' in maybeTableDef) {
+			tables[key] = maybeTableDef as unknown as TableDefinition;
+		} else {
+			// It's a TableInput (just fields) - normalize it
+			tables[key] = {
+				name: humanizeString(key),
+				icon: DEFAULT_TABLE_ICON,
+				cover: null,
+				description: '',
+				fields: value as FieldSchemaMap,
+			};
+		}
+	}
+
+	// Normalize all KV entries
+	const kv: KvDefinitionMap = {};
+	for (const [key, value] of Object.entries(config.kv)) {
+		// Check if it's already a KvDefinition (has 'field' property)
+		if (
+			typeof value === 'object' &&
+			value !== null &&
+			'field' in value &&
+			'name' in value
+		) {
+			kv[key] = value as KvDefinition;
+		} else {
+			// It's a KvInput (just field schema) - normalize it
+			kv[key] = {
+				name: humanizeString(key),
+				icon: DEFAULT_KV_ICON,
+				description: '',
+				field: value as KvFieldSchema,
+			};
+		}
+	}
+
+	return {
+		id: config.id,
+		name: humanizeString(config.id),
+		slug,
+		tables,
+		kv,
+	};
+}
+
+/**
  * Define a collaborative workspace with YJS-first architecture.
  *
  * A workspace is a self-contained domain module with tables and capabilities.
  * This function returns a **static definition** with a `.create()` method to
  * instantiate **runtime clients**.
  *
- * @example
+ * Accepts either:
+ * - **Minimal input** (WorkspaceInput) - just id, tables (fields only), kv (fields only)
+ * - **Full definition** (WorkspaceDefinition) - complete with name, slug, metadata
+ *
+ * When using minimal input, defaults are applied:
+ * - `name`: humanized from ID (e.g., "epicenter.blog" → "Epicenter blog")
+ * - `slug`: last segment of ID after dot (e.g., "epicenter.blog" → "blog")
+ * - Table `name`: humanized from key (e.g., "blogPosts" → "Blog posts")
+ * - Table `icon`: default emoji 📄
+ * - Table `description`: empty string
+ *
+ * @example Minimal input (developer ergonomics)
  * ```typescript
  * const workspace = defineWorkspace({
- *   id: generateGuid(),
+ *   id: 'epicenter.blog',
+ *   tables: {
+ *     posts: { id: id(), title: text(), published: boolean({ default: false }) },
+ *   },
+ *   kv: {},
+ * });
+ * // workspace.name === 'Epicenter blog'
+ * // workspace.tables.posts.name === 'Posts'
+ * ```
+ *
+ * @example Full definition (explicit metadata)
+ * ```typescript
+ * const workspace = defineWorkspace({
+ *   id: 'epicenter.blog',
  *   slug: 'blog',
- *   name: 'Blog',
+ *   name: 'My Blog',
  *   tables: {
  *     posts: {
- *       name: 'Posts',
+ *       name: 'Blog Posts',
  *       icon: { type: 'emoji', value: '📝' },
  *       cover: null,
- *       description: 'Blog posts and articles',
- *       fields: {
- *         id: id(),
- *         title: text(),
- *         published: boolean({ default: false }),
- *       },
+ *       description: 'All blog posts',
+ *       fields: { id: id(), title: text() },
  *     },
  *   },
  *   kv: {},
  * });
- *
- * // Create a runtime client with capabilities
- * const client = await workspace.create({
- *   capabilities: { sqlite, persistence },
- * });
- *
- * // Or without capabilities (ephemeral, in-memory)
- * const client = await workspace.create();
- *
- * // Use the client directly
- * client.tables.posts.upsert({ id: generateId(), title: 'Hello', published: false });
- * const posts = client.tables.posts.getAllValid();
- *
- * // Clean up when done
- * await client.destroy();
  * ```
  *
- * @param config - Workspace configuration (id, slug, name, tables, kv)
+ * @param config - Workspace configuration (minimal or full)
  * @returns A Workspace definition with a `.create()` method
  */
 export function defineWorkspace<
@@ -435,16 +555,44 @@ export function defineWorkspace<
 	TKvDefinitionMap extends KvDefinitionMap = Record<string, never>,
 >(
 	config: WorkspaceDefinition<TTableDefinitionMap, TKvDefinitionMap>,
-): Workspace<TTableDefinitionMap, TKvDefinitionMap> {
+): Workspace<TTableDefinitionMap, TKvDefinitionMap>;
+
+/**
+ * Define a collaborative workspace with minimal input.
+ *
+ * @param config - Minimal workspace input (id, tables as fields, kv as fields)
+ * @returns A Workspace definition with a `.create()` method
+ */
+export function defineWorkspace<
+	TTableInputMap extends Record<string, FieldSchemaMap>,
+	TKvInputMap extends Record<string, KvFieldSchema> = Record<string, never>,
+>(
+	config: WorkspaceInputConfig<TTableInputMap, TKvInputMap>,
+): Workspace<
+	NormalizedTableDefinitionMap<TTableInputMap>,
+	NormalizedKvDefinitionMap<TKvInputMap>
+>;
+
+/**
+ * Implementation of defineWorkspace that handles both input shapes.
+ */
+export function defineWorkspace(
+	config:
+		| WorkspaceDefinition<TableDefinitionMap, KvDefinitionMap>
+		| WorkspaceInputConfig<
+				Record<string, FieldSchemaMap>,
+				Record<string, KvFieldSchema>
+		  >,
+): Workspace<TableDefinitionMap, KvDefinitionMap> {
 	if (!config.id || typeof config.id !== 'string') {
 		throw new Error('Workspace must have a valid ID');
 	}
-	if (!config.slug || typeof config.slug !== 'string') {
-		throw new Error('Workspace must have a valid slug');
-	}
+
+	// Normalize the config to a full definition
+	const normalized = normalizeWorkspaceConfig(config);
 
 	return {
-		...config,
+		...normalized,
 
 		/**
 		 * Create a runtime client for this workspace (sync construction).
@@ -534,8 +682,8 @@ export function defineWorkspace<
 		 */
 		create<
 			TCapabilityFactories extends CapabilityFactoryMap<
-				TTableDefinitionMap,
-				TKvDefinitionMap
+				TableDefinitionMap,
+				KvDefinitionMap
 			> = {},
 		>({
 			epoch = 0,
@@ -544,22 +692,22 @@ export function defineWorkspace<
 			epoch?: number;
 			capabilities?: TCapabilityFactories;
 		} = {}): WorkspaceClient<
-			TTableDefinitionMap,
-			TKvDefinitionMap,
+			TableDefinitionMap,
+			KvDefinitionMap,
 			InferCapabilityExports<TCapabilityFactories>
 		> {
 			// Create Workspace Y.Doc with deterministic GUID
 			// gc: false is required for revision history snapshots to work
-			const docId = `${config.id}-${epoch}` as const;
+			const docId = `${normalized.id}-${epoch}` as const;
 			const ydoc = new Y.Doc({ guid: docId, gc: false });
 
 			// Create definition helper and merge workspace config into Y.Doc
 			const definition = createDefinition(ydoc);
-			definition.merge(config);
+			definition.merge(normalized);
 
 			// Create table and kv helpers bound to the Y.Doc
-			const tables = createTables(ydoc, config.tables);
-			const kv = createKv(ydoc, config.kv);
+			const tables = createTables(ydoc, normalized.tables);
+			const kv = createKv(ydoc, normalized.kv);
 
 			// Initialize capability exports object and tracking arrays
 			const capabilities = {} as InferCapabilityExports<TCapabilityFactories>;
@@ -584,8 +732,8 @@ export function defineWorkspace<
 				initPromises.push(
 					Promise.resolve(
 						capabilityFactory({
-							id: config.id,
-							slug: config.slug,
+							id: normalized.id,
+							slug: normalized.slug,
 							capabilityId,
 							ydoc,
 							tables,
@@ -630,7 +778,7 @@ export function defineWorkspace<
 			};
 
 			return {
-				id: config.id,
+				id: normalized.id,
 				get name() {
 					return definition.name;
 				},
