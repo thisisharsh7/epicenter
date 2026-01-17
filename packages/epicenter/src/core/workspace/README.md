@@ -14,10 +14,9 @@ A workspace is a self-contained domain module with its own schema and capabiliti
 │   │ Pure Definition │                 │ Runtime Client  │                  │
 │   │                 │      epoch      │                 │                  │
 │   │ - id (GUID)     │ ─────────────▶  │ - Workspace Doc │                  │
-│   │ - slug          │   capabilities  │ - Tables        │                  │
-│   │ - name          │                 │ - KV            │                  │
-│   │ - tables schema │                 │ - Capabilities  │                  │
-│   │ - kv schema     │                 │                 │                  │
+│   │ - name          │   capabilities  │ - Tables        │                  │
+│   │ - tables schema │                 │ - KV            │                  │
+│   │ - kv schema     │                 │ - Capabilities  │                  │
 │   └─────────────────┘                 └─────────────────┘                  │
 │                                                                             │
 │   Static (no I/O)                     Dynamic (creates Y.Doc)               │
@@ -28,38 +27,92 @@ A workspace is a self-contained domain module with its own schema and capabiliti
 - **`defineWorkspace()`**: Pure schema definition. No I/O. Just describes the shape.
 - **`.create()`**: Creates the runtime client. Connects to the Workspace Doc at the specified epoch.
 
+## Minimal vs Full Definition
+
+`defineWorkspace()` accepts either minimal input or a full definition (all-or-nothing):
+
+```typescript
+// Minimal input (developer ergonomics) — ALL tables are just fields
+const workspace = defineWorkspace({
+  id: 'epicenter.whispering',
+  tables: {
+    recordings: { id: id(), title: text(), transcript: text() },
+    transformations: { id: id(), name: text(), prompt: text() },
+  },
+  kv: {},
+});
+
+// Full definition (explicit metadata) — ALL tables have full metadata
+const workspace = defineWorkspace({
+  id: 'epicenter.whispering',
+  name: 'Whispering',
+  tables: {
+    recordings: {
+      name: 'Recordings',
+      icon: { type: 'emoji', value: '🎙️' },
+      description: 'Voice recordings',
+      fields: { id: id(), title: text(), transcript: text() },
+    },
+    transformations: {
+      name: 'Transformations',
+      icon: { type: 'emoji', value: '✨' },
+      description: 'Text transformations',
+      fields: { id: id(), name: text(), prompt: text() },
+    },
+  },
+  kv: {},
+});
+```
+
+When using minimal input, defaults are applied:
+- `name` defaults to humanized `id` (e.g., "epicenter.whispering" → "Epicenter whispering")
+- Table `name` defaults to humanized key (e.g., "blogPosts" → "Blog posts")
+- Table `icon` defaults to `{ type: 'emoji', value: '📄' }`
+- Table `description` defaults to `''`
+
+**Note**: No mixing allowed. Either all tables are minimal or all have full metadata.
+
 ## What is a Workspace?
 
 Each workspace creates its own independent client:
 
 ```typescript
 // Step 1: Define the workspace (pure, no I/O)
-const blogWorkspace = defineWorkspace({
-	id: 'abc123xyz789012', // GUID (epoch is NOT here)
-	slug: 'blog',
-	name: 'Blog',
-	tables: { posts: { id: id(), title: text() } },
+const whisperingWorkspace = defineWorkspace({
+	id: 'epicenter.whispering',
+	tables: {
+		recordings: { id: id(), title: text(), transcript: text() },
+	},
 	kv: {},
 });
 
 // Step 2: Create client at a specific epoch
-const blogClient = await blogWorkspace.create({
-	epoch: 0, // Which Workspace Doc to connect to (defaults to 0)
+const client = await whisperingWorkspace.create({
+	epoch: 0,
 	capabilities: { sqlite, persistence },
 });
 
 // Use the client
-blogClient.tables.posts.upsert({ id: '1', title: 'Hello' });
-const posts = blogClient.tables.posts.getAllValid();
+client.tables.recordings.upsert({ id: '1', title: 'Meeting notes', transcript: '...' });
+const recordings = client.tables.recordings.getAllValid();
 ```
 
 Each workspace has:
 
-- **id**: Globally unique identifier (GUID) for sync coordination
-- **slug**: Human-readable identifier for URLs, paths, CLI commands
-- **name**: Display name shown in UI
+- **id**: Locally-scoped identifier (e.g., `epicenter.whispering`, `epicenter.crm`)
+- **name**: Display name shown in UI (defaults to humanized id)
 - **tables**: Schema definition for typed tables
 - **kv**: Schema definition for key-value store
+
+### Workspace ID Format
+
+The `id` is locally-scoped, not a GUID:
+
+| Context | Example |
+|---------|---------|
+| Local (no sync) | `epicenter.whispering` |
+| Relay (no auth) | `epicenter.crm` |
+| Y-Sweet (with auth) | Server combines user ID for global uniqueness |
 
 ## The Epoch Parameter
 
@@ -96,26 +149,24 @@ See `../docs/README.md` for the full three-document architecture.
 When you call `.create({ epoch, capabilities })`:
 
 ```
-1. Create Workspace Doc at {id}-{epoch}
+1. Normalize definition (if minimal input)
+   └── Apply defaults for name, icon, description
+
+2. Create Workspace Doc at {id}-{epoch}
    └── Y.Doc with guid = "abc123xyz789012-0"
+   └── Contains DATA ONLY (rows, kv values)
 
-2. Check if schema exists in Y.Doc
-   └── If not, this is a new workspace
-
-3. Merge code schema into Y.Doc schema
-   └── Tables: add new fields, update changed fields
-   └── KV: add new keys, update changed keys
-   └── Idempotent: same values = no-op
-
-4. Create table and KV helpers
+3. Create table and KV helpers
    └── Typed CRUD operations backed by Y.Doc
 
-5. Run capability factories
+4. Run capability factories
    └── SQLite, persistence, sync, etc.
 
-6. Return WorkspaceClient
+5. Return WorkspaceClient
    └── Ready to use!
 ```
+
+**Key design decision**: The Y.Doc contains only data (table rows, kv values). The definition/schema is static and comes from code or a `definition.json` file.
 
 ## Writing Functions
 
@@ -156,11 +207,11 @@ const client = await blogWorkspace.create({
 });
 
 client.id;            // Globally unique ID for sync (e.g., 'abc123xyz789012')
-client.slug;          // Human-readable slug (e.g., 'blog')
+client.name;          // Display name (e.g., 'Blog')
 client.tables;        // YJS-backed table operations
 client.kv;            // Key-value store
 client.capabilities;  // Capability exports
-client.ydoc;          // Underlying YJS document (Workspace Doc)
+client.ydoc;          // Underlying YJS document (Workspace Doc, DATA ONLY)
 
 await client.destroy();           // Cleanup resources
 await using client = await ...;   // Auto-cleanup with dispose
@@ -179,8 +230,6 @@ const epoch = head.getEpoch();
 // 2. Define workspace (can be done once, reused)
 const blogWorkspace = defineWorkspace({
 	id: 'abc123xyz789012',
-	slug: 'blog',
-	name: 'Blog',
 	tables: { posts: { id: id(), title: text() } },
 	kv: {},
 });
@@ -287,8 +336,6 @@ Same workspace definition, different epochs:
 ```typescript
 const workspace = defineWorkspace({
 	id: 'abc123xyz789012',
-	slug: 'blog',
-	name: 'Blog',
 	tables: { posts: { id: id(), title: text(), content: text() } },
 	kv: {},
 });
@@ -313,3 +360,26 @@ head.bumpEpoch(); // Safe: computes max + 1
 await oldClient.destroy();
 await newClient.destroy();
 ```
+
+## Storage Architecture
+
+The workspace data is stored separately from the definition:
+
+```
+{appLocalDataDir}/
+├── registry.yjs                    # Index of all workspace IDs
+└── workspaces/
+    └── {workspace-guid}/
+        │
+        │   # Static definition (not in Y.Doc)
+        ├── definition.json         # WorkspaceDefinition (name, tables, kv schema)
+        │
+        │   # Epoch management
+        ├── head.yjs                # Current epoch number
+        │
+        │   # Data storage (Y.Doc per epoch, DATA ONLY)
+        ├── 0.yjs                   # Epoch 0 data (rows + kv values)
+        └── 1.yjs                   # Epoch 1 (after migration)
+```
+
+**Key principle**: Y.Doc contains only data. Definition is static JSON.

@@ -2,21 +2,17 @@ import { error } from '@sveltejs/kit';
 import { createHead } from '$lib/docs/head';
 import { registry } from '$lib/docs/registry';
 import { createWorkspaceClient } from '$lib/docs/workspace';
-import { extractDefinitionFromYDoc } from '$lib/utils/extract-definition';
+import { readDefinition } from '$lib/providers/definition-persistence';
 import type { LayoutLoad } from './$types';
 
 /**
  * Load a workspace lazily by GUID.
  *
- * Uses the "empty definition" pattern: pass an empty definition to createWorkspaceClient,
- * let persistence load the real definition, then extract it from the Y.Doc.
- * This avoids creating a temporary Y.Doc just to read the definition.
- *
  * Flow:
  * 1. Verify workspace exists in registry
- * 2. Create head doc and get epoch
- * 3. Create client with empty definition (persistence loads the real one)
- * 4. Extract definition from the loaded Y.Doc
+ * 2. Read definition from definition.json (static metadata)
+ * 3. Create head doc and get epoch
+ * 4. Create client with the definition (Y.Doc stores DATA ONLY)
  */
 export const load: LayoutLoad = async ({ params }) => {
 	const workspaceId = params.id;
@@ -30,33 +26,31 @@ export const load: LayoutLoad = async ({ params }) => {
 		error(404, { message: `Workspace "${workspaceId}" not found` });
 	}
 
-	// Step 2: Create head doc and get epoch
+	// Step 2: Read definition from definition.json
+	const definition = await readDefinition(workspaceId);
+	if (!definition) {
+		console.error(`[Layout] Definition file not found: ${workspaceId}`);
+		error(404, {
+			message: `Definition file not found for workspace "${workspaceId}"`,
+		});
+	}
+	console.log(
+		`[Layout] Loaded definition: ${definition.name} (${definition.slug})`,
+	);
+
+	// Step 3: Create head doc and get epoch
 	const head = createHead(workspaceId);
 	await head.whenSynced;
 	const epoch = head.getEpoch();
 	console.log(`[Layout] Workspace epoch: ${epoch}`);
 
-	// Step 3: Create client with empty definition - persistence loads the real one
-	const client = createWorkspaceClient(
-		{
-			id: workspaceId,
-			slug: workspaceId,
-			name: '',
-			tables: {},
-			kv: {},
-		},
-		epoch,
-	);
+	// Step 4: Create client with the definition
+	// Y.Doc stores DATA ONLY (rows, kv values), not definition metadata
+	const client = createWorkspaceClient(definition, epoch);
 
 	// Wait for persistence to finish loading existing data from disk.
-	// Once this resolves, the Y.Doc contains all previously saved state.
+	// Once this resolves, the Y.Doc contains all previously saved row/kv data.
 	await client.whenSynced;
-
-	// Step 4: Extract real definition from the loaded Y.Doc
-	const definition = extractDefinitionFromYDoc(client.ydoc, workspaceId);
-	console.log(
-		`[Layout] Loaded definition: ${definition.name} (${definition.slug})`,
-	);
 
 	return {
 		/** The workspace definition (id, slug, name, tables, kv). */

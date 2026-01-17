@@ -61,7 +61,7 @@
  * @module
  */
 
-import { Value } from 'typebox/value';
+import humanizeString from 'humanize-string';
 import * as Y from 'yjs';
 import type {
 	CapabilityFactoryMap,
@@ -71,37 +71,84 @@ import { createKv, type Kv } from '../kv/core';
 import { defineExports, type Lifecycle, type MaybePromise } from '../lifecycle';
 import type { KvDefinitionMap, TableDefinitionMap } from '../schema';
 import type {
-	CoverDefinition,
-	FieldSchema,
-	IconDefinition,
+	FieldSchemaMap,
 	KvDefinition,
+	KvFieldSchema,
+	TableDefinition,
 } from '../schema/fields/types';
 import { createTables, type Tables } from '../tables/create-tables';
+import {
+	DEFAULT_KV_ICON,
+	DEFAULT_TABLE_ICON,
+	isWorkspaceDefinition,
+} from './normalize';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public API: Types
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * A workspace definition describes the pure data shape of a workspace.
+ * A workspace definition describes the initial configuration for a workspace.
  *
  * This type is fully JSON-serializable and contains no methods or runtime behavior.
  * It represents the configuration passed to `defineWorkspace()`.
  *
- * Use `defineWorkspace()` to create a `Workspace` object with a `.create()` method.
+ * ## Initial Values vs Live State
+ *
+ * When you call `workspace.create()`, these values are **merged** into the Y.Doc's
+ * CRDT state. After creation, `name`, `slug`, `tables`, and `kv` become **live**
+ * collaborative state that can change via CRDT sync.
+ *
+ * - `id` — Immutable identity, baked into Y.Doc GUID. Never changes.
+ * - `name`, `slug` — Initial values; become live CRDT state after creation.
+ * - `tables`, `kv` — Initial definitions; merged into Y.Doc definition map.
+ *
+ * On the returned {@link WorkspaceClient}:
+ * - `client.id` — Static (same as definition)
+ * - `client.name`, `client.slug` — Live getters (read from CRDT on each access)
+ *
+ * @example
+ * ```typescript
+ * // Define with initial values
+ * const workspace = defineWorkspace({
+ *   id: generateGuid(),
+ *   slug: 'blog',           // initial slug
+ *   name: 'My Blog',        // initial name
+ *   tables: { posts: {...} },
+ *   kv: {},
+ * });
+ *
+ * // After creation, name/slug are live CRDT state
+ * const client = workspace.create();
+ * console.log(client.name);  // "My Blog" (from CRDT)
+ *
+ * // If a peer changes the name via CRDT sync...
+ * console.log(client.name);  // "Our Blog" (reflects live change)
+ * ```
  */
 export type WorkspaceDefinition<
 	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
 	TKvDefinitionMap extends KvDefinitionMap = KvDefinitionMap,
 > = {
-	/** Globally unique identifier for sync coordination. Generate with `generateGuid()`. */
+	/**
+	 * Immutable workspace identity for sync coordination.
+	 * Baked into the Y.Doc GUID — never changes after creation.
+	 * Generate with `generateGuid()`.
+	 */
 	id: string;
-	/** Human-readable slug for URLs, paths, and CLI commands. */
+	/**
+	 * Initial slug for URLs, paths, and CLI commands.
+	 * Becomes live CRDT state after creation (accessible via `client.slug`).
+	 */
 	slug: string;
-	/** Display name shown in UI. */
+	/**
+	 * Initial display name shown in UI.
+	 * Becomes live CRDT state after creation (accessible via `client.name`).
+	 */
 	name: string;
 	/**
-	 * Table definitions with metadata (name, icon, cover, description, fields).
+	 * Initial table definitions with metadata (name, icon, cover, description, fields).
+	 * Merged into Y.Doc definition map on creation.
 	 *
 	 * @example
 	 * ```typescript
@@ -117,7 +164,10 @@ export type WorkspaceDefinition<
 	 * ```
 	 */
 	tables: TTableDefinitionMap;
-	/** Key-value store definitions with metadata. */
+	/**
+	 * Initial key-value store definitions with metadata.
+	 * Merged into Y.Doc definition map on creation.
+	 */
 	kv: TKvDefinitionMap;
 };
 
@@ -228,10 +278,16 @@ export type Workspace<
  * A fully initialized workspace client.
  *
  * This is the main interface for interacting with a workspace:
+ * - Access live metadata via `client.name` / `client.slug` (CRDT-backed getters)
  * - Access tables via `client.tables.tableName.get/upsert/etc.`
  * - Access kv store via `client.kv.key.get/set/etc.`
  * - Access capability exports via `client.capabilities.capabilityId`
  * - Access the underlying YJS document via `client.ydoc`
+ *
+ * ## Identity vs Live State
+ *
+ * - `client.id` — **immutable** identity (from Y.Doc GUID, never changes)
+ * - `client.name`, `client.slug` — **live** CRDT state (reflects real-time changes)
  *
  * Write functions that use the client to compose your own "actions":
  *
@@ -268,10 +324,38 @@ export type WorkspaceClient<
 		Lifecycle
 	>,
 > = {
-	/** Globally unique identifier for sync coordination. */
-	id: string;
-	/** Human-readable slug for URLs, paths, and CLI commands. */
-	slug: string;
+	/**
+	 * Immutable workspace identity for sync coordination.
+	 * Derived from Y.Doc GUID — never changes after creation.
+	 */
+	readonly id: string;
+
+	/**
+	 * Live workspace name from CRDT state.
+	 * Reads from Y.Map on each access — reflects real-time collaborative changes.
+	 *
+	 * @example
+	 * ```typescript
+	 * console.log(client.name);  // "My Blog"
+	 * // After a peer renames the workspace...
+	 * console.log(client.name);  // "Our Blog" (updated via CRDT sync)
+	 * ```
+	 */
+	readonly name: string;
+
+	/**
+	 * Live workspace slug from CRDT state.
+	 * Reads from Y.Map on each access — reflects real-time collaborative changes.
+	 *
+	 * @example
+	 * ```typescript
+	 * console.log(client.slug);  // "blog"
+	 * // After a peer changes the slug...
+	 * console.log(client.slug);  // "my-blog" (updated via CRDT sync)
+	 * ```
+	 */
+	readonly slug: string;
+
 	/** Typed table helpers for CRUD operations. */
 	tables: Tables<TTableDefinitionMap>;
 	/** Key-value store for simple values. */
@@ -304,51 +388,162 @@ export type WorkspaceClient<
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * Minimal workspace input config - id + tables (fields only) + kv (fields only).
+ * No `name` or `slug` property; they're derived from the ID.
+ */
+type WorkspaceInputConfig<
+	TTableInputMap extends Record<string, FieldSchemaMap>,
+	TKvInputMap extends Record<string, KvFieldSchema>,
+> = {
+	id: string;
+	tables: TTableInputMap;
+	kv: TKvInputMap;
+};
+
+/**
+ * Helper type to convert a map of TableInput to TableDefinitionMap.
+ * Preserves the keys but wraps each value in TableDefinition structure.
+ */
+type NormalizedTableDefinitionMap<
+	TTableInputMap extends Record<string, FieldSchemaMap>,
+> = {
+	[K in keyof TTableInputMap]: TableDefinition<TTableInputMap[K]>;
+};
+
+/**
+ * Helper type to convert a map of KvInput to KvDefinitionMap.
+ * Preserves the keys but wraps each value in KvDefinition structure.
+ */
+type NormalizedKvDefinitionMap<
+	TKvInputMap extends Record<string, KvFieldSchema>,
+> = {
+	[K in keyof TKvInputMap]: KvDefinition<TKvInputMap[K]>;
+};
+
+/**
+ * Normalize a workspace config to a full WorkspaceDefinition.
+ *
+ * Handles both WorkspaceInput (minimal) and WorkspaceDefinition (full).
+ * When given minimal input, derives name/slug and normalizes all tables/kv.
+ */
+function normalizeWorkspaceConfig(
+	config:
+		| WorkspaceDefinition<TableDefinitionMap, KvDefinitionMap>
+		| WorkspaceInputConfig<
+				Record<string, FieldSchemaMap>,
+				Record<string, KvFieldSchema>
+		  >,
+): WorkspaceDefinition<TableDefinitionMap, KvDefinitionMap> {
+	// If already a full definition, return as-is
+	if (isWorkspaceDefinition(config)) {
+		return config;
+	}
+
+	// Derive slug from ID: use last segment after dot, or full ID if no dot
+	const idParts = config.id.split('.');
+	const slug = idParts.length > 1 ? idParts[idParts.length - 1]! : config.id;
+
+	// Normalize all tables
+	const tables: TableDefinitionMap = {};
+	for (const [key, value] of Object.entries(config.tables)) {
+		// Check if it's already a TableDefinition (has 'fields' and 'name' properties)
+		const maybeTableDef = value as Record<string, unknown>;
+		if ('fields' in maybeTableDef && 'name' in maybeTableDef) {
+			tables[key] = maybeTableDef as unknown as TableDefinition;
+		} else {
+			// It's a TableInput (just fields) - normalize it
+			tables[key] = {
+				name: humanizeString(key),
+				icon: DEFAULT_TABLE_ICON,
+				cover: null,
+				description: '',
+				fields: value as FieldSchemaMap,
+			};
+		}
+	}
+
+	// Normalize all KV entries
+	const kv: KvDefinitionMap = {};
+	for (const [key, value] of Object.entries(config.kv)) {
+		// Check if it's already a KvDefinition (has 'field' property)
+		if (
+			typeof value === 'object' &&
+			value !== null &&
+			'field' in value &&
+			'name' in value
+		) {
+			kv[key] = value as KvDefinition;
+		} else {
+			// It's a KvInput (just field schema) - normalize it
+			kv[key] = {
+				name: humanizeString(key),
+				icon: DEFAULT_KV_ICON,
+				description: '',
+				field: value as KvFieldSchema,
+			};
+		}
+	}
+
+	return {
+		id: config.id,
+		name: humanizeString(config.id),
+		slug,
+		tables,
+		kv,
+	};
+}
+
+/**
  * Define a collaborative workspace with YJS-first architecture.
  *
  * A workspace is a self-contained domain module with tables and capabilities.
  * This function returns a **static definition** with a `.create()` method to
  * instantiate **runtime clients**.
  *
- * @example
+ * Accepts either:
+ * - **Minimal input** (WorkspaceInput) - just id, tables (fields only), kv (fields only)
+ * - **Full definition** (WorkspaceDefinition) - complete with name, slug, metadata
+ *
+ * When using minimal input, defaults are applied:
+ * - `name`: humanized from ID (e.g., "epicenter.blog" → "Epicenter blog")
+ * - `slug`: last segment of ID after dot (e.g., "epicenter.blog" → "blog")
+ * - Table `name`: humanized from key (e.g., "blogPosts" → "Blog posts")
+ * - Table `icon`: default emoji 📄
+ * - Table `description`: empty string
+ *
+ * @example Minimal input (developer ergonomics)
  * ```typescript
  * const workspace = defineWorkspace({
- *   id: generateGuid(),
+ *   id: 'epicenter.blog',
+ *   tables: {
+ *     posts: { id: id(), title: text(), published: boolean({ default: false }) },
+ *   },
+ *   kv: {},
+ * });
+ * // workspace.name === 'Epicenter blog'
+ * // workspace.tables.posts.name === 'Posts'
+ * ```
+ *
+ * @example Full definition (explicit metadata)
+ * ```typescript
+ * const workspace = defineWorkspace({
+ *   id: 'epicenter.blog',
  *   slug: 'blog',
- *   name: 'Blog',
+ *   name: 'My Blog',
  *   tables: {
  *     posts: {
- *       name: 'Posts',
+ *       name: 'Blog Posts',
  *       icon: { type: 'emoji', value: '📝' },
  *       cover: null,
- *       description: 'Blog posts and articles',
- *       fields: {
- *         id: id(),
- *         title: text(),
- *         published: boolean({ default: false }),
- *       },
+ *       description: 'All blog posts',
+ *       fields: { id: id(), title: text() },
  *     },
  *   },
  *   kv: {},
  * });
- *
- * // Create a runtime client with capabilities
- * const client = await workspace.create({
- *   capabilities: { sqlite, persistence },
- * });
- *
- * // Or without capabilities (ephemeral, in-memory)
- * const client = await workspace.create();
- *
- * // Use the client directly
- * client.tables.posts.upsert({ id: generateId(), title: 'Hello', published: false });
- * const posts = client.tables.posts.getAllValid();
- *
- * // Clean up when done
- * await client.destroy();
  * ```
  *
- * @param config - Workspace configuration (id, slug, name, tables, kv)
+ * @param config - Workspace configuration (minimal or full)
  * @returns A Workspace definition with a `.create()` method
  */
 export function defineWorkspace<
@@ -356,16 +551,44 @@ export function defineWorkspace<
 	TKvDefinitionMap extends KvDefinitionMap = Record<string, never>,
 >(
 	config: WorkspaceDefinition<TTableDefinitionMap, TKvDefinitionMap>,
-): Workspace<TTableDefinitionMap, TKvDefinitionMap> {
+): Workspace<TTableDefinitionMap, TKvDefinitionMap>;
+
+/**
+ * Define a collaborative workspace with minimal input.
+ *
+ * @param config - Minimal workspace input (id, tables as fields, kv as fields)
+ * @returns A Workspace definition with a `.create()` method
+ */
+export function defineWorkspace<
+	TTableInputMap extends Record<string, FieldSchemaMap>,
+	TKvInputMap extends Record<string, KvFieldSchema> = Record<string, never>,
+>(
+	config: WorkspaceInputConfig<TTableInputMap, TKvInputMap>,
+): Workspace<
+	NormalizedTableDefinitionMap<TTableInputMap>,
+	NormalizedKvDefinitionMap<TKvInputMap>
+>;
+
+/**
+ * Implementation of defineWorkspace that handles both input shapes.
+ */
+export function defineWorkspace(
+	config:
+		| WorkspaceDefinition<TableDefinitionMap, KvDefinitionMap>
+		| WorkspaceInputConfig<
+				Record<string, FieldSchemaMap>,
+				Record<string, KvFieldSchema>
+		  >,
+): Workspace<TableDefinitionMap, KvDefinitionMap> {
 	if (!config.id || typeof config.id !== 'string') {
 		throw new Error('Workspace must have a valid ID');
 	}
-	if (!config.slug || typeof config.slug !== 'string') {
-		throw new Error('Workspace must have a valid slug');
-	}
+
+	// Normalize the config to a full definition
+	const normalized = normalizeWorkspaceConfig(config);
 
 	return {
-		...config,
+		...normalized,
 
 		/**
 		 * Create a runtime client for this workspace (sync construction).
@@ -382,17 +605,14 @@ export function defineWorkspace<
 		 * 1. **Y.Doc created** — A new YJS document with GUID `{id}-{epoch}`.
 		 *    The epoch creates isolated document namespaces for versioning/sync.
 		 *
-		 * 2. **Metadata merged** — Workspace name and slug are written to the doc's
-		 *    meta map (idempotent; only updates if values differ).
+		 * 2. **Definition merged** — Workspace definition (name, slug, tables, kv) is
+		 *    merged into the doc's definition map. New values are added, changed
+		 *    values are updated, identical values are untouched. Safe to call repeatedly.
 		 *
-		 * 3. **Schema merged** — Code-defined table/kv schemas are merged into the
-		 *    doc's schema map. New fields are added, changed fields are updated,
-		 *    existing identical fields are untouched. Safe to call repeatedly.
-		 *
-		 * 4. **Helpers created** — Typed `tables` and `kv` helpers are bound to
+		 * 3. **Helpers created** — Typed `tables` and `kv` helpers are bound to
 		 *    the Y.Doc for CRUD operations.
 		 *
-		 * 5. **Capabilities started** — Factory functions run in parallel (without blocking).
+		 * 4. **Capabilities started** — Factory functions run in parallel (without blocking).
 		 *    Their exports become available on `client.capabilities` after `whenSynced`.
 		 *
 		 * ## Important behaviors
@@ -458,8 +678,8 @@ export function defineWorkspace<
 		 */
 		create<
 			TCapabilityFactories extends CapabilityFactoryMap<
-				TTableDefinitionMap,
-				TKvDefinitionMap
+				TableDefinitionMap,
+				KvDefinitionMap
 			> = {},
 		>({
 			epoch = 0,
@@ -468,30 +688,21 @@ export function defineWorkspace<
 			epoch?: number;
 			capabilities?: TCapabilityFactories;
 		} = {}): WorkspaceClient<
-			TTableDefinitionMap,
-			TKvDefinitionMap,
+			TableDefinitionMap,
+			KvDefinitionMap,
 			InferCapabilityExports<TCapabilityFactories>
 		> {
 			// Create Workspace Y.Doc with deterministic GUID
 			// gc: false is required for revision history snapshots to work
-			const docId = `${config.id}-${epoch}` as const;
+			const docId = `${normalized.id}-${epoch}` as const;
 			const ydoc = new Y.Doc({ guid: docId, gc: false });
 
-			// Merge workspace metadata (update if different from config)
-			const metaMap = ydoc.getMap<string>('meta');
-			if (metaMap.get('name') !== config.name) {
-				metaMap.set('name', config.name);
-			}
-			if (metaMap.get('slug') !== config.slug) {
-				metaMap.set('slug', config.slug);
-			}
-
-			// Merge full table definitions (with metadata) into Y.Doc schema
-			mergeSchemaIntoYDoc(ydoc, config.tables, config.kv);
+			// Y.Doc contains DATA ONLY (table rows, kv values)
+			// Definition/metadata is static and comes from the normalized config
 
 			// Create table and kv helpers bound to the Y.Doc
-			const tables = createTables(ydoc, config.tables);
-			const kv = createKv(ydoc, config.kv);
+			const tables = createTables(ydoc, normalized.tables);
+			const kv = createKv(ydoc, normalized.kv);
 
 			// Initialize capability exports object and tracking arrays
 			const capabilities = {} as InferCapabilityExports<TCapabilityFactories>;
@@ -516,8 +727,8 @@ export function defineWorkspace<
 				initPromises.push(
 					Promise.resolve(
 						capabilityFactory({
-							id: config.id,
-							slug: config.slug,
+							id: normalized.id,
+							slug: normalized.slug,
 							capabilityId,
 							ydoc,
 							tables,
@@ -562,8 +773,10 @@ export function defineWorkspace<
 			};
 
 			return {
-				id: config.id,
-				slug: config.slug,
+				id: normalized.id,
+				// Name and slug come from static definition, not Y.Doc
+				name: normalized.name,
+				slug: normalized.slug,
 				ydoc,
 				tables,
 				kv,
@@ -577,107 +790,17 @@ export function defineWorkspace<
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Internal: Schema Merge Utilities
+// NOTE: Definition storage in Y.Doc has been removed
 // ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Type for the inner Y.Map that stores table schema with metadata.
- */
-type TableSchemaMap = Y.Map<
-	string | IconDefinition | CoverDefinition | null | Y.Map<FieldSchema>
->;
-
-/**
- * Merge code-defined schema into Y.Doc schema.
- *
- * Uses pure merge semantics:
- * - If table/field doesn't exist → add it
- * - If table/field exists with different value → update it
- * - If table/field exists with same value → no-op (CRDT handles)
- *
- * Idempotent and safe for concurrent calls.
- */
-function mergeSchemaIntoYDoc(
-	ydoc: Y.Doc,
-	tables: TableDefinitionMap,
-	kv: KvDefinitionMap,
-) {
-	const schemaMap = ydoc.getMap<Y.Map<unknown>>('schema');
-
-	// Initialize schema submaps if not present
-	if (!schemaMap.has('tables')) {
-		schemaMap.set('tables', new Y.Map());
-	}
-	if (!schemaMap.has('kv')) {
-		schemaMap.set('kv', new Y.Map());
-	}
-
-	const tablesSchemaMap = schemaMap.get('tables') as Y.Map<TableSchemaMap>;
-	const kvSchemaMap = schemaMap.get('kv') as Y.Map<KvDefinition>;
-
-	ydoc.transact(() => {
-		for (const [tableName, tableDefinition] of Object.entries(tables)) {
-			// Get or create the table schema map
-			let tableMap = tablesSchemaMap.get(tableName);
-			if (!tableMap) {
-				tableMap = new Y.Map() as TableSchemaMap;
-				tableMap.set('fields', new Y.Map<FieldSchema>());
-				tablesSchemaMap.set(tableName, tableMap);
-			}
-
-			// Merge table metadata
-			const currentName = tableMap.get('name') as string | undefined;
-			if (currentName !== tableDefinition.name) {
-				tableMap.set('name', tableDefinition.name);
-			}
-
-			const currentIcon = tableMap.get('icon') as
-				| IconDefinition
-				| null
-				| undefined;
-			if (!Value.Equal(currentIcon, tableDefinition.icon)) {
-				tableMap.set('icon', tableDefinition.icon);
-			}
-
-			const currentCover = tableMap.get('cover') as
-				| CoverDefinition
-				| null
-				| undefined;
-			if (!Value.Equal(currentCover, tableDefinition.cover)) {
-				tableMap.set('cover', tableDefinition.cover);
-			}
-
-			const currentDescription = tableMap.get('description') as
-				| string
-				| undefined;
-			if (currentDescription !== tableDefinition.description) {
-				tableMap.set('description', tableDefinition.description);
-			}
-
-			// Merge fields
-			let fieldsMap = tableMap.get('fields') as Y.Map<FieldSchema> | undefined;
-			if (!fieldsMap) {
-				fieldsMap = new Y.Map();
-				tableMap.set('fields', fieldsMap);
-			}
-
-			for (const [fieldName, fieldDefinition] of Object.entries(
-				tableDefinition.fields,
-			)) {
-				const existing = fieldsMap.get(fieldName);
-
-				if (!existing || !Value.Equal(existing, fieldDefinition)) {
-					fieldsMap.set(fieldName, fieldDefinition);
-				}
-			}
-		}
-
-		for (const [keyName, kvDefinition] of Object.entries(kv)) {
-			const existing = kvSchemaMap.get(keyName);
-
-			if (!existing || !Value.Equal(existing, kvDefinition)) {
-				kvSchemaMap.set(keyName, kvDefinition);
-			}
-		}
-	});
-}
+//
+// Previously, workspace metadata (name, slug, table icons, etc.) was stored
+// in a 'definition' Y.Map inside the Y.Doc. This added CRDT overhead for data
+// that rarely changes.
+//
+// Now:
+// - Y.Doc contains DATA ONLY (table rows, kv values)
+// - Definition/metadata is static and comes from:
+//   - Code: the normalized WorkspaceDefinition from defineWorkspace()
+//   - Epicenter app: a definition.json file
+//
+// See specs/20260117T004421-workspace-input-normalization.md for details.

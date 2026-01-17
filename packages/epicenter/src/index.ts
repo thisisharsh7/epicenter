@@ -34,51 +34,57 @@ export {
 	or,
 	sql,
 } from 'drizzle-orm';
-
-export type { TableHelper, Tables } from './core/tables/create-tables';
-
-// Table utilities
-export { createTables } from './core/tables/create-tables';
-
-export type { Kv, KvHelper } from './core/kv/core';
-export { createKv } from './core/kv/core';
-
+// Action system
+export type { Action, Actions, Mutation, Query } from './core/actions';
+export {
+	defineMutation,
+	defineQuery,
+	isAction,
+	isMutation,
+	isQuery,
+	iterateActions,
+} from './core/actions';
 export type {
-	DeleteManyResult,
-	DeleteResult,
-	GetResult,
-	InvalidRowResult,
-	NotFoundResult,
-	RowResult,
-	UpdateManyResult,
-	UpdateResult,
-	ValidRowResult,
-} from './core/tables/table-helper';
-export type { CapabilityError } from './core/errors';
-// Error types
-export { CapabilityErr } from './core/errors';
-export type {
-	CapabilityFactory,
-	CapabilityFactoryMap,
 	CapabilityContext,
 	CapabilityExports,
+	CapabilityFactory,
+	CapabilityFactoryMap,
 	InferCapabilityExports,
 } from './core/capability';
 // Capability system
 export { defineCapabilities } from './core/capability';
+// Y.Doc wrappers for collaborative workspace architecture
+export type {
+	HeadDoc,
+	InferProviderExports,
+	ProviderContext,
+	ProviderExports,
+	ProviderFactory,
+	ProviderFactoryMap,
+	RegistryDoc,
+} from './core/docs';
+export { createHeadDoc, createRegistryDoc } from './core/docs';
+export type { CapabilityError } from './core/errors';
+// Error types
+export { CapabilityErr } from './core/errors';
+export type { Kv, KvHelper } from './core/kv/core';
+export { createKv } from './core/kv/core';
 // Lifecycle protocol (shared by providers and capabilities)
 export type { Lifecycle, MaybePromise } from './core/lifecycle';
 export { defineExports, LifecycleExports } from './core/lifecycle';
+// Rich content ID generation
+export type { RichContentId } from './core/rich-content/id';
+export { createRichContentId } from './core/rich-content/id';
 export type {
 	BooleanFieldSchema,
 	CellValue,
 	CoverDefinition,
 	DateFieldSchema,
 	DateIsoString,
-	FieldSchema,
-	FieldSchemaMap,
 	FieldMetadata,
 	FieldOptions,
+	FieldSchema,
+	FieldSchemaMap,
 	FieldType,
 	Guid,
 	IconDefinition,
@@ -106,60 +112,66 @@ export {
 	boolean,
 	cover,
 	DATE_TIME_STRING_REGEX,
-	date,
 	DateTimeString,
+	date,
 	generateGuid,
 	generateId,
+	ISO_DATETIME_REGEX,
 	icon,
 	id,
 	integer,
 	isNullableFieldSchema,
-	ISO_DATETIME_REGEX,
 	json,
 	real,
 	richtext,
 	select,
+	TIMEZONE_ID_REGEX,
 	table,
 	tableSchemaToArktype,
 	tableSchemaToYjsArktype,
 	tags,
 	text,
-	TIMEZONE_ID_REGEX,
 	toSqlIdentifier,
 } from './core/schema';
-// Rich content ID generation
-export type { RichContentId } from './core/rich-content/id';
-export { createRichContentId } from './core/rich-content/id';
+export type { TableHelper, Tables } from './core/tables/create-tables';
+// Table utilities
+export { createTables } from './core/tables/create-tables';
+export type {
+	DeleteManyResult,
+	DeleteResult,
+	GetResult,
+	InvalidRowResult,
+	NotFoundResult,
+	RowResult,
+	UpdateManyResult,
+	UpdateResult,
+	ValidRowResult,
+} from './core/tables/table-helper';
 // Core types
 export type { AbsolutePath, ProjectDir } from './core/types';
+// Workspace normalization (minimal input → full definition)
+export type {
+	KvInput,
+	KvInputMap,
+	TableInput,
+	WorkspaceInput,
+} from './core/workspace/normalize';
+export {
+	DEFAULT_KV_ICON,
+	DEFAULT_TABLE_ICON,
+	isKvDefinition,
+	isTableDefinition,
+	isWorkspaceDefinition,
+	normalizeKv,
+	normalizeTable,
+	normalizeWorkspace,
+} from './core/workspace/normalize';
 export type {
 	Workspace,
 	WorkspaceClient,
 	WorkspaceDefinition,
 } from './core/workspace/workspace';
 export { defineWorkspace } from './core/workspace/workspace';
-
-// Y.Doc wrappers for collaborative workspace architecture
-export type {
-	RegistryDoc,
-	HeadDoc,
-	ProviderContext,
-	ProviderExports,
-	ProviderFactory,
-	ProviderFactoryMap,
-	InferProviderExports,
-} from './core/docs';
-export { createRegistryDoc, createHeadDoc } from './core/docs';
-// Action system
-export type { Action, Actions, Mutation, Query } from './core/actions';
-export {
-	defineMutation,
-	defineQuery,
-	isAction,
-	isMutation,
-	isQuery,
-	iterateActions,
-} from './core/actions';
 
 // Note: Capabilities (markdown, sqlite) are NOT re-exported here to avoid bundling
 // Node.js-only code in browser builds. Import them directly from subpaths:
