@@ -116,7 +116,6 @@ export type KvInputMap = Record<string, KvInput>;
  * Minimal workspace input - ID + tables (fields only) + kv (fields only).
  *
  * No `name` property. The workspace name is auto-generated from the ID.
- * No `slug` property. The slug is auto-generated from the ID.
  *
  * @example
  * ```typescript
@@ -210,7 +209,7 @@ export function isKvDefinition<TField extends KvFieldSchema>(
  * const input = { id: 'blog', tables: { posts: { id: id() } }, kv: {} };
  * isWorkspaceDefinition(input); // false
  *
- * const def = { id: 'blog', name: 'Blog', slug: 'blog', tables: {...}, kv: {} };
+ * const def = { id: 'blog', name: 'Blog', tables: {...}, kv: {} };
  * isWorkspaceDefinition(def); // true
  * ```
  */
@@ -298,7 +297,6 @@ export function normalizeKv<TField extends KvFieldSchema>(
  */
 type WorkspaceDefinitionShape = {
 	id: string;
-	slug: string;
 	name: string;
 	tables: TableDefinitionMap;
 	kv: KvDefinitionMap;
@@ -309,11 +307,10 @@ type WorkspaceDefinitionShape = {
  *
  * Accepts either:
  * - Minimal input (WorkspaceInput) - just id, tables (fields), kv (fields)
- * - Full definition (WorkspaceDefinition) - complete with name, slug, metadata
+ * - Full definition (WorkspaceDefinition) - complete with name, metadata
  *
  * When given minimal input:
  * - `name`: humanized from ID (e.g., "epicenter.whispering" → "Epicenter whispering")
- * - `slug`: derived from ID (last segment after dot, or full ID if no dot)
  * - All tables normalized with default metadata
  * - All KV entries normalized with default metadata
  *
@@ -328,7 +325,6 @@ type WorkspaceDefinitionShape = {
  * const def = normalizeWorkspace(input);
  * // def.id === 'epicenter.whispering'
  * // def.name === 'Epicenter whispering'
- * // def.slug === 'whispering'
  * // def.tables.recordings.name === 'Recordings'
  * ```
  *
@@ -337,7 +333,6 @@ type WorkspaceDefinitionShape = {
  * const def = {
  *   id: 'epicenter.whispering',
  *   name: 'Whispering',
- *   slug: 'whispering',
  *   tables: { ... },
  *   kv: {},
  * };
@@ -351,7 +346,7 @@ export function normalizeWorkspace<
 >(
 	input: { id: string; tables: TTables; kv: TKv } & (
 		| { name?: undefined }
-		| { name: string; slug: string }
+		| { name: string }
 	),
 ): WorkspaceDefinitionShape {
 	// If already a full definition, return as-is
@@ -360,10 +355,6 @@ export function normalizeWorkspace<
 	) {
 		return input as WorkspaceDefinitionShape;
 	}
-
-	// Derive slug from ID: use last segment after dot, or full ID if no dot
-	const idParts = input.id.split('.');
-	const slug = idParts.length > 1 ? idParts[idParts.length - 1]! : input.id;
 
 	// Normalize all tables
 	const tables: TableDefinitionMap = {};
@@ -380,7 +371,6 @@ export function normalizeWorkspace<
 	return {
 		id: input.id,
 		name: humanizeString(input.id),
-		slug,
 		tables,
 		kv,
 	};

@@ -5,11 +5,11 @@
 		let isOpen = $state(false);
 		let isPending = $state(false);
 		let name = $state('');
-		let slug = $state('');
-		let isSlugManuallyEdited = $state(false);
+		let id = $state('');
+		let isIdManuallyEdited = $state(false);
 		let error = $state<string | null>(null);
 		let onConfirm = $state<
-			((data: { name: string; slug: string }) => void | Promise<unknown>) | null
+			((data: { name: string; id: string }) => void | Promise<unknown>) | null
 		>(null);
 
 		return {
@@ -28,20 +28,20 @@
 			set name(value) {
 				name = value;
 				error = null;
-				if (!isSlugManuallyEdited) {
-					slug = toKebabCase(value);
+				if (!isIdManuallyEdited) {
+					id = toKebabCase(value);
 				}
 			},
-			get slug() {
-				return slug;
+			get id() {
+				return id;
 			},
-			set slug(value) {
-				slug = value;
+			set id(value) {
+				id = value;
 				error = null;
-				isSlugManuallyEdited = true;
+				isIdManuallyEdited = true;
 			},
-			get isSlugManuallyEdited() {
-				return isSlugManuallyEdited;
+			get isIdManuallyEdited() {
+				return isIdManuallyEdited;
 			},
 			get error() {
 				return error;
@@ -50,15 +50,15 @@
 			open(opts: {
 				onConfirm: (data: {
 					name: string;
-					slug: string;
+					id: string;
 				}) => void | Promise<unknown>;
 			}) {
 				onConfirm = opts.onConfirm;
 				isPending = false;
 				name = '';
-				slug = '';
+				id = '';
 				error = null;
-				isSlugManuallyEdited = false;
+				isIdManuallyEdited = false;
 				isOpen = true;
 			},
 
@@ -66,29 +66,29 @@
 				isOpen = false;
 				isPending = false;
 				name = '';
-				slug = '';
+				id = '';
 				error = null;
-				isSlugManuallyEdited = false;
+				isIdManuallyEdited = false;
 				onConfirm = null;
 			},
 
-			resetSlug() {
-				slug = toKebabCase(name);
+			resetId() {
+				id = toKebabCase(name);
 				error = null;
-				isSlugManuallyEdited = false;
+				isIdManuallyEdited = false;
 			},
 
 			get canConfirm() {
-				return name.trim().length > 0 && slug.trim().length > 0;
+				return name.trim().length > 0 && id.trim().length > 0;
 			},
 
 			async confirm() {
 				if (!onConfirm) return;
-				if (!name.trim() || !slug.trim()) return;
+				if (!name.trim() || !id.trim()) return;
 
 				error = null;
-				const finalSlug = toKebabCase(slug.trim());
-				const result = onConfirm({ name: name.trim(), slug: finalSlug });
+				const finalId = toKebabCase(id.trim());
+				const result = onConfirm({ name: name.trim(), id: finalId });
 
 				if (result instanceof Promise) {
 					isPending = true;
@@ -159,21 +159,21 @@
 
 				<Field.Field>
 					<div class="flex items-center justify-between">
-						<Label for="workspace-slug">
+						<Label for="workspace-id">
 							Workspace ID
-							{#if !createWorkspaceDialog.isSlugManuallyEdited && createWorkspaceDialog.slug}
+							{#if !createWorkspaceDialog.isIdManuallyEdited && createWorkspaceDialog.id}
 								<span class="text-muted-foreground ml-2 text-xs font-normal"
 									>(auto-generated)</span
 								>
 							{/if}
 						</Label>
-						{#if createWorkspaceDialog.isSlugManuallyEdited}
+						{#if createWorkspaceDialog.isIdManuallyEdited}
 							<Button
 								type="button"
 								variant="ghost"
 								size="sm"
 								class="h-6 px-2 text-xs"
-								onclick={() => createWorkspaceDialog.resetSlug()}
+								onclick={() => createWorkspaceDialog.resetId()}
 								disabled={createWorkspaceDialog.isPending}
 							>
 								<RotateCcwIcon class="mr-1 size-3" />
@@ -182,8 +182,8 @@
 						{/if}
 					</div>
 					<Input
-						id="workspace-slug"
-						bind:value={createWorkspaceDialog.slug}
+						id="workspace-id"
+						bind:value={createWorkspaceDialog.id}
 						placeholder="my-workspace"
 						disabled={createWorkspaceDialog.isPending}
 						class="font-mono text-sm"
@@ -193,7 +193,7 @@
 						<Field.Error>{createWorkspaceDialog.error}</Field.Error>
 					{:else}
 						<Field.Description>
-							This will be used in URLs and file names.
+							Used in URLs and file paths. Cannot be changed later.
 						</Field.Description>
 					{/if}
 				</Field.Field>

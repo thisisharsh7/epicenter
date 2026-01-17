@@ -18,9 +18,9 @@
  * │   ┌─────────────────────┐              ┌─────────────────────┐              │
  * │   │ WorkspaceDefinition │    epoch     │  WorkspaceClient    │              │
  * │   │                     │ ──────────▶  │                     │              │
- * │   │ • id (GUID)         │ capabilities │  • Y.Doc instance   │              │
- * │   │ • slug              │              │  • tables helpers   │              │
- * │   │ • name              │              │  • kv helpers       │              │
+ * │   │ • id                │ capabilities │  • Y.Doc instance   │              │
+ * │   │ • name              │              │  • tables helpers   │              │
+ * │   │                     │              │  • kv helpers       │              │
  * │   │ • tables schema     │              │  • capabilities     │              │
  * │   │ • kv schema         │              │  • whenSynced       │              │
  * │   └─────────────────────┘              └─────────────────────┘              │
@@ -96,29 +96,28 @@ import {
  * ## Initial Values vs Live State
  *
  * When you call `workspace.create()`, these values are **merged** into the Y.Doc's
- * CRDT state. After creation, `name`, `slug`, `tables`, and `kv` become **live**
+ * CRDT state. After creation, `name`, `tables`, and `kv` become **live**
  * collaborative state that can change via CRDT sync.
  *
  * - `id` — Immutable identity, baked into Y.Doc GUID. Never changes.
- * - `name`, `slug` — Initial values; become live CRDT state after creation.
+ * - `name` — Initial value; becomes live CRDT state after creation.
  * - `tables`, `kv` — Initial definitions; merged into Y.Doc definition map.
  *
  * On the returned {@link WorkspaceClient}:
  * - `client.id` — Static (same as definition)
- * - `client.name`, `client.slug` — Live getters (read from CRDT on each access)
+ * - `client.name` — Live getter (read from CRDT on each access)
  *
  * @example
  * ```typescript
  * // Define with initial values
  * const workspace = defineWorkspace({
- *   id: generateGuid(),
- *   slug: 'blog',           // initial slug
+ *   id: 'epicenter.blog',   // human-readable ID
  *   name: 'My Blog',        // initial name
  *   tables: { posts: {...} },
  *   kv: {},
  * });
  *
- * // After creation, name/slug are live CRDT state
+ * // After creation, name is live CRDT state
  * const client = workspace.create();
  * console.log(client.name);  // "My Blog" (from CRDT)
  *
@@ -131,19 +130,15 @@ export type WorkspaceDefinition<
 	TKvDefinitionMap extends KvDefinitionMap = KvDefinitionMap,
 > = {
 	/**
-	 * Immutable workspace identity for sync coordination.
+	 * Human-readable workspace identifier used for URLs, paths, and sync.
 	 * Baked into the Y.Doc GUID — never changes after creation.
-	 * Generate with `generateGuid()`.
+	 *
+	 * Format: lowercase alphanumeric with dots and hyphens (e.g., "my-notes", "epicenter.whispering").
+	 * Epicenter apps use the convention `epicenter.{appname}`.
 	 */
 	id: string;
 	/**
-	 * Initial slug for URLs, paths, and CLI commands.
-	 * Becomes live CRDT state after creation (accessible via `client.slug`).
-	 */
-	slug: string;
-	/**
-	 * Initial display name shown in UI.
-	 * Becomes live CRDT state after creation (accessible via `client.name`).
+	 * Display name shown in UI.
 	 */
 	name: string;
 	/**
@@ -174,7 +169,7 @@ export type WorkspaceDefinition<
 /**
  * A workspace object returned by `defineWorkspace()`.
  *
- * Contains the schema (tables, kv, id, slug) and a `.create()` method
+ * Contains the schema (tables, kv, id) and a `.create()` method
  * to instantiate a runtime client. The `.create()` method uses **sync construction**:
  * it returns immediately with a client, and async initialization is tracked via
  * `client.whenSynced`.
@@ -278,7 +273,7 @@ export type Workspace<
  * A fully initialized workspace client.
  *
  * This is the main interface for interacting with a workspace:
- * - Access live metadata via `client.name` / `client.slug` (CRDT-backed getters)
+ * - Access live metadata via `client.name` (CRDT-backed getter)
  * - Access tables via `client.tables.tableName.get/upsert/etc.`
  * - Access kv store via `client.kv.key.get/set/etc.`
  * - Access capability exports via `client.capabilities.capabilityId`
@@ -287,7 +282,7 @@ export type Workspace<
  * ## Identity vs Live State
  *
  * - `client.id` — **immutable** identity (from Y.Doc GUID, never changes)
- * - `client.name`, `client.slug` — **live** CRDT state (reflects real-time changes)
+ * - `client.name` — **live** CRDT state (reflects real-time changes)
  *
  * Write functions that use the client to compose your own "actions":
  *
@@ -343,19 +338,6 @@ export type WorkspaceClient<
 	 */
 	readonly name: string;
 
-	/**
-	 * Live workspace slug from CRDT state.
-	 * Reads from Y.Map on each access — reflects real-time collaborative changes.
-	 *
-	 * @example
-	 * ```typescript
-	 * console.log(client.slug);  // "blog"
-	 * // After a peer changes the slug...
-	 * console.log(client.slug);  // "my-blog" (updated via CRDT sync)
-	 * ```
-	 */
-	readonly slug: string;
-
 	/** Typed table helpers for CRUD operations. */
 	tables: Tables<TTableDefinitionMap>;
 	/** Key-value store for simple values. */
@@ -389,7 +371,7 @@ export type WorkspaceClient<
 
 /**
  * Minimal workspace input config - id + tables (fields only) + kv (fields only).
- * No `name` or `slug` property; they're derived from the ID.
+ * `name` is derived from the ID if not provided.
  */
 type WorkspaceInputConfig<
 	TTableInputMap extends Record<string, FieldSchemaMap>,
@@ -424,7 +406,7 @@ type NormalizedKvDefinitionMap<
  * Normalize a workspace config to a full WorkspaceDefinition.
  *
  * Handles both WorkspaceInput (minimal) and WorkspaceDefinition (full).
- * When given minimal input, derives name/slug and normalizes all tables/kv.
+ * When given minimal input, derives name and normalizes all tables/kv.
  */
 function normalizeWorkspaceConfig(
 	config:
@@ -438,10 +420,6 @@ function normalizeWorkspaceConfig(
 	if (isWorkspaceDefinition(config)) {
 		return config;
 	}
-
-	// Derive slug from ID: use last segment after dot, or full ID if no dot
-	const idParts = config.id.split('.');
-	const slug = idParts.length > 1 ? idParts[idParts.length - 1]! : config.id;
 
 	// Normalize all tables
 	const tables: TableDefinitionMap = {};
@@ -487,7 +465,6 @@ function normalizeWorkspaceConfig(
 	return {
 		id: config.id,
 		name: humanizeString(config.id),
-		slug,
 		tables,
 		kv,
 	};
@@ -502,11 +479,10 @@ function normalizeWorkspaceConfig(
  *
  * Accepts either:
  * - **Minimal input** (WorkspaceInput) - just id, tables (fields only), kv (fields only)
- * - **Full definition** (WorkspaceDefinition) - complete with name, slug, metadata
+ * - **Full definition** (WorkspaceDefinition) - complete with name, metadata
  *
  * When using minimal input, defaults are applied:
  * - `name`: humanized from ID (e.g., "epicenter.blog" → "Epicenter blog")
- * - `slug`: last segment of ID after dot (e.g., "epicenter.blog" → "blog")
  * - Table `name`: humanized from key (e.g., "blogPosts" → "Blog posts")
  * - Table `icon`: default emoji 📄
  * - Table `description`: empty string
@@ -528,7 +504,6 @@ function normalizeWorkspaceConfig(
  * ```typescript
  * const workspace = defineWorkspace({
  *   id: 'epicenter.blog',
- *   slug: 'blog',
  *   name: 'My Blog',
  *   tables: {
  *     posts: {
@@ -605,7 +580,7 @@ export function defineWorkspace(
 		 * 1. **Y.Doc created** — A new YJS document with GUID `{id}-{epoch}`.
 		 *    The epoch creates isolated document namespaces for versioning/sync.
 		 *
-		 * 2. **Definition merged** — Workspace definition (name, slug, tables, kv) is
+		 * 2. **Definition merged** — Workspace definition (name, tables, kv) is
 		 *    merged into the doc's definition map. New values are added, changed
 		 *    values are updated, identical values are untouched. Safe to call repeatedly.
 		 *
@@ -728,7 +703,6 @@ export function defineWorkspace(
 					Promise.resolve(
 						capabilityFactory({
 							id: normalized.id,
-							slug: normalized.slug,
 							capabilityId,
 							ydoc,
 							tables,
@@ -774,9 +748,8 @@ export function defineWorkspace(
 
 			return {
 				id: normalized.id,
-				// Name and slug come from static definition, not Y.Doc
+				// Name comes from static definition, not Y.Doc
 				name: normalized.name,
-				slug: normalized.slug,
 				ydoc,
 				tables,
 				kv,
@@ -793,7 +766,7 @@ export function defineWorkspace(
 // NOTE: Definition storage in Y.Doc has been removed
 // ─────────────────────────────────────────────────────────────────────────────
 //
-// Previously, workspace metadata (name, slug, table icons, etc.) was stored
+// Previously, workspace metadata (name, table icons, etc.) was stored
 // in a 'definition' Y.Map inside the Y.Doc. This added CRDT overhead for data
 // that rarely changes.
 //

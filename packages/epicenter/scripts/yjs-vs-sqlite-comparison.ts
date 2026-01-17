@@ -10,17 +10,10 @@
  */
 
 import { Database } from 'bun:sqlite';
-import { existsSync, mkdirSync, statSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import {
-	defineWorkspace,
-	generateGuid,
-	generateId,
-	id,
-	integer,
-	text,
-} from '../src/index';
 import { persistence } from '../src/capabilities/persistence/desktop';
+import { defineWorkspace, generateId, id, integer, text } from '../src/index';
 
 const EMAIL_COUNT = Number(process.argv[2]) || 100_000;
 const BATCH_SIZE = 1_000;
@@ -160,8 +153,7 @@ console.log('--- YJS Test ---');
 const yjsStart = performance.now();
 
 const emailWorkspace = defineWorkspace({
-	id: generateGuid(),
-	slug: 'emails_compare',
+	id: 'emails-compare',
 	name: 'Comparison Emails',
 	kv: {},
 	tables: {

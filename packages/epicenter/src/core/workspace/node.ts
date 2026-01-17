@@ -61,8 +61,7 @@
  * import { defineWorkspace, id, text } from '@epicenter/hq/node';
  *
  * const workspace = defineWorkspace({
- *   id: 'abc123',
- *   slug: 'blog',
+ *   id: 'epicenter.blog',
  *   name: 'Blog',
  *   tables: { posts: { fields: { id: id(), title: text() } } },
  *   kv: {},
@@ -128,7 +127,7 @@ import {
  * ```
  * WorkspaceClient (browser)              WorkspaceClient (node)
  * ├── id: string                         ├── id: string
- * ├── slug: string                       ├── slug: string
+ * ├── name: string                       ├── name: string
  * ├── tables: Tables<T>                  ├── tables: Tables<T>
  * ├── kv: Kv<K>                          ├── kv: Kv<K>
  * ├── capabilities: C                    ├── capabilities: C
@@ -182,7 +181,7 @@ export type WorkspaceClient<
  *
  * ## Type derivation
  *
- * We derive from the sync `Workspace` to ensure schema properties (`id`, `slug`,
+ * We derive from the sync `Workspace` to ensure schema properties (`id`,
  * `name`, `tables`, `kv`) stay in sync. Only `create()` is overridden:
  *
  * ```typescript
@@ -355,9 +354,8 @@ export type Workspace<
  * - Module-level exports where you can't use top-level await
  *
  * @param config - Workspace configuration. Same as browser version.
- * @param config.id - Globally unique identifier (GUID) for sync coordination.
- *   Generate with `generateGuid()`.
- * @param config.slug - Human-readable slug for URLs, paths, CLI commands.
+ * @param config.id - Human-readable identifier for URLs, paths, and sync.
+ *   Format: lowercase alphanumeric with dots and hyphens (e.g., "my-notes", "epicenter.whispering").
  * @param config.name - Display name shown in UI.
  * @param config.tables - Table definitions with fields, icons, covers.
  *   See {@link ../schema/fields/types.ts | field types} for available field factories.
@@ -367,11 +365,10 @@ export type Workspace<
  *
  * @example Basic usage
  * ```typescript
- * import { defineWorkspace, id, text, generateGuid } from '@epicenter/hq/node';
+ * import { defineWorkspace, id, text } from '@epicenter/hq/node';
  *
  * const workspace = defineWorkspace({
- *   id: generateGuid(),
- *   slug: 'blog',
+ *   id: 'epicenter.blog',
  *   name: 'Blog',
  *   tables: {
  *     posts: {
@@ -431,7 +428,7 @@ export function defineWorkspace<
 	const syncWorkspace = defineWorkspaceSync(config);
 
 	return {
-		// Spread config to include id, slug, name, tables, kv
+		// Spread config to include id, name, tables, kv
 		...config,
 
 		/**
@@ -477,13 +474,6 @@ export function defineWorkspace<
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Re-export types from workspace.ts for consumers of the Node entrypoint.
- *
- * @see {@link ./workspace.ts} - Where these types are defined
- */
-export type { WorkspaceDefinition } from './workspace';
-
-/**
  * Re-export schema field factories for defining workspace tables.
  *
  * These are the building blocks for table definitions:
@@ -511,20 +501,26 @@ export type { WorkspaceDefinition } from './workspace';
 export {
 	// Field factories for table definitions
 	boolean,
+	// Table metadata helpers
+	cover,
 	date,
+	// ID generation utilities
+	generateGuid,
+	generateId,
+	icon,
 	id,
 	integer,
 	json,
 	real,
 	richtext,
 	select,
+	table,
 	tags,
 	text,
-	// Table metadata helpers
-	cover,
-	icon,
-	table,
-	// ID generation utilities
-	generateGuid,
-	generateId,
 } from '../schema';
+/**
+ * Re-export types from workspace.ts for consumers of the Node entrypoint.
+ *
+ * @see {@link ./workspace.ts} - Where these types are defined
+ */
+export type { WorkspaceDefinition } from './workspace';

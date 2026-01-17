@@ -1,5 +1,5 @@
 import { defineWorkspace, type WorkspaceDefinition } from '@epicenter/hq';
-import * as Y from 'yjs';
+import type * as Y from 'yjs';
 import { persistYDocAsJson } from '$lib/providers/tauri-json-persistence';
 import { persistYDoc } from '$lib/providers/tauri-persistence';
 
@@ -16,7 +16,7 @@ import { persistYDoc } from '$lib/providers/tauri-persistence';
  *
  * Persisted to `{appLocalDataDir}/workspaces/{workspaceId}/{epoch}.yjs`.
  *
- * @param definition - The workspace definition (id, slug, name, tables, kv)
+ * @param definition - The workspace definition (id, name, tables, kv)
  * @param epoch - The epoch number from the head doc
  * @returns A workspace client with persistence pre-configured
  *

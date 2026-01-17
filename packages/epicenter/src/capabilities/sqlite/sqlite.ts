@@ -6,12 +6,11 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { getTableConfig } from 'drizzle-orm/sqlite-core';
 import { extractErrorMessage } from 'wellcrafted/error';
 import { tryAsync } from 'wellcrafted/result';
-
-import { CapabilityErr, CapabilityError } from '../../core/errors';
 import {
-	defineCapabilities,
 	type CapabilityContext,
+	defineCapabilities,
 } from '../../core/capability';
+import { CapabilityErr, CapabilityError } from '../../core/errors';
 import type {
 	KvDefinitionMap,
 	Row,
@@ -90,7 +89,7 @@ export const sqlite = async <
 	TTableDefinitionMap extends TableDefinitionMap,
 	TKvDefinitionMap extends KvDefinitionMap,
 >(
-	{ slug, tables }: CapabilityContext<TTableDefinitionMap, TKvDefinitionMap>,
+	{ id, tables }: CapabilityContext<TTableDefinitionMap, TKvDefinitionMap>,
 	config: SqliteConfig,
 ) => {
 	const { dbPath, logsDir, debounceMs = DEFAULT_DEBOUNCE_MS } = config;
@@ -105,7 +104,7 @@ export const sqlite = async <
 	const sqliteDb = drizzle({ client, schema: drizzleTables });
 
 	const logger = createIndexLogger({
-		logPath: path.join(logsDir, `${slug}.log`),
+		logPath: path.join(logsDir, `${id}.log`),
 	});
 
 	// Prevents infinite loop during pushFromSqlite: when we insert into YJS,

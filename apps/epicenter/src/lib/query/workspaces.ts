@@ -1,4 +1,4 @@
-import { generateGuid, type WorkspaceDefinition } from '@epicenter/hq';
+import type { WorkspaceDefinition } from '@epicenter/hq';
 import { appLocalDataDir, join } from '@tauri-apps/api/path';
 import { revealItemInDir } from '@tauri-apps/plugin-opener';
 import { createTaggedError } from 'wellcrafted/error';
@@ -46,13 +46,12 @@ export const workspaces = {
 		queryFn: async () => {
 			const guids = registry.getWorkspaceIds();
 
-			// Return minimal workspace info (just GUIDs)
+			// Return minimal workspace info (just IDs)
 			// Full definition is loaded lazily when navigating to the workspace
 			const workspaces = guids.map((id) => ({
 				id,
-				// Use GUID as placeholder name/slug until we have metadata in registry
+				// Use ID as placeholder name until we have metadata in registry
 				name: id,
-				slug: id,
 				tables: {},
 				kv: {},
 			}));
@@ -93,35 +92,31 @@ export const workspaces = {
 	/**
 	 * Create a new workspace.
 	 *
-	 * 1. Generates a GUID for the workspace
-	 * 2. Adds the GUID to the registry
+	 * 1. Uses the provided human-readable ID directly (no GUID generation)
+	 * 2. Adds the ID to the registry
 	 * 3. Writes definition.json (static metadata)
 	 * 4. Creates a head doc (epoch starts at 0)
 	 * 5. Creates the workspace doc (DATA ONLY)
 	 */
 	createWorkspace: defineMutation({
 		mutationKey: ['workspaces', 'create'],
-		mutationFn: async (input: { name: string; slug: string }) => {
-			// Generate GUID for sync coordination
-			const guid = generateGuid();
-
-			// Create definition
+		mutationFn: async (input: { name: string; id: string }) => {
+			// Create definition using the user-provided ID directly
 			const definition: WorkspaceDefinition = {
-				id: guid,
-				slug: input.slug,
+				id: input.id,
 				name: input.name,
 				tables: {},
 				kv: {},
 			};
 
 			// Add to registry (persisted automatically via registryPersistence)
-			registry.addWorkspace(guid);
+			registry.addWorkspace(input.id);
 
 			// Write definition.json (static metadata, not in Y.Doc)
-			await writeDefinition(guid, definition);
+			await writeDefinition(input.id, definition);
 
 			// Initialize head doc at epoch 0
-			const head = createHead(guid);
+			const head = createHead(input.id);
 			await head.whenSynced;
 
 			// Create workspace client to initialize the workspace doc
@@ -133,8 +128,7 @@ export const workspaces = {
 			await client.destroy();
 
 			console.log(`[createWorkspace] Created workspace:`, {
-				guid,
-				slug: definition.slug,
+				id: input.id,
 				name: definition.name,
 			});
 

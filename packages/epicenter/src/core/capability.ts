@@ -6,10 +6,10 @@
  */
 
 import type * as Y from 'yjs';
-import type { Tables } from './tables/create-tables';
 import type { Kv } from './kv/core';
-import type { KvDefinitionMap, TableDefinitionMap } from './schema';
 import { defineExports, type Lifecycle, type MaybePromise } from './lifecycle';
+import type { KvDefinitionMap, TableDefinitionMap } from './schema';
+import type { Tables } from './tables/create-tables';
 
 // Re-export lifecycle utilities for capability authors
 export { defineExports, type Lifecycle, type MaybePromise } from './lifecycle';
@@ -93,11 +93,11 @@ export type CapabilityContext<
 	TTableDefinitionMap extends TableDefinitionMap,
 	TKvDefinitionMap extends KvDefinitionMap,
 > = {
-	/** Globally unique identifier for sync coordination. */
+	/**
+	 * Human-readable workspace identifier for URLs, paths, and sync.
+	 * Format: lowercase alphanumeric with dots and hyphens (e.g., "my-notes", "epicenter.whispering").
+	 */
 	id: string;
-
-	/** Human-readable slug for URLs, paths, logs, and CLI commands (e.g., 'blog', 'notes'). */
-	slug: string;
 
 	/**
 	 * This capability's key from `.create({ capabilities: { key: ... } })`.

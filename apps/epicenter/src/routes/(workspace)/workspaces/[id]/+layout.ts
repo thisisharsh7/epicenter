@@ -35,7 +35,7 @@ export const load: LayoutLoad = async ({ params }) => {
 		});
 	}
 	console.log(
-		`[Layout] Loaded definition: ${definition.name} (${definition.slug})`,
+		`[Layout] Loaded definition: ${definition.name} (${definition.id})`,
 	);
 
 	// Step 3: Create head doc and get epoch
@@ -53,7 +53,7 @@ export const load: LayoutLoad = async ({ params }) => {
 	await client.whenSynced;
 
 	return {
-		/** The workspace definition (id, slug, name, tables, kv). */
+		/** The workspace definition (id, name, tables, kv). */
 		workspace: definition,
 		/** The live workspace client for CRUD operations. */
 		client,
