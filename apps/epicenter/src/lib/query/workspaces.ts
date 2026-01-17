@@ -3,10 +3,13 @@ import { appLocalDataDir, join } from '@tauri-apps/api/path';
 import { revealItemInDir } from '@tauri-apps/plugin-opener';
 import { createTaggedError } from 'wellcrafted/error';
 import { Ok } from 'wellcrafted/result';
-import { registry } from '$lib/docs/registry';
 import { createHead } from '$lib/docs/head';
+import { registry } from '$lib/docs/registry';
 import { createWorkspaceClient } from '$lib/docs/workspace';
-import { extractDefinitionFromYDoc } from '$lib/utils/extract-definition';
+import {
+	readDefinition,
+	writeDefinition,
+} from '$lib/providers/definition-persistence';
 import { defineMutation, defineQuery, queryClient } from './client';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -61,8 +64,8 @@ export const workspaces = {
 	/**
 	 * Get a single workspace by GUID.
 	 *
-	 * Uses the "empty definition" pattern: creates a client with empty definition,
-	 * lets persistence load the real definition, then extracts it.
+	 * Reads the definition from definition.json (static file).
+	 * Y.Doc is no longer used for definition storage.
 	 */
 	getWorkspace: (workspaceId: string) =>
 		defineQuery({
@@ -75,29 +78,13 @@ export const workspaces = {
 					});
 				}
 
-				// Get epoch from head doc
-				const head = createHead(workspaceId);
-				await head.whenSynced;
-				const epoch = head.getEpoch();
-
-				// Create client with empty definition - persistence loads the real one
-				const client = createWorkspaceClient(
-					{
-						id: workspaceId,
-						slug: workspaceId,
-						name: '',
-						tables: {},
-						kv: {},
-					},
-					epoch,
-				);
-
-				// Wait for persistence to finish loading existing data from disk
-				await client.whenSynced;
-
-				// Extract definition and clean up
-				const definition = extractDefinitionFromYDoc(client.ydoc, workspaceId);
-				await client.destroy();
+				// Read definition from definition.json
+				const definition = await readDefinition(workspaceId);
+				if (!definition) {
+					return WorkspaceErr({
+						message: `Definition file not found for workspace "${workspaceId}"`,
+					});
+				}
 
 				return Ok(definition);
 			},
@@ -108,8 +95,9 @@ export const workspaces = {
 	 *
 	 * 1. Generates a GUID for the workspace
 	 * 2. Adds the GUID to the registry
-	 * 3. Creates a head doc (epoch starts at 0)
-	 * 4. Creates the workspace doc with initial definition
+	 * 3. Writes definition.json (static metadata)
+	 * 4. Creates a head doc (epoch starts at 0)
+	 * 5. Creates the workspace doc (DATA ONLY)
 	 */
 	createWorkspace: defineMutation({
 		mutationKey: ['workspaces', 'create'],
@@ -129,12 +117,15 @@ export const workspaces = {
 			// Add to registry (persisted automatically via registryPersistence)
 			registry.addWorkspace(guid);
 
+			// Write definition.json (static metadata, not in Y.Doc)
+			await writeDefinition(guid, definition);
+
 			// Initialize head doc at epoch 0
 			const head = createHead(guid);
 			await head.whenSynced;
 
 			// Create workspace client to initialize the workspace doc
-			// This writes the definition to the Y.Doc
+			// Y.Doc now only stores DATA (rows, kv values), not definition
 			const client = createWorkspaceClient(definition, 0);
 
 			// Wait for persistence to finish saving initial state to disk
