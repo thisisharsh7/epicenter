@@ -62,7 +62,6 @@
  */
 
 import humanizeString from 'humanize-string';
-import { Value } from 'typebox/value';
 import * as Y from 'yjs';
 import type {
 	CapabilityFactoryMap,
@@ -72,10 +71,7 @@ import { createKv, type Kv } from '../kv/core';
 import { defineExports, type Lifecycle, type MaybePromise } from '../lifecycle';
 import type { KvDefinitionMap, TableDefinitionMap } from '../schema';
 import type {
-	CoverDefinition,
-	FieldSchema,
 	FieldSchemaMap,
-	IconDefinition,
 	KvDefinition,
 	KvFieldSchema,
 	TableDefinition,
@@ -701,9 +697,8 @@ export function defineWorkspace(
 			const docId = `${normalized.id}-${epoch}` as const;
 			const ydoc = new Y.Doc({ guid: docId, gc: false });
 
-			// Create definition helper and merge workspace config into Y.Doc
-			const definition = createDefinition(ydoc);
-			definition.merge(normalized);
+			// Y.Doc contains DATA ONLY (table rows, kv values)
+			// Definition/metadata is static and comes from the normalized config
 
 			// Create table and kv helpers bound to the Y.Doc
 			const tables = createTables(ydoc, normalized.tables);
@@ -779,12 +774,9 @@ export function defineWorkspace(
 
 			return {
 				id: normalized.id,
-				get name() {
-					return definition.name;
-				},
-				get slug() {
-					return definition.slug;
-				},
+				// Name and slug come from static definition, not Y.Doc
+				name: normalized.name,
+				slug: normalized.slug,
 				ydoc,
 				tables,
 				kv,
@@ -798,189 +790,17 @@ export function defineWorkspace(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Internal: Definition Helper
+// NOTE: Definition storage in Y.Doc has been removed
 // ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Type for the inner Y.Map that stores a table definition with metadata.
- */
-type TableDefinitionYMap = Y.Map<
-	string | IconDefinition | CoverDefinition | null | Y.Map<FieldSchema>
->;
-
-/**
- * Internal helper for reading and merging workspace definition in Y.Doc.
- */
-type Definition = {
-	/** Display name of the workspace. */
-	readonly name: string;
-	/** URL-friendly identifier. */
-	readonly slug: string;
-	/** Map of table definitions (name, icon, cover, description, fields). */
-	readonly tables: Y.Map<TableDefinitionYMap>;
-	/** Map of KV definitions. */
-	readonly kv: Y.Map<KvDefinition>;
-
-	/**
-	 * Merge a workspace definition into the Y.Doc.
-	 *
-	 * Uses pure merge semantics (idempotent, safe for concurrent calls):
-	 * - If value doesn't exist → add it
-	 * - If value exists with different value → update it
-	 * - If value exists with same value → no-op (CRDT handles)
-	 */
-	merge(config: {
-		name: string;
-		slug: string;
-		tables: TableDefinitionMap;
-		kv: KvDefinitionMap;
-	}): void;
-};
-
-/**
- * Create a definition helper bound to a Y.Doc.
- *
- * ## Y.Doc Structure
- *
- * The `'definition'` map is a 1:1 mapping of {@link WorkspaceDefinition},
- * except `id` which lives in the doc GUID (`{id}-{epoch}`).
- *
- * ```
- * Y.Doc (guid: "{id}-{epoch}")
- * └── 'definition' (Y.Map)
- *     ├── 'name'    → string           // WorkspaceDefinition.name
- *     ├── 'slug'    → string           // WorkspaceDefinition.slug
- *     ├── 'tables'  → Y.Map<...>       // WorkspaceDefinition.tables
- *     └── 'kv'      → Y.Map<...>       // WorkspaceDefinition.kv
- * ```
- *
- * To reconstruct a full WorkspaceDefinition:
- * - `id`: Extract from `ydoc.guid.split('-')[0]`
- * - Everything else: Read from the definition helper
- *
- * @example
- * ```typescript
- * const definition = createDefinition(ydoc);
- *
- * // Read current values
- * console.log(definition.name);  // "My Blog"
- * console.log(definition.slug);  // "blog"
- *
- * // Merge new config (idempotent)
- * definition.merge({
- *   name: 'My Blog',
- *   slug: 'blog',
- *   tables: { posts: { ... } },
- *   kv: {},
- * });
- * ```
- */
-function createDefinition(ydoc: Y.Doc): Definition {
-	const map = ydoc.getMap<Y.Map<unknown> | string>('definition');
-
-	// Initialize submaps if not present
-	if (!map.has('tables')) {
-		map.set('tables', new Y.Map());
-	}
-	if (!map.has('kv')) {
-		map.set('kv', new Y.Map());
-	}
-
-	return {
-		get name() {
-			return (map.get('name') as string) ?? '';
-		},
-		get slug() {
-			return (map.get('slug') as string) ?? '';
-		},
-		get tables() {
-			return map.get('tables') as Y.Map<TableDefinitionYMap>;
-		},
-		get kv() {
-			return map.get('kv') as Y.Map<KvDefinition>;
-		},
-
-		merge(config) {
-			// Merge workspace-level metadata
-			if (map.get('name') !== config.name) {
-				map.set('name', config.name);
-			}
-			if (map.get('slug') !== config.slug) {
-				map.set('slug', config.slug);
-			}
-
-			const tablesDefMap = map.get('tables') as Y.Map<TableDefinitionYMap>;
-			const kvDefMap = map.get('kv') as Y.Map<KvDefinition>;
-
-			ydoc.transact(() => {
-				for (const [tableName, tableDefinition] of Object.entries(
-					config.tables,
-				)) {
-					// Get or create the table definition map
-					let tableMap = tablesDefMap.get(tableName);
-					if (!tableMap) {
-						tableMap = new Y.Map() as TableDefinitionYMap;
-						tableMap.set('fields', new Y.Map<FieldSchema>());
-						tablesDefMap.set(tableName, tableMap);
-					}
-
-					// Merge table metadata
-					const currentName = tableMap.get('name') as string | undefined;
-					if (currentName !== tableDefinition.name) {
-						tableMap.set('name', tableDefinition.name);
-					}
-
-					const currentIcon = tableMap.get('icon') as
-						| IconDefinition
-						| null
-						| undefined;
-					if (!Value.Equal(currentIcon, tableDefinition.icon)) {
-						tableMap.set('icon', tableDefinition.icon);
-					}
-
-					const currentCover = tableMap.get('cover') as
-						| CoverDefinition
-						| null
-						| undefined;
-					if (!Value.Equal(currentCover, tableDefinition.cover)) {
-						tableMap.set('cover', tableDefinition.cover);
-					}
-
-					const currentDescription = tableMap.get('description') as
-						| string
-						| undefined;
-					if (currentDescription !== tableDefinition.description) {
-						tableMap.set('description', tableDefinition.description);
-					}
-
-					// Merge fields
-					let fieldsMap = tableMap.get('fields') as
-						| Y.Map<FieldSchema>
-						| undefined;
-					if (!fieldsMap) {
-						fieldsMap = new Y.Map();
-						tableMap.set('fields', fieldsMap);
-					}
-
-					for (const [fieldName, fieldDefinition] of Object.entries(
-						tableDefinition.fields,
-					)) {
-						const existing = fieldsMap.get(fieldName);
-
-						if (!existing || !Value.Equal(existing, fieldDefinition)) {
-							fieldsMap.set(fieldName, fieldDefinition);
-						}
-					}
-				}
-
-				for (const [keyName, kvDefinition] of Object.entries(config.kv)) {
-					const existing = kvDefMap.get(keyName);
-
-					if (!existing || !Value.Equal(existing, kvDefinition)) {
-						kvDefMap.set(keyName, kvDefinition);
-					}
-				}
-			});
-		},
-	};
-}
+//
+// Previously, workspace metadata (name, slug, table icons, etc.) was stored
+// in a 'definition' Y.Map inside the Y.Doc. This added CRDT overhead for data
+// that rarely changes.
+//
+// Now:
+// - Y.Doc contains DATA ONLY (table rows, kv values)
+// - Definition/metadata is static and comes from:
+//   - Code: the normalized WorkspaceDefinition from defineWorkspace()
+//   - Epicenter app: a definition.json file
+//
+// See specs/20260117T004421-workspace-input-normalization.md for details.
