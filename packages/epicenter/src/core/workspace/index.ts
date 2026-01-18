@@ -6,26 +6,23 @@ export type {
 	InferCapabilityExports,
 } from '../capability';
 export { defineCapabilities } from '../capability';
-// Normalization types and functions for minimal input
-export type {
-	KvInput,
-	KvInputMap,
-	TableInput,
-	WorkspaceInput,
-} from './normalize';
+
+// Normalization helpers (for external use if needed)
 export {
 	DEFAULT_KV_ICON,
 	DEFAULT_TABLE_ICON,
 	isKvDefinition,
 	isTableDefinition,
-	isWorkspaceDefinition,
 	normalizeKv,
 	normalizeTable,
-	normalizeWorkspace,
 } from './normalize';
+
 export type {
+	NormalizedKv,
+	NormalizedTables,
 	Workspace,
 	WorkspaceClient,
 	WorkspaceDefinition,
+	WorkspaceInput,
 } from './workspace';
 export { defineWorkspace } from './workspace';

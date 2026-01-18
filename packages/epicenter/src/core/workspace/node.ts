@@ -109,8 +109,10 @@ import type { Lifecycle } from '../lifecycle';
 import type { KvDefinitionMap, TableDefinitionMap } from '../schema';
 import {
 	defineWorkspace as defineWorkspaceSync,
+	type NormalizedKv,
+	type NormalizedTables,
 	type WorkspaceClient as WorkspaceClientSync,
-	type WorkspaceDefinition,
+	type WorkspaceInput,
 	type Workspace as WorkspaceSync,
 } from './workspace';
 
@@ -419,17 +421,26 @@ export type Workspace<
  * @see {@link ../capability.ts} - Capability factory types
  */
 export function defineWorkspace<
-	TTableDefinitionMap extends TableDefinitionMap,
-	TKvDefinitionMap extends KvDefinitionMap = Record<string, never>,
+	const TTables extends Record<
+		string,
+		import('../schema').FieldSchemaMap | import('../schema').TableDefinition
+	>,
+	const TKv extends Record<
+		string,
+		import('../schema').KvFieldSchema | import('../schema').KvDefinition
+	> = Record<string, never>,
 >(
-	config: WorkspaceDefinition<TTableDefinitionMap, TKvDefinitionMap>,
-): Workspace<TTableDefinitionMap, TKvDefinitionMap> {
+	input: WorkspaceInput<TTables, TKv>,
+): Workspace<NormalizedTables<TTables>, NormalizedKv<TKv>> {
 	// Delegate to the sync factory from workspace.ts
-	const syncWorkspace = defineWorkspaceSync(config);
+	const syncWorkspace = defineWorkspaceSync(input);
 
 	return {
-		// Spread config to include id, name, tables, kv
-		...config,
+		// Spread the normalized definition from sync workspace
+		id: syncWorkspace.id,
+		name: syncWorkspace.name,
+		tables: syncWorkspace.tables,
+		kv: syncWorkspace.kv,
 
 		/**
 		 * Create a workspace client asynchronously.
@@ -442,15 +453,15 @@ export function defineWorkspace<
 		 */
 		async create<
 			TCapabilityFactories extends CapabilityFactoryMap<
-				TTableDefinitionMap,
-				TKvDefinitionMap
+				NormalizedTables<TTables>,
+				NormalizedKv<TKv>
 			> = {},
 		>(
 			options: { epoch?: number; capabilities?: TCapabilityFactories } = {},
 		): Promise<
 			WorkspaceClient<
-				TTableDefinitionMap,
-				TKvDefinitionMap,
+				NormalizedTables<TTables>,
+				NormalizedKv<TKv>,
 				InferCapabilityExports<TCapabilityFactories>
 			>
 		> {

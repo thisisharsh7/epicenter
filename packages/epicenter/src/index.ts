@@ -149,27 +149,22 @@ export type {
 } from './core/tables/table-helper';
 // Core types
 export type { AbsolutePath, ProjectDir } from './core/types';
-// Workspace normalization (minimal input → full definition)
-export type {
-	KvInput,
-	KvInputMap,
-	TableInput,
-	WorkspaceInput,
-} from './core/workspace/normalize';
+// Workspace normalization helpers
 export {
 	DEFAULT_KV_ICON,
 	DEFAULT_TABLE_ICON,
 	isKvDefinition,
 	isTableDefinition,
-	isWorkspaceDefinition,
 	normalizeKv,
 	normalizeTable,
-	normalizeWorkspace,
 } from './core/workspace/normalize';
 export type {
+	NormalizedKv,
+	NormalizedTables,
 	Workspace,
 	WorkspaceClient,
 	WorkspaceDefinition,
+	WorkspaceInput,
 } from './core/workspace/workspace';
 export { defineWorkspace } from './core/workspace/workspace';
 

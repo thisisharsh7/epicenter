@@ -77,11 +77,7 @@ import type {
 	TableDefinition,
 } from '../schema/fields/types';
 import { createTables, type Tables } from '../tables/create-tables';
-import {
-	DEFAULT_KV_ICON,
-	DEFAULT_TABLE_ICON,
-	isWorkspaceDefinition,
-} from './normalize';
+import { normalizeKv, normalizeTable } from './normalize';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public API: Types
@@ -370,101 +366,157 @@ export type WorkspaceClient<
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Minimal workspace input config - id + tables (fields only) + kv (fields only).
- * `name` is derived from the ID if not provided.
- */
-type WorkspaceInputConfig<
-	TTableInputMap extends Record<string, FieldSchemaMap>,
-	TKvInputMap extends Record<string, KvFieldSchema>,
-> = {
-	id: string;
-	tables: TTableInputMap;
-	kv: TKvInputMap;
-};
-
-/**
- * Helper type to convert a map of TableInput to TableDefinitionMap.
- * Preserves the keys but wraps each value in TableDefinition structure.
- */
-type NormalizedTableDefinitionMap<
-	TTableInputMap extends Record<string, FieldSchemaMap>,
-> = {
-	[K in keyof TTableInputMap]: TableDefinition<TTableInputMap[K]>;
-};
-
-/**
- * Helper type to convert a map of KvInput to KvDefinitionMap.
- * Preserves the keys but wraps each value in KvDefinition structure.
- */
-type NormalizedKvDefinitionMap<
-	TKvInputMap extends Record<string, KvFieldSchema>,
-> = {
-	[K in keyof TKvInputMap]: KvDefinition<TKvInputMap[K]>;
-};
-
-/**
- * Normalize a workspace config to a full WorkspaceDefinition.
+ * Flexible input type for `defineWorkspace()`.
  *
- * Handles both WorkspaceInput (minimal) and WorkspaceDefinition (full).
- * When given minimal input, derives name and normalizes all tables/kv.
+ * This is what you **write**. It accepts either:
+ * - **Minimal**: just field schemas for tables/kv (metadata auto-generated)
+ * - **Full**: complete TableDefinition/KvDefinition with all metadata
+ *
+ * After normalization, this becomes a `WorkspaceDefinition` (the canonical form).
+ *
+ * @example Minimal input (auto-generates name, icons, descriptions)
+ * ```typescript
+ * defineWorkspace({
+ *   id: 'epicenter.blog',
+ *   tables: {
+ *     posts: { id: id(), title: text() },  // Just fields
+ *   },
+ *   kv: {},
+ * });
+ * // Result: name='Epicenter blog', tables.posts.name='Posts', etc.
+ * ```
+ *
+ * @example Full input (explicit metadata)
+ * ```typescript
+ * defineWorkspace({
+ *   id: 'epicenter.blog',
+ *   name: 'My Blog',
+ *   tables: {
+ *     posts: {
+ *       name: 'Blog Posts',
+ *       icon: { type: 'emoji', value: '📝' },
+ *       cover: null,
+ *       description: 'All blog posts',
+ *       fields: { id: id(), title: text() },
+ *     },
+ *   },
+ *   kv: {},
+ * });
+ * ```
  */
-function normalizeWorkspaceConfig(
-	config:
-		| WorkspaceDefinition<TableDefinitionMap, KvDefinitionMap>
-		| WorkspaceInputConfig<
-				Record<string, FieldSchemaMap>,
-				Record<string, KvFieldSchema>
-		  >,
-): WorkspaceDefinition<TableDefinitionMap, KvDefinitionMap> {
-	// If already a full definition, return as-is
-	if (isWorkspaceDefinition(config)) {
-		return config;
-	}
+export type WorkspaceInput<
+	TTables extends Record<string, FieldSchemaMap | TableDefinition> = Record<
+		string,
+		FieldSchemaMap | TableDefinition
+	>,
+	TKv extends Record<string, KvFieldSchema | KvDefinition> = Record<
+		string,
+		KvFieldSchema | KvDefinition
+	>,
+> = {
+	/** Workspace identifier (e.g., "epicenter.blog") */
+	id: string;
+	/** Display name. If omitted, derived from id via humanization. */
+	name?: string;
+	/** Tables: either full TableDefinitions or just field schemas */
+	tables: TTables;
+	/** KV entries: either full KvDefinitions or just field schemas */
+	kv: TKv;
+};
 
+/**
+ * Extract the fields type from a table input (handles both full and minimal).
+ */
+type ExtractTableFields<T> =
+	T extends TableDefinition<infer TFields>
+		? TFields
+		: T extends FieldSchemaMap
+			? T
+			: never;
+
+/**
+ * Extract the field type from a KV input (handles both full and minimal).
+ */
+type ExtractKvField<T> =
+	T extends KvDefinition<infer TField>
+		? TField
+		: T extends KvFieldSchema
+			? T
+			: never;
+
+/**
+ * Type-level normalization for tables.
+ *
+ * Converts a map of table inputs (which may be minimal or full) into a map
+ * of `TableDefinition`. This ensures the output type is always the canonical form.
+ *
+ * @example
+ * ```typescript
+ * // Input: { posts: { id: id(), title: text() } }
+ * // NormalizedTables<...> = { posts: TableDefinition<{ id: ..., title: ... }> }
+ * ```
+ */
+export type NormalizedTables<
+	TTables extends Record<string, FieldSchemaMap | TableDefinition>,
+> = {
+	[K in keyof TTables]: TableDefinition<ExtractTableFields<TTables[K]>>;
+};
+
+/**
+ * Type-level normalization for KV entries.
+ *
+ * Converts a map of KV inputs (which may be minimal or full) into a map
+ * of `KvDefinition`. This ensures the output type is always the canonical form.
+ *
+ * @example
+ * ```typescript
+ * // Input: { theme: select({ options: ['light', 'dark'] }) }
+ * // NormalizedKv<...> = { theme: KvDefinition<SelectFieldSchema<...>> }
+ * ```
+ */
+export type NormalizedKv<
+	TKv extends Record<string, KvFieldSchema | KvDefinition>,
+> = {
+	[K in keyof TKv]: KvDefinition<ExtractKvField<TKv[K]>>;
+};
+
+/**
+ * Normalize a workspace input to a full WorkspaceDefinition.
+ *
+ * Handles mixed input where:
+ * - Tables can be full definitions or just field schemas
+ * - KV entries can be full definitions or just field schemas
+ * - Name is derived from id if not provided
+ */
+function normalizeWorkspaceInput<
+	TTables extends Record<string, FieldSchemaMap | TableDefinition>,
+	TKv extends Record<string, KvFieldSchema | KvDefinition>,
+>(
+	input: WorkspaceInput<TTables, TKv>,
+): WorkspaceDefinition<NormalizedTables<TTables>, NormalizedKv<TKv>> {
 	// Normalize all tables
-	const tables: TableDefinitionMap = {};
-	for (const [key, value] of Object.entries(config.tables)) {
-		// Check if it's already a TableDefinition (has 'fields' and 'name' properties)
-		const maybeTableDef = value as Record<string, unknown>;
-		if ('fields' in maybeTableDef && 'name' in maybeTableDef) {
-			tables[key] = maybeTableDef as unknown as TableDefinition;
-		} else {
-			// It's a TableInput (just fields) - normalize it
-			tables[key] = {
-				name: humanizeString(key),
-				icon: DEFAULT_TABLE_ICON,
-				cover: null,
-				description: '',
-				fields: value as FieldSchemaMap,
-			};
-		}
+	// TableDefinition has 'fields', FieldSchemaMap doesn't
+	const tables = {} as NormalizedTables<TTables>;
+	for (const [key, value] of Object.entries(input.tables)) {
+		(tables as Record<string, TableDefinition>)[key] =
+			'fields' in value
+				? (value as TableDefinition)
+				: normalizeTable(key, value as FieldSchemaMap);
 	}
 
 	// Normalize all KV entries
-	const kv: KvDefinitionMap = {};
-	for (const [key, value] of Object.entries(config.kv)) {
-		// Check if it's already a KvDefinition (has 'field' property)
-		if (
-			typeof value === 'object' &&
-			value !== null &&
-			'field' in value &&
-			'name' in value
-		) {
-			kv[key] = value as KvDefinition;
-		} else {
-			// It's a KvInput (just field schema) - normalize it
-			kv[key] = {
-				name: humanizeString(key),
-				icon: DEFAULT_KV_ICON,
-				description: '',
-				field: value as KvFieldSchema,
-			};
-		}
+	// KvDefinition has 'field', KvFieldSchema doesn't
+	const kv = {} as NormalizedKv<TKv>;
+	for (const [key, value] of Object.entries(input.kv)) {
+		(kv as Record<string, KvDefinition>)[key] =
+			'field' in value
+				? (value as KvDefinition)
+				: normalizeKv(key, value as KvFieldSchema);
 	}
 
 	return {
-		id: config.id,
-		name: humanizeString(config.id),
+		id: input.id,
+		name: input.name ?? humanizeString(input.id),
 		tables,
 		kv,
 	};
@@ -477,9 +529,9 @@ function normalizeWorkspaceConfig(
  * This function returns a **static definition** with a `.create()` method to
  * instantiate **runtime clients**.
  *
- * Accepts either:
- * - **Minimal input** (WorkspaceInput) - just id, tables (fields only), kv (fields only)
- * - **Full definition** (WorkspaceDefinition) - complete with name, metadata
+ * Accepts a `WorkspaceInput` which can be either:
+ * - **Minimal**: just id + field schemas (metadata auto-generated)
+ * - **Full**: complete with name, icons, descriptions
  *
  * When using minimal input, defaults are applied:
  * - `name`: humanized from ID (e.g., "epicenter.blog" → "Epicenter blog")
@@ -500,7 +552,7 @@ function normalizeWorkspaceConfig(
  * // workspace.tables.posts.name === 'Posts'
  * ```
  *
- * @example Full definition (explicit metadata)
+ * @example Full input (explicit metadata)
  * ```typescript
  * const workspace = defineWorkspace({
  *   id: 'epicenter.blog',
@@ -518,49 +570,24 @@ function normalizeWorkspaceConfig(
  * });
  * ```
  *
- * @param config - Workspace configuration (minimal or full)
+ * @param input - Workspace input (minimal or full)
  * @returns A Workspace definition with a `.create()` method
  */
 export function defineWorkspace<
-	TTableDefinitionMap extends TableDefinitionMap,
-	TKvDefinitionMap extends KvDefinitionMap = Record<string, never>,
+	const TTables extends Record<string, FieldSchemaMap | TableDefinition>,
+	const TKv extends Record<string, KvFieldSchema | KvDefinition> = Record<
+		string,
+		never
+	>,
 >(
-	config: WorkspaceDefinition<TTableDefinitionMap, TKvDefinitionMap>,
-): Workspace<TTableDefinitionMap, TKvDefinitionMap>;
-
-/**
- * Define a collaborative workspace with minimal input.
- *
- * @param config - Minimal workspace input (id, tables as fields, kv as fields)
- * @returns A Workspace definition with a `.create()` method
- */
-export function defineWorkspace<
-	TTableInputMap extends Record<string, FieldSchemaMap>,
-	TKvInputMap extends Record<string, KvFieldSchema> = Record<string, never>,
->(
-	config: WorkspaceInputConfig<TTableInputMap, TKvInputMap>,
-): Workspace<
-	NormalizedTableDefinitionMap<TTableInputMap>,
-	NormalizedKvDefinitionMap<TKvInputMap>
->;
-
-/**
- * Implementation of defineWorkspace that handles both input shapes.
- */
-export function defineWorkspace(
-	config:
-		| WorkspaceDefinition<TableDefinitionMap, KvDefinitionMap>
-		| WorkspaceInputConfig<
-				Record<string, FieldSchemaMap>,
-				Record<string, KvFieldSchema>
-		  >,
-): Workspace<TableDefinitionMap, KvDefinitionMap> {
-	if (!config.id || typeof config.id !== 'string') {
+	input: WorkspaceInput<TTables, TKv>,
+): Workspace<NormalizedTables<TTables>, NormalizedKv<TKv>> {
+	if (!input.id || typeof input.id !== 'string') {
 		throw new Error('Workspace must have a valid ID');
 	}
 
-	// Normalize the config to a full definition
-	const normalized = normalizeWorkspaceConfig(config);
+	// Normalize the input to a full definition
+	const normalized = normalizeWorkspaceInput(input);
 
 	return {
 		...normalized,
@@ -653,8 +680,8 @@ export function defineWorkspace(
 		 */
 		create<
 			TCapabilityFactories extends CapabilityFactoryMap<
-				TableDefinitionMap,
-				KvDefinitionMap
+				NormalizedTables<TTables>,
+				NormalizedKv<TKv>
 			> = {},
 		>({
 			epoch = 0,
@@ -663,8 +690,8 @@ export function defineWorkspace(
 			epoch?: number;
 			capabilities?: TCapabilityFactories;
 		} = {}): WorkspaceClient<
-			TableDefinitionMap,
-			KvDefinitionMap,
+			NormalizedTables<TTables>,
+			NormalizedKv<TKv>,
 			InferCapabilityExports<TCapabilityFactories>
 		> {
 			// Create Workspace Y.Doc with deterministic GUID
