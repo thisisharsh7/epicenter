@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Runs } from '$lib/components/transformations-editor';
 	import { Button } from '@epicenter/ui/button';
-	import * as Dialog from '@epicenter/ui/dialog';
+	import * as Modal from '@epicenter/ui/modal';
 	import { rpc } from '$lib/query';
 	import { createQuery } from '@tanstack/svelte-query';
 	import HistoryIcon from '@lucide/svelte/icons/history';
@@ -15,8 +15,8 @@
 	let isOpen = $state(false);
 </script>
 
-<Dialog.Root bind:open={isOpen}>
-	<Dialog.Trigger>
+<Modal.Root bind:open={isOpen}>
+	<Modal.Trigger>
 		{#snippet child({ props })}
 			<Button
 				{...props}
@@ -27,14 +27,14 @@
 				<HistoryIcon class="size-4" />
 			</Button>
 		{/snippet}
-	</Dialog.Trigger>
-	<Dialog.Content class="sm:max-w-4xl">
-		<Dialog.Header>
-			<Dialog.Title>Transformation Runs</Dialog.Title>
-			<Dialog.Description>
+	</Modal.Trigger>
+	<Modal.Content class="sm:max-w-4xl">
+		<Modal.Header>
+			<Modal.Title>Transformation Runs</Modal.Title>
+			<Modal.Description>
 				View all transformation runs for this recording
-			</Dialog.Description>
-		</Dialog.Header>
+			</Modal.Description>
+		</Modal.Header>
 		<div class="max-h-[60vh] overflow-y-auto">
 			{#if transformationRunsByRecordingIdQuery.isPending}
 				<div class="text-muted-foreground text-sm">Loading runs...</div>
@@ -46,8 +46,8 @@
 				<Runs runs={transformationRunsByRecordingIdQuery.data} />
 			{/if}
 		</div>
-		<Dialog.Footer>
+		<Modal.Footer>
 			<Button variant="outline" onclick={() => (isOpen = false)}>Close</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
+		</Modal.Footer>
+	</Modal.Content>
+</Modal.Root>

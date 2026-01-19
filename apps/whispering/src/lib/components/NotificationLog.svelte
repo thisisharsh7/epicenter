@@ -26,7 +26,7 @@
 
 <script lang="ts">
 	import * as Alert from '@epicenter/ui/alert';
-	import * as Dialog from '@epicenter/ui/dialog';
+	import * as Modal from '@epicenter/ui/modal';
 	import * as Empty from '@epicenter/ui/empty';
 	import type { UnifiedNotificationOptions } from '$lib/services/isomorphic/notifications/types';
 	import { ScrollArea } from '@epicenter/ui/scroll-area';
@@ -39,12 +39,12 @@
 	import { mode } from 'mode-watcher';
 </script>
 
-<Dialog.Root bind:open={notificationLog.isOpen}>
-	<Dialog.Content class="max-w-md">
-		<Dialog.Header>
-			<Dialog.Title>Notification History</Dialog.Title>
-			<Dialog.Description>View past notifications</Dialog.Description>
-		</Dialog.Header>
+<Modal.Root bind:open={notificationLog.isOpen}>
+	<Modal.Content class="max-w-md">
+		<Modal.Header>
+			<Modal.Title>Notification History</Modal.Title>
+			<Modal.Description>View past notifications</Modal.Description>
+		</Modal.Header>
 
 		<ScrollArea
 			class="h-[60vh] overflow-y-auto rounded-md border bg-background p-4"
@@ -108,8 +108,8 @@
 				</Empty.Root>
 			{/if}
 		</ScrollArea>
-	</Dialog.Content>
-</Dialog.Root>
+	</Modal.Content>
+</Modal.Root>
 
 <style>
 	:global([data-slot='dialog-content'] [data-sonner-toast]) {
