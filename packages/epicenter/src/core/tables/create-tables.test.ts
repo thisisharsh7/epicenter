@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import * as Y from 'yjs';
-import { boolean, id, integer, tags, text, richtext, table } from '../schema';
+import { boolean, id, integer, richtext, table, tags, text } from '../schema';
 import { createTables } from './create-tables';
 
 describe('createTables', () => {
@@ -9,6 +9,7 @@ describe('createTables', () => {
 		const doc = createTables(ydoc, {
 			posts: table({
 				name: '',
+				description: '',
 				fields: {
 					id: id(),
 					title: text(),
@@ -41,6 +42,7 @@ describe('createTables', () => {
 		const doc = createTables(ydoc, {
 			posts: table({
 				name: '',
+				description: '',
 				fields: {
 					id: id(),
 					title: text(),
@@ -74,6 +76,7 @@ describe('createTables', () => {
 		const doc = createTables(ydoc, {
 			posts: table({
 				name: '',
+				description: '',
 				fields: {
 					id: id(),
 					title: text(),
@@ -106,6 +109,7 @@ describe('createTables', () => {
 		const doc = createTables(ydoc, {
 			posts: table({
 				name: '',
+				description: '',
 				fields: {
 					id: id(),
 					title: text(),
@@ -132,6 +136,7 @@ describe('createTables', () => {
 		const doc = createTables(ydoc, {
 			posts: table({
 				name: '',
+				description: '',
 				fields: {
 					id: id(),
 					title: richtext(),
@@ -172,6 +177,7 @@ describe('createTables', () => {
 		const doc = createTables(ydoc, {
 			posts: table({
 				name: '',
+				description: '',
 				fields: {
 					id: id(),
 					title: text(),
@@ -200,6 +206,7 @@ describe('createTables', () => {
 			const tables = createTables(ydoc, {
 				posts: table({
 					name: '',
+					description: '',
 					fields: {
 						id: id(),
 						title: text(),
@@ -228,6 +235,7 @@ describe('createTables', () => {
 			const tables = createTables(ydoc, {
 				posts: table({
 					name: '',
+					description: '',
 					fields: {
 						id: id(),
 						title: text(),
@@ -262,6 +270,7 @@ describe('createTables', () => {
 			const tables = createTables(ydoc, {
 				posts: table({
 					name: '',
+					description: '',
 					fields: {
 						id: id(),
 						title: text(),
@@ -291,6 +300,7 @@ describe('createTables', () => {
 			const tables = createTables(ydoc, {
 				posts: table({
 					name: '',
+					description: '',
 					fields: {
 						id: id(),
 						title: text(),
@@ -325,6 +335,7 @@ describe('createTables', () => {
 			const tables = createTables(ydoc, {
 				posts: table({
 					name: '',
+					description: '',
 					fields: {
 						id: id(),
 						count: integer(),
@@ -366,6 +377,7 @@ describe('createTables', () => {
 			const tables = createTables(ydoc, {
 				posts: table({
 					name: '',
+					description: '',
 					fields: {
 						id: id(),
 						title: text(),
@@ -394,6 +406,7 @@ describe('createTables', () => {
 			const tables = createTables(ydoc, {
 				posts: table({
 					name: '',
+					description: '',
 					fields: {
 						id: id(),
 						title: text(),
@@ -431,6 +444,7 @@ describe('createTables', () => {
 			const tables = createTables(ydoc, {
 				posts: table({
 					name: '',
+					description: '',
 					fields: {
 						id: id(),
 						title: text(),
@@ -472,6 +486,7 @@ describe('createTables', () => {
 			const tables = createTables(ydoc, {
 				posts: table({
 					name: '',
+					description: '',
 					fields: {
 						id: id(),
 						title: text(),
@@ -508,6 +523,7 @@ describe('createTables', () => {
 			const tables = createTables(ydoc, {
 				posts: table({
 					name: '',
+					description: '',
 					fields: {
 						id: id(),
 						title: text(),
@@ -545,6 +561,7 @@ describe('createTables', () => {
 			const tables = createTables(ydoc, {
 				posts: table({
 					name: '',
+					description: '',
 					fields: {
 						id: id(),
 						title: text(),
@@ -605,6 +622,7 @@ describe('createTables', () => {
 			const tables = createTables(ydoc, {
 				posts: table({
 					name: '',
+					description: '',
 					fields: {
 						id: id(),
 						title: text(),
@@ -639,6 +657,7 @@ describe('createTables', () => {
 			const tables = createTables(ydoc, {
 				posts: table({
 					name: '',
+					description: '',
 					fields: {
 						id: id(),
 						title: text(),
@@ -646,6 +665,7 @@ describe('createTables', () => {
 				}),
 				comments: table({
 					name: '',
+					description: '',
 					fields: {
 						id: id(),
 						content: text(),
@@ -675,6 +695,7 @@ describe('createTables', () => {
 			const tables = createTables(ydoc, {
 				posts: table({
 					name: '',
+					description: '',
 					fields: {
 						id: id(),
 						title: text(),
@@ -703,6 +724,7 @@ describe('createTables', () => {
 			const tables = createTables(ydoc, {
 				posts: table({
 					name: '',
+					description: '',
 					fields: {
 						id: id(),
 						title: text(),

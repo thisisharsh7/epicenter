@@ -45,12 +45,12 @@ const COLUMN_NAME_PATTERN = regex('^[a-z][a-zA-Z0-9_]*$');
 
 // Re-export types for public API
 export type {
+	GetResult,
+	InvalidRowResult,
+	RowResult,
 	TableHelper,
 	TableRowChange,
-	RowResult,
 	ValidRowResult,
-	InvalidRowResult,
-	GetResult,
 } from './table-helper';
 
 /**
@@ -58,30 +58,32 @@ export type {
  * This is a pure function that doesn't handle persistence - it only wraps
  * the Y.Doc with type-safe table operations.
  *
+ * Accepts `TableDefinitionMap` with fully normalized tables. Use `table()` helper
+ * for ergonomic table definitions—it handles normalization.
+ *
  * ## API Design
  *
  * Tables are accessed directly on the db object. The only non-table property
  * is `clearAll`, which is a mutation action to clear all tables.
  *
  * @param ydoc - An existing Y.Doc instance (already loaded/initialized)
- * @param tableDefinitions - Table definition map (includes metadata and fields)
+ * @param tableDefinitions - Table definitions (use `table()` helper for ergonomic definitions)
  * @returns Object with flattened table helpers and a clearAll mutation
  *
  * @example
  * ```typescript
  * const ydoc = new Y.Doc({ guid: 'workspace-123' });
  * const db = createTables(ydoc, {
- *   posts: {
+ *   posts: table({
  *     name: 'Posts',
- *     icon: null,
- *     cover: null,
- *     description: 'Blog posts',
- *     fields: {
- *       id: id(),
- *       title: text(),
- *       published: boolean(),
- *     },
- *   },
+ *     fields: { id: id(), title: text(), published: boolean() },
+ *   }),
+ *   users: table({
+ *     name: 'Users',
+ *     description: 'User accounts',
+ *     icon: '👤',
+ *     fields: { id: id(), title: text(), published: boolean() },
+ *   }),
  * });
  *
  * // Tables are accessed directly

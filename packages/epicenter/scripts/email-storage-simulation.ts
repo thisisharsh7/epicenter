@@ -15,9 +15,16 @@
 
 import { existsSync, mkdirSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import * as Y from 'yjs';
 import { persistence } from '../src/capabilities/persistence/desktop';
-import { defineWorkspace, generateId, id, integer, text } from '../src/index';
+import {
+	createClient,
+	defineWorkspace,
+	generateId,
+	id,
+	integer,
+	table,
+	text,
+} from '../src/index';
 
 // Configuration
 const EMAIL_COUNT = Number(process.argv[2]) || 10_000;
@@ -177,15 +184,12 @@ console.log('='.repeat(70));
 console.log('');
 
 // Define the email workspace
-const emailWorkspace = defineWorkspace({
+const emailDefinition = defineWorkspace({
 	id: 'emails',
-	name: 'Emails',
 	kv: {},
 	tables: {
-		emails: {
+		emails: table({
 			name: 'Emails',
-			icon: null,
-			cover: null,
 			description: 'Email messages for storage simulation',
 			fields: {
 				id: id(),
@@ -198,14 +202,14 @@ const emailWorkspace = defineWorkspace({
 				starred: integer({ default: 0 }),
 				folder: text({ default: 'inbox' }),
 			},
-		},
+		}),
 	},
 });
 
 // Create the client
 console.log('Creating client...');
 const totalStart = performance.now();
-await using client = await emailWorkspace.create({
+await using client = await createClient(emailDefinition, {
 	capabilities: {
 		persistence: (ctx) =>
 			persistence(ctx, {

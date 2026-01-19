@@ -80,7 +80,6 @@ export type {
 	CellValue,
 	CoverDefinition,
 	DateFieldSchema,
-	DateIsoString,
 	FieldMetadata,
 	FieldOptions,
 	FieldSchema,
@@ -95,6 +94,7 @@ export type {
 	KvDefinition,
 	KvDefinitionMap,
 	KvFieldSchema,
+	KvSchemaMap,
 	KvValue,
 	PartialRow,
 	RealFieldSchema,
@@ -103,6 +103,9 @@ export type {
 	SelectFieldSchema,
 	TableDefinition,
 	TableDefinitionMap,
+	TableInput,
+	TableInputMap,
+	TableSchemaMap,
 	TagsFieldSchema,
 	TextFieldSchema,
 	TimezoneId,
@@ -152,21 +155,19 @@ export type { AbsolutePath, ProjectDir } from './core/types';
 // Workspace normalization helpers
 export {
 	DEFAULT_KV_ICON,
-	DEFAULT_TABLE_ICON,
 	isKvDefinition,
 	isTableDefinition,
+	normalizeIcon,
 	normalizeKv,
-	normalizeTable,
 } from './core/workspace/normalize';
 export type {
 	NormalizedKv,
-	NormalizedTables,
 	Workspace,
 	WorkspaceClient,
 	WorkspaceDefinition,
 	WorkspaceInput,
 } from './core/workspace/workspace';
-export { defineWorkspace } from './core/workspace/workspace';
+export { createClient, defineWorkspace } from './core/workspace/workspace';
 
 // Note: Capabilities (markdown, sqlite) are NOT re-exported here to avoid bundling
 // Node.js-only code in browser builds. Import them directly from subpaths:

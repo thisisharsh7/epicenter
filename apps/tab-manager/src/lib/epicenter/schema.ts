@@ -22,30 +22,26 @@ import {
 export const BROWSER_SCHEMA = {
 	devices: {
 		name: 'Devices',
-		icon: icon.emoji('💻'),
-		cover: null,
 		description: 'Browser installations for multi-device sync',
+		icon: icon.emoji('💻'),
 		fields: DEVICES_SCHEMA,
 	},
 	tabs: {
 		name: 'Tabs',
-		icon: icon.emoji('📑'),
-		cover: null,
 		description: 'Browser tab state',
+		icon: icon.emoji('📑'),
 		fields: TABS_SCHEMA,
 	},
 	windows: {
 		name: 'Windows',
-		icon: icon.emoji('🪟'),
-		cover: null,
 		description: 'Browser window state',
+		icon: icon.emoji('🪟'),
 		fields: WINDOWS_SCHEMA,
 	},
 	tab_groups: {
 		name: 'Tab Groups',
-		icon: icon.emoji('📁'),
-		cover: null,
 		description: 'Chrome tab groups (Chrome 88+)',
+		icon: icon.emoji('📁'),
 		fields: TAB_GROUPS_SCHEMA,
 	},
 } as const;

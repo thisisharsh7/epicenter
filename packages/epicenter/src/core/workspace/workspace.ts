@@ -69,15 +69,15 @@ import type {
 } from '../capability';
 import { createKv, type Kv } from '../kv/core';
 import { defineExports, type Lifecycle, type MaybePromise } from '../lifecycle';
-import type { KvDefinitionMap, TableDefinitionMap } from '../schema';
+
 import type {
-	FieldSchemaMap,
 	KvDefinition,
-	KvFieldSchema,
-	TableDefinition,
+	KvDefinitionMap,
+	KvSchemaMap,
+	TableDefinitionMap,
 } from '../schema/fields/types';
 import { createTables, type Tables } from '../tables/create-tables';
-import { normalizeKv, normalizeTable } from './normalize';
+import { normalizeKv } from './normalize';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public API: Types
@@ -163,107 +163,24 @@ export type WorkspaceDefinition<
 };
 
 /**
- * A workspace object returned by `defineWorkspace()`.
+ * @deprecated Use `WorkspaceDefinition` instead. The `.create()` method has been
+ * extracted to a standalone `createClient()` function.
  *
- * Contains the schema (tables, kv, id) and a `.create()` method
- * to instantiate a runtime client. The `.create()` method uses **sync construction**:
- * it returns immediately with a client, and async initialization is tracked via
- * `client.whenSynced`.
- *
- * @example No capabilities (ephemeral, in-memory)
+ * Migration:
  * ```typescript
- * const client = workspace.create();
- * // Client is usable immediately (in-memory Y.Doc)
- * client.tables.posts.upsert({ id: '1', title: 'Hello' });
+ * // Old API
+ * const workspace = defineWorkspace({ id, tables, kv });
+ * const client = workspace.create({ epoch, capabilities });
+ *
+ * // New API
+ * const definition = defineWorkspace({ id, tables, kv });
+ * const client = createClient(definition, { epoch, capabilities });
  * ```
- *
- * @example With capabilities and render gate
- * ```typescript
- * const client = workspace.create({
- *   capabilities: { sqlite, persistence },
- * });
- *
- * // In Svelte - wait for initialization before rendering children
- * {#await client.whenSynced}
- *   <Loading />
- * {:then}
- *   <App />
- * {/await}
- * ```
- *
- * @example Await when needed
- * ```typescript
- * const client = workspace.create({
- *   capabilities: { sqlite, persistence },
- * });
- *
- * // If you need to ensure persistence loaded before proceeding:
- * await client.whenSynced;
- * const posts = client.tables.posts.getAllValid();
- * ```
- *
- * @see {@link ./node.ts} - For async `create()` that awaits internally (Node.js scripts)
  */
 export type Workspace<
 	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
 	TKvDefinitionMap extends KvDefinitionMap = KvDefinitionMap,
-> = WorkspaceDefinition<TTableDefinitionMap, TKvDefinitionMap> & {
-	/**
-	 * Create a workspace client (sync construction).
-	 *
-	 * Returns immediately with a client object. Capabilities are initialized
-	 * in the background; use `client.whenSynced` to await full initialization.
-	 *
-	 * @param options - Optional object with epoch and capabilities.
-	 *   - `epoch`: Workspace Doc version (defaults to 0). Get from Head Doc for multi-user sync.
-	 *   - `capabilities`: Capability factories that add functionality like persistence, sync, or SQL queries.
-	 *     Each capability receives context and can return exports accessible via `client.capabilities.{name}`.
-	 *
-	 * @example No options (ephemeral, in-memory, epoch 0)
-	 * ```typescript
-	 * const client = workspace.create();
-	 * await client.whenSynced; // Optional: wait for initialization
-	 * ```
-	 *
-	 * @example With capabilities and render gate
-	 * ```typescript
-	 * const client = workspace.create({
-	 *   capabilities: { sqlite, persistence },
-	 * });
-	 *
-	 * // In UI (e.g., Svelte)
-	 * {#await client.whenSynced}
-	 *   <Loading />
-	 * {:then}
-	 *   <App />
-	 * {/await}
-	 * ```
-	 *
-	 * @example With epoch from Head Doc
-	 * ```typescript
-	 * const head = createHeadDoc({ workspaceId: workspace.id });
-	 * const epoch = head.getEpoch();
-	 * const client = workspace.create({
-	 *   epoch,
-	 *   capabilities: { sqlite, persistence },
-	 * });
-	 * await client.whenSynced;
-	 * ```
-	 */
-	create<
-		TCapabilityFactories extends CapabilityFactoryMap<
-			TTableDefinitionMap,
-			TKvDefinitionMap
-		> = {},
-	>(options?: {
-		epoch?: number;
-		capabilities?: TCapabilityFactories;
-	}): WorkspaceClient<
-		TTableDefinitionMap,
-		TKvDefinitionMap,
-		InferCapabilityExports<TCapabilityFactories>
-	>;
-};
+> = WorkspaceDefinition<TTableDefinitionMap, TKvDefinitionMap>;
 
 /**
  * A fully initialized workspace client.
@@ -366,107 +283,52 @@ export type WorkspaceClient<
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Flexible input type for `defineWorkspace()`.
+ * Input type for `defineWorkspace()`.
  *
- * This is what you **write**. It accepts either:
- * - **Minimal**: just field schemas for tables/kv (metadata auto-generated)
- * - **Full**: complete TableDefinition/KvDefinition with all metadata
+ * Tables must be `TableDefinition` objects. Use the `table()` helper for ergonomic
+ * table definitions—it requires `name` and `fields`, with optional `description` and `icon`.
  *
  * After normalization, this becomes a `WorkspaceDefinition` (the canonical form).
- *
- * @example Minimal input (auto-generates name, icons, descriptions)
- * ```typescript
- * defineWorkspace({
- *   id: 'epicenter.blog',
- *   tables: {
- *     posts: { id: id(), title: text() },  // Just fields
- *   },
- *   kv: {},
- * });
- * // Result: name='Epicenter blog', tables.posts.name='Posts', etc.
- * ```
- *
- * @example Full input (explicit metadata)
- * ```typescript
- * defineWorkspace({
- *   id: 'epicenter.blog',
- *   name: 'My Blog',
- *   tables: {
- *     posts: {
- *       name: 'Blog Posts',
- *       icon: { type: 'emoji', value: '📝' },
- *       cover: null,
- *       description: 'All blog posts',
- *       fields: { id: id(), title: text() },
- *     },
- *   },
- *   kv: {},
- * });
- * ```
- */
-export type WorkspaceInput<
-	TTables extends Record<string, FieldSchemaMap | TableDefinition> = Record<
-		string,
-		FieldSchemaMap | TableDefinition
-	>,
-	TKv extends Record<string, KvFieldSchema | KvDefinition> = Record<
-		string,
-		KvFieldSchema | KvDefinition
-	>,
-> = {
-	/** Workspace identifier (e.g., "epicenter.blog") */
-	id: string;
-	/** Display name. If omitted, derived from id via humanization. */
-	name?: string;
-	/** Tables: either full TableDefinitions or just field schemas */
-	tables: TTables;
-	/** KV entries: either full KvDefinitions or just field schemas */
-	kv: TKv;
-};
-
-/**
- * Extract the fields type from a table input (handles both full and minimal).
- */
-type ExtractTableFields<T> =
-	T extends TableDefinition<infer TFields>
-		? TFields
-		: T extends FieldSchemaMap
-			? T
-			: never;
-
-/**
- * Extract the field type from a KV input (handles both full and minimal).
- */
-type ExtractKvField<T> =
-	T extends KvDefinition<infer TField>
-		? TField
-		: T extends KvFieldSchema
-			? T
-			: never;
-
-/**
- * Type-level normalization for tables.
- *
- * Converts a map of table inputs (which may be minimal or full) into a map
- * of `TableDefinition`. This ensures the output type is always the canonical form.
+ * The only normalization performed is:
+ * - Workspace `name` derived from `id` via humanization
+ * - KV metadata auto-generated from keys
  *
  * @example
  * ```typescript
- * // Input: { posts: { id: id(), title: text() } }
- * // NormalizedTables<...> = { posts: TableDefinition<{ id: ..., title: ... }> }
+ * const definition = defineWorkspace({
+ *   id: 'epicenter.blog',
+ *   tables: {
+ *     posts: table({
+ *       name: 'Posts',
+ *       description: 'Blog posts and articles',
+ *       icon: '📝',
+ *       fields: { id: id(), title: text(), published: boolean({ default: false }) },
+ *     }),
+ *   },
+ *   kv: {
+ *     theme: select({ options: ['light', 'dark'] as const, default: 'light' }),
+ *   },
+ * });
+ * // definition.name === 'Epicenter blog' (derived from id)
  * ```
  */
-export type NormalizedTables<
-	TTables extends Record<string, FieldSchemaMap | TableDefinition>,
+export type WorkspaceInput<
+	TTables extends TableDefinitionMap = TableDefinitionMap,
+	TKv extends KvSchemaMap = KvSchemaMap,
 > = {
-	[K in keyof TTables]: TableDefinition<ExtractTableFields<TTables[K]>>;
+	/** Workspace identifier (e.g., "epicenter.blog"). Name is derived from this. */
+	id: string;
+	/** Tables created with `table()` helper. Each table requires name and fields. */
+	tables: TTables;
+	/** KV entries as field schemas. Metadata is auto-generated. */
+	kv: TKv;
 };
 
 /**
  * Type-level normalization for KV entries.
  *
- * Converts a map of KV inputs (which may be minimal or full) into a map
- * of `KvDefinition`. This ensures the output type is always the canonical form.
+ * Converts a map of KV field schemas into a map of `KvDefinition`.
+ * This ensures the output type is always the canonical form.
  *
  * @example
  * ```typescript
@@ -474,50 +336,33 @@ export type NormalizedTables<
  * // NormalizedKv<...> = { theme: KvDefinition<SelectFieldSchema<...>> }
  * ```
  */
-export type NormalizedKv<
-	TKv extends Record<string, KvFieldSchema | KvDefinition>,
-> = {
-	[K in keyof TKv]: KvDefinition<ExtractKvField<TKv[K]>>;
+export type NormalizedKv<TKv extends KvSchemaMap> = {
+	[K in keyof TKv]: KvDefinition<TKv[K]>;
 };
 
 /**
  * Normalize a workspace input to a full WorkspaceDefinition.
  *
- * Handles mixed input where:
- * - Tables can be full definitions or just field schemas
- * - KV entries can be full definitions or just field schemas
- * - Name is derived from id if not provided
+ * Tables are passed through unchanged (they're already `TableDefinition`).
+ * - Workspace name is derived from id via humanization
+ * - KV metadata is auto-generated from keys
  */
 function normalizeWorkspaceInput<
-	TTables extends Record<string, FieldSchemaMap | TableDefinition>,
-	TKv extends Record<string, KvFieldSchema | KvDefinition>,
+	TTables extends TableDefinitionMap,
+	TKv extends KvSchemaMap,
 >(
 	input: WorkspaceInput<TTables, TKv>,
-): WorkspaceDefinition<NormalizedTables<TTables>, NormalizedKv<TKv>> {
-	// Normalize all tables
-	// TableDefinition has 'fields', FieldSchemaMap doesn't
-	const tables = {} as NormalizedTables<TTables>;
-	for (const [key, value] of Object.entries(input.tables)) {
-		(tables as Record<string, TableDefinition>)[key] =
-			'fields' in value
-				? (value as TableDefinition)
-				: normalizeTable(key, value as FieldSchemaMap);
-	}
-
-	// Normalize all KV entries
-	// KvDefinition has 'field', KvFieldSchema doesn't
+): WorkspaceDefinition<TTables, NormalizedKv<TKv>> {
+	// Normalize all KV entries (field schemas → full definitions)
 	const kv = {} as NormalizedKv<TKv>;
-	for (const [key, value] of Object.entries(input.kv)) {
-		(kv as Record<string, KvDefinition>)[key] =
-			'field' in value
-				? (value as KvDefinition)
-				: normalizeKv(key, value as KvFieldSchema);
+	for (const [key, field] of Object.entries(input.kv)) {
+		(kv as Record<string, KvDefinition>)[key] = normalizeKv(key, field);
 	}
 
 	return {
 		id: input.id,
-		name: input.name ?? humanizeString(input.id),
-		tables,
+		name: humanizeString(input.id),
+		tables: input.tables,
 		kv,
 	};
 }
@@ -525,267 +370,251 @@ function normalizeWorkspaceInput<
 /**
  * Define a collaborative workspace with YJS-first architecture.
  *
- * A workspace is a self-contained domain module with tables and capabilities.
- * This function returns a **static definition** with a `.create()` method to
- * instantiate **runtime clients**.
+ * Takes table definitions (via `table()` helper) and returns a complete
+ * `WorkspaceDefinition`.
  *
- * Accepts a `WorkspaceInput` which can be either:
- * - **Minimal**: just id + field schemas (metadata auto-generated)
- * - **Full**: complete with name, icons, descriptions
+ * This is a **pure normalization** function. It performs no I/O and returns
+ * a JSON-serializable definition. To create a runtime client, pass the
+ * definition to `createClient()`.
  *
- * When using minimal input, defaults are applied:
- * - `name`: humanized from ID (e.g., "epicenter.blog" → "Epicenter blog")
- * - Table `name`: humanized from key (e.g., "blogPosts" → "Blog posts")
- * - Table `icon`: default emoji 📄
- * - Table `description`: empty string
+ * **Normalization performed:**
+ * - Workspace `name`: humanized from ID (e.g., "epicenter.blog" → "Epicenter blog")
+ * - KV metadata: auto-generated from keys
  *
- * @example Minimal input (developer ergonomics)
+ * **Tables are passed through unchanged** — use `table()` helper which handles
+ * normalization (requires `name` and `fields`, optional `description` and `icon`).
+ *
+ * @example Define and create client
  * ```typescript
- * const workspace = defineWorkspace({
+ * // Step 1: Define workspace
+ * const definition = defineWorkspace({
  *   id: 'epicenter.blog',
  *   tables: {
- *     posts: { id: id(), title: text(), published: boolean({ default: false }) },
+ *     posts: table({
+ *       name: 'Posts',
+ *       description: 'Blog posts and articles',
+ *       icon: '📝',
+ *       fields: { id: id(), title: text(), published: boolean({ default: false }) },
+ *     }),
  *   },
- *   kv: {},
+ *   kv: {
+ *     theme: select({ options: ['light', 'dark'] as const, default: 'light' }),
+ *   },
  * });
- * // workspace.name === 'Epicenter blog'
- * // workspace.tables.posts.name === 'Posts'
+ * // definition.name === 'Epicenter blog'
+ *
+ * // Step 2: Create client (runtime)
+ * const client = createClient(definition, {
+ *   capabilities: { sqlite, persistence },
+ * });
+ * await client.whenSynced;
  * ```
  *
- * @example Full input (explicit metadata)
- * ```typescript
- * const workspace = defineWorkspace({
- *   id: 'epicenter.blog',
- *   name: 'My Blog',
- *   tables: {
- *     posts: {
- *       name: 'Blog Posts',
- *       icon: { type: 'emoji', value: '📝' },
- *       cover: null,
- *       description: 'All blog posts',
- *       fields: { id: id(), title: text() },
- *     },
- *   },
- *   kv: {},
- * });
- * ```
- *
- * @param input - Workspace input (minimal or full)
- * @returns A Workspace definition with a `.create()` method
+ * @param input - Workspace input with table definitions
+ * @returns A WorkspaceDefinition (JSON-serializable)
  */
 export function defineWorkspace<
-	const TTables extends Record<string, FieldSchemaMap | TableDefinition>,
-	const TKv extends Record<string, KvFieldSchema | KvDefinition> = Record<
-		string,
-		never
-	>,
+	const TTables extends TableDefinitionMap,
+	const TKv extends KvSchemaMap = Record<string, never>,
 >(
 	input: WorkspaceInput<TTables, TKv>,
-): Workspace<NormalizedTables<TTables>, NormalizedKv<TKv>> {
+): WorkspaceDefinition<TTables, NormalizedKv<TKv>> {
 	if (!input.id || typeof input.id !== 'string') {
 		throw new Error('Workspace must have a valid ID');
 	}
 
 	// Normalize the input to a full definition
-	const normalized = normalizeWorkspaceInput(input);
+	return normalizeWorkspaceInput(input);
+}
+
+/**
+ * Create a runtime client from a workspace definition (sync construction).
+ *
+ * Returns immediately with a usable client. Capabilities are initialized
+ * in the background; use `client.whenSynced` to await full initialization.
+ *
+ * ## Two-Phase Initialization
+ *
+ * 1. `defineWorkspace()` creates a static definition (schema + metadata)
+ * 2. `createClient()` creates a runtime client (Y.Doc + helpers + capabilities)
+ *
+ * ## What happens during creation
+ *
+ * 1. **Y.Doc created** — A new YJS document with GUID `{id}-{epoch}`.
+ *    The epoch creates isolated document namespaces for versioning/sync.
+ *
+ * 2. **Helpers created** — Typed `tables` and `kv` helpers are bound to
+ *    the Y.Doc for CRUD operations.
+ *
+ * 3. **Capabilities started** — Factory functions run in parallel (without blocking).
+ *    Their exports become available on `client.capabilities` after `whenSynced`.
+ *
+ * ## Important behaviors
+ *
+ * - **Sync construction**: The client is returned immediately. Use
+ *   `client.whenSynced` as a render gate in UI frameworks.
+ *
+ * - **No automatic persistence**: Data lives only in memory unless you
+ *   provide a persistence capability.
+ *
+ * - **No automatic sync**: The client is isolated unless you provide
+ *   a sync capability (e.g., WebSocket provider).
+ *
+ * - **Multiple clients are independent**: Calling `createClient()` twice
+ *   returns two separate Y.Docs and clients. They don't share state
+ *   unless connected via sync capabilities.
+ *
+ * @param definition - A WorkspaceDefinition from `defineWorkspace()` or loaded from JSON
+ * @param options - Optional configuration
+ * @param options.epoch - Workspace Doc version (defaults to 0). The Y.Doc GUID
+ *   is `{workspaceId}-{epoch}`. Change this intentionally to create a
+ *   separate document namespace (e.g., for migrations or sync isolation).
+ * @param options.capabilities - Factory functions that add features like
+ *   persistence, sync, or SQL queries.
+ *
+ * @example Sync construction with render gate
+ * ```typescript
+ * const definition = defineWorkspace({ id: 'blog', tables: {...}, kv: {} });
+ * const client = createClient(definition, {
+ *   capabilities: { sqlite, persistence },
+ * });
+ *
+ * // In Svelte
+ * {#await client.whenSynced}
+ *   <Loading />
+ * {:then}
+ *   <App />
+ * {/await}
+ * ```
+ *
+ * @example With epoch from Head Doc
+ * ```typescript
+ * const head = createHeadDoc({ workspaceId: definition.id });
+ * const epoch = head.getEpoch();
+ * const client = createClient(definition, {
+ *   epoch,
+ *   capabilities: { sqlite, persistence },
+ * });
+ * await client.whenSynced;
+ * ```
+ *
+ * @example Loading definition from JSON
+ * ```typescript
+ * const definition = JSON.parse(await readFile('workspace.json', 'utf-8'));
+ * const client = createClient(definition, { capabilities });
+ * await client.whenSynced;
+ * ```
+ */
+export function createClient<
+	TTableDefinitionMap extends TableDefinitionMap,
+	TKvDefinitionMap extends KvDefinitionMap,
+	TCapabilityFactories extends CapabilityFactoryMap<
+		TTableDefinitionMap,
+		TKvDefinitionMap
+	> = Record<string, never>,
+>(
+	definition: WorkspaceDefinition<TTableDefinitionMap, TKvDefinitionMap>,
+	{
+		epoch = 0,
+		capabilities: capabilityFactories = {} as TCapabilityFactories,
+	}: {
+		epoch?: number;
+		capabilities?: TCapabilityFactories;
+	} = {},
+): WorkspaceClient<
+	TTableDefinitionMap,
+	TKvDefinitionMap,
+	InferCapabilityExports<TCapabilityFactories>
+> {
+	// Create Workspace Y.Doc with deterministic GUID
+	// gc: false is required for revision history snapshots to work
+	const docId = `${definition.id}-${epoch}` as const;
+	const ydoc = new Y.Doc({ guid: docId, gc: false });
+
+	// Y.Doc contains DATA ONLY (table rows, kv values)
+	// Definition/metadata is static and comes from the definition
+
+	// Create table and kv helpers bound to the Y.Doc
+	const tables = createTables(ydoc, definition.tables);
+	const kv = createKv(ydoc, definition.kv);
+
+	// Initialize capability exports object and tracking arrays
+	const capabilities = {} as InferCapabilityExports<TCapabilityFactories>;
+	const initPromises: Promise<void>[] = [];
+
+	// Pre-seed capabilities with placeholder lifecycle so runtime matches type shape.
+	// Also create destroy functions that reference current exports (handles late binding).
+	const destroyFns: Array<() => MaybePromise<void>> = [];
+	for (const capabilityId of Object.keys(capabilityFactories)) {
+		(capabilities as Record<string, unknown>)[capabilityId] = defineExports();
+		destroyFns.push(() =>
+			// Non-null assertion safe: we just set this key above
+			(capabilities as Record<string, Lifecycle>)[capabilityId]!.destroy(),
+		);
+	}
+
+	// Start capability factories (without awaiting)
+	for (const [capabilityId, capabilityFactory] of Object.entries(
+		capabilityFactories,
+	)) {
+		initPromises.push(
+			Promise.resolve(
+				capabilityFactory({
+					id: definition.id,
+					capabilityId,
+					ydoc,
+					tables,
+					kv,
+				}),
+			).then((result) => {
+				// Always normalize at boundary - handles void, plain objects, and full lifecycle
+				const exports = defineExports(
+					result as Record<string, unknown> | undefined,
+				);
+				(capabilities as Record<string, unknown>)[capabilityId] = exports;
+			}),
+		);
+	}
+
+	// Use allSettled so init failures don't block destroy
+	const whenCapabilitiesInitializedSettled = Promise.allSettled(
+		initPromises,
+	).then(() => {});
+
+	// whenSynced is fail-fast (any rejection rejects the whole thing)
+	// This is intentional - UI render gates should show error state
+	const whenSynced = whenCapabilitiesInitializedSettled
+		.then(() =>
+			Promise.all(
+				Object.values(capabilities).map((c) => (c as Lifecycle).whenSynced),
+			),
+		)
+		.then(() => {});
+
+	const destroy = async () => {
+		// Wait for init to settle (not complete) - never block on init failures
+		await whenCapabilitiesInitializedSettled;
+
+		try {
+			// Use allSettled so one destroy failure doesn't block others
+			await Promise.allSettled(destroyFns.map((fn) => fn()));
+		} finally {
+			// Always release doc resources
+			ydoc.destroy();
+		}
+	};
 
 	return {
-		...normalized,
-
-		/**
-		 * Create a runtime client for this workspace (sync construction).
-		 *
-		 * Returns immediately with a usable client. Capabilities are initialized
-		 * in the background; use `client.whenSynced` to await full initialization.
-		 *
-		 * This is the second phase of the two-phase initialization:
-		 * 1. `defineWorkspace()` creates a static definition (schema + metadata)
-		 * 2. `.create()` creates a runtime client (Y.Doc + helpers + capabilities)
-		 *
-		 * ## What happens during creation
-		 *
-		 * 1. **Y.Doc created** — A new YJS document with GUID `{id}-{epoch}`.
-		 *    The epoch creates isolated document namespaces for versioning/sync.
-		 *
-		 * 2. **Definition merged** — Workspace definition (name, tables, kv) is
-		 *    merged into the doc's definition map. New values are added, changed
-		 *    values are updated, identical values are untouched. Safe to call repeatedly.
-		 *
-		 * 3. **Helpers created** — Typed `tables` and `kv` helpers are bound to
-		 *    the Y.Doc for CRUD operations.
-		 *
-		 * 4. **Capabilities started** — Factory functions run in parallel (without blocking).
-		 *    Their exports become available on `client.capabilities` after `whenSynced`.
-		 *
-		 * ## Important behaviors
-		 *
-		 * - **Sync construction**: The client is returned immediately. Use
-		 *   `client.whenSynced` as a render gate in UI frameworks.
-		 *
-		 * - **No automatic persistence**: Data lives only in memory unless you
-		 *   provide a persistence capability.
-		 *
-		 * - **No automatic sync**: The client is isolated unless you provide
-		 *   a sync capability (e.g., WebSocket provider).
-		 *
-		 * - **Multiple clients are independent**: Calling `.create()` twice
-		 *   returns two separate Y.Docs and clients. They don't share state
-		 *   unless connected via sync capabilities.
-		 *
-		 * - **Capabilities run in parallel**: Don't rely on execution order
-		 *   between capabilities. Each should be independent.
-		 *
-		 * @param options - Optional configuration
-		 * @param options.epoch - Workspace Doc version (defaults to 0). The Y.Doc GUID
-		 *   is `{workspaceId}-{epoch}`. Change this intentionally to create a
-		 *   separate document namespace (e.g., for migrations or sync isolation).
-		 *   Get from Head Doc for multi-user sync scenarios.
-		 * @param options.capabilities - Factory functions that add features like
-		 *   persistence, sync, or SQL queries. Each factory receives context and
-		 *   can return exports accessible via `client.capabilities.{name}`.
-		 *
-		 * @example Sync construction with render gate
-		 * ```typescript
-		 * const client = workspace.create({
-		 *   capabilities: { sqlite, persistence },
-		 * });
-		 *
-		 * // In Svelte
-		 * {#await client.whenSynced}
-		 *   <Loading />
-		 * {:then}
-		 *   <App />
-		 * {/await}
-		 * ```
-		 *
-		 * @example With epoch from Head Doc (multi-user sync)
-		 * ```typescript
-		 * const head = createHeadDoc({ workspaceId: workspace.id });
-		 * const epoch = head.getEpoch();
-		 * const client = workspace.create({
-		 *   epoch,
-		 *   capabilities: { sqlite, persistence, sync },
-		 * });
-		 * await client.whenSynced;
-		 * ```
-		 *
-		 * @example Automatic cleanup with `await using`
-		 * ```typescript
-		 * {
-		 *   await using client = workspace.create();
-		 *   await client.whenSynced;
-		 *   client.tables.posts.upsert({ id: '1', title: 'Hello' });
-		 * } // Automatically cleaned up here
-		 * ```
-		 */
-		create<
-			TCapabilityFactories extends CapabilityFactoryMap<
-				NormalizedTables<TTables>,
-				NormalizedKv<TKv>
-			> = {},
-		>({
-			epoch = 0,
-			capabilities: capabilityFactories = {} as TCapabilityFactories,
-		}: {
-			epoch?: number;
-			capabilities?: TCapabilityFactories;
-		} = {}): WorkspaceClient<
-			NormalizedTables<TTables>,
-			NormalizedKv<TKv>,
-			InferCapabilityExports<TCapabilityFactories>
-		> {
-			// Create Workspace Y.Doc with deterministic GUID
-			// gc: false is required for revision history snapshots to work
-			const docId = `${normalized.id}-${epoch}` as const;
-			const ydoc = new Y.Doc({ guid: docId, gc: false });
-
-			// Y.Doc contains DATA ONLY (table rows, kv values)
-			// Definition/metadata is static and comes from the normalized config
-
-			// Create table and kv helpers bound to the Y.Doc
-			const tables = createTables(ydoc, normalized.tables);
-			const kv = createKv(ydoc, normalized.kv);
-
-			// Initialize capability exports object and tracking arrays
-			const capabilities = {} as InferCapabilityExports<TCapabilityFactories>;
-			const initPromises: Promise<void>[] = [];
-
-			// Pre-seed capabilities with placeholder lifecycle so runtime matches type shape.
-			// Also create destroy functions that reference current exports (handles late binding).
-			const destroyFns: Array<() => MaybePromise<void>> = [];
-			for (const capabilityId of Object.keys(capabilityFactories)) {
-				(capabilities as Record<string, unknown>)[capabilityId] =
-					defineExports();
-				destroyFns.push(() =>
-					// Non-null assertion safe: we just set this key above
-					(capabilities as Record<string, Lifecycle>)[capabilityId]!.destroy(),
-				);
-			}
-
-			// Start capability factories (without awaiting)
-			for (const [capabilityId, capabilityFactory] of Object.entries(
-				capabilityFactories,
-			)) {
-				initPromises.push(
-					Promise.resolve(
-						capabilityFactory({
-							id: normalized.id,
-							capabilityId,
-							ydoc,
-							tables,
-							kv,
-						}),
-					).then((result) => {
-						// Always normalize at boundary - handles void, plain objects, and full lifecycle
-						const exports = defineExports(
-							result as Record<string, unknown> | undefined,
-						);
-						(capabilities as Record<string, unknown>)[capabilityId] = exports;
-					}),
-				);
-			}
-
-			// Use allSettled so init failures don't block destroy
-			const whenCapabilitiesInitializedSettled = Promise.allSettled(
-				initPromises,
-			).then(() => {});
-
-			// whenSynced is fail-fast (any rejection rejects the whole thing)
-			// This is intentional - UI render gates should show error state
-			const whenSynced = whenCapabilitiesInitializedSettled
-				.then(() =>
-					Promise.all(
-						Object.values(capabilities).map((c) => (c as Lifecycle).whenSynced),
-					),
-				)
-				.then(() => {});
-
-			const destroy = async () => {
-				// Wait for init to settle (not complete) - never block on init failures
-				await whenCapabilitiesInitializedSettled;
-
-				try {
-					// Use allSettled so one destroy failure doesn't block others
-					await Promise.allSettled(destroyFns.map((fn) => fn()));
-				} finally {
-					// Always release doc resources
-					ydoc.destroy();
-				}
-			};
-
-			return {
-				id: normalized.id,
-				// Name comes from static definition, not Y.Doc
-				name: normalized.name,
-				ydoc,
-				tables,
-				kv,
-				capabilities,
-				whenSynced,
-				destroy,
-				[Symbol.asyncDispose]: destroy,
-			};
-		},
+		id: definition.id,
+		// Name comes from static definition, not Y.Doc
+		name: definition.name,
+		ydoc,
+		tables,
+		kv,
+		capabilities,
+		whenSynced,
+		destroy,
+		[Symbol.asyncDispose]: destroy,
 	};
 }
 

@@ -10,19 +10,17 @@ export { defineCapabilities } from '../capability';
 // Normalization helpers (for external use if needed)
 export {
 	DEFAULT_KV_ICON,
-	DEFAULT_TABLE_ICON,
 	isKvDefinition,
 	isTableDefinition,
+	normalizeIcon,
 	normalizeKv,
-	normalizeTable,
 } from './normalize';
 
 export type {
 	NormalizedKv,
-	NormalizedTables,
 	Workspace,
 	WorkspaceClient,
 	WorkspaceDefinition,
 	WorkspaceInput,
 } from './workspace';
-export { defineWorkspace } from './workspace';
+export { createClient, defineWorkspace } from './workspace';

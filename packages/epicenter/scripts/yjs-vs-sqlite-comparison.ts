@@ -13,7 +13,15 @@ import { Database } from 'bun:sqlite';
 import { existsSync, mkdirSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { persistence } from '../src/capabilities/persistence/desktop';
-import { defineWorkspace, generateId, id, integer, text } from '../src/index';
+import {
+	createClient,
+	defineWorkspace,
+	generateId,
+	id,
+	integer,
+	table,
+	text,
+} from '../src/index';
 
 const EMAIL_COUNT = Number(process.argv[2]) || 100_000;
 const BATCH_SIZE = 1_000;
@@ -152,16 +160,13 @@ console.log('');
 console.log('--- YJS Test ---');
 const yjsStart = performance.now();
 
-const emailWorkspace = defineWorkspace({
+const emailDefinition = defineWorkspace({
 	id: 'emails-compare',
-	name: 'Comparison Emails',
 	kv: {},
 	tables: {
-		emails: {
+		emails: table({
 			name: 'Emails',
-			icon: null,
-			cover: null,
-			description: 'Email messages for YJS vs SQLite comparison',
+			description: 'Email messages for comparison test',
 			fields: {
 				id: id(),
 				sender: text(),
@@ -173,11 +178,11 @@ const emailWorkspace = defineWorkspace({
 				starred: integer({ default: 0 }),
 				folder: text({ default: 'inbox' }),
 			},
-		},
+		}),
 	},
 });
 
-await using client = await emailWorkspace.create({
+await using client = await createClient(emailDefinition, {
 	capabilities: {
 		persistence: (ctx) =>
 			persistence(ctx, {

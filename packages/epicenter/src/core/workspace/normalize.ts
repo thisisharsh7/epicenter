@@ -1,12 +1,14 @@
 /**
- * Table and KV normalization utilities.
+ * KV normalization utilities.
  *
  * This module provides:
- * - Type guards for detecting full definitions vs minimal inputs
- * - Atomic normalizers for tables and KV entries
+ * - Icon normalization (string → IconDefinition)
+ * - KV entry normalization
+ * - Type guards for KV definitions
  * - Default icon constants
  *
- * The workspace-level normalization is handled by `defineWorkspace()` in workspace.ts.
+ * Note: Table normalization has been removed. Tables now require explicit metadata
+ * via the `table()` helper, which returns a fully normalized `TableDefinition`.
  *
  * @module
  */
@@ -25,14 +27,6 @@ import type {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Default icon for tables when using minimal input.
- */
-export const DEFAULT_TABLE_ICON = {
-	type: 'emoji',
-	value: '📄',
-} as const satisfies IconDefinition;
-
-/**
  * Default icon for KV entries when using minimal input.
  */
 export const DEFAULT_KV_ICON = {
@@ -41,21 +35,49 @@ export const DEFAULT_KV_ICON = {
 } as const satisfies IconDefinition;
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Icon Normalization
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Normalize icon input to canonical IconDefinition | null.
+ *
+ * - string → `{ type: 'emoji', value: string }`
+ * - undefined → null
+ * - null → null
+ * - IconDefinition → unchanged
+ *
+ * @example
+ * ```typescript
+ * normalizeIcon('📝');           // { type: 'emoji', value: '📝' }
+ * normalizeIcon({ type: 'emoji', value: '📝' }); // unchanged
+ * normalizeIcon(undefined);      // null
+ * normalizeIcon(null);           // null
+ * ```
+ */
+export function normalizeIcon(
+	icon: string | IconDefinition | null | undefined,
+): IconDefinition | null {
+	if (icon === undefined || icon === null) return null;
+	if (typeof icon === 'string') return { type: 'emoji', value: icon };
+	return icon;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Type Guards
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Check if a table value is a full TableDefinition (has metadata).
+ * Check if a value is a TableDefinition.
  *
  * Detection: TableDefinition has `fields` and `name` properties.
  *
  * @example
  * ```typescript
- * const table = { id: id(), title: text() };
- * isTableDefinition(table); // false
- *
- * const tableDef = { name: 'Posts', icon: null, cover: null, description: '', fields: { id: id() } };
+ * const tableDef = table({ name: 'Posts', fields: { id: id() } });
  * isTableDefinition(tableDef); // true
+ *
+ * const notTable = { id: id(), title: text() };
+ * isTableDefinition(notTable); // false
  * ```
  */
 export function isTableDefinition(
@@ -97,43 +119,6 @@ export function isKvDefinition(
 // ─────────────────────────────────────────────────────────────────────────────
 // Normalization Functions
 // ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Normalize a table input to a full table definition.
- *
- * Accepts either:
- * - Minimal input (just fields) → adds default metadata
- * - Full definition → passes through unchanged
- *
- * @param key - The table key (used for humanized name if minimal)
- * @param input - Either minimal input (fields only) or full definition
- * @returns Full TableDefinition with all metadata
- *
- * @example
- * ```typescript
- * const input = { id: id(), title: text() };
- * const def = normalizeTable('blogPosts', input);
- * // def.name === 'Blog posts'
- * // def.icon === { type: 'emoji', value: '📄' }
- * // def.fields === { id: id(), title: text() }
- * ```
- */
-export function normalizeTable<TFields extends FieldSchemaMap>(
-	key: string,
-	input: TFields | TableDefinition<TFields>,
-): TableDefinition<TFields> {
-	if (isTableDefinition(input)) {
-		return input as TableDefinition<TFields>;
-	}
-
-	return {
-		name: humanizeString(key),
-		icon: DEFAULT_TABLE_ICON,
-		cover: null,
-		description: '',
-		fields: input,
-	};
-}
 
 /**
  * Normalize a KV input to a full KV definition.

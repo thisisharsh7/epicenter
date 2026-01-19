@@ -1,4 +1,4 @@
-import { defineWorkspace, type WorkspaceDefinition } from '@epicenter/hq';
+import { createClient, type WorkspaceDefinition } from '@epicenter/hq';
 import type * as Y from 'yjs';
 import { persistYDocAsJson } from '$lib/providers/tauri-json-persistence';
 import { persistYDoc } from '$lib/providers/tauri-persistence';
@@ -11,8 +11,8 @@ import { persistYDoc } from '$lib/providers/tauri-persistence';
  * 2. Head Doc → stores the current epoch for a workspace
  * 3. Workspace Doc → the actual definition and data (this function)
  *
- * Combines `defineWorkspace()` and `.create()` into a single call with
- * standardized capabilities. The workspace ID comes from `definition.id`.
+ * This is a thin wrapper around `createClient()` that pre-configures
+ * persistence capabilities. The workspace ID comes from `definition.id`.
  *
  * Persisted to `{appLocalDataDir}/workspaces/{workspaceId}/{epoch}.yjs`.
  *
@@ -39,8 +39,7 @@ export function createWorkspaceClient(
 	definition: WorkspaceDefinition,
 	epoch: number,
 ) {
-	const workspace = defineWorkspace(definition);
-	return workspace.create({
+	return createClient(definition, {
 		epoch,
 		capabilities: {
 			persistence: (ctx: { ydoc: Y.Doc }) =>

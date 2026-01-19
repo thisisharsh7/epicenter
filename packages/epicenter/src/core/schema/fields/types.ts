@@ -33,7 +33,7 @@
  * - `helpers.ts` - isNullableFieldSchema helper
  */
 
-import type { TSchema, Static } from 'typebox';
+import type { Static, TSchema } from 'typebox';
 import type { DateTimeString } from './datetime';
 
 // ============================================================================
@@ -375,15 +375,14 @@ export type FieldSchemaMap = { id: IdFieldSchema } & Record<
 
 /**
  * Table definition with metadata for UI display.
- * Use this type for the full table definition including metadata.
+ * This is the **normalized** output type after `defineWorkspace()` processes input.
  *
  * @example
  * ```typescript
  * const postsTable: TableDefinition = {
  *   name: 'Posts',
- *   icon: { type: 'emoji', value: '📝' },
- *   cover: null,
  *   description: 'Blog posts and articles',
+ *   icon: { type: 'emoji', value: '📝' },
  *   fields: {
  *     id: id(),
  *     title: text(),
@@ -393,38 +392,64 @@ export type FieldSchemaMap = { id: IdFieldSchema } & Record<
  * ```
  */
 export type TableDefinition<TFields extends FieldSchemaMap = FieldSchemaMap> = {
-	/** Display name shown in UI (e.g., "Blog Posts") */
+	/** Required display name shown in UI (e.g., "Blog Posts") */
 	name: string;
-	/** Icon for the table - emoji or external image URL */
-	icon: IconDefinition | null;
-	/** Cover image for the table banner */
-	cover: CoverDefinition | null;
-	/** Description shown in tooltips/docs */
+	/** Required description shown in tooltips/docs */
 	description: string;
-	/** The field schemas for this table */
+	/** Icon for the table - normalized to IconDefinition | null */
+	icon: IconDefinition | null;
+	/** Field schema map for this table */
 	fields: TFields;
 };
 
 /**
  * Map of table names to their full definitions (metadata + fields).
  *
- * This is the required format for `defineWorkspace().tables` and the type
- * that flows through the entire system (capabilities, table helpers, etc.).
+ * This is the normalized format that flows through the entire system
+ * (capabilities, table helpers, etc.). It's what `defineWorkspace()` returns
+ * after normalizing the input.
  *
  * @example
  * ```typescript
  * const blogTables: TableDefinitionMap = {
  *   posts: {
  *     name: 'Posts',
- *     icon: { type: 'emoji', value: '📝' },
- *     cover: null,
  *     description: 'Blog posts',
+ *     icon: { type: 'emoji', value: '📝' },
  *     fields: { id: id(), title: text() },
  *   },
  * };
  * ```
  */
 export type TableDefinitionMap = Record<string, TableDefinition>;
+
+/**
+ * @deprecated Use `TableDefinition` instead. Tables now require explicit metadata.
+ * Use the `table()` helper which requires `name` and `fields`.
+ *
+ * Migration:
+ * ```typescript
+ * // Old (deprecated)
+ * const posts: TableInput = { fields: { id: id(), title: text() } };
+ *
+ * // New (use table() helper)
+ * const posts = table({ name: 'Posts', fields: { id: id(), title: text() } });
+ * ```
+ */
+export type TableInput<TFields extends FieldSchemaMap = FieldSchemaMap> =
+	TableDefinition<TFields>;
+
+/**
+ * @deprecated Use `TableDefinitionMap` instead. Tables now require explicit metadata.
+ * Use the `table()` helper which requires `name` and `fields`.
+ */
+export type TableInputMap = TableDefinitionMap;
+
+/**
+ * @deprecated Use `TableDefinitionMap` instead. Tables now require explicit metadata.
+ * Use the `table()` helper which requires `name` and `fields`.
+ */
+export type TableSchemaMap = TableDefinitionMap;
 
 // ============================================================================
 // Row Types
@@ -530,7 +555,8 @@ export type KvDefinition<TField extends KvFieldSchema = KvFieldSchema> = {
 /**
  * Map of KV key names to their full definitions (metadata + field).
  *
- * This is the format for `defineWorkspace().kv`.
+ * This is the normalized format that flows through the entire system.
+ * It's what `defineWorkspace()` returns after normalizing the input.
  *
  * @example
  * ```typescript
@@ -551,3 +577,27 @@ export type KvDefinition<TField extends KvFieldSchema = KvFieldSchema> = {
  * ```
  */
 export type KvDefinitionMap = Record<string, KvDefinition>;
+
+/**
+ * Map of KV keys to their field schemas (no metadata).
+ *
+ * This is the minimal input format for `defineWorkspace().kv`.
+ * Each KV entry is just its field schema; metadata (name, icon, etc.)
+ * is auto-generated during normalization.
+ *
+ * @example
+ * ```typescript
+ * const kv: KvSchemaMap = {
+ *   theme: select({ options: ['light', 'dark'] as const, default: 'light' }),
+ *   fontSize: integer({ default: 14 }),
+ * };
+ *
+ * // Use in defineWorkspace:
+ * const definition = defineWorkspace({
+ *   id: 'epicenter.blog',
+ *   tables: { posts: { id: id(), title: text() } },
+ *   kv,  // KvSchemaMap - will be normalized to KvDefinitionMap
+ * });
+ * ```
+ */
+export type KvSchemaMap = Record<string, KvFieldSchema>;

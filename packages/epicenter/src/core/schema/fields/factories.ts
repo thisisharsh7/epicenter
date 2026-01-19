@@ -29,39 +29,68 @@ import type {
 } from './types';
 
 /**
- * Factory function to create a TableDefinition with sensible defaults.
+ * Normalize icon input to canonical IconDefinition | null.
+ */
+function normalizeIcon(
+	icon: string | IconDefinition | null | undefined,
+): IconDefinition | null {
+	if (icon === undefined || icon === null) return null;
+	if (typeof icon === 'string') return { type: 'emoji', value: icon };
+	return icon;
+}
+
+/**
+ * Factory function to create a TableDefinition.
  *
- * Requires `name` and `fields`; other metadata is optional.
- * For tests where you don't care about the name, use `name: ''`.
+ * `name` and `fields` are required. `description` and `icon` are optional:
+ * - `name`: Required display name for the table.
+ * - `fields`: Required field schema map.
+ * - `description`: Optional. Defaults to empty string.
+ * - `icon`: Optional. Accepts string shorthand ('📝'), IconDefinition, or null. Defaults to null.
  *
  * @example
  * ```typescript
- * // Production use - with meaningful name
+ * // Minimal - name and fields required
  * const posts = table({
- *   name: 'Blog Posts',
+ *   name: 'Posts',
  *   fields: { id: id(), title: text(), published: boolean() },
- *   description: 'Articles and blog posts',
  * });
  *
- * // Test use - minimal
+ * // With icon shorthand
  * const posts = table({
- *   name: '',
+ *   name: 'Posts',
+ *   icon: '📝',
  *   fields: { id: id(), title: text() },
+ * });
+ *
+ * // Full - all metadata explicit
+ * const posts = table({
+ *   name: 'Blog Posts',
+ *   description: 'Articles and blog posts',
+ *   icon: '📝',
+ *   fields: { id: id(), title: text(), published: boolean() },
+ * });
+ *
+ * // In defineWorkspace
+ * defineWorkspace({
+ *   id: 'blog',
+ *   tables: {
+ *     posts: table({ name: 'Posts', fields: { id: id(), title: text() } }),
+ *   },
+ *   kv: {},
  * });
  * ```
  */
 export function table<TFields extends FieldSchemaMap>(options: {
 	name: string;
 	fields: TFields;
-	icon?: IconDefinition | null;
-	cover?: CoverDefinition | null;
 	description?: string;
+	icon?: string | IconDefinition | null;
 }): TableDefinition<TFields> {
 	return {
 		name: options.name,
-		icon: options.icon ?? null,
-		cover: options.cover ?? null,
 		description: options.description ?? '',
+		icon: normalizeIcon(options.icon),
 		fields: options.fields,
 	};
 }
@@ -165,31 +194,17 @@ export const icon = {
 /**
  * Factory functions for creating CoverDefinition objects.
  *
- * Covers are banner images displayed at the top of tables.
- * Currently supports external URLs; future versions may add gradients, Unsplash, etc.
- *
- * @example
- * ```typescript
- * import { table, cover } from '@epicenter/hq';
- *
- * const posts = table({
- *   name: 'Posts',
- *   cover: cover.external('https://example.com/banner.jpg'),
- *   fields: { id: id(), title: text() },
- * });
- * ```
+ * @deprecated Cover has been removed from TableDefinition.
+ * This factory is kept for backward compatibility but will be removed in a future version.
  */
 export const cover = {
 	/**
 	 * Create an external image cover.
 	 *
+	 * @deprecated Cover has been removed from TableDefinition.
+	 *
 	 * @param url - The URL of the external cover image
 	 * @returns An external cover definition
-	 *
-	 * @example
-	 * ```typescript
-	 * cover.external('https://example.com/banner.jpg')
-	 * ```
 	 */
 	external: (url: string) =>
 		({ type: 'external', url }) as const satisfies CoverDefinition,
