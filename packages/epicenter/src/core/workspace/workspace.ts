@@ -67,6 +67,10 @@ import type {
 	CapabilityFactoryMap,
 	InferCapabilityExports,
 } from '../capability';
+import {
+	getWorkspaceDocMaps,
+	mergeDefinitionIntoYDoc,
+} from '../docs/workspace-doc';
 import { createKv, type Kv } from '../kv/core';
 import { defineExports, type Lifecycle, type MaybePromise } from '../lifecycle';
 
@@ -531,8 +535,15 @@ export function createClient<
 	const docId = `${definition.id}-${epoch}` as const;
 	const ydoc = new Y.Doc({ guid: docId, gc: false });
 
-	// Y.Doc contains DATA ONLY (table rows, kv values)
-	// Definition/metadata is static and comes from the definition
+	// Get the definition Y.Map for storing schema metadata
+	const { definition: definitionMap } = getWorkspaceDocMaps(ydoc);
+
+	// Merge the code-defined schema into Y.Map('definition')
+	// This enables collaborative schema editing while preserving code-first defaults
+	mergeDefinitionIntoYDoc(definitionMap, definition);
+
+	// Note: Y.Map('tables') and Y.Map('kv') are accessed internally by
+	// createTables() and createKv() respectively
 
 	// Create table and kv helpers bound to the Y.Doc
 	const tables = createTables(ydoc, definition.tables);
@@ -606,8 +617,11 @@ export function createClient<
 
 	return {
 		id: definition.id,
-		// Name comes from static definition, not Y.Doc
-		name: definition.name,
+		// Name is a live getter from Y.Map('definition')
+		// Falls back to static definition if not yet synced
+		get name() {
+			return (definitionMap.get('name') as string) ?? definition.name;
+		},
 		ydoc,
 		tables,
 		kv,
@@ -619,17 +633,26 @@ export function createClient<
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// NOTE: Definition storage in Y.Doc has been removed
+// Y.Doc Structure: Three Top-Level Maps
 // ─────────────────────────────────────────────────────────────────────────────
 //
-// Previously, workspace metadata (name, table icons, etc.) was stored
-// in a 'definition' Y.Map inside the Y.Doc. This added CRDT overhead for data
-// that rarely changes.
+// Each workspace Y.Doc has three top-level Y.Maps:
 //
-// Now:
-// - Y.Doc contains DATA ONLY (table rows, kv values)
-// - Definition/metadata is static and comes from:
-//   - Code: the normalized WorkspaceDefinition from defineWorkspace()
-//   - Epicenter app: a definition.json file
+// Y.Map('definition') - Schema metadata (rarely changes)
+//   └── name: string
+//   └── icon: IconDefinition | null
+//   └── tables: Y.Map<tableName, { name, icon, description, fields }>
+//   └── kv: Y.Map<keyName, { name, icon, description, field }>
 //
-// See specs/20260117T004421-workspace-input-normalization.md for details.
+// Y.Map('kv') - Settings values (changes occasionally)
+//   └── [key]: value
+//
+// Y.Map('tables') - Table data (changes frequently)
+//   └── [tableName]: Y.Map<rowId, Y.Map<fieldName, value>>
+//
+// This enables:
+// - Independent observation (no observeDeep needed)
+// - Different persistence strategies per map
+// - Collaborative schema editing via Y.Map('definition')
+//
+// See specs/20260119T150426-workspace-storage-architecture.md for details.

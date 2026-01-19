@@ -33,10 +33,24 @@ export type VersionEntry = {
  */
 export type LocalRevisionHistoryConfig = {
 	/**
-	 * Base directory to store snapshots.
-	 * Snapshots are saved to `{directory}/snapshots/{workspaceId}/`.
+	 * Base directory for workspace storage.
+	 *
+	 * Snapshots are saved to `{directory}/{workspaceId}/{epoch}/snapshots/`
+	 * when `epoch` is provided, otherwise to `{directory}/snapshots/{workspaceId}/`
+	 * for backwards compatibility.
 	 */
 	directory: string;
+
+	/**
+	 * The epoch number for this workspace.
+	 *
+	 * When provided, snapshots are stored in the epoch folder structure:
+	 * `{directory}/{workspaceId}/{epoch}/snapshots/`
+	 *
+	 * This ensures snapshots are isolated per-epoch and can be deleted
+	 * atomically when an epoch is removed.
+	 */
+	epoch?: number;
 
 	/**
 	 * Debounce interval in milliseconds for auto-saving on Y.Doc changes.
@@ -64,7 +78,9 @@ export type LocalRevisionHistoryConfig = {
  *
  * **Platform**: Node.js/Desktop (Tauri, Electron, Bun)
  *
- * **Storage**: `{directory}/snapshots/{workspaceId}/{timestamp}.ysnap`
+ * **Storage**:
+ * - With epoch: `{directory}/{workspaceId}/{epoch}/snapshots/{timestamp}.ysnap`
+ * - Without epoch (legacy): `{directory}/snapshots/{workspaceId}/{timestamp}.ysnap`
  *
  * @example Basic usage
  * ```typescript
@@ -93,6 +109,19 @@ export type LocalRevisionHistoryConfig = {
  *
  * // Restore to a version (copies data to current doc)
  * await client.capabilities.revisions.restore(5);
+ * ```
+ *
+ * @example With epoch folders (new architecture)
+ * ```typescript
+ * const client = await workspace.create({
+ *   capabilities: {
+ *     revisions: (ctx) => localRevisionHistory(ctx, {
+ *       directory: './workspaces',
+ *       epoch: 1,  // Snapshots saved to ./workspaces/{id}/1/snapshots/
+ *       maxVersions: 50,
+ *     }),
+ *   },
+ * });
  * ```
  *
  * @example Custom debounce interval
@@ -128,7 +157,12 @@ export async function localRevisionHistory<
 	TKvDefinitionMap extends KvDefinitionMap,
 >(
 	{ ydoc, id }: CapabilityContext<TTableDefinitionMap, TKvDefinitionMap>,
-	{ directory, debounceMs = 1000, maxVersions }: LocalRevisionHistoryConfig,
+	{
+		directory,
+		epoch,
+		debounceMs = 1000,
+		maxVersions,
+	}: LocalRevisionHistoryConfig,
 ) {
 	// CRITICAL: Snapshots require gc: false
 	if (ydoc.gc) {
@@ -138,8 +172,12 @@ export async function localRevisionHistory<
 		);
 	}
 
-	// Storage: {directory}/snapshots/{workspaceId}/
-	const snapshotDir = path.join(directory, 'snapshots', id);
+	// Storage: {directory}/{workspaceId}/{epoch}/snapshots/ (with epoch)
+	//       or {directory}/snapshots/{workspaceId}/ (without epoch, legacy)
+	const snapshotDir =
+		epoch !== undefined
+			? path.join(directory, id, String(epoch), 'snapshots')
+			: path.join(directory, 'snapshots', id);
 
 	// Ensure directory exists
 	await mkdir(snapshotDir, { recursive: true });

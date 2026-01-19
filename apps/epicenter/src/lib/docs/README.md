@@ -12,21 +12,13 @@ Epicenter uses a three-document architecture for storing and retrieving workspac
 │   ┌──────────────┐      ┌──────────────┐      ┌──────────────────────┐     │
 │   │   REGISTRY   │ ──▶  │   HEAD DOC   │ ──▶  │    WORKSPACE DOC     │     │
 │   │              │      │              │      │                      │     │
-│   │  "Which      │      │  "What       │      │  "The actual data"   │     │
+│   │  "Which      │      │  "What       │      │  "Schema + Data"     │     │
 │   │   workspaces │      │   epoch?"    │      │                      │     │
 │   │   exist?"    │      │              │      │                      │     │
 │   └──────────────┘      └──────────────┘      └──────────────────────┘     │
 │         │                     │                        │                   │
 │         ▼                     ▼                        ▼                   │
-│   registry.yjs          head.yjs              {epoch}.yjs                  │
-│                                                                             │
-│   ┌──────────────────────────────────────────────────────────────────┐     │
-│   │   DEFINITION (static JSON, not Y.Doc)                            │     │
-│   │                                                                  │     │
-│   │   "What is the workspace schema?"                                │     │
-│   │                                                                  │     │
-│   │   → definition.json                                              │     │
-│   └──────────────────────────────────────────────────────────────────┘     │
+│   registry.yjs          head.yjs              {epoch}/workspace.yjs        │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -38,26 +30,26 @@ Epicenter uses a three-document architecture for storing and retrieving workspac
 ├── registry.yjs                    # Index of all workspace IDs
 ├── registry.json                   # Human-readable snapshot
 └── workspaces/
-    ├── epicenter.whispering/       # Whispering workspace
-    │   ├── definition.json
-    │   ├── head.yjs
-    │   ├── 0.yjs
-    │   └── 0.json
-    │
-    └── epicenter.crm/              # Example: CRM workspace
+    └── {workspace-id}/
+        ├── head.yjs                # Current epoch pointer
+        ├── head.json               # Human-readable snapshot
         │
-        │   # Static definition (edited by UI or text editor)
-        ├── definition.json         # WorkspaceDefinition (name, tables, kv)
+        ├── 0/                      # Epoch 0
+        │   ├── workspace.yjs       # Full Y.Doc (sync source of truth)
+        │   ├── workspace.json      # Debug JSON mirror
+        │   ├── definition.json     # Schema (from Y.Map('definition'))
+        │   ├── kv.json             # Settings (from Y.Map('kv'))
+        │   ├── tables.sqlite       # Table data (from Y.Map('tables'))
+        │   └── snapshots/          # Revision history
+        │       └── {unix-ms}.ysnap
         │
-        │   # Epoch management
-        ├── head.yjs                # Current epoch number
-        ├── head.json               # Snapshot
-        │
-        │   # Data storage (Y.Doc per epoch, DATA ONLY)
-        ├── 0.yjs                   # Epoch 0 data (rows + kv values)
-        ├── 0.json                  # Snapshot
-        ├── 1.yjs                   # Epoch 1 (after migration)
-        └── 1.json                  # Snapshot
+        └── 1/                      # Epoch 1 (after migration)
+            ├── workspace.yjs
+            ├── definition.json
+            ├── kv.json
+            ├── tables.sqlite
+            └── snapshots/
+                └── ...
 ```
 
 ### Workspace ID Format
@@ -67,31 +59,66 @@ The `id` is a **locally-scoped identifier**, not a GUID:
 - **Local/Relay**: `epicenter.whispering`, `epicenter.crm`
 - **Y-Sweet (with auth)**: Server combines user ID with local ID for global uniqueness
 
+## Y.Doc Structure (Three Top-Level Maps)
+
+Each workspace Y.Doc has three top-level Y.Maps:
+
+```typescript
+// Y.Doc guid: "{workspaceId}-{epoch}"
+
+// Schema (rarely changes)
+Y.Map('definition')
+  └── name: string              // Workspace display name
+  └── icon: IconDefinition | null
+  └── tables: {                 // Table SCHEMAS (not data)
+        [tableName]: {
+          name: string,
+          icon: IconDefinition | null,
+          description: string,
+          fields: { [fieldName]: FieldSchema }
+        }
+      }
+  └── kv: {                     // KV SCHEMAS (not values)
+        [key]: {
+          name: string,
+          icon: IconDefinition | null,
+          description: string,
+          field: FieldSchema
+        }
+      }
+
+// Settings values (changes occasionally)
+Y.Map('kv')
+  └── [key]: value              // Actual KV values
+
+// Table data (changes frequently)
+Y.Map('tables')
+  └── [tableName]: Y.Map<rowId, Y.Map<fieldName, value>>
+```
+
+### Why Three Top-Level Maps?
+
+| Map          | Content         | Change Frequency | Persistence Target |
+| ------------ | --------------- | ---------------- | ------------------ |
+| `definition` | Schema metadata | Rare             | `definition.json`  |
+| `kv`         | Settings values | Occasional       | `kv.json`          |
+| `tables`     | Row data        | Frequent         | `tables.sqlite`    |
+
+**Benefits:**
+
+- 1:1 mapping between Y.Doc maps and files
+- Independent observation (no `observeDeep` needed)
+- Each map can have different persistence strategies
+- Clean conceptual separation: schema vs settings vs data
+- **Collaborative schema editing** via Y.Map('definition')
+
 ## Document Types
 
-| Doc Type       | Purpose                            | Storage Path                                    | Helper                                     |
-| -------------- | ---------------------------------- | ----------------------------------------------- | ------------------------------------------ |
-| **Registry**   | Tracks which workspace GUIDs exist | `{appLocalDataDir}/registry.yjs`                | `registry` (module singleton)              |
-| **Head Doc**   | Stores current epoch per workspace | `{appLocalDataDir}/workspaces/{id}/head.yjs`    | `createHead(workspaceId)`                  |
-| **Definition** | Static workspace schema/metadata   | `{appLocalDataDir}/workspaces/{id}/definition.json` | JSON read/write                        |
-| **Workspace**  | Data for a workspace (rows, kv)    | `{appLocalDataDir}/workspaces/{id}/{epoch}.yjs` | `createWorkspaceClient(definition, epoch)` |
-
-## Key Design Decision: Static Definitions
-
-The workspace definition (name, icon, table schemas) is stored as a **static JSON file**, not in the Y.Doc.
-
-**Why?**
-- Definition rarely changes (set once, maybe edited occasionally)
-- No need for CRDT overhead on metadata
-- File is human-readable and git-friendly
-- Simpler mental model: Y.Doc = data, JSON = schema
-
-**What goes where?**
-
-| File | Contents |
-|------|----------|
-| `definition.json` | `WorkspaceDefinition` (id, name, tables with metadata, kv schema) |
-| `{epoch}.yjs` | Table rows (`Y.Map<rowId, Y.Map<field, value>>`) and kv values |
+| Doc Type      | Purpose                            | Storage Path                                              | Helper                                     |
+| ------------- | ---------------------------------- | --------------------------------------------------------- | ------------------------------------------ |
+| **Registry**  | Tracks which workspace GUIDs exist | `{appLocalDataDir}/registry.yjs`                          | `registry` (module singleton)              |
+| **Head Doc**  | Stores current epoch per workspace | `{appLocalDataDir}/workspaces/{id}/head.yjs`              | `createHead(workspaceId)`                  |
+| **Workspace** | Schema + Data for a workspace      | `{appLocalDataDir}/workspaces/{id}/{epoch}/workspace.yjs` | `createWorkspaceClient(definition, epoch)` |
 
 ## Helper Functions
 
@@ -132,7 +159,10 @@ const client = createWorkspaceClient(definition, epoch);
 await client.whenSynced;
 
 // Use the client
-client.tables.myTable.insert({ ... });
+client.tables.myTable.upsert({ ... });
+
+// Name is a LIVE getter from Y.Map('definition')
+console.log(client.name); // "My Workspace" (from CRDT)
 ```
 
 ## Typical Flow
@@ -181,33 +211,41 @@ $lib/docs/
 └── workspace.ts    # Factory for workspace clients
 ```
 
-## Definition File Format
+## Persistence Strategy
 
-The `definition.json` file contains a `WorkspaceDefinition`:
+The unified persistence capability materializes the Y.Doc into multiple formats:
 
-```json
-{
-  "id": "epicenter.whispering",
-  "name": "Whispering",
-  "tables": {
-    "recordings": {
-      "name": "Recordings",
-      "icon": { "type": "emoji", "value": "🎙️" },
-      "description": "Voice recordings and transcriptions",
-      "fields": {
-        "id": { "type": "id" },
-        "title": { "type": "text" },
-        "transcript": { "type": "text", "nullable": true }
-      }
-    }
-  },
-  "kv": {}
-}
+| File              | Source                | Purpose                                 |
+| ----------------- | --------------------- | --------------------------------------- |
+| `workspace.yjs`   | Full Y.Doc            | CRDT sync, source of truth              |
+| `definition.json` | `Y.Map('definition')` | Git tracking, human-editable schema     |
+| `kv.json`         | `Y.Map('kv')`         | User-editable settings, debugging       |
+| `tables.sqlite`   | `Y.Map('tables')`     | SQL queries via Drizzle, large datasets |
+
+### Observer Pattern
+
+```typescript
+const definition = ydoc.getMap('definition');
+const kv = ydoc.getMap('kv');
+const tables = ydoc.getMap('tables');
+
+// Full Y.Doc binary (always, for sync)
+ydoc.on('update', (update) => {
+	appendUpdate('workspace.yjs', update);
+});
+
+// Definition → JSON (on change)
+definition.observeDeep(() => {
+	writeFile('definition.json', JSON.stringify(definition.toJSON(), null, '\t'));
+});
+
+// KV → JSON (on change)
+kv.observe(() => {
+	writeFile('kv.json', JSON.stringify(kv.toJSON(), null, '\t'));
+});
+
+// Tables → SQLite (on change, debounced)
+tables.observeDeep(() => {
+	debounce(() => syncToSqlite(tables), 1000);
+});
 ```
-
-When creating a workspace via the SDK with minimal input, the definition is normalized with defaults:
-
-- `name` defaults to humanized `id` (e.g., "content-hub" → "Content hub")
-- Table `name` defaults to humanized key (e.g., "blogPosts" → "Blog posts")
-- Table `icon` defaults to `{ "type": "emoji", "value": "📄" }`
-- Table `description` defaults to `""`

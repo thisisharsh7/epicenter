@@ -55,15 +55,30 @@ export type {
 export { defineCapabilities } from './core/capability';
 // Y.Doc wrappers for collaborative workspace architecture
 export type {
+	// Workspace doc structure types
+	DefinitionMap,
 	HeadDoc,
 	InferProviderExports,
+	KvMap,
 	ProviderContext,
 	ProviderExports,
 	ProviderFactory,
 	ProviderFactoryMap,
 	RegistryDoc,
+	RowMap,
+	TableMap,
+	TablesMap,
+	WorkspaceDefinitionMap,
 } from './core/docs';
-export { createHeadDoc, createRegistryDoc } from './core/docs';
+export {
+	createHeadDoc,
+	createRegistryDoc,
+	getWorkspaceDocMaps,
+	mergeDefinitionIntoYDoc,
+	readDefinitionFromYDoc,
+	// Workspace doc helpers
+	WORKSPACE_DOC_MAPS,
+} from './core/docs';
 export type { CapabilityError } from './core/errors';
 // Error types
 export { CapabilityErr } from './core/errors';
