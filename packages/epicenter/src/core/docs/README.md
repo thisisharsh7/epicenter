@@ -8,8 +8,8 @@ This module provides typed wrappers for the Y.Doc types that power collaborative
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                                                                             │
 │   STEP 1               STEP 2                STEP 3                         │
-│   Registry Doc         Head Doc              workspace.create()             │
-│   ────────────         ────────              ─────────────────              │
+│   Registry Doc         Head Doc              createClient()                 │
+│   ────────────         ────────              ──────────────                 │
 │                                                                             │
 │   ┌───────────┐       ┌───────────┐        ┌───────────────────┐           │
 │   │ workspaces│       │   epoch   │        │Creates Workspace  │           │
@@ -30,13 +30,13 @@ This module provides typed wrappers for the Y.Doc types that power collaborative
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**The pattern:** Two exported helpers (Registry, Head) + internal Workspace Doc creation via `workspace.create()`.
+**The pattern:** Two exported helpers (Registry, Head) + internal Workspace Doc creation via `createClient()`.
 
 | Step | Document  | Fetches                | Y.Doc GUID              | API                   |
 | ---- | --------- | ---------------------- | ----------------------- | --------------------- |
 | 1    | Registry  | GUID (workspace ID)    | `{registryId}`          | `createRegistryDoc()` |
 | 2    | Head      | Epoch (version number) | `{workspaceId}`         | `createHeadDoc()`     |
-| 3    | Workspace | Schema + Data          | `{workspaceId}-{epoch}` | `workspace.create()`  |
+| 3    | Workspace | Schema + Data          | `{workspaceId}-{epoch}` | `createClient()`      |
 
 ## Why Three Documents?
 
@@ -78,7 +78,7 @@ A single Y.Doc per workspace seems simpler, but creates problems:
                               │ Read epoch, compute Workspace Doc ID
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  WORKSPACE Y.Doc (created internally by workspace.create())      │
+│  WORKSPACE Y.Doc (created internally by createClient())          │
 │  ID: {workspaceId}-{epoch}                                       │
 │  Scope: Shared (syncs with all workspace collaborators)          │
 │                                                                  │
@@ -211,15 +211,15 @@ head.observeEpoch((newEpoch) => {
 // ═══════════════════════════════════════════════════════════════
 // STEP 3: Create Client (Workspace Doc created internally)
 // ═══════════════════════════════════════════════════════════════
-const workspace = defineWorkspace({
-	id: workspaceId, // GUID only (epoch passed to .create())
+const definition = defineWorkspace({
+	id: workspaceId, // GUID only (epoch passed to createClient())
 	slug: 'blog',
 	name: 'Blog',
 	tables: { posts: { id: id(), title: text() } },
 	kv: {},
 });
 
-const client = await workspace.create({
+const client = createClient(definition, {
 	epoch, // From Head Doc (defaults to 0 if omitted)
 	capabilities: { sqlite, persistence },
 });
@@ -240,7 +240,7 @@ They're different Y.Docs with different GUIDs. You can't "upgrade" a Y.Doc in pl
 
 The Head Doc is the **stable pointer**. Its GUID never changes (`abc123`), but its `epoch` value can change. When you bump epochs:
 
-1. Create new client at epoch 3: `workspace.create({ epoch: 3 })`
+1. Create new client at epoch 3: `createClient(definition, { epoch: 3 })`
 2. Migrate data from old client to new client
 3. Bump Head Doc: `head.bumpEpoch()`
 4. All clients observing Head reconnect to the new Workspace Doc
@@ -274,18 +274,21 @@ value; no epochs are skipped.
 
 ## Schema Merge Semantics
 
-When `workspace.create()` is called, the code-defined schema is merged into the Y.Doc:
+When `createClient()` is called, the code-defined schema is merged into the Y.Doc:
 
 ```typescript
 // Code defines schema (simple format)
-const workspace = defineWorkspace({
+const definition = defineWorkspace({
+	id: 'blog',
 	tables: {
 		posts: { id: id(), title: text(), published: boolean() },
 	},
+	kv: {},
 });
 
 // Or with table metadata (TableDefinitionMap format)
-const workspace = defineWorkspace({
+const definition = defineWorkspace({
+	id: 'blog',
 	tables: {
 		posts: {
 			name: 'Blog Posts',
@@ -295,10 +298,11 @@ const workspace = defineWorkspace({
 			fields: { id: id(), title: text(), published: boolean() },
 		},
 	},
+	kv: {},
 });
 
-// On create(), schema is merged into Y.Doc internally
-const client = await workspace.create();
+// On createClient(), schema is merged into Y.Doc internally
+const client = createClient(definition);
 ```
 
 **Merge rules:**
@@ -316,7 +320,7 @@ This is idempotent and safe for concurrent calls.
 If you don't need multi-user sync or epoch migrations, skip Registry and Head:
 
 ```typescript
-const workspace = defineWorkspace({
+const definition = defineWorkspace({
   id: 'my-workspace',
   slug: 'blog',
   name: 'Blog',
@@ -325,7 +329,7 @@ const workspace = defineWorkspace({
 });
 
 // Epoch defaults to 0
-const client = await workspace.create({
+const client = createClient(definition, {
 	capabilities: { sqlite },
 });
 ```
@@ -337,7 +341,7 @@ const client = await workspace.create({
 | `registry-doc.ts` | `createRegistryDoc()` | Personal workspace index  |
 | `head-doc.ts`     | `createHeadDoc()`     | Epoch pointer (CRDT-safe) |
 
-**Note:** Workspace Doc creation is handled internally by `workspace.create()` in the workspace module.
+**Note:** Workspace Doc creation is handled internally by `createClient()` in the workspace module.
 
 ## Schema Storage
 
@@ -379,7 +383,7 @@ const epoch = head.getEpoch(); // 0
 const newEpoch = head.bumpEpoch(); // 1
 
 // Define and create workspace (Workspace Doc created internally)
-const workspace = defineWorkspace({
+const definition = defineWorkspace({
 	id: 'workspace456',
 	slug: 'blog',
 	name: 'Blog',
@@ -387,7 +391,7 @@ const workspace = defineWorkspace({
 	kv: {},
 });
 
-const client = await workspace.create({ epoch });
+const client = createClient(definition, { epoch });
 // client.ydoc is the Workspace Doc at guid "workspace456-0"
 ```
 

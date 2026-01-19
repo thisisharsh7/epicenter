@@ -80,10 +80,16 @@ export type LocalRevisionHistoryConfig = {
  *
  * @example Basic usage
  * ```typescript
- * import { defineWorkspace } from '@epicenter/hq';
+ * import { defineWorkspace, createClient } from '@epicenter/hq';
  * import { localRevisionHistory } from '@epicenter/hq/capabilities/revision-history';
  *
- * const client = await workspace.create({
+ * const definition = defineWorkspace({
+ *   id: 'blog',
+ *   tables: { ... },
+ *   kv: {},
+ * });
+ *
+ * const client = createClient(definition, {
  *   capabilities: {
  *     persistence,
  *     revisions: (ctx) => localRevisionHistory(ctx, {
@@ -110,7 +116,7 @@ export type LocalRevisionHistoryConfig = {
  *
  * @example Custom debounce interval
  * ```typescript
- * const client = await workspace.create({
+ * const client = createClient(definition, {
  *   capabilities: {
  *     revisions: (ctx) => localRevisionHistory(ctx, {
  *       directory: './workspaces',

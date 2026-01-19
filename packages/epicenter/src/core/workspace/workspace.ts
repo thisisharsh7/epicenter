@@ -3,7 +3,7 @@
  *
  * This module provides the core workspace API:
  * - {@link defineWorkspace} - Factory to create workspace definitions
- * - {@link Workspace} - The workspace object with `.create()` method
+ * - {@link createClient} - Factory to create runtime clients from definitions
  * - {@link WorkspaceClient} - The runtime client for interacting with data
  *
  * ## Architecture Overview
@@ -12,8 +12,8 @@
  * ┌─────────────────────────────────────────────────────────────────────────────┐
  * │  Two-Phase Initialization                                                   │
  * │                                                                             │
- * │   defineWorkspace(config)              workspace.create(options)            │
- * │   ─────────────────────────            ────────────────────────             │
+ * │   defineWorkspace(config)              createClient(definition, options)    │
+ * │   ─────────────────────────            ─────────────────────────────────    │
  * │                                                                             │
  * │   ┌─────────────────────┐              ┌─────────────────────┐              │
  * │   │ WorkspaceDefinition │    epoch     │  WorkspaceClient    │              │
@@ -33,13 +33,13 @@
  *
  * This module implements the "sync construction, async property" pattern:
  *
- * - `workspace.create()` returns **immediately** with a client object
+ * - `createClient()` returns **immediately** with a client object
  * - Async initialization (persistence, sync) tracked via `client.whenSynced`
  * - UI frameworks use `whenSynced` as a render gate
  *
  * ```typescript
  * // Sync construction - returns immediately
- * const client = workspace.create({ capabilities: { sqlite } });
+ * const client = createClient(definition, { capabilities: { sqlite } });
  *
  * // Sync access works immediately (operates on in-memory Y.Doc)
  * client.tables.posts.upsert({ id: '1', title: 'Hello' });
@@ -95,7 +95,7 @@ import { normalizeKv } from './normalize';
  *
  * ## Initial Values vs Live State
  *
- * When you call `workspace.create()`, these values are **merged** into the Y.Doc's
+ * When you call `createClient()`, these values are **merged** into the Y.Doc's
  * CRDT state. After creation, `name`, `tables`, and `kv` become **live**
  * collaborative state that can change via CRDT sync.
  *
@@ -110,7 +110,7 @@ import { normalizeKv } from './normalize';
  * @example
  * ```typescript
  * // Define with initial values
- * const workspace = defineWorkspace({
+ * const definition = defineWorkspace({
  *   id: 'epicenter.blog',   // human-readable ID
  *   name: 'My Blog',        // initial name
  *   tables: { posts: {...} },
@@ -118,7 +118,7 @@ import { normalizeKv } from './normalize';
  * });
  *
  * // After creation, name is live CRDT state
- * const client = workspace.create();
+ * const client = createClient(definition);
  * console.log(client.name);  // "My Blog" (from CRDT)
  *
  * // If a peer changes the name via CRDT sync...
@@ -204,7 +204,7 @@ export type Workspace<
  * Write functions that use the client to compose your own "actions":
  *
  * ```typescript
- * const client = await workspace.create();
+ * const client = createClient(definition);
  *
  * // Your own functions that use the client
  * function createPost(title: string) {
@@ -223,7 +223,7 @@ export type Workspace<
  * Supports `await using` for automatic cleanup:
  * ```typescript
  * {
- *   await using client = await workspace.create();
+ *   await using client = createClient(definition);
  *   client.tables.posts.upsert({ id: '1', title: 'Hello' });
  * } // Automatically cleaned up here
  * ```

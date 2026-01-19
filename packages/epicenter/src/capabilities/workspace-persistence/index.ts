@@ -20,7 +20,15 @@
  *
  * @example
  * ```typescript
- * const client = await workspace.create({
+ * import { defineWorkspace, createClient } from '@epicenter/hq';
+ *
+ * const definition = defineWorkspace({
+ *   id: 'blog',
+ *   tables: { ... },
+ *   kv: {},
+ * });
+ *
+ * const client = createClient(definition, {
  *   epoch: 0,
  *   capabilities: {
  *     persistence: (ctx) => workspacePersistence(ctx, {

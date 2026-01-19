@@ -27,7 +27,15 @@ type AnyWorkspaceClient = WorkspaceClient<any, any, any>;
  *
  * @example
  * ```typescript
- * const client = await workspace.create();
+ * import { defineWorkspace, createClient } from '@epicenter/hq';
+ *
+ * const definition = defineWorkspace({
+ *   id: 'blog',
+ *   tables: { posts: { id: id(), title: text() } },
+ *   kv: {},
+ * });
+ *
+ * const client = createClient(definition, { capabilities: { ... } });
  *
  * const server = createServer(client, { port: 3913 });
  * server.start();
