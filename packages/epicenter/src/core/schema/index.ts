@@ -71,9 +71,6 @@ export type {
 	SelectFieldSchema,
 	TableDefinition,
 	TableDefinitionMap,
-	TableInput,
-	TableInputMap,
-	TableSchemaMap,
 	TagsFieldSchema,
 	TextFieldSchema,
 } from './fields/types.js';

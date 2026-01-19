@@ -423,34 +423,6 @@ export type TableDefinition<TFields extends FieldSchemaMap = FieldSchemaMap> = {
  */
 export type TableDefinitionMap = Record<string, TableDefinition>;
 
-/**
- * @deprecated Use `TableDefinition` instead. Tables now require explicit metadata.
- * Use the `table()` helper which requires `name` and `fields`.
- *
- * Migration:
- * ```typescript
- * // Old (deprecated)
- * const posts: TableInput = { fields: { id: id(), title: text() } };
- *
- * // New (use table() helper)
- * const posts = table({ name: 'Posts', fields: { id: id(), title: text() } });
- * ```
- */
-export type TableInput<TFields extends FieldSchemaMap = FieldSchemaMap> =
-	TableDefinition<TFields>;
-
-/**
- * @deprecated Use `TableDefinitionMap` instead. Tables now require explicit metadata.
- * Use the `table()` helper which requires `name` and `fields`.
- */
-export type TableInputMap = TableDefinitionMap;
-
-/**
- * @deprecated Use `TableDefinitionMap` instead. Tables now require explicit metadata.
- * Use the `table()` helper which requires `name` and `fields`.
- */
-export type TableSchemaMap = TableDefinitionMap;
-
 // ============================================================================
 // Row Types
 // ============================================================================
