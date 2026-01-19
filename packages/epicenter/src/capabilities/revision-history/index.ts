@@ -11,7 +11,8 @@
  * const client = await workspace.create({
  *   capabilities: {
  *     revisions: (ctx) => localRevisionHistory(ctx, {
- *       directory: './data',
+ *       directory: './workspaces',
+ *       epoch: 0,
  *       maxVersions: 50,
  *     }),
  *   },

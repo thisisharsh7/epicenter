@@ -35,22 +35,20 @@ export type LocalRevisionHistoryConfig = {
 	/**
 	 * Base directory for workspace storage.
 	 *
-	 * Snapshots are saved to `{directory}/{workspaceId}/{epoch}/snapshots/`
-	 * when `epoch` is provided, otherwise to `{directory}/snapshots/{workspaceId}/`
-	 * for backwards compatibility.
+	 * Snapshots are saved to `{directory}/{workspaceId}/{epoch}/snapshots/`.
 	 */
 	directory: string;
 
 	/**
 	 * The epoch number for this workspace.
 	 *
-	 * When provided, snapshots are stored in the epoch folder structure:
+	 * Snapshots are stored in the epoch folder structure:
 	 * `{directory}/{workspaceId}/{epoch}/snapshots/`
 	 *
 	 * This ensures snapshots are isolated per-epoch and can be deleted
 	 * atomically when an epoch is removed.
 	 */
-	epoch?: number;
+	epoch: number;
 
 	/**
 	 * Debounce interval in milliseconds for auto-saving on Y.Doc changes.
@@ -78,9 +76,7 @@ export type LocalRevisionHistoryConfig = {
  *
  * **Platform**: Node.js/Desktop (Tauri, Electron, Bun)
  *
- * **Storage**:
- * - With epoch: `{directory}/{workspaceId}/{epoch}/snapshots/{timestamp}.ysnap`
- * - Without epoch (legacy): `{directory}/snapshots/{workspaceId}/{timestamp}.ysnap`
+ * **Storage**: `{directory}/{workspaceId}/{epoch}/snapshots/{timestamp}.ysnap`
  *
  * @example Basic usage
  * ```typescript
@@ -91,7 +87,8 @@ export type LocalRevisionHistoryConfig = {
  *   capabilities: {
  *     persistence,
  *     revisions: (ctx) => localRevisionHistory(ctx, {
- *       directory: './data',
+ *       directory: './workspaces',
+ *       epoch: 0,  // Snapshots saved to ./workspaces/{id}/0/snapshots/
  *       maxVersions: 50,
  *     }),
  *   },
@@ -111,25 +108,13 @@ export type LocalRevisionHistoryConfig = {
  * await client.capabilities.revisions.restore(5);
  * ```
  *
- * @example With epoch folders (new architecture)
- * ```typescript
- * const client = await workspace.create({
- *   capabilities: {
- *     revisions: (ctx) => localRevisionHistory(ctx, {
- *       directory: './workspaces',
- *       epoch: 1,  // Snapshots saved to ./workspaces/{id}/1/snapshots/
- *       maxVersions: 50,
- *     }),
- *   },
- * });
- * ```
- *
  * @example Custom debounce interval
  * ```typescript
  * const client = await workspace.create({
  *   capabilities: {
  *     revisions: (ctx) => localRevisionHistory(ctx, {
- *       directory: './data',
+ *       directory: './workspaces',
+ *       epoch: 0,
  *       debounceMs: 5000,  // Save 5 seconds after last change
  *     }),
  *   },
@@ -172,12 +157,8 @@ export async function localRevisionHistory<
 		);
 	}
 
-	// Storage: {directory}/{workspaceId}/{epoch}/snapshots/ (with epoch)
-	//       or {directory}/snapshots/{workspaceId}/ (without epoch, legacy)
-	const snapshotDir =
-		epoch !== undefined
-			? path.join(directory, id, String(epoch), 'snapshots')
-			: path.join(directory, 'snapshots', id);
+	// Storage: {directory}/{workspaceId}/{epoch}/snapshots/
+	const snapshotDir = path.join(directory, id, String(epoch), 'snapshots');
 
 	// Ensure directory exists
 	await mkdir(snapshotDir, { recursive: true });
