@@ -34,9 +34,6 @@ yarn-error.log*
 # Turborepo
 .turbo
 
-# Opencode
-.opencode
-
 # Epicenter
 .epicenter
 
