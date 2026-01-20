@@ -1,21 +1,17 @@
 import { error } from '@sveltejs/kit';
-import { createHead } from '$lib/docs/head';
-import { readDefinition } from '$lib/docs/read-definition';
 import { registry } from '$lib/docs/registry';
-import { createWorkspaceClient } from '$lib/docs/workspace';
 import type { LayoutLoad } from './$types';
 
 /**
- * Load a workspace lazily by ID.
+ * Load a workspace lazily by ID using the fluent API.
  *
  * Flow:
  * 1. Verify workspace exists in registry
- * 2. Get epoch from head doc
- * 3. Read definition from epoch folder ({epoch}/definition.json)
- * 4. Create client with the definition
+ * 2. Create client via fluent chain: registry.head(id).client()
+ * 3. Client loads schema from Y.Doc (dynamic schema mode)
  *
- * The definition is stored in the epoch folder by the unified persistence
- * capability, which writes it whenever Y.Map('definition') changes.
+ * This eliminates the need to read definition.json from disk.
+ * The schema lives in Y.Map('definition') inside the Y.Doc itself.
  */
 export const load: LayoutLoad = async ({ params }) => {
 	const workspaceId = params.id;
@@ -28,35 +24,20 @@ export const load: LayoutLoad = async ({ params }) => {
 		error(404, { message: `Workspace "${workspaceId}" not found` });
 	}
 
-	// Step 2: Get epoch from head doc
-	const head = createHead(workspaceId);
+	// Step 2: Get head doc via fluent API (validates workspace exists)
+	const head = registry.head(workspaceId);
 	await head.whenSynced;
 	const epoch = head.getEpoch();
 	console.log(`[Layout] Workspace epoch: ${epoch}`);
 
-	// Step 3: Read definition from epoch folder
-	const definition = await readDefinition(workspaceId, epoch);
-	if (!definition) {
-		console.error(
-			`[Layout] Definition not found: ${workspaceId}/${epoch}/definition.json`,
-		);
-		error(404, {
-			message: `Definition file not found for workspace "${workspaceId}" at epoch ${epoch}`,
-		});
-	}
-	console.log(
-		`[Layout] Loaded definition: ${definition.name} (${definition.id})`,
-	);
-
-	// Step 4: Create client with the definition
-	const client = createWorkspaceClient(definition, epoch);
-
-	// Wait for persistence to finish loading existing data from disk.
+	// Step 3: Create client via fluent API (dynamic schema mode)
+	// Schema comes from Y.Doc, not from definition.json file
+	const client = head.client();
 	await client.whenSynced;
 
+	console.log(`[Layout] Loaded workspace: ${client.name} (${client.id})`);
+
 	return {
-		/** The workspace definition (id, name, tables, kv). */
-		workspace: definition,
 		/** The live workspace client for CRUD operations. */
 		client,
 		/** The head doc for epoch management. */

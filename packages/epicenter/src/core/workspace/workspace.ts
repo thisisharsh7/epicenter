@@ -70,6 +70,8 @@ import type {
 import {
 	getWorkspaceDocMaps,
 	mergeDefinitionIntoYDoc,
+	readDefinitionFromYDoc,
+	type WorkspaceDefinitionMap,
 } from '../docs/workspace-doc';
 import { createKv, type Kv } from '../kv/core';
 import { defineExports, type Lifecycle, type MaybePromise } from '../lifecycle';
@@ -263,6 +265,20 @@ export type WorkspaceClient<
 	capabilities: TCapabilityExports;
 	/** The underlying YJS document. */
 	ydoc: Y.Doc;
+	/**
+	 * Read the current definition from the Y.Doc.
+	 *
+	 * Returns the workspace definition including name, icon, tables, and kv schemas.
+	 * This is a live read from the CRDT state, so it reflects real-time changes.
+	 *
+	 * @example
+	 * ```typescript
+	 * const definition = client.getDefinition();
+	 * console.log(definition.name);  // "My Blog"
+	 * console.log(definition.tables.posts);  // { name: 'Posts', fields: {...} }
+	 * ```
+	 */
+	getDefinition(): WorkspaceDefinitionMap;
 	/**
 	 * Resolves when all capabilities are initialized and ready.
 	 *
@@ -759,6 +775,9 @@ function createClientCore<
 		tables,
 		kv,
 		capabilities,
+		getDefinition() {
+			return readDefinitionFromYDoc(definitionMap);
+		},
 		whenSynced,
 		destroy,
 		[Symbol.asyncDispose]: destroy,

@@ -5,28 +5,24 @@ import { readFile } from '@tauri-apps/plugin-fs';
 /**
  * Read a workspace definition from the epoch folder.
  *
+ * @deprecated Use the fluent API instead:
+ * ```typescript
+ * const client = registry.head(workspaceId).client();
+ * await client.whenSynced;
+ * const definition = client.getDefinition();
+ * ```
+ *
+ * This function reads from definition.json on disk, which creates a
+ * chicken-and-egg problem: the file is written by persistence, but
+ * persistence only runs after createClient(). The fluent API reads
+ * directly from the Y.Doc, eliminating this dependency.
+ *
  * The definition file is stored at:
  * `{appLocalDataDir}/workspaces/{workspaceId}/{epoch}/definition.json`
- *
- * This is the canonical location for definitions in the unified persistence
- * architecture. The file is written by `tauriWorkspacePersistence` whenever
- * the Y.Map('definition') changes.
  *
  * @param workspaceId - The workspace ID (folder name)
  * @param epoch - The epoch number (determines which folder to read from)
  * @returns The parsed WorkspaceDefinition, or null if file doesn't exist
- *
- * @example
- * ```typescript
- * const head = createHead(workspaceId);
- * await head.whenSynced;
- * const epoch = head.getEpoch();
- *
- * const definition = await readDefinition(workspaceId, epoch);
- * if (definition) {
- *   console.log(definition.name); // "Whispering"
- * }
- * ```
  */
 export async function readDefinition(
 	workspaceId: string,
@@ -60,6 +56,9 @@ export async function readDefinition(
 
 /**
  * Check if a definition.json file exists for a workspace at a specific epoch.
+ *
+ * @deprecated Use the fluent API to check if a workspace can be loaded.
+ * This function is no longer needed with the Y.Doc-first architecture.
  *
  * @param workspaceId - The workspace ID (folder name)
  * @param epoch - The epoch number
