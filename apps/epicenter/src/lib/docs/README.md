@@ -201,6 +201,92 @@ const client = createWorkspaceClient(definition, 0);
 await client.whenSynced;
 ```
 
+## URL Hierarchy
+
+The URL structure mirrors the storage hierarchy, with epochs and snapshots accessible via nested routes:
+
+```
+/workspaces/[id]/...                              # Current epoch (from head doc)
+/workspaces/[id]/history                          # Time machine UI
+/workspaces/[id]/history/epochs                   # List all epochs
+/workspaces/[id]/history/epochs/[epoch]           # Browse specific epoch
+/workspaces/[id]/history/epochs/[epoch]/snapshots # List snapshots in epoch
+/workspaces/[id]/history/epochs/[epoch]/snapshots/[timestamp]  # View snapshot
+```
+
+| Route                                                    | Purpose                         | Editable?           |
+| -------------------------------------------------------- | ------------------------------- | ------------------- |
+| `/workspaces/[id]/...`                                   | Live workspace at current epoch | Yes                 |
+| `/workspaces/[id]/history`                               | Time machine UI (slider)        | No (view only)      |
+| `/workspaces/[id]/history/epochs/[epoch]`                | Browse old epoch                | No (unless current) |
+| `/workspaces/[id]/history/epochs/[epoch]/snapshots/[ts]` | View snapshot                   | No                  |
+
+**Key principle**: Only the current epoch is editable. Historical epochs and snapshots are read-only views.
+
+## Time Travel (Snapshots)
+
+Snapshots enable Google Docs-style revision history within each epoch.
+
+### Viewing vs Restoring
+
+| Operation   | What Happens                                       | Data Impact              |
+| ----------- | -------------------------------------------------- | ------------------------ |
+| **View**    | Creates temporary Y.Doc from snapshot              | None (read-only preview) |
+| **Restore** | Forks to new epoch with snapshot as starting point | Creates new epoch        |
+
+### Why Fork on Restore?
+
+Y.js is a CRDT; you can't truly "go back in time" because `applyUpdate()` merges rather than replaces. To restore a snapshot:
+
+1. Create new epoch (`currentEpoch + 1`)
+2. Initialize new Y.Doc with snapshot state
+3. Update head doc to point to new epoch
+4. Redirect user to new epoch
+
+This preserves full history (old epochs remain accessible) and matches Git semantics.
+
+### Implementation
+
+```typescript
+// Viewing (cheap, temporary)
+const previewDoc = Y.createDocFromSnapshot(liveDoc, snapshot);
+// Render previewDoc in read-only UI
+// Discard when user navigates away
+
+// Restoring (forks to new epoch)
+async function restoreToSnapshot(snapshotIndex: number) {
+	const snapshot = await revisions.getSnapshot(snapshotIndex);
+	const snapshotDoc = Y.createDocFromSnapshot(liveDoc, snapshot);
+
+	// Create new epoch
+	const newEpoch = currentEpoch + 1;
+	const newDoc = new Y.Doc({ gc: false });
+	Y.applyUpdate(newDoc, Y.encodeStateAsUpdate(snapshotDoc));
+
+	// Persist and update head
+	await persistNewEpoch(newDoc, newEpoch);
+	head.setEpoch(newEpoch);
+
+	// Redirect to new epoch
+	goto(`/workspaces/${id}`);
+}
+```
+
+### Epoch Cleanup
+
+Old epochs can be garbage collected after a retention period:
+
+```typescript
+// In settings or admin UI
+async function cleanupOldEpochs(keepLast: number = 3) {
+	const epochs = await listEpochs(workspaceId);
+	const toDelete = epochs.slice(0, -keepLast);
+	for (const epoch of toDelete) {
+		await deleteEpochFolder(workspaceId, epoch);
+	}
+}
+```
+
 ## File Structure
 
 ```
