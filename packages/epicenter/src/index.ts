@@ -179,7 +179,11 @@ export type {
 	WorkspaceDefinition,
 	WorkspaceInput,
 } from './core/workspace/workspace';
-export { createClient, defineWorkspace } from './core/workspace/workspace';
+export {
+	createClient,
+	createDynamicClient,
+	defineWorkspace,
+} from './core/workspace/workspace';
 
 // Note: Capabilities (markdown, sqlite) are NOT re-exported here to avoid bundling
 // Node.js-only code in browser builds. Import them directly from subpaths:

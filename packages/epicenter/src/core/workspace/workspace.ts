@@ -508,6 +508,7 @@ export function defineWorkspace<
  * const client = createClient(definition, { capabilities });
  * await client.whenSynced;
  * ```
+ *
  */
 export function createClient<
 	TTableDefinitionMap extends TableDefinitionMap,
@@ -530,24 +531,143 @@ export function createClient<
 	TKvDefinitionMap,
 	InferCapabilityExports<TCapabilityFactories>
 > {
+	return createClientCore({
+		id: definition.id,
+		epoch,
+		capabilityFactories,
+		tables: definition.tables,
+		kv: definition.kv,
+		// Static schema mode: merge the definition after persistence loads
+		onSync: (definitionMap) => {
+			mergeDefinitionIntoYDoc(definitionMap, definition);
+		},
+		// Fallback name from definition
+		fallbackName: definition.name,
+	});
+}
+
+/**
+ * Create a workspace client for dynamic schema mode (Epicenter app).
+ *
+ * Use this when the schema lives in the Y.Doc itself, not in code.
+ * Only the workspace ID is required; name, tables, and kv are read from
+ * the Y.Doc after persistence loads.
+ *
+ * For static schema apps (like Whispering), use {@link createClient} instead.
+ *
+ * @param workspaceId - The workspace identifier
+ * @param options - Configuration options
+ * @param options.epoch - Workspace Doc version (defaults to 0)
+ * @param options.capabilities - Factory functions for persistence, sync, etc.
+ *
+ * @example
+ * ```typescript
+ * // Dynamic schema - schema comes from Y.Doc
+ * const client = createDynamicClient('my-workspace', {
+ *   epoch,
+ *   capabilities: { persistence },
+ * });
+ * await client.whenSynced;
+ *
+ * // Name and schema are read from Y.Doc
+ * console.log(client.name);
+ * ```
+ */
+export function createDynamicClient<
+	TCapabilityFactories extends CapabilityFactoryMap<
+		TableDefinitionMap,
+		KvDefinitionMap
+	> = Record<string, never>,
+>(
+	workspaceId: string,
+	{
+		epoch = 0,
+		capabilities: capabilityFactories = {} as TCapabilityFactories,
+	}: {
+		epoch?: number;
+		capabilities?: TCapabilityFactories;
+	} = {},
+): WorkspaceClient<
+	TableDefinitionMap,
+	KvDefinitionMap,
+	InferCapabilityExports<TCapabilityFactories>
+> {
+	return createClientCore({
+		id: workspaceId,
+		epoch,
+		capabilityFactories,
+		tables: {} as TableDefinitionMap,
+		kv: {} as KvDefinitionMap,
+		// Dynamic schema mode: don't merge anything, schema comes from Y.Doc
+		onSync: undefined,
+		// No fallback name - read from Y.Doc
+		fallbackName: undefined,
+	});
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Internal: Core Client Creation
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Internal core function for creating workspace clients.
+ *
+ * Both `createClient` (static schema) and `createDynamicClient` (dynamic schema)
+ * use this function. The key difference is the `onSync` callback:
+ * - Static schema: merges definition after persistence loads
+ * - Dynamic schema: no merge, schema comes from Y.Doc
+ */
+function createClientCore<
+	TTableDefinitionMap extends TableDefinitionMap,
+	TKvDefinitionMap extends KvDefinitionMap,
+	TCapabilityFactories extends CapabilityFactoryMap<
+		TTableDefinitionMap,
+		TKvDefinitionMap
+	>,
+>({
+	id,
+	epoch,
+	capabilityFactories,
+	tables: tableDefinitions,
+	kv: kvDefinitions,
+	onSync,
+	fallbackName,
+}: {
+	id: string;
+	epoch: number;
+	capabilityFactories: TCapabilityFactories;
+	tables: TTableDefinitionMap;
+	kv: TKvDefinitionMap;
+	/** Called after persistence loads. Static schema uses this to merge definition. */
+	onSync:
+		| ((
+				definitionMap: ReturnType<typeof getWorkspaceDocMaps>['definition'],
+		  ) => void)
+		| undefined;
+	/** Fallback name if Y.Doc doesn't have one yet. */
+	fallbackName: string | undefined;
+}): WorkspaceClient<
+	TTableDefinitionMap,
+	TKvDefinitionMap,
+	InferCapabilityExports<TCapabilityFactories>
+> {
 	// Create Workspace Y.Doc with deterministic GUID
 	// gc: false is required for revision history snapshots to work
-	const docId = `${definition.id}-${epoch}` as const;
+	const docId = `${id}-${epoch}` as const;
 	const ydoc = new Y.Doc({ guid: docId, gc: false });
 
 	// Get the definition Y.Map for storing schema metadata
 	const { definition: definitionMap } = getWorkspaceDocMaps(ydoc);
 
-	// Merge the code-defined schema into Y.Map('definition')
-	// This enables collaborative schema editing while preserving code-first defaults
-	mergeDefinitionIntoYDoc(definitionMap, definition);
-
-	// Note: Y.Map('tables') and Y.Map('kv') are accessed internally by
-	// createTables() and createKv() respectively
+	// NOTE: We do NOT call mergeDefinitionIntoYDoc() here!
+	// It must happen AFTER persistence loads (inside whenSynced) so that
+	// code-defined values are "last writer" and override stale disk values.
+	// See: specs/20260119T231252-resilient-client-architecture.md
 
 	// Create table and kv helpers bound to the Y.Doc
-	const tables = createTables(ydoc, definition.tables);
-	const kv = createKv(ydoc, definition.kv);
+	// These can be created immediately - they just bind to Y.Maps
+	const tables = createTables(ydoc, tableDefinitions);
+	const kv = createKv(ydoc, kvDefinitions);
 
 	// Initialize capability exports object and tracking arrays
 	const capabilities = {} as InferCapabilityExports<TCapabilityFactories>;
@@ -571,7 +691,7 @@ export function createClient<
 		initPromises.push(
 			Promise.resolve(
 				capabilityFactory({
-					id: definition.id,
+					id,
 					capabilityId,
 					ydoc,
 					tables,
@@ -594,13 +714,26 @@ export function createClient<
 
 	// whenSynced is fail-fast (any rejection rejects the whole thing)
 	// This is intentional - UI render gates should show error state
+	//
+	// ORDER OF OPERATIONS (critical for correctness):
+	// 1. Wait for capability factories to complete
+	// 2. Wait for all capabilities' whenSynced (e.g., persistence finishes loading disk state)
+	// 3. THEN run onSync callback (static schema merges definition here)
+	// 4. Resolve whenSynced
+	//
+	// See: specs/20260119T231252-resilient-client-architecture.md
 	const whenSynced = whenCapabilitiesInitializedSettled
 		.then(() =>
 			Promise.all(
 				Object.values(capabilities).map((c) => (c as Lifecycle).whenSynced),
 			),
 		)
-		.then(() => {});
+		.then(() => {
+			// After persistence has loaded disk state, run the sync callback
+			// Static schema: merges definition (code is "last writer")
+			// Dynamic schema: no-op (schema comes from Y.Doc)
+			onSync?.(definitionMap);
+		});
 
 	const destroy = async () => {
 		// Wait for init to settle (not complete) - never block on init failures
@@ -616,11 +749,11 @@ export function createClient<
 	};
 
 	return {
-		id: definition.id,
+		id,
 		// Name is a live getter from Y.Map('definition')
-		// Falls back to static definition if not yet synced
+		// Falls back to provided fallbackName if not yet synced
 		get name() {
-			return (definitionMap.get('name') as string) ?? definition.name;
+			return (definitionMap.get('name') as string) ?? fallbackName ?? '';
 		},
 		ydoc,
 		tables,
