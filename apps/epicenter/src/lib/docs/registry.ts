@@ -1,5 +1,5 @@
 import { createRegistryDoc } from '@epicenter/hq';
-import { tauriPersistence } from '$lib/providers/tauri-persistence';
+import { tauriPersistence } from './persistence/tauri-persistence';
 
 const REGISTRY_ID = 'local';
 

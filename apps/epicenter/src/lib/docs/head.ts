@@ -1,5 +1,5 @@
 import { createHeadDoc } from '@epicenter/hq';
-import { tauriPersistence } from '$lib/providers/tauri-persistence';
+import { tauriPersistence } from './persistence/tauri-persistence';
 
 /**
  * Create a head doc with persistence for a workspace.

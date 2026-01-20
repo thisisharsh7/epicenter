@@ -1,8 +1,8 @@
 import { error } from '@sveltejs/kit';
 import { createHead } from '$lib/docs/head';
+import { readDefinition } from '$lib/docs/read-definition';
 import { registry } from '$lib/docs/registry';
 import { createWorkspaceClient } from '$lib/docs/workspace';
-import { readDefinition } from '$lib/providers/definition-persistence';
 import type { LayoutLoad } from './$types';
 
 /**

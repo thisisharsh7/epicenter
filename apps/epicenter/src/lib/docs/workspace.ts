@@ -1,6 +1,6 @@
 import { createClient, type WorkspaceDefinition } from '@epicenter/hq';
 import type * as Y from 'yjs';
-import { tauriWorkspacePersistence } from '$lib/providers/tauri-workspace-persistence';
+import { tauriWorkspacePersistence } from './persistence/tauri-workspace-persistence';
 
 /**
  * Create a workspace client with persistence for a given definition and epoch.

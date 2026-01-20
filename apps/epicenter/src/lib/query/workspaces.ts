@@ -4,9 +4,9 @@ import { revealItemInDir } from '@tauri-apps/plugin-opener';
 import { createTaggedError } from 'wellcrafted/error';
 import { Ok } from 'wellcrafted/result';
 import { createHead } from '$lib/docs/head';
+import { readDefinition } from '$lib/docs/read-definition';
 import { registry } from '$lib/docs/registry';
 import { createWorkspaceClient } from '$lib/docs/workspace';
-import { readDefinition } from '$lib/providers/definition-persistence';
 import { defineMutation, defineQuery, queryClient } from './client';
 
 // ─────────────────────────────────────────────────────────────────────────────

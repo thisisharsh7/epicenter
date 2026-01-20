@@ -290,10 +290,14 @@ async function cleanupOldEpochs(keepLast: number = 3) {
 
 ```
 $lib/docs/
-├── README.md       # This file
-├── registry.ts     # Module singleton for workspace registry
-├── head.ts         # Factory for head docs (epoch tracking)
-└── workspace.ts    # Factory for workspace clients
+├── README.md                       # This file
+├── registry.ts                     # Module singleton for workspace registry
+├── head.ts                         # Factory for head docs (epoch tracking)
+├── workspace.ts                    # Factory for workspace clients
+├── read-definition.ts              # Utility to load definition.json from disk
+└── persistence/                    # Persistence providers (co-located)
+    ├── tauri-persistence.ts        # Binary + JSON persistence for simple docs
+    └── tauri-workspace-persistence.ts  # Workspace-specific persistence with extraction
 ```
 
 ## Persistence Strategy
