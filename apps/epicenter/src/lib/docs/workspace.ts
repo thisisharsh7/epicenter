@@ -1,7 +1,6 @@
 import { createClient, type WorkspaceDefinition } from '@epicenter/hq';
 import type * as Y from 'yjs';
-import { persistYDocAsJson } from '$lib/providers/tauri-json-persistence';
-import { persistYDoc } from '$lib/providers/tauri-persistence';
+import { tauriWorkspacePersistence } from '$lib/providers/tauri-workspace-persistence';
 
 /**
  * Create a workspace client with persistence for a given definition and epoch.
@@ -12,14 +11,16 @@ import { persistYDoc } from '$lib/providers/tauri-persistence';
  * 3. Workspace Doc → the actual definition and data (this function)
  *
  * This is a thin wrapper around `createClient()` that pre-configures
- * persistence capabilities. The workspace ID comes from `definition.id`.
+ * unified persistence capabilities. The workspace ID comes from `definition.id`.
  *
  * **Storage Layout (Epoch Folders):**
  * ```
  * {appLocalDataDir}/workspaces/{workspaceId}/{epoch}/
  * ├── workspace.yjs      # Full Y.Doc binary (sync source of truth)
- * ├── workspace.json     # Debug JSON mirror
- * └── (future: definition.json, kv.json, tables.sqlite)
+ * ├── definition.json    # Schema from Y.Map('definition')
+ * ├── kv.json            # Settings from Y.Map('kv')
+ * └── snapshots/         # Revision history (future)
+ *     └── {unix-ms}.ysnap
  * ```
  *
  * @param definition - The workspace definition (id, name, tables, kv)
@@ -45,26 +46,14 @@ export function createWorkspaceClient(
 	definition: WorkspaceDefinition,
 	epoch: number,
 ) {
-	// Epoch folder structure: {workspaceId}/{epoch}/workspace.yjs
-	const epochFolder = epoch.toString();
-
 	return createClient(definition, {
 		epoch,
 		capabilities: {
 			persistence: (ctx: { ydoc: Y.Doc }) =>
-				persistYDoc(ctx.ydoc, [
-					'workspaces',
-					definition.id,
-					epochFolder,
-					'workspace.yjs',
-				]),
-			jsonPersistence: (ctx: { ydoc: Y.Doc }) =>
-				persistYDocAsJson(ctx.ydoc, [
-					'workspaces',
-					definition.id,
-					epochFolder,
-					'workspace.json',
-				]),
+				tauriWorkspacePersistence(ctx.ydoc, {
+					workspaceId: definition.id,
+					epoch,
+				}),
 		},
 	});
 }

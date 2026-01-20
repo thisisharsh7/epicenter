@@ -36,21 +36,20 @@ Epicenter uses a three-document architecture for storing and retrieving workspac
         │
         ├── 0/                      # Epoch 0
         │   ├── workspace.yjs       # Full Y.Doc (sync source of truth)
-        │   ├── workspace.json      # Debug JSON mirror
         │   ├── definition.json     # Schema (from Y.Map('definition'))
         │   ├── kv.json             # Settings (from Y.Map('kv'))
-        │   ├── tables.sqlite       # Table data (from Y.Map('tables'))
-        │   └── snapshots/          # Revision history
+        │   └── snapshots/          # Revision history (future)
         │       └── {unix-ms}.ysnap
         │
         └── 1/                      # Epoch 1 (after migration)
             ├── workspace.yjs
             ├── definition.json
             ├── kv.json
-            ├── tables.sqlite
             └── snapshots/
                 └── ...
 ```
+
+**Note**: The Node.js library version (`packages/epicenter`) also supports `tables.sqlite` for SQL queries. The Tauri app version currently persists to JSON only.
 
 ### Workspace ID Format
 
@@ -299,39 +298,34 @@ $lib/docs/
 
 ## Persistence Strategy
 
-The unified persistence capability materializes the Y.Doc into multiple formats:
+The unified persistence capability (`tauriWorkspacePersistence`) materializes the Y.Doc into multiple formats:
 
-| File              | Source                | Purpose                                 |
-| ----------------- | --------------------- | --------------------------------------- |
-| `workspace.yjs`   | Full Y.Doc            | CRDT sync, source of truth              |
-| `definition.json` | `Y.Map('definition')` | Git tracking, human-editable schema     |
-| `kv.json`         | `Y.Map('kv')`         | User-editable settings, debugging       |
-| `tables.sqlite`   | `Y.Map('tables')`     | SQL queries via Drizzle, large datasets |
+| File              | Source                | Purpose                             |
+| ----------------- | --------------------- | ----------------------------------- |
+| `workspace.yjs`   | Full Y.Doc            | CRDT sync, source of truth          |
+| `definition.json` | `Y.Map('definition')` | Git tracking, human-editable schema |
+| `kv.json`         | `Y.Map('kv')`         | User-editable settings, debugging   |
 
 ### Observer Pattern
 
+The persistence capability uses Tauri file APIs to observe Y.Doc changes:
+
 ```typescript
-const definition = ydoc.getMap('definition');
-const kv = ydoc.getMap('kv');
-const tables = ydoc.getMap('tables');
-
-// Full Y.Doc binary (always, for sync)
-ydoc.on('update', (update) => {
-	appendUpdate('workspace.yjs', update);
-});
-
-// Definition → JSON (on change)
-definition.observeDeep(() => {
-	writeFile('definition.json', JSON.stringify(definition.toJSON(), null, '\t'));
-});
-
-// KV → JSON (on change)
-kv.observe(() => {
-	writeFile('kv.json', JSON.stringify(kv.toJSON(), null, '\t'));
-});
-
-// Tables → SQLite (on change, debounced)
-tables.observeDeep(() => {
-	debounce(() => syncToSqlite(tables), 1000);
+// workspace.ts uses tauriWorkspacePersistence
+const client = createClient(definition, {
+	epoch,
+	capabilities: {
+		persistence: (ctx) =>
+			tauriWorkspacePersistence(ctx.ydoc, {
+				workspaceId: definition.id,
+				epoch,
+			}),
+	},
 });
 ```
+
+Internally, the capability:
+
+1. Saves `workspace.yjs` on every Y.Doc update
+2. Debounces `definition.json` writes when `Y.Map('definition')` changes
+3. Debounces `kv.json` writes when `Y.Map('kv')` changes

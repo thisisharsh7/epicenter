@@ -1,19 +1,28 @@
 import type { WorkspaceDefinition } from '@epicenter/hq';
-import { appLocalDataDir, dirname, join } from '@tauri-apps/api/path';
-import { mkdir, readFile, writeFile } from '@tauri-apps/plugin-fs';
+import { appLocalDataDir, join } from '@tauri-apps/api/path';
+import { readFile } from '@tauri-apps/plugin-fs';
 
 /**
- * Read a workspace definition from definition.json.
+ * Read a workspace definition from the epoch folder.
  *
  * The definition file is stored at:
- * `{appLocalDataDir}/workspaces/{workspaceId}/definition.json`
+ * `{appLocalDataDir}/workspaces/{workspaceId}/{epoch}/definition.json`
+ *
+ * This is the canonical location for definitions in the unified persistence
+ * architecture. The file is written by `tauriWorkspacePersistence` whenever
+ * the Y.Map('definition') changes.
  *
  * @param workspaceId - The workspace ID (folder name)
+ * @param epoch - The epoch number (determines which folder to read from)
  * @returns The parsed WorkspaceDefinition, or null if file doesn't exist
  *
  * @example
  * ```typescript
- * const definition = await readDefinition('epicenter.whispering');
+ * const head = createHead(workspaceId);
+ * await head.whenSynced;
+ * const epoch = head.getEpoch();
+ *
+ * const definition = await readDefinition(workspaceId, epoch);
  * if (definition) {
  *   console.log(definition.name); // "Whispering"
  * }
@@ -21,6 +30,7 @@ import { mkdir, readFile, writeFile } from '@tauri-apps/plugin-fs';
  */
 export async function readDefinition(
 	workspaceId: string,
+	epoch: number,
 ): Promise<WorkspaceDefinition | null> {
 	try {
 		const baseDir = await appLocalDataDir();
@@ -28,11 +38,20 @@ export async function readDefinition(
 			baseDir,
 			'workspaces',
 			workspaceId,
+			epoch.toString(),
 			'definition.json',
 		);
 		const content = await readFile(filePath);
 		const json = new TextDecoder().decode(content);
-		return JSON.parse(json) as WorkspaceDefinition;
+
+		// The unified persistence writes WorkspaceDefinitionMap (from Y.Doc),
+		// which has the same shape as WorkspaceDefinition but without the id field.
+		// We need to add the id back.
+		const parsed = JSON.parse(json) as Omit<WorkspaceDefinition, 'id'>;
+		return {
+			id: workspaceId,
+			...parsed,
+		} as WorkspaceDefinition;
 	} catch {
 		// File doesn't exist or couldn't be read
 		return null;
@@ -40,59 +59,16 @@ export async function readDefinition(
 }
 
 /**
- * Write a workspace definition to definition.json.
- *
- * Creates the parent directory if it doesn't exist.
- * The file is stored at:
- * `{appLocalDataDir}/workspaces/{workspaceId}/definition.json`
+ * Check if a definition.json file exists for a workspace at a specific epoch.
  *
  * @param workspaceId - The workspace ID (folder name)
- * @param definition - The WorkspaceDefinition to save
- *
- * @example
- * ```typescript
- * await writeDefinition('epicenter.whispering', {
- *   id: 'epicenter.whispering',
- *   name: 'Whispering',
- *   tables: { ... },
- *   kv: {},
- * });
- * ```
- */
-export async function writeDefinition(
-	workspaceId: string,
-	definition: WorkspaceDefinition,
-): Promise<void> {
-	const baseDir = await appLocalDataDir();
-	const filePath = await join(
-		baseDir,
-		'workspaces',
-		workspaceId,
-		'definition.json',
-	);
-
-	// Ensure parent directory exists
-	const parentDir = await dirname(filePath);
-	await mkdir(parentDir, { recursive: true }).catch(() => {
-		// Directory might already exist - that's fine
-	});
-
-	// Write definition as pretty-printed JSON
-	const content = JSON.stringify(definition, null, '\t');
-	await writeFile(filePath, new TextEncoder().encode(content));
-
-	console.log(
-		`[Definition] Saved definition.json for workspace "${workspaceId}"`,
-	);
-}
-
-/**
- * Check if a definition.json file exists for a workspace.
- *
- * @param workspaceId - The workspace ID (folder name)
+ * @param epoch - The epoch number
  * @returns true if the file exists, false otherwise
  */
-export async function hasDefinition(workspaceId: string): Promise<boolean> {
-	const definition = await readDefinition(workspaceId);
+export async function hasDefinition(
+	workspaceId: string,
+	epoch: number,
+): Promise<boolean> {
+	const definition = await readDefinition(workspaceId, epoch);
 	return definition !== null;
 }

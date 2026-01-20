@@ -6,10 +6,7 @@ import { Ok } from 'wellcrafted/result';
 import { createHead } from '$lib/docs/head';
 import { registry } from '$lib/docs/registry';
 import { createWorkspaceClient } from '$lib/docs/workspace';
-import {
-	readDefinition,
-	writeDefinition,
-} from '$lib/providers/definition-persistence';
+import { readDefinition } from '$lib/providers/definition-persistence';
 import { defineMutation, defineQuery, queryClient } from './client';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -61,10 +58,10 @@ export const workspaces = {
 	}),
 
 	/**
-	 * Get a single workspace by GUID.
+	 * Get a single workspace by ID.
 	 *
-	 * Reads the definition from definition.json (static file).
-	 * Y.Doc is no longer used for definition storage.
+	 * Reads the definition from the epoch folder ({epoch}/definition.json).
+	 * The definition is written by the unified persistence capability.
 	 */
 	getWorkspace: (workspaceId: string) =>
 		defineQuery({
@@ -77,11 +74,16 @@ export const workspaces = {
 					});
 				}
 
-				// Read definition from definition.json
-				const definition = await readDefinition(workspaceId);
+				// Get epoch from head doc
+				const head = createHead(workspaceId);
+				await head.whenSynced;
+				const epoch = head.getEpoch();
+
+				// Read definition from epoch folder
+				const definition = await readDefinition(workspaceId, epoch);
 				if (!definition) {
 					return WorkspaceErr({
-						message: `Definition file not found for workspace "${workspaceId}"`,
+						message: `Definition file not found for workspace "${workspaceId}" at epoch ${epoch}`,
 					});
 				}
 
@@ -92,11 +94,14 @@ export const workspaces = {
 	/**
 	 * Create a new workspace.
 	 *
-	 * 1. Uses the provided human-readable ID directly (no GUID generation)
-	 * 2. Adds the ID to the registry
-	 * 3. Writes definition.json (static metadata)
-	 * 4. Creates a head doc (epoch starts at 0)
-	 * 5. Creates the workspace doc (DATA ONLY)
+	 * Flow:
+	 * 1. Add workspace ID to registry
+	 * 2. Initialize head doc (epoch starts at 0)
+	 * 3. Create workspace client with definition
+	 * 4. Persistence writes definition.json to epoch folder
+	 *
+	 * The definition is stored in Y.Map('definition') and automatically
+	 * persisted to {epoch}/definition.json by the unified persistence capability.
 	 */
 	createWorkspace: defineMutation({
 		mutationKey: ['workspaces', 'create'],
@@ -112,15 +117,13 @@ export const workspaces = {
 			// Add to registry (persisted automatically via registryPersistence)
 			registry.addWorkspace(input.id);
 
-			// Write definition.json (static metadata, not in Y.Doc)
-			await writeDefinition(input.id, definition);
-
 			// Initialize head doc at epoch 0
 			const head = createHead(input.id);
 			await head.whenSynced;
 
-			// Create workspace client to initialize the workspace doc
-			// Y.Doc now only stores DATA (rows, kv values), not definition
+			// Create workspace client - this will:
+			// 1. Merge definition into Y.Map('definition')
+			// 2. Persist to {epoch}/definition.json via unified persistence
 			const client = createWorkspaceClient(definition, 0);
 
 			// Wait for persistence to finish saving initial state to disk
