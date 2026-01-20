@@ -1,12 +1,12 @@
 import { createHeadDoc } from '@epicenter/hq';
-import { persistYDocAsJson } from '$lib/providers/tauri-json-persistence';
-import { persistYDoc } from '$lib/providers/tauri-persistence';
+import { tauriPersistence } from '$lib/providers/tauri-persistence';
 
 /**
  * Create a head doc with persistence for a workspace.
  *
  * The head doc stores the current epoch using a CRDT-safe per-client MAX pattern,
- * persisted to `{appLocalDataDir}/workspaces/{workspaceId}/head.yjs`.
+ * persisted to `{appLocalDataDir}/workspaces/{workspaceId}/head.yjs` with a JSON
+ * mirror at `head.json` for debugging.
  *
  * Uses the sync construction, async property pattern:
  * - Construction is synchronous (returns immediately)
@@ -30,8 +30,6 @@ import { persistYDoc } from '$lib/providers/tauri-persistence';
 export function createHead(workspaceId: string) {
 	return createHeadDoc({ workspaceId }).withProviders({
 		persistence: (ctx) =>
-			persistYDoc(ctx.ydoc, ['workspaces', workspaceId, 'head.yjs']),
-		jsonPersistence: (ctx) =>
-			persistYDocAsJson(ctx.ydoc, ['workspaces', workspaceId, 'head.json']),
+			tauriPersistence(ctx.ydoc, ['workspaces', workspaceId, 'head']),
 	});
 }

@@ -298,34 +298,55 @@ $lib/docs/
 
 ## Persistence Strategy
 
-The unified persistence capability (`tauriWorkspacePersistence`) materializes the Y.Doc into multiple formats:
+There are two persistence providers, each suited for different Y.Doc types:
 
-| File              | Source                | Purpose                             |
+### `tauriPersistence` (for Registry & Head docs)
+
+Simple Y.Doc persistence that creates both binary and JSON outputs:
+
+```typescript
+// registry.ts and head.ts use tauriPersistence
+persistence: (ctx) => tauriPersistence(ctx.ydoc, ['registry']);
+// Creates: registry.yjs (binary) + registry.json (mirror)
+```
+
+| Output        | Behavior                 | Purpose                   |
+| ------------- | ------------------------ | ------------------------- |
+| `{name}.yjs`  | Immediate save on update | Source of truth, for sync |
+| `{name}.json` | Debounced (500ms)        | Human-readable debug view |
+
+The JSON file is a **one-way mirror**: changes to the JSON are NOT loaded back. It exists purely for debugging and inspection.
+
+### `tauriWorkspacePersistence` (for Workspace docs)
+
+Specialized persistence for workspace Y.Docs that extracts structured data:
+
+```typescript
+// workspace.ts uses tauriWorkspacePersistence
+persistence: (ctx) =>
+	tauriWorkspacePersistence(ctx.ydoc, {
+		workspaceId: definition.id,
+		epoch,
+	});
+```
+
+| Output            | Source                | Purpose                             |
 | ----------------- | --------------------- | ----------------------------------- |
 | `workspace.yjs`   | Full Y.Doc            | CRDT sync, source of truth          |
 | `definition.json` | `Y.Map('definition')` | Git tracking, human-editable schema |
 | `kv.json`         | `Y.Map('kv')`         | User-editable settings, debugging   |
 
-### Observer Pattern
+Internally:
 
-The persistence capability uses Tauri file APIs to observe Y.Doc changes:
-
-```typescript
-// workspace.ts uses tauriWorkspacePersistence
-const client = createClient(definition, {
-	epoch,
-	capabilities: {
-		persistence: (ctx) =>
-			tauriWorkspacePersistence(ctx.ydoc, {
-				workspaceId: definition.id,
-				epoch,
-			}),
-	},
-});
-```
-
-Internally, the capability:
-
-1. Saves `workspace.yjs` on every Y.Doc update
+1. Saves `workspace.yjs` on every Y.Doc update (immediate)
 2. Debounces `definition.json` writes when `Y.Map('definition')` changes
 3. Debounces `kv.json` writes when `Y.Map('kv')` changes
+
+### Why Two Providers?
+
+| Provider                    | Use Case                     | Outputs                                |
+| --------------------------- | ---------------------------- | -------------------------------------- |
+| `tauriPersistence`          | Simple docs (registry, head) | `{name}.yjs` + `{name}.json`           |
+| `tauriWorkspacePersistence` | Workspace docs with schema   | `.yjs` + `definition.json` + `kv.json` |
+
+The workspace provider extracts **specific Y.Maps** into separate JSON files (definition, kv), while the simple provider mirrors the **entire Y.Doc** as JSON.

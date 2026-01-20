@@ -1,6 +1,5 @@
 import { createRegistryDoc } from '@epicenter/hq';
-import { persistYDocAsJson } from '$lib/providers/tauri-json-persistence';
-import { persistYDoc } from '$lib/providers/tauri-persistence';
+import { tauriPersistence } from '$lib/providers/tauri-persistence';
 
 const REGISTRY_ID = 'local';
 
@@ -8,7 +7,8 @@ const REGISTRY_ID = 'local';
  * Registry doc with persistence (singleton).
  *
  * The registry tracks which workspace GUIDs exist for this user,
- * persisted to `{appLocalDataDir}/registry.yjs`.
+ * persisted to `{appLocalDataDir}/registry.yjs` with a JSON mirror
+ * at `registry.json` for debugging.
  *
  * Uses the sync construction, async property pattern:
  * - Construction is synchronous (returns immediately)
@@ -34,6 +34,5 @@ const REGISTRY_ID = 'local';
 export const registry = createRegistryDoc({
 	registryId: REGISTRY_ID,
 }).withProviders({
-	persistence: (ctx) => persistYDoc(ctx.ydoc, ['registry.yjs']),
-	jsonPersistence: (ctx) => persistYDocAsJson(ctx.ydoc, ['registry.json']),
+	persistence: (ctx) => tauriPersistence(ctx.ydoc, ['registry']),
 });
