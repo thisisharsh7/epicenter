@@ -7,6 +7,7 @@
 	import CreateTableDialog from '$lib/components/CreateTableDialog.svelte';
 	import CreateSettingDialog from '$lib/components/CreateSettingDialog.svelte';
 	import CreateWorkspaceDialog from '$lib/components/CreateWorkspaceDialog.svelte';
+	import EditWorkspaceDialog from '$lib/components/EditWorkspaceDialog.svelte';
 	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
 	import { registry } from '$lib/docs/registry';
 
@@ -38,6 +39,7 @@
 <CreateTableDialog />
 <CreateSettingDialog />
 <CreateWorkspaceDialog />
+<EditWorkspaceDialog />
 <ConfirmationDialog />
 <Toaster offset={16} theme={mode.current} {...TOASTER_SETTINGS} />
 <ModeWatcher defaultMode="dark" track={false} />

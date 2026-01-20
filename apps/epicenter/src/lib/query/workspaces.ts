@@ -33,25 +33,32 @@ const workspaceKeys = {
 
 export const workspaces = {
 	/**
-	 * List all workspaces from the registry.
+	 * List all workspaces from the registry with their names.
 	 *
-	 * Returns workspace GUIDs with minimal metadata. For full definition details,
-	 * use getWorkspace() which loads from the workspace Y.Doc.
+	 * Loads the definition.json for each workspace to get the actual name.
+	 * Falls back to ID if definition can't be loaded.
 	 */
 	listWorkspaces: defineQuery({
 		queryKey: workspaceKeys.list(),
 		queryFn: async () => {
 			const guids = registry.getWorkspaceIds();
 
-			// Return minimal workspace info (just IDs)
-			// Full definition is loaded lazily when navigating to the workspace
-			const workspaces = guids.map((id) => ({
-				id,
-				// Use ID as placeholder name until we have metadata in registry
-				name: id,
-				tables: {},
-				kv: {},
-			}));
+			// Load definitions in parallel to get actual names
+			const workspaces = await Promise.all(
+				guids.map(async (id) => {
+					const head = createHead(id);
+					await head.whenSynced;
+					const epoch = head.getEpoch();
+					const definition = await readDefinition(id, epoch);
+
+					return {
+						id,
+						name: definition?.name ?? id,
+						tables: definition?.tables ?? {},
+						kv: definition?.kv ?? {},
+					};
+				}),
+			);
 
 			return Ok(workspaces);
 		},
@@ -139,6 +146,62 @@ export const workspaces = {
 			queryClient.invalidateQueries({ queryKey: workspaceKeys.list() });
 
 			return Ok(definition);
+		},
+	}),
+
+	/**
+	 * Update a workspace's name.
+	 *
+	 * Updates the name in Y.Map('definition') which triggers persistence
+	 * to definition.json via the unified persistence capability.
+	 *
+	 * Note: The workspace ID cannot be changed after creation.
+	 */
+	updateWorkspace: defineMutation({
+		mutationKey: ['workspaces', 'update'],
+		mutationFn: async (input: { workspaceId: string; name: string }) => {
+			// Check if workspace exists
+			if (!registry.hasWorkspace(input.workspaceId)) {
+				return WorkspaceErr({
+					message: `Workspace "${input.workspaceId}" not found`,
+				});
+			}
+
+			// Get epoch from head doc
+			const head = createHead(input.workspaceId);
+			await head.whenSynced;
+			const epoch = head.getEpoch();
+
+			// Read current definition
+			const definition = await readDefinition(input.workspaceId, epoch);
+			if (!definition) {
+				return WorkspaceErr({
+					message: `Definition file not found for workspace "${input.workspaceId}" at epoch ${epoch}`,
+				});
+			}
+
+			// Create workspace client with updated name
+			const updatedDefinition: WorkspaceDefinition = {
+				...definition,
+				name: input.name,
+			};
+
+			const client = createWorkspaceClient(updatedDefinition, epoch);
+			await client.whenSynced;
+			await client.destroy();
+
+			console.log(`[updateWorkspace] Updated workspace:`, {
+				id: input.workspaceId,
+				name: input.name,
+			});
+
+			// Invalidate queries to refresh UI
+			queryClient.invalidateQueries({ queryKey: workspaceKeys.list() });
+			queryClient.invalidateQueries({
+				queryKey: workspaceKeys.detail(input.workspaceId),
+			});
+
+			return Ok(updatedDefinition);
 		},
 	}),
 
