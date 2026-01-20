@@ -23,9 +23,14 @@
 		...restProps
 	}: ToggleGroupPrimitive.RootProps & ToggleVariants = $props();
 
+	// Use getters so child components receive reactive values when props change
 	setToggleGroupCtx({
-		variant,
-		size,
+		get variant() {
+			return variant;
+		},
+		get size() {
+			return size;
+		},
 	});
 </script>
 
