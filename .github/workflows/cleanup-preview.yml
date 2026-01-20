@@ -8,6 +8,9 @@ jobs:
   cleanup-preview:
     name: Delete Preview Worker
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -15,7 +18,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version-file: "package.json"
+          bun-version-file: 'package.json'
 
       - name: Delete preview worker
         run: |
