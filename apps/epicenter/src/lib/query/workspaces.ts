@@ -3,13 +3,8 @@ import { appLocalDataDir, join } from '@tauri-apps/api/path';
 import { revealItemInDir } from '@tauri-apps/plugin-opener';
 import { createTaggedError } from 'wellcrafted/error';
 import { Ok } from 'wellcrafted/result';
-import { createHead } from '$lib/docs/head';
 import { registry } from '$lib/docs/registry';
 import { createWorkspaceClient } from '$lib/docs/workspace';
-import {
-	readDefinition,
-	writeDefinition,
-} from '$lib/providers/definition-persistence';
 import { defineMutation, defineQuery, queryClient } from './client';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -36,35 +31,51 @@ const workspaceKeys = {
 
 export const workspaces = {
 	/**
-	 * List all workspaces from the registry.
+	 * List all workspaces from the registry with their names.
 	 *
-	 * Returns workspace GUIDs with minimal metadata. For full definition details,
-	 * use getWorkspace() which loads from the workspace Y.Doc.
+	 * Uses fluent API to load definition from Y.Doc.
+	 * Falls back to ID if definition can't be loaded.
 	 */
 	listWorkspaces: defineQuery({
 		queryKey: workspaceKeys.list(),
 		queryFn: async () => {
 			const guids = registry.getWorkspaceIds();
 
-			// Return minimal workspace info (just IDs)
-			// Full definition is loaded lazily when navigating to the workspace
-			const workspaces = guids.map((id) => ({
-				id,
-				// Use ID as placeholder name until we have metadata in registry
-				name: id,
-				tables: {},
-				kv: {},
-			}));
+			// Load definitions in parallel via fluent API
+			const workspaces = await Promise.all(
+				guids.map(async (id) => {
+					try {
+						const client = registry.head(id).client();
+						await client.whenSynced;
+						const definition = client.getDefinition();
+						await client.destroy();
+
+						return {
+							id,
+							name: definition.name || id,
+							tables: definition.tables,
+							kv: definition.kv,
+						};
+					} catch {
+						// Workspace exists in registry but can't be loaded
+						return {
+							id,
+							name: id,
+							tables: {},
+							kv: {},
+						};
+					}
+				}),
+			);
 
 			return Ok(workspaces);
 		},
 	}),
 
 	/**
-	 * Get a single workspace by GUID.
+	 * Get a single workspace by ID.
 	 *
-	 * Reads the definition from definition.json (static file).
-	 * Y.Doc is no longer used for definition storage.
+	 * Uses fluent API to read definition from Y.Doc.
 	 */
 	getWorkspace: (workspaceId: string) =>
 		defineQuery({
@@ -77,26 +88,32 @@ export const workspaces = {
 					});
 				}
 
-				// Read definition from definition.json
-				const definition = await readDefinition(workspaceId);
-				if (!definition) {
-					return WorkspaceErr({
-						message: `Definition file not found for workspace "${workspaceId}"`,
-					});
-				}
+				// Use fluent API to get definition from Y.Doc
+				const client = registry.head(workspaceId).client();
+				await client.whenSynced;
+				const definition = client.getDefinition();
+				await client.destroy();
 
-				return Ok(definition);
+				// Add id to match WorkspaceDefinition type
+				// Note: WorkspaceDefinitionMap from Y.Doc has looser types than WorkspaceDefinition
+				return Ok({
+					id: workspaceId,
+					...definition,
+				} as unknown as WorkspaceDefinition);
 			},
 		}),
 
 	/**
 	 * Create a new workspace.
 	 *
-	 * 1. Uses the provided human-readable ID directly (no GUID generation)
-	 * 2. Adds the ID to the registry
-	 * 3. Writes definition.json (static metadata)
-	 * 4. Creates a head doc (epoch starts at 0)
-	 * 5. Creates the workspace doc (DATA ONLY)
+	 * Flow:
+	 * 1. Add workspace ID to registry
+	 * 2. Initialize head doc via fluent API (epoch starts at 0)
+	 * 3. Create workspace client with definition (static schema mode)
+	 * 4. Persistence writes definition.json to epoch folder
+	 *
+	 * Uses `createWorkspaceClient` (static schema mode) because we're seeding
+	 * a new workspace with a known definition.
 	 */
 	createWorkspace: defineMutation({
 		mutationKey: ['workspaces', 'create'],
@@ -112,15 +129,13 @@ export const workspaces = {
 			// Add to registry (persisted automatically via registryPersistence)
 			registry.addWorkspace(input.id);
 
-			// Write definition.json (static metadata, not in Y.Doc)
-			await writeDefinition(input.id, definition);
-
-			// Initialize head doc at epoch 0
-			const head = createHead(input.id);
+			// Initialize head doc via fluent API (epoch starts at 0)
+			const head = registry.head(input.id);
 			await head.whenSynced;
 
-			// Create workspace client to initialize the workspace doc
-			// Y.Doc now only stores DATA (rows, kv values), not definition
+			// Create workspace client with static definition - this will:
+			// 1. Merge definition into Y.Map('definition')
+			// 2. Persist to {epoch}/definition.json via unified persistence
 			const client = createWorkspaceClient(definition, 0);
 
 			// Wait for persistence to finish saving initial state to disk
@@ -136,6 +151,58 @@ export const workspaces = {
 			queryClient.invalidateQueries({ queryKey: workspaceKeys.list() });
 
 			return Ok(definition);
+		},
+	}),
+
+	/**
+	 * Update a workspace's name.
+	 *
+	 * Uses fluent API to update the name in Y.Map('definition').
+	 * Persistence automatically writes to definition.json.
+	 *
+	 * Note: The workspace ID cannot be changed after creation.
+	 */
+	updateWorkspace: defineMutation({
+		mutationKey: ['workspaces', 'update'],
+		mutationFn: async (input: { workspaceId: string; name: string }) => {
+			// Check if workspace exists
+			if (!registry.hasWorkspace(input.workspaceId)) {
+				return WorkspaceErr({
+					message: `Workspace "${input.workspaceId}" not found`,
+				});
+			}
+
+			// Use fluent API to update the name directly in Y.Doc
+			const client = registry.head(input.workspaceId).client();
+			await client.whenSynced;
+
+			// Update the name in Y.Map('definition')
+			// The client.name setter writes to the Y.Doc
+			const { definition: definitionMap } = await import('@epicenter/hq').then(
+				(m) => m.getWorkspaceDocMaps(client.ydoc),
+			);
+			definitionMap.set('name', input.name);
+
+			// Get the updated definition
+			const definition = client.getDefinition();
+			await client.destroy();
+
+			console.log(`[updateWorkspace] Updated workspace:`, {
+				id: input.workspaceId,
+				name: input.name,
+			});
+
+			// Invalidate queries to refresh UI
+			queryClient.invalidateQueries({ queryKey: workspaceKeys.list() });
+			queryClient.invalidateQueries({
+				queryKey: workspaceKeys.detail(input.workspaceId),
+			});
+
+			// Note: WorkspaceDefinitionMap from Y.Doc has looser types than WorkspaceDefinition
+			return Ok({
+				id: input.workspaceId,
+				...definition,
+			} as unknown as WorkspaceDefinition);
 		},
 	}),
 

@@ -1,7 +1,7 @@
 import { IndexeddbPersistence } from 'y-indexeddb';
 import type {
-	CapabilityFactory,
 	CapabilityContext,
+	CapabilityFactory,
 } from '../../core/capability';
 import type { KvDefinitionMap, TableDefinitionMap } from '../../core/schema';
 
@@ -32,25 +32,27 @@ import type { KvDefinitionMap, TableDefinitionMap } from '../../core/schema';
  *
  * @example Basic usage in a browser app
  * ```typescript
- * import { defineWorkspace } from '@epicenter/hq';
+ * import { defineWorkspace, createClient } from '@epicenter/hq';
  * import { persistence } from '@epicenter/hq/capabilities/persistence';
  *
- * const workspace = defineWorkspace({
+ * const definition = defineWorkspace({
  *   id: 'blog',  // This becomes the IndexedDB database name
  *   tables: { ... },
+ *   kv: {},
  * });
  *
- * const client = await workspace.create({
+ * const client = createClient(definition, {
  *   capabilities: { persistence },
  * });
  * ```
  *
  * @example In a Svelte/React component
  * ```typescript
- * import { workspace } from './workspace-config';
+ * import { definition } from './workspace-config';
+ * import { createClient } from '@epicenter/hq';
  *
  * // Inside component setup/onMount:
- * const client = await workspace.create({
+ * const client = createClient(definition, {
  *   capabilities: { persistence },
  * });
  *
@@ -61,20 +63,22 @@ import type { KvDefinitionMap, TableDefinitionMap } from '../../core/schema';
  * @example Multi-workspace setup
  * ```typescript
  * // Each workspace gets its own IndexedDB database
- * const blog = defineWorkspace({
+ * const blogDefinition = defineWorkspace({
  *   id: 'blog',  // → IndexedDB database named 'blog'
  *   tables: { ... },
+ *   kv: {},
  * });
  *
- * const notes = defineWorkspace({
+ * const notesDefinition = defineWorkspace({
  *   id: 'notes',  // → IndexedDB database named 'notes'
  *   tables: { ... },
+ *   kv: {},
  * });
  *
- * const blogClient = await blog.create({
+ * const blogClient = createClient(blogDefinition, {
  *   capabilities: { persistence },
  * });
- * const notesClient = await notes.create({
+ * const notesClient = createClient(notesDefinition, {
  *   capabilities: { persistence },
  * });
  *

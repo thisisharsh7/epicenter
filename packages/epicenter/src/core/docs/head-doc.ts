@@ -211,7 +211,7 @@ export function createHeadDoc(options: { workspaceId: string; ydoc?: Y.Doc }) {
 		 * ```typescript
 		 * const actualEpoch = head.setOwnEpoch(2);
 		 * await oldClient.destroy();
-		 * const newClient = await workspace.create({ epoch: actualEpoch });
+		 * const newClient = createClient(definition, { epoch: actualEpoch });
 		 * ```
 		 *
 		 * @param epoch - The epoch number to set (clamped to current global epoch)
@@ -229,7 +229,7 @@ export function createHeadDoc(options: { workspaceId: string; ydoc?: Y.Doc }) {
 		 *
 		 * // Recreate client at the actual epoch
 		 * const epoch = head.setOwnEpoch(2);
-		 * const client = await workspace.create({ epoch });
+		 * const client = createClient(definition, { epoch });
 		 * ```
 		 */
 		setOwnEpoch(epoch: number): number {
@@ -376,10 +376,8 @@ export function createHeadDoc(options: { workspaceId: string; ydoc?: Y.Doc }) {
 				)
 				.then(() => {});
 
-			const base = this;
-
 			return {
-				...base,
+				...this,
 				providers,
 				whenSynced,
 

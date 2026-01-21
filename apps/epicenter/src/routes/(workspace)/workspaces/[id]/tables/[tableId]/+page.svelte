@@ -19,9 +19,11 @@
 
 	const tableId = $derived(page.params.tableId);
 
+	const definition = $derived(data.client?.getDefinition());
+
 	const tableEntry = $derived.by(() => {
-		if (!tableId || !data.workspace?.tables) return undefined;
-		return data.workspace.tables[tableId];
+		if (!tableId || !definition?.tables) return undefined;
+		return definition.tables[tableId];
 	});
 
 	const tableFields = $derived(tableEntry?.fields);
@@ -57,7 +59,7 @@
 				</Empty.Description>
 			</Empty.Header>
 			<Empty.Content>
-				<Button variant="outline" href="/workspaces/{data.workspace.id}">
+				<Button variant="outline" href="/workspaces/{data.client.id}">
 					Back to workspace
 				</Button>
 			</Empty.Content>

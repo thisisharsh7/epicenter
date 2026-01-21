@@ -33,10 +33,22 @@ export type VersionEntry = {
  */
 export type LocalRevisionHistoryConfig = {
 	/**
-	 * Base directory to store snapshots.
-	 * Snapshots are saved to `{directory}/snapshots/{workspaceId}/`.
+	 * Base directory for workspace storage.
+	 *
+	 * Snapshots are saved to `{directory}/{workspaceId}/{epoch}/snapshots/`.
 	 */
 	directory: string;
+
+	/**
+	 * The epoch number for this workspace.
+	 *
+	 * Snapshots are stored in the epoch folder structure:
+	 * `{directory}/{workspaceId}/{epoch}/snapshots/`
+	 *
+	 * This ensures snapshots are isolated per-epoch and can be deleted
+	 * atomically when an epoch is removed.
+	 */
+	epoch: number;
 
 	/**
 	 * Debounce interval in milliseconds for auto-saving on Y.Doc changes.
@@ -64,18 +76,25 @@ export type LocalRevisionHistoryConfig = {
  *
  * **Platform**: Node.js/Desktop (Tauri, Electron, Bun)
  *
- * **Storage**: `{directory}/snapshots/{workspaceId}/{timestamp}.ysnap`
+ * **Storage**: `{directory}/{workspaceId}/{epoch}/snapshots/{timestamp}.ysnap`
  *
  * @example Basic usage
  * ```typescript
- * import { defineWorkspace } from '@epicenter/hq';
+ * import { defineWorkspace, createClient } from '@epicenter/hq';
  * import { localRevisionHistory } from '@epicenter/hq/capabilities/revision-history';
  *
- * const client = await workspace.create({
+ * const definition = defineWorkspace({
+ *   id: 'blog',
+ *   tables: { ... },
+ *   kv: {},
+ * });
+ *
+ * const client = createClient(definition, {
  *   capabilities: {
  *     persistence,
  *     revisions: (ctx) => localRevisionHistory(ctx, {
- *       directory: './data',
+ *       directory: './workspaces',
+ *       epoch: 0,  // Snapshots saved to ./workspaces/{id}/0/snapshots/
  *       maxVersions: 50,
  *     }),
  *   },
@@ -97,10 +116,11 @@ export type LocalRevisionHistoryConfig = {
  *
  * @example Custom debounce interval
  * ```typescript
- * const client = await workspace.create({
+ * const client = createClient(definition, {
  *   capabilities: {
  *     revisions: (ctx) => localRevisionHistory(ctx, {
- *       directory: './data',
+ *       directory: './workspaces',
+ *       epoch: 0,
  *       debounceMs: 5000,  // Save 5 seconds after last change
  *     }),
  *   },
@@ -128,7 +148,12 @@ export async function localRevisionHistory<
 	TKvDefinitionMap extends KvDefinitionMap,
 >(
 	{ ydoc, id }: CapabilityContext<TTableDefinitionMap, TKvDefinitionMap>,
-	{ directory, debounceMs = 1000, maxVersions }: LocalRevisionHistoryConfig,
+	{
+		directory,
+		epoch,
+		debounceMs = 1000,
+		maxVersions,
+	}: LocalRevisionHistoryConfig,
 ) {
 	// CRITICAL: Snapshots require gc: false
 	if (ydoc.gc) {
@@ -138,8 +163,8 @@ export async function localRevisionHistory<
 		);
 	}
 
-	// Storage: {directory}/snapshots/{workspaceId}/
-	const snapshotDir = path.join(directory, 'snapshots', id);
+	// Storage: {directory}/{workspaceId}/{epoch}/snapshots/
+	const snapshotDir = path.join(directory, id, String(epoch), 'snapshots');
 
 	// Ensure directory exists
 	await mkdir(snapshotDir, { recursive: true });

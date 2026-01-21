@@ -1,38 +1,52 @@
 import { createClient, type WorkspaceDefinition } from '@epicenter/hq';
 import type * as Y from 'yjs';
-import { persistYDocAsJson } from '$lib/providers/tauri-json-persistence';
-import { persistYDoc } from '$lib/providers/tauri-persistence';
+import { tauriWorkspacePersistence } from './persistence/tauri-workspace-persistence';
 
 /**
- * Create a workspace client with persistence for a given definition and epoch.
+ * Create a workspace client with persistence (static schema mode).
  *
- * This is the third step in the three-doc architecture:
- * 1. Registry → tracks which workspace GUIDs exist
- * 2. Head Doc → stores the current epoch for a workspace
- * 3. Workspace Doc → the actual definition and data (this function)
+ * **Use this for creating NEW workspaces** where you have a known definition
+ * to seed into the Y.Doc. The definition is merged into Y.Map('definition')
+ * after persistence loads.
  *
- * This is a thin wrapper around `createClient()` that pre-configures
- * persistence capabilities. The workspace ID comes from `definition.id`.
+ * **For loading EXISTING workspaces**, use the fluent API instead:
+ * ```typescript
+ * const client = registry.head(workspaceId).client();
+ * await client.whenSynced;
+ * ```
  *
- * Persisted to `{appLocalDataDir}/workspaces/{workspaceId}/{epoch}.yjs`.
+ * ## Static vs Dynamic Schema Mode
  *
- * @param definition - The workspace definition (id, name, tables, kv)
- * @param epoch - The epoch number from the head doc
+ * | Mode | Function | Use Case |
+ * |------|----------|----------|
+ * | Static | `createWorkspaceClient(definition, epoch)` | Creating new workspaces |
+ * | Dynamic | `registry.head(id).client()` | Loading existing workspaces |
+ *
+ * ## Storage Layout
+ *
+ * ```
+ * {appLocalDataDir}/workspaces/{workspaceId}/{epoch}/
+ * ├── workspace.yjs      # Full Y.Doc binary (sync source of truth)
+ * ├── definition.json    # Schema from Y.Map('definition')
+ * └── kv.json            # Settings from Y.Map('kv')
+ * ```
+ *
+ * @param definition - The workspace definition (id, name, tables, kv) to seed
+ * @param epoch - The epoch number (usually 0 for new workspaces)
  * @returns A workspace client with persistence pre-configured
  *
- * @example
+ * @example Creating a new workspace
  * ```typescript
- * // Get epoch from head doc
- * const head = createHead(workspaceId);
- * await head.whenSynced;
- * const epoch = head.getEpoch();
+ * const definition: WorkspaceDefinition = {
+ *   id: 'my-workspace',
+ *   name: 'My Workspace',
+ *   tables: {},
+ *   kv: {},
+ * };
  *
- * // Create workspace client
- * const client = createWorkspaceClient(definition, epoch);
+ * registry.addWorkspace(definition.id);
+ * const client = createWorkspaceClient(definition, 0);
  * await client.whenSynced;
- *
- * // Use the client
- * client.tables.myTable.insert({ ... });
  * ```
  */
 export function createWorkspaceClient(
@@ -43,13 +57,10 @@ export function createWorkspaceClient(
 		epoch,
 		capabilities: {
 			persistence: (ctx: { ydoc: Y.Doc }) =>
-				persistYDoc(ctx.ydoc, ['workspaces', definition.id, `${epoch}.yjs`]),
-			jsonPersistence: (ctx: { ydoc: Y.Doc }) =>
-				persistYDocAsJson(ctx.ydoc, [
-					'workspaces',
-					definition.id,
-					`${epoch}.json`,
-				]),
+				tauriWorkspacePersistence(ctx.ydoc, {
+					workspaceId: definition.id,
+					epoch,
+				}),
 		},
 	});
 }

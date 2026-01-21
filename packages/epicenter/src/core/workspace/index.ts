@@ -23,4 +23,8 @@ export type {
 	WorkspaceDefinition,
 	WorkspaceInput,
 } from './workspace';
-export { createClient, defineWorkspace } from './workspace';
+export {
+	createClient,
+	createDynamicClient,
+	defineWorkspace,
+} from './workspace';

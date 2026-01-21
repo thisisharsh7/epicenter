@@ -26,14 +26,20 @@ export type PersistenceConfig = {
  *
  * @example
  * ```typescript
- * import { defineWorkspace } from '@epicenter/hq';
+ * import { defineWorkspace, createClient } from '@epicenter/hq';
  * import { persistence } from '@epicenter/hq/capabilities/persistence';
  * import { join } from 'node:path';
+ *
+ * const definition = defineWorkspace({
+ *   id: 'blog',
+ *   tables: { ... },
+ *   kv: {},
+ * });
  *
  * const projectDir = '/my/project';
  * const epicenterDir = join(projectDir, '.epicenter');
  *
- * const client = await workspace.create({
+ * const client = createClient(definition, {
  *   capabilities: {
  *     persistence: (ctx) => persistence(ctx, {
  *       filePath: join(epicenterDir, 'persistence', `${ctx.id}.yjs`),

@@ -7,8 +7,8 @@ A workspace is a self-contained domain module with its own schema and capabiliti
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                                                                             │
-│   defineWorkspace()                    .create()                            │
-│   ─────────────────                    ─────────                            │
+│   defineWorkspace()                    createClient()                       │
+│   ─────────────────                    ──────────────                       │
 │                                                                             │
 │   ┌─────────────────┐                 ┌─────────────────┐                  │
 │   │ Pure Definition │                 │ Runtime Client  │                  │
@@ -25,7 +25,7 @@ A workspace is a self-contained domain module with its own schema and capabiliti
 ```
 
 - **`defineWorkspace()`**: Pure schema definition. No I/O. Just describes the shape.
-- **`.create()`**: Creates the runtime client. Connects to the Workspace Doc at the specified epoch.
+- **`createClient()`**: Creates the runtime client. Connects to the Workspace Doc at the specified epoch.
 
 ## Minimal vs Full Definition
 
@@ -34,37 +34,38 @@ A workspace is a self-contained domain module with its own schema and capabiliti
 ```typescript
 // Minimal input (developer ergonomics) — ALL tables are just fields
 const workspace = defineWorkspace({
-  id: 'epicenter.whispering',
-  tables: {
-    recordings: { id: id(), title: text(), transcript: text() },
-    transformations: { id: id(), name: text(), prompt: text() },
-  },
-  kv: {},
+	id: 'epicenter.whispering',
+	tables: {
+		recordings: { id: id(), title: text(), transcript: text() },
+		transformations: { id: id(), name: text(), prompt: text() },
+	},
+	kv: {},
 });
 
 // Full definition (explicit metadata) — ALL tables have full metadata
 const workspace = defineWorkspace({
-  id: 'epicenter.whispering',
-  name: 'Whispering',
-  tables: {
-    recordings: {
-      name: 'Recordings',
-      icon: { type: 'emoji', value: '🎙️' },
-      description: 'Voice recordings',
-      fields: { id: id(), title: text(), transcript: text() },
-    },
-    transformations: {
-      name: 'Transformations',
-      icon: { type: 'emoji', value: '✨' },
-      description: 'Text transformations',
-      fields: { id: id(), name: text(), prompt: text() },
-    },
-  },
-  kv: {},
+	id: 'epicenter.whispering',
+	name: 'Whispering',
+	tables: {
+		recordings: {
+			name: 'Recordings',
+			icon: { type: 'emoji', value: '🎙️' },
+			description: 'Voice recordings',
+			fields: { id: id(), title: text(), transcript: text() },
+		},
+		transformations: {
+			name: 'Transformations',
+			icon: { type: 'emoji', value: '✨' },
+			description: 'Text transformations',
+			fields: { id: id(), name: text(), prompt: text() },
+		},
+	},
+	kv: {},
 });
 ```
 
 When using minimal input, defaults are applied:
+
 - `name` defaults to humanized `id` (e.g., "epicenter.whispering" → "Epicenter whispering")
 - Table `name` defaults to humanized key (e.g., "blogPosts" → "Blog posts")
 - Table `icon` defaults to `{ type: 'emoji', value: '📄' }`
@@ -87,13 +88,17 @@ const whisperingWorkspace = defineWorkspace({
 });
 
 // Step 2: Create client at a specific epoch
-const client = await whisperingWorkspace.create({
+const client = createClient(whisperingWorkspace, {
 	epoch: 0,
 	capabilities: { sqlite, persistence },
 });
 
 // Use the client
-client.tables.recordings.upsert({ id: '1', title: 'Meeting notes', transcript: '...' });
+client.tables.recordings.upsert({
+	id: '1',
+	title: 'Meeting notes',
+	transcript: '...',
+});
 const recordings = client.tables.recordings.getAllValid();
 ```
 
@@ -108,10 +113,10 @@ Each workspace has:
 
 The `id` is locally-scoped, not a GUID:
 
-| Context | Example |
-|---------|---------|
-| Local (no sync) | `epicenter.whispering` |
-| Relay (no auth) | `epicenter.crm` |
+| Context             | Example                                       |
+| ------------------- | --------------------------------------------- |
+| Local (no sync)     | `epicenter.whispering`                        |
+| Relay (no auth)     | `epicenter.crm`                               |
 | Y-Sweet (with auth) | Server combines user ID for global uniqueness |
 
 ## The Epoch Parameter
@@ -124,29 +129,29 @@ returns `max()` of all proposals. See `../docs/README.md` for details.
 
 ```typescript
 // New workspace or prototyping (epoch defaults to 0)
-const client = await workspace.create({
+const client = createClient(definition, {
 	capabilities: { sqlite },
 });
 
 // Specific epoch (from Head Doc)
-const head = createHeadDoc({ workspaceId: workspace.id });
+const head = createHeadDoc({ workspaceId: definition.id });
 const epoch = head.getEpoch(); // e.g., 2
-const client = await workspace.create({
+const client = createClient(definition, {
 	epoch,
 	capabilities: { sqlite },
 });
 
 // Migration: connect to multiple epochs
-const oldClient = await workspace.create({ epoch: 1 });
-const newClient = await workspace.create({ epoch: 2 });
+const oldClient = createClient(definition, { epoch: 1 });
+const newClient = createClient(definition, { epoch: 2 });
 // Migrate data from old to new...
 ```
 
 See `../docs/README.md` for the full three-document architecture.
 
-## What Happens in `.create()`
+## What Happens in `createClient()`
 
-When you call `.create({ epoch, capabilities })`:
+When you call `createClient(definition, { epoch, capabilities })`:
 
 ```
 1. Normalize definition (if minimal input)
@@ -173,7 +178,7 @@ When you call `.create({ epoch, capabilities })`:
 Write regular functions that use your client:
 
 ```typescript
-const client = await blogWorkspace.create({
+const client = createClient(blogWorkspace, {
 	epoch: 0,
 	capabilities: { sqlite, persistence },
 });
@@ -201,7 +206,7 @@ app.get('/posts', () => getPublishedPosts());
 ## Client Properties
 
 ```typescript
-const client = await blogWorkspace.create({
+const client = createClient(blogWorkspace, {
 	epoch: 0,
 	capabilities: { sqlite, persistence },
 });
@@ -235,7 +240,7 @@ const blogWorkspace = defineWorkspace({
 });
 
 // 3. Create client at that epoch
-const client = await blogWorkspace.create({
+const client = createClient(blogWorkspace, {
 	epoch,
 	capabilities: { sqlite, persistence },
 });
@@ -243,7 +248,7 @@ const client = await blogWorkspace.create({
 // 4. Subscribe to epoch changes (optional)
 head.observeEpoch(async (newEpoch) => {
 	await client.destroy();
-	const newClient = await blogWorkspace.create({
+	const newClient = createClient(blogWorkspace, {
 		epoch: newEpoch,
 		capabilities: { sqlite, persistence },
 	});
@@ -280,7 +285,7 @@ Use regular JavaScript imports for dependencies:
 
 ```typescript
 // auth-client.ts
-export const authClient = await authWorkspace.create({
+export const authClient = createClient(authWorkspace, {
 	epoch: 0,
 	capabilities: { sqlite, persistence },
 });
@@ -308,7 +313,7 @@ Multiple scripts can safely run using `await using`:
 ```typescript
 // Script 1: Import data
 {
-	await using client = await blogWorkspace.create({
+	await using client = createClient(blogWorkspace, {
 		epoch: 0,
 		capabilities: { sqlite, persistence },
 	});
@@ -319,7 +324,7 @@ Multiple scripts can safely run using `await using`:
 
 // Script 2: Process data (runs after Script 1)
 {
-	await using client = await blogWorkspace.create({
+	await using client = createClient(blogWorkspace, {
 		epoch: 0,
 		capabilities: { sqlite, persistence },
 	});
@@ -334,15 +339,15 @@ Multiple scripts can safely run using `await using`:
 Same workspace definition, different epochs:
 
 ```typescript
-const workspace = defineWorkspace({
+const definition = defineWorkspace({
 	id: 'abc123xyz789012',
 	tables: { posts: { id: id(), title: text(), content: text() } },
 	kv: {},
 });
 
 // Connect to old and new epochs
-const oldClient = await workspace.create({ epoch: 1 });
-const newClient = await workspace.create({ epoch: 2 });
+const oldClient = createClient(definition, { epoch: 1 });
+const newClient = createClient(definition, { epoch: 2 });
 
 // Migrate data
 for (const post of oldClient.tables.posts.getAllValid()) {
@@ -350,7 +355,7 @@ for (const post of oldClient.tables.posts.getAllValid()) {
 }
 
 // Update Head Doc to point to new epoch
-const head = createHeadDoc({ workspaceId: workspace.id });
+const head = createHeadDoc({ workspaceId: definition.id });
 // Use bumpEpoch() for safe concurrent migrations
 // Use setOwnEpoch() to set to a specific epoch (≤ global epoch)
 head.bumpEpoch(); // Safe: computes max + 1

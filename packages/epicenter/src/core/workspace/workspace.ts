@@ -3,7 +3,7 @@
  *
  * This module provides the core workspace API:
  * - {@link defineWorkspace} - Factory to create workspace definitions
- * - {@link Workspace} - The workspace object with `.create()` method
+ * - {@link createClient} - Factory to create runtime clients from definitions
  * - {@link WorkspaceClient} - The runtime client for interacting with data
  *
  * ## Architecture Overview
@@ -12,8 +12,8 @@
  * ┌─────────────────────────────────────────────────────────────────────────────┐
  * │  Two-Phase Initialization                                                   │
  * │                                                                             │
- * │   defineWorkspace(config)              workspace.create(options)            │
- * │   ─────────────────────────            ────────────────────────             │
+ * │   defineWorkspace(config)              createClient(definition, options)    │
+ * │   ─────────────────────────            ─────────────────────────────────    │
  * │                                                                             │
  * │   ┌─────────────────────┐              ┌─────────────────────┐              │
  * │   │ WorkspaceDefinition │    epoch     │  WorkspaceClient    │              │
@@ -33,13 +33,13 @@
  *
  * This module implements the "sync construction, async property" pattern:
  *
- * - `workspace.create()` returns **immediately** with a client object
+ * - `createClient()` returns **immediately** with a client object
  * - Async initialization (persistence, sync) tracked via `client.whenSynced`
  * - UI frameworks use `whenSynced` as a render gate
  *
  * ```typescript
  * // Sync construction - returns immediately
- * const client = workspace.create({ capabilities: { sqlite } });
+ * const client = createClient(definition, { capabilities: { sqlite } });
  *
  * // Sync access works immediately (operates on in-memory Y.Doc)
  * client.tables.posts.upsert({ id: '1', title: 'Hello' });
@@ -67,6 +67,12 @@ import type {
 	CapabilityFactoryMap,
 	InferCapabilityExports,
 } from '../capability';
+import {
+	getWorkspaceDocMaps,
+	mergeDefinitionIntoYDoc,
+	readDefinitionFromYDoc,
+	type WorkspaceDefinitionMap,
+} from '../docs/workspace-doc';
 import { createKv, type Kv } from '../kv/core';
 import { defineExports, type Lifecycle, type MaybePromise } from '../lifecycle';
 
@@ -91,7 +97,7 @@ import { normalizeKv } from './normalize';
  *
  * ## Initial Values vs Live State
  *
- * When you call `workspace.create()`, these values are **merged** into the Y.Doc's
+ * When you call `createClient()`, these values are **merged** into the Y.Doc's
  * CRDT state. After creation, `name`, `tables`, and `kv` become **live**
  * collaborative state that can change via CRDT sync.
  *
@@ -106,7 +112,7 @@ import { normalizeKv } from './normalize';
  * @example
  * ```typescript
  * // Define with initial values
- * const workspace = defineWorkspace({
+ * const definition = defineWorkspace({
  *   id: 'epicenter.blog',   // human-readable ID
  *   name: 'My Blog',        // initial name
  *   tables: { posts: {...} },
@@ -114,7 +120,7 @@ import { normalizeKv } from './normalize';
  * });
  *
  * // After creation, name is live CRDT state
- * const client = workspace.create();
+ * const client = createClient(definition);
  * console.log(client.name);  // "My Blog" (from CRDT)
  *
  * // If a peer changes the name via CRDT sync...
@@ -200,7 +206,7 @@ export type Workspace<
  * Write functions that use the client to compose your own "actions":
  *
  * ```typescript
- * const client = await workspace.create();
+ * const client = createClient(definition);
  *
  * // Your own functions that use the client
  * function createPost(title: string) {
@@ -219,7 +225,7 @@ export type Workspace<
  * Supports `await using` for automatic cleanup:
  * ```typescript
  * {
- *   await using client = await workspace.create();
+ *   await using client = createClient(definition);
  *   client.tables.posts.upsert({ id: '1', title: 'Hello' });
  * } // Automatically cleaned up here
  * ```
@@ -259,6 +265,20 @@ export type WorkspaceClient<
 	capabilities: TCapabilityExports;
 	/** The underlying YJS document. */
 	ydoc: Y.Doc;
+	/**
+	 * Read the current definition from the Y.Doc.
+	 *
+	 * Returns the workspace definition including name, icon, tables, and kv schemas.
+	 * This is a live read from the CRDT state, so it reflects real-time changes.
+	 *
+	 * @example
+	 * ```typescript
+	 * const definition = client.getDefinition();
+	 * console.log(definition.name);  // "My Blog"
+	 * console.log(definition.tables.posts);  // { name: 'Posts', fields: {...} }
+	 * ```
+	 */
+	getDefinition(): WorkspaceDefinitionMap;
 	/**
 	 * Resolves when all capabilities are initialized and ready.
 	 *
@@ -504,6 +524,7 @@ export function defineWorkspace<
  * const client = createClient(definition, { capabilities });
  * await client.whenSynced;
  * ```
+ *
  */
 export function createClient<
 	TTableDefinitionMap extends TableDefinitionMap,
@@ -526,17 +547,143 @@ export function createClient<
 	TKvDefinitionMap,
 	InferCapabilityExports<TCapabilityFactories>
 > {
+	return createClientCore({
+		id: definition.id,
+		epoch,
+		capabilityFactories,
+		tables: definition.tables,
+		kv: definition.kv,
+		// Static schema mode: merge the definition after persistence loads
+		onSync: (definitionMap) => {
+			mergeDefinitionIntoYDoc(definitionMap, definition);
+		},
+		// Fallback name from definition
+		fallbackName: definition.name,
+	});
+}
+
+/**
+ * Create a workspace client for dynamic schema mode (Epicenter app).
+ *
+ * Use this when the schema lives in the Y.Doc itself, not in code.
+ * Only the workspace ID is required; name, tables, and kv are read from
+ * the Y.Doc after persistence loads.
+ *
+ * For static schema apps (like Whispering), use {@link createClient} instead.
+ *
+ * @param workspaceId - The workspace identifier
+ * @param options - Configuration options
+ * @param options.epoch - Workspace Doc version (defaults to 0)
+ * @param options.capabilities - Factory functions for persistence, sync, etc.
+ *
+ * @example
+ * ```typescript
+ * // Dynamic schema - schema comes from Y.Doc
+ * const client = createDynamicClient('my-workspace', {
+ *   epoch,
+ *   capabilities: { persistence },
+ * });
+ * await client.whenSynced;
+ *
+ * // Name and schema are read from Y.Doc
+ * console.log(client.name);
+ * ```
+ */
+export function createDynamicClient<
+	TCapabilityFactories extends CapabilityFactoryMap<
+		TableDefinitionMap,
+		KvDefinitionMap
+	> = Record<string, never>,
+>(
+	workspaceId: string,
+	{
+		epoch = 0,
+		capabilities: capabilityFactories = {} as TCapabilityFactories,
+	}: {
+		epoch?: number;
+		capabilities?: TCapabilityFactories;
+	} = {},
+): WorkspaceClient<
+	TableDefinitionMap,
+	KvDefinitionMap,
+	InferCapabilityExports<TCapabilityFactories>
+> {
+	return createClientCore({
+		id: workspaceId,
+		epoch,
+		capabilityFactories,
+		tables: {} as TableDefinitionMap,
+		kv: {} as KvDefinitionMap,
+		// Dynamic schema mode: don't merge anything, schema comes from Y.Doc
+		onSync: undefined,
+		// No fallback name - read from Y.Doc
+		fallbackName: undefined,
+	});
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Internal: Core Client Creation
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Internal core function for creating workspace clients.
+ *
+ * Both `createClient` (static schema) and `createDynamicClient` (dynamic schema)
+ * use this function. The key difference is the `onSync` callback:
+ * - Static schema: merges definition after persistence loads
+ * - Dynamic schema: no merge, schema comes from Y.Doc
+ */
+function createClientCore<
+	TTableDefinitionMap extends TableDefinitionMap,
+	TKvDefinitionMap extends KvDefinitionMap,
+	TCapabilityFactories extends CapabilityFactoryMap<
+		TTableDefinitionMap,
+		TKvDefinitionMap
+	>,
+>({
+	id,
+	epoch,
+	capabilityFactories,
+	tables: tableDefinitions,
+	kv: kvDefinitions,
+	onSync,
+	fallbackName,
+}: {
+	id: string;
+	epoch: number;
+	capabilityFactories: TCapabilityFactories;
+	tables: TTableDefinitionMap;
+	kv: TKvDefinitionMap;
+	/** Called after persistence loads. Static schema uses this to merge definition. */
+	onSync:
+		| ((
+				definitionMap: ReturnType<typeof getWorkspaceDocMaps>['definition'],
+		  ) => void)
+		| undefined;
+	/** Fallback name if Y.Doc doesn't have one yet. */
+	fallbackName: string | undefined;
+}): WorkspaceClient<
+	TTableDefinitionMap,
+	TKvDefinitionMap,
+	InferCapabilityExports<TCapabilityFactories>
+> {
 	// Create Workspace Y.Doc with deterministic GUID
 	// gc: false is required for revision history snapshots to work
-	const docId = `${definition.id}-${epoch}` as const;
+	const docId = `${id}-${epoch}` as const;
 	const ydoc = new Y.Doc({ guid: docId, gc: false });
 
-	// Y.Doc contains DATA ONLY (table rows, kv values)
-	// Definition/metadata is static and comes from the definition
+	// Get the definition Y.Map for storing schema metadata
+	const { definition: definitionMap } = getWorkspaceDocMaps(ydoc);
+
+	// NOTE: We do NOT call mergeDefinitionIntoYDoc() here!
+	// It must happen AFTER persistence loads (inside whenSynced) so that
+	// code-defined values are "last writer" and override stale disk values.
+	// See: specs/20260119T231252-resilient-client-architecture.md
 
 	// Create table and kv helpers bound to the Y.Doc
-	const tables = createTables(ydoc, definition.tables);
-	const kv = createKv(ydoc, definition.kv);
+	// These can be created immediately - they just bind to Y.Maps
+	const tables = createTables(ydoc, tableDefinitions);
+	const kv = createKv(ydoc, kvDefinitions);
 
 	// Initialize capability exports object and tracking arrays
 	const capabilities = {} as InferCapabilityExports<TCapabilityFactories>;
@@ -560,7 +707,7 @@ export function createClient<
 		initPromises.push(
 			Promise.resolve(
 				capabilityFactory({
-					id: definition.id,
+					id,
 					capabilityId,
 					ydoc,
 					tables,
@@ -583,13 +730,26 @@ export function createClient<
 
 	// whenSynced is fail-fast (any rejection rejects the whole thing)
 	// This is intentional - UI render gates should show error state
+	//
+	// ORDER OF OPERATIONS (critical for correctness):
+	// 1. Wait for capability factories to complete
+	// 2. Wait for all capabilities' whenSynced (e.g., persistence finishes loading disk state)
+	// 3. THEN run onSync callback (static schema merges definition here)
+	// 4. Resolve whenSynced
+	//
+	// See: specs/20260119T231252-resilient-client-architecture.md
 	const whenSynced = whenCapabilitiesInitializedSettled
 		.then(() =>
 			Promise.all(
 				Object.values(capabilities).map((c) => (c as Lifecycle).whenSynced),
 			),
 		)
-		.then(() => {});
+		.then(() => {
+			// After persistence has loaded disk state, run the sync callback
+			// Static schema: merges definition (code is "last writer")
+			// Dynamic schema: no-op (schema comes from Y.Doc)
+			onSync?.(definitionMap);
+		});
 
 	const destroy = async () => {
 		// Wait for init to settle (not complete) - never block on init failures
@@ -605,13 +765,19 @@ export function createClient<
 	};
 
 	return {
-		id: definition.id,
-		// Name comes from static definition, not Y.Doc
-		name: definition.name,
+		id,
+		// Name is a live getter from Y.Map('definition')
+		// Falls back to provided fallbackName if not yet synced
+		get name() {
+			return (definitionMap.get('name') as string) ?? fallbackName ?? '';
+		},
 		ydoc,
 		tables,
 		kv,
 		capabilities,
+		getDefinition() {
+			return readDefinitionFromYDoc(definitionMap);
+		},
 		whenSynced,
 		destroy,
 		[Symbol.asyncDispose]: destroy,
@@ -619,17 +785,26 @@ export function createClient<
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// NOTE: Definition storage in Y.Doc has been removed
+// Y.Doc Structure: Three Top-Level Maps
 // ─────────────────────────────────────────────────────────────────────────────
 //
-// Previously, workspace metadata (name, table icons, etc.) was stored
-// in a 'definition' Y.Map inside the Y.Doc. This added CRDT overhead for data
-// that rarely changes.
+// Each workspace Y.Doc has three top-level Y.Maps:
 //
-// Now:
-// - Y.Doc contains DATA ONLY (table rows, kv values)
-// - Definition/metadata is static and comes from:
-//   - Code: the normalized WorkspaceDefinition from defineWorkspace()
-//   - Epicenter app: a definition.json file
+// Y.Map('definition') - Schema metadata (rarely changes)
+//   └── name: string
+//   └── icon: IconDefinition | null
+//   └── tables: Y.Map<tableName, { name, icon, description, fields }>
+//   └── kv: Y.Map<keyName, { name, icon, description, field }>
 //
-// See specs/20260117T004421-workspace-input-normalization.md for details.
+// Y.Map('kv') - Settings values (changes occasionally)
+//   └── [key]: value
+//
+// Y.Map('tables') - Table data (changes frequently)
+//   └── [tableName]: Y.Map<rowId, Y.Map<fieldName, value>>
+//
+// This enables:
+// - Independent observation (no observeDeep needed)
+// - Different persistence strategies per map
+// - Collaborative schema editing via Y.Map('definition')
+//
+// See specs/20260119T150426-workspace-storage-architecture.md for details.

@@ -6,12 +6,20 @@
  *
  * @example
  * ```typescript
+ * import { defineWorkspace, createClient } from '@epicenter/hq';
  * import { localRevisionHistory } from '@epicenter/hq/capabilities/revision-history';
  *
- * const client = await workspace.create({
+ * const definition = defineWorkspace({
+ *   id: 'blog',
+ *   tables: { ... },
+ *   kv: {},
+ * });
+ *
+ * const client = createClient(definition, {
  *   capabilities: {
  *     revisions: (ctx) => localRevisionHistory(ctx, {
- *       directory: './data',
+ *       directory: './workspaces',
+ *       epoch: 0,
  *       maxVersions: 50,
  *     }),
  *   },
