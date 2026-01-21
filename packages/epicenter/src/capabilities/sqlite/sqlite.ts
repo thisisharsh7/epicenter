@@ -74,14 +74,14 @@ export type SqliteConfig = {
  * const projectDir = '/my/project';
  * const epicenterDir = join(projectDir, '.epicenter');
  *
- * const client = createClient(definition, {
- *   extensions: {
+ * const client = createClient(definition.id)
+ *   .withDefinition(definition)
+ *   .withExtensions({
  *     sqlite: (ctx) => sqlite(ctx, {
  *       dbPath: join(epicenterDir, 'sqlite', `${ctx.id}.db`),
  *       logsDir: join(epicenterDir, 'sqlite', 'logs'),
  *     }),
- *   },
- * });
+ *   });
  *
  * // Query with Drizzle:
  * const posts = await client.extensions.sqlite.db

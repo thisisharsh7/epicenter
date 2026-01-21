@@ -145,11 +145,11 @@ export type WebsocketSyncConfig = {
  *   kv: {},
  * });
  *
- * const client = createClient(definition, {
- *   extensions: {
+ * const client = createClient(definition.id)
+ *   .withDefinition(definition)
+ *   .withExtensions({
  *     sync: websocketSync({ url: 'ws://localhost:3913/sync' }),
- *   },
- * });
+ *   });
  * ```
  *
  * @example Multi-extension (phone connecting to all nodes)
@@ -170,14 +170,14 @@ export type WebsocketSyncConfig = {
  *   kv: {},
  * });
  *
- * const client = createClient(definition, {
- *   extensions: {
+ * const client = createClient(definition.id)
+ *   .withDefinition(definition)
+ *   .withExtensions({
  *     // Create an extension for each sync node
  *     syncDesktop: websocketSync({ url: SYNC_NODES.desktop }),
  *     syncLaptop: websocketSync({ url: SYNC_NODES.laptop }),
  *     syncCloud: websocketSync({ url: SYNC_NODES.cloud }),
- *   },
- * });
+ *   });
  * ```
  *
  * @example Server-to-server sync (Elysia servers syncing with each other)
@@ -196,15 +196,15 @@ export type WebsocketSyncConfig = {
  *   kv: {},
  * });
  *
- * const client = createClient(definition, {
- *   extensions: {
+ * const client = createClient(definition.id)
+ *   .withDefinition(definition)
+ *   .withExtensions({
  *     // Server acts as both:
  *     // 1. A sync server (via createSyncPlugin in server.ts)
  *     // 2. A sync client connecting to other servers
  *     syncToLaptop: websocketSync({ url: SYNC_NODES.laptop }),
  *     syncToCloud: websocketSync({ url: SYNC_NODES.cloud }),
- *   },
- * });
+ *   });
  * ```
  *
  * @example Direct usage with y-websocket (no Epicenter client)
