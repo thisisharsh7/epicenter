@@ -219,12 +219,12 @@ const definition = defineWorkspace({
 	kv: {},
 });
 
-const client = createClient(definition, {
-	epoch, // From Head Doc (defaults to 0 if omitted)
-	capabilities: { sqlite, persistence },
-});
+const client = createClient(definition.id, { epoch })
+	.withDefinition(definition)
+	.withExtensions({ sqlite, persistence });
 
 // Now you have a fully typed client
+await client.whenSynced;
 client.tables.posts.upsert({ id: '1', title: 'Hello' });
 ```
 
@@ -240,7 +240,7 @@ They're different Y.Docs with different GUIDs. You can't "upgrade" a Y.Doc in pl
 
 The Head Doc is the **stable pointer**. Its GUID never changes (`abc123`), but its `epoch` value can change. When you bump epochs:
 
-1. Create new client at epoch 3: `createClient(definition, { epoch: 3 })`
+1. Create new client at epoch 3: `createClient(definition.id, { epoch: 3 }).withDefinition(definition).withExtensions({})`
 2. Migrate data from old client to new client
 3. Bump Head Doc: `head.bumpEpoch()`
 4. All clients observing Head reconnect to the new Workspace Doc
@@ -302,7 +302,9 @@ const definition = defineWorkspace({
 });
 
 // On createClient(), schema is merged into Y.Doc internally
-const client = createClient(definition);
+const client = createClient(definition.id)
+	.withDefinition(definition)
+	.withExtensions({});
 ```
 
 **Merge rules:**
@@ -329,9 +331,9 @@ const definition = defineWorkspace({
 });
 
 // Epoch defaults to 0
-const client = createClient(definition, {
-	capabilities: { sqlite },
-});
+const client = createClient(definition.id)
+	.withDefinition(definition)
+	.withExtensions({ sqlite });
 ```
 
 ## Files
@@ -391,7 +393,9 @@ const definition = defineWorkspace({
 	kv: {},
 });
 
-const client = createClient(definition, { epoch });
+const client = createClient(definition.id, { epoch })
+	.withDefinition(definition)
+	.withExtensions({});
 // client.ydoc is the Workspace Doc at guid "workspace456-0"
 ```
 
