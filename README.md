@@ -15,8 +15,8 @@
 >
 > - Whispering's evolution beyond transcription required changes to the repository's structure and branding.
 > - Everything else remains the same—same tools, same philosophy, same team.
-> - The original app lives on as [*Epicenter Whispering*](https://github.com/EpicenterHQ/epicenter/tree/main/apps/whispering), keeping a tight focus on transcription.
-> - This makes room for standalone apps with complementary, but non-transcription-related features (like [*Epicenter Assistant*](https://github.com/EpicenterHQ/epicenter/tree/main/apps/sh)).
+> - The original app lives on as [_Epicenter Whispering_](https://github.com/EpicenterHQ/epicenter/tree/main/apps/whispering), keeping a tight focus on transcription.
+> - This makes room for standalone apps with complementary, but non-transcription-related features (like [_Epicenter Assistant_](https://github.com/EpicenterHQ/epicenter/tree/main/apps/sh)).
 > - The new [root](https://github.com/EpicenterHQ/epicenter/) of the Epicenter repository contains common files supporting all the apps in the ecosystem.
 > - Note: the old URL [github.com/braden-w/whispering](https://github.com/braden-w/whispering) is now just a thin placeholder redirecting to this rebranded repository.
 >
@@ -92,6 +92,17 @@ Epicenter is an ecosystem of open-source, local-first apps. Our eventual goal is
 
 Our vision is to build a personal workspace where you own your data, choose your models, and replace siloed apps with open, interoperable alternatives. All while preserving authenticity and being free and open source.
 
+## Shared Workspace ID Convention
+
+Epicenter uses stable, shared workspace IDs so multiple apps can collaborate on the same data.
+
+- **Format**: `epicenter.<app>` (for example, `epicenter.whispering`)
+- **Purpose**: Ensures the same workspace is discovered, synced, and shared across Epicenter apps
+- **Stability**: IDs must be globally unique and never change once published
+- **Usage**: The workspace ID is used for routing, persistence paths, Y.Doc IDs, and sharing
+
+When two apps declare the same workspace ID, they intentionally point to the same shared workspace and data.
+
 ## Quick Start
 
 ### Install Epicenter Whispering
@@ -99,6 +110,7 @@ Our vision is to build a personal workspace where you own your data, choose your
 Our first app in the ecosystem. Choose your installation method:
 
 **macOS (Homebrew)**
+
 ```bash
 brew install --cask whispering
 ```
@@ -106,6 +118,7 @@ brew install --cask whispering
 **macOS, Windows, Linux (Direct Download)**
 
 Download the installer for your platform from [GitHub Releases](https://github.com/EpicenterHQ/epicenter/releases/latest):
+
 - macOS: `.dmg` (Apple Silicon or Intel)
 - Windows: `.msi` or `.exe`
 - Linux: `.AppImage`, `.deb`, or `.rpm`
