@@ -9,8 +9,9 @@ const REGISTRY_ID = 'local';
  */
 const baseRegistry = createRegistryDoc({
 	registryId: REGISTRY_ID,
-}).withProviders({
-	persistence: (ctx) => tauriPersistence(ctx.ydoc, ['registry']),
+	providers: {
+		persistence: ({ ydoc }) => tauriPersistence(ydoc, ['registry']),
+	},
 });
 
 /**

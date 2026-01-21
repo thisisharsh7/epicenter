@@ -7,12 +7,12 @@
 
 import type * as Y from 'yjs';
 import type { Kv } from './kv/core';
-import { defineExports, type Lifecycle, type MaybePromise } from './lifecycle';
+import { defineExports, type Lifecycle } from './lifecycle';
 import type { KvDefinitionMap, TableDefinitionMap } from './schema';
 import type { Tables } from './tables/create-tables';
 
 // Re-export lifecycle utilities for capability authors
-export { defineExports, type Lifecycle, type MaybePromise } from './lifecycle';
+export { defineExports, type Lifecycle } from './lifecycle';
 
 /**
  * Context provided to each capability function.
@@ -31,6 +31,7 @@ export { defineExports, type Lifecycle, type MaybePromise } from './lifecycle';
  *   ydoc.on('update', () => {
  *     saveToDisk(config.path, Y.encodeStateAsUpdate(ydoc));
  *   });
+ *   return defineExports();
  * };
  * ```
  *
@@ -59,7 +60,10 @@ export { defineExports, type Lifecycle, type MaybePromise } from './lifecycle';
  * ```typescript
  * const websocketSync: CapabilityFactory = ({ ydoc }) => {
  *   const ws = new WebsocketProvider(url, ydoc.guid, ydoc);
- *   return defineExports({ destroy: () => ws.destroy() });
+ *   return defineExports({
+ *     whenSynced: new Promise(r => ws.on('sync', r)),
+ *     destroy: () => ws.destroy(),
+ *   });
  * };
  * ```
  *
@@ -67,22 +71,21 @@ export { defineExports, type Lifecycle, type MaybePromise } from './lifecycle';
  * ```typescript
  * const logger: CapabilityFactory = ({ id }) => {
  *   console.log(`Workspace ${id} initialized`);
+ *   return defineExports();
  * };
  * ```
  *
  * ## What Capabilities Can Return
  *
- * Capabilities can return any of:
- * - **void** - Framework provides default lifecycle
- * - **Plain object** - Framework adds `whenSynced` and `destroy` defaults
- * - **Object with lifecycle** - Via `defineExports()` for explicit control
+ * Capability factories are **always synchronous**. Async initialization is tracked
+ * via the returned `whenSynced` promise, not the factory itself.
  *
- * The optional lifecycle fields:
- * - `whenSynced?: Promise<unknown>` - Resolves when initialization complete (default: resolved)
- * - `destroy?: () => MaybePromise<void>` - Cleanup function (default: no-op)
+ * Use `defineExports()` or `defineCapabilities()` to wrap your return for explicit
+ * type safety. The framework fills in defaults for missing lifecycle fields:
+ * - `whenSynced`: defaults to `Promise.resolve()`
+ * - `destroy`: defaults to no-op `() => {}`
  *
  * Any additional properties become accessible via `client.capabilities.{name}`.
- * The framework always normalizes returns to include both lifecycle fields.
  *
  * ## Environment Detection
  *
@@ -150,13 +153,24 @@ export type CapabilityExports<T extends Record<string, unknown> = {}> =
 /**
  * A capability factory function that attaches functionality to a workspace.
  *
- * Capability factories receive context and return exports (or void).
- * The exports become accessible via `client.capabilities.{name}`.
+ * Factories are **always synchronous**. Async initialization is tracked via
+ * the returned `whenSynced` promise, not the factory itself.
  *
- * The framework normalizes all returns, so you can:
- * - Return void (for pure side-effect capabilities)
- * - Return a plain object (framework adds lifecycle defaults)
- * - Return via `defineExports()` (explicit lifecycle)
+ * Use `defineExports()` or `defineCapabilities()` to wrap your return for
+ * explicit type safety. The framework fills in defaults for missing fields:
+ * - `whenSynced`: defaults to `Promise.resolve()`
+ * - `destroy`: defaults to no-op `() => {}`
+ *
+ * @example
+ * ```typescript
+ * const persistence: CapabilityFactory = ({ ydoc }) => {
+ *   const provider = new IndexeddbPersistence(ydoc.guid, ydoc);
+ *   return defineExports({
+ *     whenSynced: provider.whenSynced,
+ *     destroy: () => provider.destroy(),
+ *   });
+ * };
+ * ```
  */
 export type CapabilityFactory<
 	TTableDefinitionMap extends TableDefinitionMap,
@@ -164,7 +178,7 @@ export type CapabilityFactory<
 	TExports extends CapabilityExports = CapabilityExports,
 > = (
 	context: CapabilityContext<TTableDefinitionMap, TKvDefinitionMap>,
-) => MaybePromise<TExports | void>;
+) => TExports;
 
 /**
  * A map of capability factory functions keyed by capability ID.
@@ -181,8 +195,8 @@ export type CapabilityFactoryMap<
 /**
  * Utility type to infer exports from a capability factory map.
  *
- * Maps each capability key to its return type (unwrapped from Promise if async).
- * Factories returning `void` get base `CapabilityExports` (just lifecycle fields).
+ * Maps each capability key to its return type. Factories are always synchronous,
+ * so no Promise unwrapping is needed.
  */
 export type InferCapabilityExports<TCapabilityFactories> = {
 	[K in keyof TCapabilityFactories]: TCapabilityFactories[K] extends CapabilityFactory<
@@ -200,16 +214,16 @@ export type InferCapabilityExports<TCapabilityFactories> = {
  * Helper to define capability exports with proper typing and lifecycle normalization.
  *
  * Automatically fills in missing `whenSynced` and `destroy` fields with defaults.
- * Use this at the return site of your capability factory for explicit lifecycle.
+ * Use this at the return site of your capability factory for explicit type safety.
  *
- * For simple capabilities, you can return void or a plain object instead;
- * the framework normalizes at the boundary anyway.
+ * This is an alias for `defineExports()` for consistency with `defineProviders()`.
+ * Both can be used interchangeably; choose whichever reads better in your context.
  *
- * @example Simple capability (no exports)
+ * @example Simple capability (no custom exports)
  * ```typescript
  * const logger: CapabilityFactory = ({ id }) => {
  *   console.log(`Workspace ${id} initialized`);
- *   // No return - framework adds lifecycle defaults
+ *   return defineCapabilities();
  * };
  * ```
  *

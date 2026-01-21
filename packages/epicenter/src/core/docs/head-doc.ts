@@ -1,11 +1,9 @@
 import * as Y from 'yjs';
 
-import {
-	defineExports,
-	type InferProviderExports,
-	type Lifecycle,
-	type MaybePromise,
-	type ProviderFactoryMap,
+import type {
+	InferProviderExports,
+	Lifecycle,
+	ProviderFactoryMap,
 } from './provider-types.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -69,7 +67,15 @@ import {
  *
  * @example
  * ```typescript
- * const head = createHeadDoc({ workspaceId: 'abc123xyz789012' });
+ * const head = createHeadDoc({
+ *   workspaceId: 'abc123xyz789012',
+ *   providers: {
+ *     persistence: ({ ydoc }) => tauriPersistence(ydoc, ['head']),
+ *   },
+ * });
+ *
+ * // Await sync before reading (persistence loads from disk)
+ * await head.whenSynced;
  *
  * // Get current epoch (max of all client proposals)
  * const epoch = head.getEpoch(); // 0
@@ -87,10 +93,25 @@ import {
  * @see https://learn.yjs.dev/lessons/02-counter/ - The counter pattern this is based on
  * @see skills/yjs/SKILL.md - Single-Writer Keys pattern documentation
  */
-export function createHeadDoc(options: { workspaceId: string; ydoc?: Y.Doc }) {
-	const { workspaceId } = options;
+export function createHeadDoc<T extends ProviderFactoryMap>(options: {
+	workspaceId: string;
+	ydoc?: Y.Doc;
+	providers: T;
+}) {
+	const { workspaceId, providers: providerFactories } = options;
 	const ydoc = options.ydoc ?? new Y.Doc({ guid: workspaceId });
 	const epochsMap = ydoc.getMap<number>('epochs');
+
+	// Initialize providers synchronously — async work is in their whenSynced
+	const providers = {} as InferProviderExports<T>;
+	for (const [id, factory] of Object.entries(providerFactories)) {
+		(providers as Record<string, unknown>)[id] = factory({ ydoc });
+	}
+
+	// Aggregate all provider whenSynced promises
+	const whenSynced = Promise.all(
+		Object.values(providers).map((p) => (p as Lifecycle).whenSynced),
+	).then(() => {});
 
 	return {
 		/** The underlying Y.Doc instance. */
@@ -98,6 +119,12 @@ export function createHeadDoc(options: { workspaceId: string; ydoc?: Y.Doc }) {
 
 		/** The workspace ID (Y.Doc guid). */
 		workspaceId,
+
+		/** Provider exports. */
+		providers,
+
+		/** Resolves when all providers are synced. */
+		whenSynced,
 
 		/**
 		 * Get the current epoch number.
@@ -120,9 +147,9 @@ export function createHeadDoc(options: { workspaceId: string; ydoc?: Y.Doc }) {
 		 */
 		getEpoch(): number {
 			let max = 0;
-			for (const value of epochsMap.values()) {
+			epochsMap.forEach((value) => {
 				max = Math.max(max, value);
-			}
+			});
 			return max;
 		},
 
@@ -173,7 +200,10 @@ export function createHeadDoc(options: { workspaceId: string; ydoc?: Y.Doc }) {
 		 *
 		 * @example
 		 * ```typescript
-		 * const head = createHeadDoc({ workspaceId: 'abc123' });
+		 * const head = createHeadDoc({
+		 *   workspaceId: 'abc123',
+		 *   providers: { persistence: ({ ydoc }) => tauriPersistence(ydoc, ['head']) },
+		 * });
 		 *
 		 * // Client A bumps
 		 * const epoch1 = head.bumpEpoch(); // 1
@@ -302,102 +332,21 @@ export function createHeadDoc(options: { workspaceId: string; ydoc?: Y.Doc }) {
 			return () => epochsMap.unobserveDeep(handler);
 		},
 
-		/** Destroy the head doc and clean up resources. */
-		destroy() {
-			ydoc.destroy();
-		},
-
 		/**
-		 * Attach providers and get an enhanced doc with `whenSynced`.
+		 * Destroy providers and the underlying Y.Doc.
 		 *
-		 * This is the key pattern: construction is synchronous, but providers
-		 * may have async initialization tracked via `whenSynced`. The returned
-		 * object carries its own sync state—no external tracking needed.
-		 *
-		 * > The initialization of the client is synchronous. The async work is
-		 * > stored as a property you can await, while passing the reference around.
-		 *
-		 * @example
-		 * ```typescript
-		 * const head = createHeadDoc({ workspaceId: 'abc123' })
-		 *   .withProviders({
-		 *     persistence: (ctx) => headPersistence(ctx.ydoc),
-		 *   });
-		 *
-		 * // Sync access (immediate)
-		 * head.getEpoch();
-		 *
-		 * // Async gate (for UI render gate pattern)
-		 * await head.whenSynced;
-		 *
-		 * // Provider exports
-		 * head.providers.persistence;
-		 * ```
+		 * Cleans up all provider resources before destroying the Y.Doc.
+		 * Uses `allSettled` so one provider's destroy failure doesn't block others.
 		 */
-		withProviders<T extends ProviderFactoryMap>(factories: T) {
-			const providers = {} as InferProviderExports<T>;
-			const initPromises: Promise<void>[] = [];
-
-			// Pre-seed providers with placeholder lifecycle so runtime matches type shape.
-			// Also create destroy functions that reference current exports (handles late binding).
-			const destroyFns: (() => MaybePromise<void>)[] = [];
-			for (const id of Object.keys(factories)) {
-				(providers as Record<string, unknown>)[id] = defineExports();
-				destroyFns.push(() =>
-					// Non-null assertion safe: we just set this key above
-					(providers as Record<string, Lifecycle>)[id]!.destroy(),
-				);
-			}
-
-			// Initialize all providers (sync or async factories)
-			for (const [id, factory] of Object.entries(factories)) {
-				initPromises.push(
-					Promise.resolve(factory({ ydoc })).then((result) => {
-						// Always normalize at boundary
-						const exports = defineExports(
-							result as Record<string, unknown> | undefined,
-						);
-						(providers as Record<string, unknown>)[id] = exports;
-					}),
-				);
-			}
-
-			// Use allSettled so init failures don't block destroy
-			const whenProvidersInitializedSettled = Promise.allSettled(
-				initPromises,
-			).then(() => {});
-
-			// whenSynced is fail-fast (any rejection rejects the whole thing)
-			const whenSynced = whenProvidersInitializedSettled
-				.then(() =>
-					Promise.all(
-						Object.values(providers).map((p) => (p as Lifecycle).whenSynced),
-					),
-				)
-				.then(() => {});
-
-			return {
-				...this,
-				providers,
-				whenSynced,
-
-				/** Destroy providers and the underlying Y.Doc. */
-				async destroy() {
-					// Wait for init to settle (not complete) - never block on init failures
-					await whenProvidersInitializedSettled;
-
-					try {
-						// Use allSettled so one destroy failure doesn't block others
-						await Promise.allSettled(destroyFns.map((fn) => fn()));
-					} finally {
-						// Always release doc resources
-						ydoc.destroy();
-					}
-				},
-			};
+		async destroy() {
+			await Promise.allSettled(
+				Object.values(providers).map((p) => (p as Lifecycle).destroy()),
+			);
+			ydoc.destroy();
 		},
 	};
 }
 
 /** Head Y.Doc wrapper type - inferred from factory function. */
-export type HeadDoc = ReturnType<typeof createHeadDoc>;
+export type HeadDoc<T extends ProviderFactoryMap = ProviderFactoryMap> =
+	ReturnType<typeof createHeadDoc<T>>;

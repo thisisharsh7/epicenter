@@ -44,9 +44,12 @@ import { tauriWorkspacePersistence } from './persistence/tauri-workspace-persist
  * ```
  */
 export function createHead(workspaceId: string) {
-	const baseHead = createHeadDoc({ workspaceId }).withProviders({
-		persistence: (ctx) =>
-			tauriPersistence(ctx.ydoc, ['workspaces', workspaceId, 'head']),
+	const baseHead = createHeadDoc({
+		workspaceId,
+		providers: {
+			persistence: ({ ydoc }) =>
+				tauriPersistence(ydoc, ['workspaces', workspaceId, 'head']),
+		},
 	});
 
 	return {

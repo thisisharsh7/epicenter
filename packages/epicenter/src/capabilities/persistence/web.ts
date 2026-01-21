@@ -1,7 +1,8 @@
 import { IndexeddbPersistence } from 'y-indexeddb';
-import type {
-	CapabilityContext,
-	CapabilityFactory,
+import {
+	type CapabilityContext,
+	type CapabilityFactory,
+	defineCapabilities,
 } from '../../core/capability';
 import type { KvDefinitionMap, TableDefinitionMap } from '../../core/schema';
 
@@ -110,10 +111,10 @@ export const persistence = (<
 
 	// Return exports with whenSynced for the y-indexeddb pattern
 	// This allows the workspace to know when data has been loaded from IndexedDB
-	return {
+	return defineCapabilities({
 		whenSynced: persistence.whenSynced.then(() => {
 			console.log(`[Persistence] IndexedDB synced for ${ydoc.guid}`);
 		}),
 		destroy: () => persistence.destroy(),
-	};
+	});
 }) satisfies CapabilityFactory<TableDefinitionMap, KvDefinitionMap>;

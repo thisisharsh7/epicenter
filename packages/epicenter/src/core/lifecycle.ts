@@ -25,22 +25,33 @@
  *
  * ## Usage
  *
- * Authors can return plain objects; the framework normalizes at boundaries.
- * Use `defineExports()` when you want to be explicit about lifecycle:
+ * Factory functions are **always synchronous**. Async initialization is tracked
+ * via the returned `whenSynced` promise, not the factory itself.
+ *
+ * Use `defineExports()` for explicit type safety and lifecycle normalization:
  *
  * ```typescript
- * // Simple capability - framework adds defaults
+ * // Simple capability - explicit lifecycle with defaults
  * const simple: CapabilityFactory = ({ tables }) => {
  *   tables.posts.observe({ onAdd: console.log });
- *   // No return needed - framework normalizes to { whenSynced, destroy }
+ *   return defineExports(); // Framework fills in whenSynced and destroy
  * };
  *
- * // Explicit lifecycle - use defineExports for clarity
+ * // Capability with cleanup
  * const withCleanup: CapabilityFactory = ({ ydoc }) => {
  *   const db = new Database(':memory:');
  *   return defineExports({
  *     db,
  *     destroy: () => db.close(),
+ *   });
+ * };
+ *
+ * // Provider with async initialization
+ * const persistence: ProviderFactory = ({ ydoc }) => {
+ *   const provider = new IndexeddbPersistence(ydoc.guid, ydoc);
+ *   return defineExports({
+ *     whenSynced: provider.whenSynced,
+ *     destroy: () => provider.destroy(),
  *   });
  * };
  * ```

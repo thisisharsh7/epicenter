@@ -107,6 +107,17 @@ Yjs supports multiple providers simultaneously. Phone can connect to desktop, la
 
 The architecture is **local-first**: everything works offline, syncs opportunistically, and your data lives in plain files (`.yjs`, SQLite, markdown) that you fully control.
 
+## Shared Workspace ID Convention
+
+Epicenter uses stable, shared workspace IDs so multiple apps can collaborate on the same data.
+
+- **Format**: `epicenter.<app>` (for example, `epicenter.whispering`)
+- **Purpose**: Ensures the same workspace is discovered, synced, and shared across Epicenter apps
+- **Stability**: IDs must be globally unique and never change once published
+- **Usage**: The workspace ID is used for routing, persistence paths, Y.Doc IDs, and sharing
+
+When two apps declare the same workspace ID, they intentionally point to the same shared workspace and data.
+
 ## Quick Start
 
 ### Installation

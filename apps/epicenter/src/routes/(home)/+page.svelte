@@ -46,8 +46,8 @@
 			<Button
 				onclick={() =>
 					createWorkspaceDialog.open({
-						onConfirm: async ({ name, id }) => {
-							await createWorkspace.mutateAsync({ name, id });
+						onConfirm: async ({ name, id, template }) => {
+							await createWorkspace.mutateAsync({ name, id, template });
 						},
 					})}
 				disabled={createWorkspace.isPending}
@@ -97,8 +97,8 @@
 					<Button
 						onclick={() =>
 							createWorkspaceDialog.open({
-								onConfirm: async ({ name, id }) => {
-									await createWorkspace.mutateAsync({ name, id });
+								onConfirm: async ({ name, id, template }) => {
+									await createWorkspace.mutateAsync({ name, id, template });
 								},
 							})}
 					>
