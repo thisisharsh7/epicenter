@@ -23,7 +23,7 @@
  */
 
 import { defineWorkspace, generateGuid } from '@epicenter/hq';
-import { websocketSync } from '@epicenter/hq/capabilities/websocket-sync';
+import { websocketSync } from '@epicenter/hq/extensions/websocket-sync';
 import { Ok, tryAsync } from 'wellcrafted/result';
 import { defineBackground } from 'wxt/utils/define-background';
 import { createBrowserConverters } from '$lib/browser-helpers';
@@ -109,10 +109,10 @@ export default defineBackground(() => {
 		name: 'Browser Tabs',
 		kv: {},
 		tables: BROWSER_SCHEMA,
-		// @ts-expect-error - capabilities API not yet implemented
-		capabilities: {
+		// @ts-expect-error - extensions API not yet implemented
+		extensions: {
 			/**
-			 * WebSocket sync capability for server connection.
+			 * WebSocket sync extension for server connection.
 			 */
 			serverSync: websocketSync({
 				url: 'ws://localhost:3913/sync',

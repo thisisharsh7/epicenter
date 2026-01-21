@@ -124,7 +124,7 @@ type IndexLogger = {
  * @example
  * ```typescript
  * const logger = createIndexLogger({
- *   logPath: path.join(paths.provider, 'logs', `${workspaceId}.log`)
+ *   logPath: path.join(paths.extension, 'logs', `${workspaceId}.log`)
  * });
  *
  * // Synchronous: doesn't block, queues internally

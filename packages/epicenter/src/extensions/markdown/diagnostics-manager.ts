@@ -189,7 +189,7 @@ type DiagnosticsManagerConfig = {
  *   filePath: '/path/to/broken.md',
  *   tableName: 'posts',
  *   filename: 'broken.md',
- *   error: MarkdownCapabilityError({ ... })
+ *   error: MarkdownExtensionError({ ... })
  * });
  *
  * // Non-blocking: returns immediately

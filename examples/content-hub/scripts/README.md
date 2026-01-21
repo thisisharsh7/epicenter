@@ -41,9 +41,9 @@ The numbered prefix indicates the recommended order of operations. Run normalize
 
 **Primitives used**:
 
-- `listMarkdownFiles` from `@epicenter/hq/capabilities/markdown` - recursively finds all .md files
-- `readMarkdownFile` from `@epicenter/hq/capabilities/markdown` - parses markdown with frontmatter
-- `writeMarkdownFile` from `@epicenter/hq/capabilities/markdown` - writes markdown with YAML frontmatter
+- `listMarkdownFiles` from `@epicenter/hq/extensions/markdown` - recursively finds all .md files
+- `readMarkdownFile` from `@epicenter/hq/extensions/markdown` - parses markdown with frontmatter
+- `writeMarkdownFile` from `@epicenter/hq/extensions/markdown` - writes markdown with YAML frontmatter
 
 **Usage**:
 
@@ -71,9 +71,9 @@ bun scripts/01-normalize-markdown.ts
 
 **Primitives used**:
 
-- `listMarkdownFiles` from `@epicenter/hq/capabilities/markdown` - recursively finds all .md files
-- `readMarkdownFile` from `@epicenter/hq/capabilities/markdown` - parses markdown with frontmatter
-- `writeMarkdownFile` from `@epicenter/hq/capabilities/markdown` - writes markdown with YAML frontmatter
+- `listMarkdownFiles` from `@epicenter/hq/extensions/markdown` - recursively finds all .md files
+- `readMarkdownFile` from `@epicenter/hq/extensions/markdown` - parses markdown with frontmatter
+- `writeMarkdownFile` from `@epicenter/hq/extensions/markdown` - writes markdown with YAML frontmatter
 - String concatenation with pipe operator for date transformation
 - `delete` operator to remove obsolete fields
 
@@ -116,7 +116,7 @@ import {
 	listMarkdownFiles,
 	readMarkdownFile,
 	writeMarkdownFile,
-} from '@epicenter/hq/capabilities/markdown';
+} from '@epicenter/hq/extensions/markdown';
 
 const sourcePath = process.env.MARKDOWN_SOURCE_PATH;
 if (!sourcePath) {
@@ -163,7 +163,7 @@ await Promise.all(
 
 ## Key Primitives
 
-All markdown operations are available from `@epicenter/hq/capabilities/markdown`:
+All markdown operations are available from `@epicenter/hq/extensions/markdown`:
 
 - **listMarkdownFiles(sourcePath)**: Recursively finds all .md files, returns `AbsolutePath[]`
 - **readMarkdownFile(filePath)**: Parses markdown with frontmatter, returns `Result<{ data: object, body: string }>`

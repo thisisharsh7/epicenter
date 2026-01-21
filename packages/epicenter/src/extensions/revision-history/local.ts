@@ -29,7 +29,7 @@ export type VersionEntry = {
 };
 
 /**
- * Configuration for the local revision history capability.
+ * Configuration for the local revision history extension.
  */
 export type LocalRevisionHistoryConfig = {
 	/**

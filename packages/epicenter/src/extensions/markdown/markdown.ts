@@ -142,14 +142,14 @@ type ResolvedTableConfig<TFieldSchemaMap extends FieldSchemaMap> = {
 };
 
 /**
- * Configuration for the markdown capability.
+ * Configuration for the markdown extension.
  *
- * The markdown capability provides bidirectional sync between YJS and markdown files.
+ * The markdown extension provides bidirectional sync between YJS and markdown files.
  * Files are organized as `{directory}/{tableName}/{filename}.md` by default.
  *
  * @example
  * ```typescript
- * // Basic usage with absolute paths (typically from capability context)
+ * // Basic usage with absolute paths (typically from extension context)
  * markdown(context, {
  *   directory: '/absolute/path/to/workspace',
  *   logsDir: '/absolute/path/to/logs',
@@ -159,8 +159,8 @@ type ResolvedTableConfig<TFieldSchemaMap extends FieldSchemaMap> = {
  * // With custom table configs
  * markdown(context, {
  *   directory: paths.project,
- *   logsDir: path.join(paths.provider, 'logs'),
- *   diagnosticsPath: path.join(paths.provider, 'diagnostics.json'),
+ *   logsDir: path.join(paths.extension, 'logs'),
+ *   diagnosticsPath: path.join(paths.extension, 'diagnostics.json'),
  *   tableConfigs: {
  *     posts: {
  *       directory: './blog-posts',  // Relative to workspace directory
@@ -181,7 +181,7 @@ export type MarkdownExtensionConfig<
 	 *
 	 * @example
 	 * ```typescript
-	 * // Typical usage: use paths from capability context
+	 * // Typical usage: use paths from extension context
 	 * directory: paths.project  // e.g., '/Users/me/projects/blog'
 	 *
 	 * // Files stored at:
@@ -199,8 +199,8 @@ export type MarkdownExtensionConfig<
 	 *
 	 * @example
 	 * ```typescript
-	 * logsDir: path.join(paths.provider, 'logs')
-	 * // Creates: .epicenter/providers/markdown/logs/blog.log
+	 * logsDir: path.join(paths.extension, 'logs')
+	 * // Creates: .epicenter/extensions/markdown/logs/blog.log
 	 * ```
 	 */
 	logsDir: string;
@@ -214,8 +214,8 @@ export type MarkdownExtensionConfig<
 	 *
 	 * @example
 	 * ```typescript
-	 * diagnosticsPath: path.join(paths.provider, 'diagnostics.json')
-	 * // Creates: .epicenter/providers/markdown/diagnostics.json
+	 * diagnosticsPath: path.join(paths.extension, 'diagnostics.json')
+	 * // Creates: .epicenter/extensions/markdown/diagnostics.json
 	 * ```
 	 */
 	diagnosticsPath: string;
@@ -1243,7 +1243,7 @@ export const markdown = async <
 				catch: (error) => {
 					syncCoordination.yjsWriteCount--;
 					return ExtensionErr({
-						message: `Markdown capability pull failed: ${extractErrorMessage(error)}`,
+						message: `Markdown extension pull failed: ${extractErrorMessage(error)}`,
 						context: { operation: 'pull' },
 					});
 				},
@@ -1465,7 +1465,7 @@ export const markdown = async <
 				catch: (error) => {
 					syncCoordination.fileChangeCount--;
 					return ExtensionErr({
-						message: `Markdown capability push failed: ${extractErrorMessage(error)}`,
+						message: `Markdown extension push failed: ${extractErrorMessage(error)}`,
 						context: { operation: 'push' },
 					});
 				},
@@ -1497,7 +1497,7 @@ export const markdown = async <
 				},
 				catch: (error) => {
 					return ExtensionErr({
-						message: `Markdown capability scan failed: ${extractErrorMessage(error)}`,
+						message: `Markdown extension scan failed: ${extractErrorMessage(error)}`,
 						context: { operation: 'scan' },
 					});
 				},

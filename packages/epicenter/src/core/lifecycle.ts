@@ -1,8 +1,8 @@
 /**
- * Lifecycle protocol for providers and capabilities.
+ * Lifecycle protocol for providers and extensions.
  *
  * This module defines the shared lifecycle contract that all providers (doc-level)
- * and capabilities (workspace-level) must satisfy. The protocol enables:
+ * and extensions (workspace-level) must satisfy. The protocol enables:
  *
  * - **Async initialization tracking**: `whenSynced` lets UI render gates wait for readiness
  * - **Resource cleanup**: `destroy` ensures connections, observers, and handles are released
@@ -17,7 +17,7 @@
  *                    │                              │
  *                    ▼                              ▼
  * ┌─────────────────────────────┐    ┌─────────────────────────────┐
- * │  ProviderExports<T>         │    │  CapabilityExports<T>       │
+ * │  ProviderExports<T>         │    │  ExtensionExports<T>        │
  * │  Lifecycle & T              │    │  Lifecycle & T              │
  * │  (doc-level: head, registry)│    │  (workspace-level)          │
  * └─────────────────────────────┘    └─────────────────────────────┘
@@ -31,14 +31,14 @@
  * Use `defineExports()` for explicit type safety and lifecycle normalization:
  *
  * ```typescript
- * // Simple capability - explicit lifecycle with defaults
- * const simple: CapabilityFactory = ({ tables }) => {
+ * // Simple extension - explicit lifecycle with defaults
+ * const simple: ExtensionFactory = ({ tables }) => {
  *   tables.posts.observe({ onAdd: console.log });
  *   return defineExports(); // Framework fills in whenSynced and destroy
  * };
  *
- * // Capability with cleanup
- * const withCleanup: CapabilityFactory = ({ ydoc }) => {
+ * // Extension with cleanup
+ * const withCleanup: ExtensionFactory = ({ ydoc }) => {
  *   const db = new Database(':memory:');
  *   return defineExports({
  *     db,
@@ -63,9 +63,9 @@
 export type MaybePromise<T> = T | Promise<T>;
 
 /**
- * The lifecycle protocol for providers and capabilities.
+ * The lifecycle protocol for providers and extensions.
  *
- * This is the base contract that all providers and capabilities satisfy.
+ * This is the base contract that all providers and extensions satisfy.
  * It defines two required lifecycle methods:
  *
  * - `whenSynced`: A promise that resolves when initialization is complete
@@ -138,7 +138,7 @@ export type Lifecycle = {
 /**
  * Normalize any return value into a valid Lifecycle.
  *
- * This is the shared helper for both providers and capabilities.
+ * This is the shared helper for both providers and extensions.
  * It fills in defaults for missing lifecycle fields:
  *
  * - `whenSynced`: defaults to `Promise.resolve()`
@@ -147,7 +147,7 @@ export type Lifecycle = {
  * ## When to use
  *
  * Use `defineExports()` when you want to be explicit about lifecycle,
- * especially when your capability/provider has cleanup requirements:
+ * especially when your extension/provider has cleanup requirements:
  *
  * ```typescript
  * // Makes cleanup visible in the return statement
@@ -157,7 +157,7 @@ export type Lifecycle = {
  * });
  * ```
  *
- * For simple capabilities with no cleanup, you can return void or a plain
+ * For simple extensions with no cleanup, you can return void or a plain
  * object; the framework normalizes at the boundary anyway.
  *
  * ## Framework usage
@@ -172,7 +172,7 @@ export type Lifecycle = {
  * @param exports - Optional exports object (may include lifecycle fields)
  * @returns Normalized object with guaranteed `whenSynced` and `destroy`
  *
- * @example Simple capability (no async, no cleanup)
+ * @example Simple extension (no async, no cleanup)
  * ```typescript
  * return defineExports({ helper: myHelper });
  * // → { helper, whenSynced: Promise.resolve(), destroy: () => {} }

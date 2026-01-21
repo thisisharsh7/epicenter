@@ -140,7 +140,7 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 		 *
 		 * @example
 		 * ```typescript
-		 * // In a capability, convert to Drizzle tables
+		 * // In an extension, convert to Drizzle tables
 		 * const drizzleTables = convertTableDefinitionsToDrizzle(tables.$definitions);
 		 *
 		 * // Access table metadata
