@@ -6,6 +6,7 @@
  */
 
 import { ENTRIES_TEMPLATE } from './entries';
+import { WHISPERING_TEMPLATE } from './whispering';
 
 /**
  * Registry of available workspace templates.
@@ -14,7 +15,10 @@ import { ENTRIES_TEMPLATE } from './entries';
  * Types are derived from this array, so adding a template automatically
  * makes its ID available as a valid `WorkspaceTemplateId`.
  */
-export const WORKSPACE_TEMPLATES = [ENTRIES_TEMPLATE] as const;
+export const WORKSPACE_TEMPLATES = [
+	ENTRIES_TEMPLATE,
+	WHISPERING_TEMPLATE,
+] as const;
 
 /**
  * A workspace template definition.
