@@ -112,7 +112,7 @@ export function defineQuery<
  *
  * const syncMarkdown = defineMutation({
  *   description: 'Sync markdown files to YJS',
- *   handler: () => client.capabilities.markdown.pullFromMarkdown(),
+ *   handler: () => client.extensions.markdown.pullFromMarkdown(),
  * });
  * ```
  */
