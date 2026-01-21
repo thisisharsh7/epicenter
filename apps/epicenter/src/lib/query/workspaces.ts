@@ -5,6 +5,7 @@ import { createTaggedError } from 'wellcrafted/error';
 import { Ok } from 'wellcrafted/result';
 import { registry } from '$lib/docs/registry';
 import { createWorkspaceClient } from '$lib/docs/workspace';
+import type { WorkspaceTemplate } from '$lib/templates';
 import { defineMutation, defineQuery, queryClient } from './client';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -114,16 +115,24 @@ export const workspaces = {
 	 *
 	 * Uses `createWorkspaceClient` (static schema mode) because we're seeding
 	 * a new workspace with a known definition.
+	 *
+	 * If a template is provided, the tables and kv from the template are used
+	 * instead of starting with empty collections.
 	 */
 	createWorkspace: defineMutation({
 		mutationKey: ['workspaces', 'create'],
-		mutationFn: async (input: { name: string; id: string }) => {
+		mutationFn: async (input: {
+			name: string;
+			id: string;
+			template: WorkspaceTemplate | null;
+		}) => {
 			// Create definition using the user-provided ID directly
+			// If a template is provided, use its tables and kv
 			const definition: WorkspaceDefinition = {
 				id: input.id,
 				name: input.name,
-				tables: {},
-				kv: {},
+				tables: input.template?.tables ?? {},
+				kv: input.template?.kv ?? {},
 			};
 
 			// Add to registry (persisted automatically via registryPersistence)

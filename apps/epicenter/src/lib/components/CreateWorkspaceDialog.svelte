@@ -1,16 +1,36 @@
 <script module lang="ts">
 	import { toKebabCase } from '$lib/utils/slug';
+	import { WORKSPACE_TEMPLATES, type WorkspaceTemplate } from '$lib/templates';
+
+	/** Template option for the selector: 'blank' or a template ID */
+	type TemplateOption = 'blank' | string;
+
+	export type CreateWorkspaceData = {
+		name: string;
+		id: string;
+		template: WorkspaceTemplate | null;
+	};
 
 	function createWorkspaceDialogState() {
 		let isOpen = $state(false);
 		let isPending = $state(false);
+		let selectedTemplate = $state<TemplateOption>('blank');
 		let name = $state('');
 		let id = $state('');
 		let isIdManuallyEdited = $state(false);
+		let isNameManuallyEdited = $state(false);
 		let error = $state<string | null>(null);
 		let onConfirm = $state<
-			((data: { name: string; id: string }) => void | Promise<unknown>) | null
+			((data: CreateWorkspaceData) => void | Promise<unknown>) | null
 		>(null);
+
+		/**
+		 * Get the resolved template object (or null for blank).
+		 */
+		function getTemplate(): WorkspaceTemplate | null {
+			if (selectedTemplate === 'blank') return null;
+			return WORKSPACE_TEMPLATES.find((t) => t.id === selectedTemplate) ?? null;
+		}
 
 		return {
 			get isOpen() {
@@ -22,12 +42,39 @@
 			get isPending() {
 				return isPending;
 			},
+			get selectedTemplate() {
+				return selectedTemplate;
+			},
+			set selectedTemplate(value: TemplateOption) {
+				selectedTemplate = value;
+				error = null;
+
+				// Auto-fill name and ID from template if not manually edited
+				const template = getTemplate();
+				if (template) {
+					if (!isNameManuallyEdited) {
+						name = template.name;
+					}
+					if (!isIdManuallyEdited) {
+						id = template.id;
+					}
+				} else {
+					// Reset to blank
+					if (!isNameManuallyEdited) {
+						name = '';
+					}
+					if (!isIdManuallyEdited) {
+						id = '';
+					}
+				}
+			},
 			get name() {
 				return name;
 			},
 			set name(value) {
 				name = value;
 				error = null;
+				isNameManuallyEdited = true;
 				if (!isIdManuallyEdited) {
 					id = toKebabCase(value);
 				}
@@ -48,32 +95,38 @@
 			},
 
 			open(opts: {
-				onConfirm: (data: {
-					name: string;
-					id: string;
-				}) => void | Promise<unknown>;
+				onConfirm: (data: CreateWorkspaceData) => void | Promise<unknown>;
 			}) {
 				onConfirm = opts.onConfirm;
 				isPending = false;
+				selectedTemplate = 'blank';
 				name = '';
 				id = '';
 				error = null;
 				isIdManuallyEdited = false;
+				isNameManuallyEdited = false;
 				isOpen = true;
 			},
 
 			close() {
 				isOpen = false;
 				isPending = false;
+				selectedTemplate = 'blank';
 				name = '';
 				id = '';
 				error = null;
 				isIdManuallyEdited = false;
+				isNameManuallyEdited = false;
 				onConfirm = null;
 			},
 
 			resetId() {
-				id = toKebabCase(name);
+				const template = getTemplate();
+				if (template && !isNameManuallyEdited) {
+					id = template.id;
+				} else {
+					id = toKebabCase(name);
+				}
 				error = null;
 				isIdManuallyEdited = false;
 			},
@@ -88,7 +141,12 @@
 
 				error = null;
 				const finalId = toKebabCase(id.trim());
-				const result = onConfirm({ name: name.trim(), id: finalId });
+				const template = getTemplate();
+				const result = onConfirm({
+					name: name.trim(),
+					id: finalId,
+					template,
+				});
 
 				if (result instanceof Promise) {
 					isPending = true;
@@ -122,10 +180,32 @@
 <script lang="ts">
 	import * as Dialog from '@epicenter/ui/dialog';
 	import * as Field from '@epicenter/ui/field';
+	import * as Select from '@epicenter/ui/select';
 	import { Input } from '@epicenter/ui/input';
 	import { Button } from '@epicenter/ui/button';
 	import { Label } from '@epicenter/ui/label';
 	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
+	import FileTextIcon from '@lucide/svelte/icons/file-text';
+	import LayoutTemplateIcon from '@lucide/svelte/icons/layout-template';
+
+	const templateOptions = [
+		{
+			value: 'blank',
+			label: 'Blank',
+			description: 'Start with an empty workspace',
+		},
+		...WORKSPACE_TEMPLATES.map((t) => ({
+			value: t.id,
+			label: t.name,
+			description: `Pre-configured with ${Object.keys(t.tables).length} table(s)`,
+		})),
+	];
+
+	const selectedTemplateLabel = $derived(
+		templateOptions.find(
+			(t) => t.value === createWorkspaceDialog.selectedTemplate,
+		)?.label ?? 'Select template',
+	);
 </script>
 
 <Dialog.Root bind:open={createWorkspaceDialog.isOpen}>
@@ -141,12 +221,53 @@
 			<Dialog.Header>
 				<Dialog.Title>Create Workspace</Dialog.Title>
 				<Dialog.Description>
-					Enter a name for your new workspace. The ID will be auto-generated
-					from the name.
+					Choose a template or start blank. The ID will be auto-generated from
+					the name.
 				</Dialog.Description>
 			</Dialog.Header>
 
 			<div class="grid gap-4">
+				<Field.Field>
+					<Label for="workspace-template">Template</Label>
+					<Select.Root
+						type="single"
+						value={createWorkspaceDialog.selectedTemplate}
+						onValueChange={(value) => {
+							if (value) createWorkspaceDialog.selectedTemplate = value;
+						}}
+					>
+						<Select.Trigger
+							id="workspace-template"
+							class="w-full"
+							disabled={createWorkspaceDialog.isPending}
+						>
+							<div class="flex items-center gap-2">
+								{#if createWorkspaceDialog.selectedTemplate === 'blank'}
+									<FileTextIcon class="size-4 text-muted-foreground" />
+								{:else}
+									<LayoutTemplateIcon class="size-4 text-muted-foreground" />
+								{/if}
+								{selectedTemplateLabel}
+							</div>
+						</Select.Trigger>
+						<Select.Content>
+							{#each templateOptions as option (option.value)}
+								<Select.Item value={option.value}>
+									<div class="flex flex-col">
+										<span>{option.label}</span>
+										<span class="text-xs text-muted-foreground">
+											{option.description}
+										</span>
+									</div>
+								</Select.Item>
+							{/each}
+						</Select.Content>
+					</Select.Root>
+					<Field.Description>
+						Templates provide pre-configured tables and fields.
+					</Field.Description>
+				</Field.Field>
+
 				<Field.Field>
 					<Label for="workspace-name">Workspace Name</Label>
 					<Input
