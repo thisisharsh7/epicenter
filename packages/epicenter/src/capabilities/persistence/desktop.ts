@@ -2,7 +2,7 @@ import { writeFileSync } from 'node:fs';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import * as Y from 'yjs';
-import type { ExtensionContext } from '../../core/extension';
+import { defineExports, type ExtensionContext } from '../../core/extension';
 import type { KvDefinitionMap, TableDefinitionMap } from '../../core/schema';
 
 /**
@@ -48,34 +48,39 @@ export type PersistenceConfig = {
  * });
  * ```
  */
-export const persistence = async <
+export const persistence = <
 	TTableDefinitionMap extends TableDefinitionMap,
 	TKvDefinitionMap extends KvDefinitionMap,
 >(
 	{ ydoc }: ExtensionContext<TTableDefinitionMap, TKvDefinitionMap>,
 	{ filePath }: PersistenceConfig,
 ) => {
-	await mkdir(path.dirname(filePath), { recursive: true });
+	// Track async initialization via whenSynced
+	const whenSynced = (async () => {
+		await mkdir(path.dirname(filePath), { recursive: true });
 
-	// Try to load existing state from disk using Bun.file
-	// No need to check existence first - just try to read and handle failure
-	const file = Bun.file(filePath);
-	try {
-		// Use arrayBuffer() to get a fresh, non-shared buffer for Yjs
-		const savedState = await file.arrayBuffer();
-		// Convert to Uint8Array for Yjs
-		Y.applyUpdate(ydoc, new Uint8Array(savedState));
-		// console.log(`[Persistence] Loaded workspace from ${filePath}`);
-	} catch {
-		// File doesn't exist or couldn't be read - that's fine, we'll create it on first update
-		// console.log(`[Persistence] Creating new workspace at ${filePath}`);
-	}
+		// Try to load existing state from disk using Bun.file
+		// No need to check existence first - just try to read and handle failure
+		const file = Bun.file(filePath);
+		try {
+			// Use arrayBuffer() to get a fresh, non-shared buffer for Yjs
+			const savedState = await file.arrayBuffer();
+			// Convert to Uint8Array for Yjs
+			Y.applyUpdate(ydoc, new Uint8Array(savedState));
+			// console.log(`[Persistence] Loaded workspace from ${filePath}`);
+		} catch {
+			// File doesn't exist or couldn't be read - that's fine, we'll create it on first update
+			// console.log(`[Persistence] Creating new workspace at ${filePath}`);
+		}
 
-	// Auto-save on every update using synchronous write
-	// This ensures data is persisted before the process can exit
-	// The performance impact is minimal for typical YJS update sizes
-	ydoc.on('update', () => {
-		const state = Y.encodeStateAsUpdate(ydoc);
-		writeFileSync(filePath, state);
-	});
+		// Auto-save on every update using synchronous write
+		// This ensures data is persisted before the process can exit
+		// The performance impact is minimal for typical YJS update sizes
+		ydoc.on('update', () => {
+			const state = Y.encodeStateAsUpdate(ydoc);
+			writeFileSync(filePath, state);
+		});
+	})();
+
+	return defineExports({ whenSynced });
 };
