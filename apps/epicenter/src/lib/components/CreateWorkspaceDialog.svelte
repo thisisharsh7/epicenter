@@ -241,13 +241,7 @@
 					<Label for="workspace-template">Template</Label>
 					<Select.Root
 						type="single"
-						value={createWorkspaceDialog.selectedTemplateId}
-						onValueChange={(value) => {
-							if (value !== undefined) {
-								createWorkspaceDialog.selectedTemplateId =
-									value as TemplateSelectionId;
-							}
-						}}
+						bind:value={createWorkspaceDialog.selectedTemplateId}
 					>
 						<Select.Trigger
 							id="workspace-template"
