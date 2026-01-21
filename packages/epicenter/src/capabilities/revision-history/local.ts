@@ -1,7 +1,7 @@
 import { mkdir, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import * as Y from 'yjs';
-import type { CapabilityContext } from '../../core/capability';
+import type { ExtensionContext } from '../../core/extension';
 import type { KvDefinitionMap, TableDefinitionMap } from '../../core/schema';
 
 const SNAPSHOT_EXTENSION = '.ysnap';
@@ -65,14 +65,14 @@ export type LocalRevisionHistoryConfig = {
 };
 
 /**
- * Local revision history capability using the filesystem.
+ * Local revision history extension using the filesystem.
  *
  * Stores Y.Snapshots as binary files for time-travel and revision history.
  * Files are named by timestamp for automatic sorting. Automatically saves
  * snapshots on Y.Doc changes with configurable debouncing.
  *
  * **CRITICAL**: Requires `gc: false` on the Y.Doc for snapshots to work.
- * The capability will throw if garbage collection is enabled.
+ * The extension will throw if garbage collection is enabled.
  *
  * **Platform**: Node.js/Desktop (Tauri, Electron, Bun)
  *
@@ -81,7 +81,7 @@ export type LocalRevisionHistoryConfig = {
  * @example Basic usage
  * ```typescript
  * import { defineWorkspace, createClient } from '@epicenter/hq';
- * import { localRevisionHistory } from '@epicenter/hq/capabilities/revision-history';
+ * import { localRevisionHistory } from '@epicenter/hq/extensions/revision-history';
  *
  * const definition = defineWorkspace({
  *   id: 'blog',
@@ -90,7 +90,7 @@ export type LocalRevisionHistoryConfig = {
  * });
  *
  * const client = createClient(definition, {
- *   capabilities: {
+ *   extensions: {
  *     persistence,
  *     revisions: (ctx) => localRevisionHistory(ctx, {
  *       directory: './workspaces',
@@ -101,23 +101,23 @@ export type LocalRevisionHistoryConfig = {
  * });
  *
  * // Save a version manually (bypasses debounce)
- * client.capabilities.revisions.save('Before refactor');
+ * client.extensions.revisions.save('Before refactor');
  *
  * // List all versions
- * const versions = await client.capabilities.revisions.list();
+ * const versions = await client.extensions.revisions.list();
  *
  * // View a historical version (read-only)
- * const oldDoc = await client.capabilities.revisions.view(5);
+ * const oldDoc = await client.extensions.revisions.view(5);
  * console.log(oldDoc.getText('content').toString());
  *
  * // Restore to a version (copies data to current doc)
- * await client.capabilities.revisions.restore(5);
+ * await client.extensions.revisions.restore(5);
  * ```
  *
  * @example Custom debounce interval
  * ```typescript
  * const client = createClient(definition, {
- *   capabilities: {
+ *   extensions: {
  *     revisions: (ctx) => localRevisionHistory(ctx, {
  *       directory: './workspaces',
  *       epoch: 0,
@@ -129,17 +129,17 @@ export type LocalRevisionHistoryConfig = {
  *
  * @example Google Docs-style slider UI
  * ```typescript
- * const versions = await client.capabilities.revisions.list();
+ * const versions = await client.extensions.revisions.list();
  *
  * // Scrub through versions
  * async function onSliderChange(index: number) {
- *   const previewDoc = await client.capabilities.revisions.view(index);
+ *   const previewDoc = await client.extensions.revisions.view(index);
  *   // Render previewDoc in read-only mode
  * }
  *
  * // Restore when user clicks "Restore"
  * async function onRestore(index: number) {
- *   await client.capabilities.revisions.restore(index);
+ *   await client.extensions.revisions.restore(index);
  * }
  * ```
  */
@@ -147,7 +147,7 @@ export async function localRevisionHistory<
 	TTableDefinitionMap extends TableDefinitionMap,
 	TKvDefinitionMap extends KvDefinitionMap,
 >(
-	{ ydoc, id }: CapabilityContext<TTableDefinitionMap, TKvDefinitionMap>,
+	{ ydoc, id }: ExtensionContext<TTableDefinitionMap, TKvDefinitionMap>,
 	{
 		directory,
 		epoch,

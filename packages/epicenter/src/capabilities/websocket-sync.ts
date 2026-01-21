@@ -1,5 +1,5 @@
 import { WebsocketProvider } from 'y-websocket';
-import { type CapabilityFactory, defineCapabilities } from '../core/capability';
+import { defineExports, type ExtensionFactory } from '../core/extension';
 import type { KvDefinitionMap, TableDefinitionMap } from '../core/schema';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -40,7 +40,7 @@ import type { KvDefinitionMap, TableDefinitionMap } from '../core/schema';
 // KEY CONCEPTS:
 //
 // 1. SYNC NODES: Any device with a filesystem can be a sync node (runs Elysia)
-// 2. MULTI-PROVIDER: Yjs supports multiple providers; changes merge via CRDTs
+// 2. MULTI-PROVIDER: Yjs supports multiple extensions; changes merge via CRDTs
 // 3. SERVER-TO-SERVER: Servers can sync with each other as clients
 // 4. RESILIENCE: Connect to multiple nodes for redundancy
 //
@@ -73,7 +73,7 @@ import type { KvDefinitionMap, TableDefinitionMap } from '../core/schema';
 export type SyncNodesConfig = Record<string, string>;
 
 /**
- * Configuration for WebSocket sync provider.
+ * Configuration for WebSocket sync extension.
  */
 export type WebsocketSyncConfig = {
 	/**
@@ -93,14 +93,14 @@ export type WebsocketSyncConfig = {
 };
 
 /**
- * Creates a WebSocket sync capability for real-time collaboration.
+ * Creates a WebSocket sync extension for real-time collaboration.
  *
- * This capability uses y-websocket to connect to an Epicenter server's
+ * This extension uses y-websocket to connect to an Epicenter server's
  * sync endpoint for document synchronization and awareness.
  *
  * ## Multi-Device Architecture
  *
- * Yjs supports multiple capabilities simultaneously. Create multiple capabilities
+ * Yjs supports multiple extensions simultaneously. Create multiple extensions
  * to connect to multiple sync nodes for redundancy and resilience:
  *
  * ```typescript
@@ -112,7 +112,7 @@ export type WebsocketSyncConfig = {
  * } as const;
  * ```
  *
- * ## Capability Strategy Per Device
+ * ## Extension Strategy Per Device
  *
  * | Device          | Role            | Connects To                    |
  * |-----------------|-----------------|--------------------------------|
@@ -126,17 +126,17 @@ export type WebsocketSyncConfig = {
  * ## Why This Works
  *
  * - **Yjs CRDTs**: Updates merge automatically regardless of delivery order
- * - **Deduplication**: Same update received from multiple capabilities is applied once
+ * - **Deduplication**: Same update received from multiple extensions is applied once
  * - **Eventual consistency**: All Y.Docs converge to identical state
  *
- * **Note**: This capability requires the `y-websocket` package to be installed
+ * **Note**: This extension requires the `y-websocket` package to be installed
  * in your client application. It's not bundled with @epicenter/hq to keep
  * the server package lightweight.
  *
- * @example Single capability (browser to local server)
+ * @example Single extension (browser to local server)
  * ```typescript
  * import { defineWorkspace, createClient } from '@epicenter/hq';
- * import { websocketSync } from '@epicenter/hq/capabilities/websocket-sync';
+ * import { websocketSync } from '@epicenter/hq/extensions/websocket-sync';
  *
  * // Browser connects to its own local Elysia server
  * const definition = defineWorkspace({
@@ -146,16 +146,16 @@ export type WebsocketSyncConfig = {
  * });
  *
  * const client = createClient(definition, {
- *   capabilities: {
+ *   extensions: {
  *     sync: websocketSync({ url: 'ws://localhost:3913/sync' }),
  *   },
  * });
  * ```
  *
- * @example Multi-capability (phone connecting to all nodes)
+ * @example Multi-extension (phone connecting to all nodes)
  * ```typescript
  * import { defineWorkspace, createClient } from '@epicenter/hq';
- * import { websocketSync } from '@epicenter/hq/capabilities/websocket-sync';
+ * import { websocketSync } from '@epicenter/hq/extensions/websocket-sync';
  *
  * const SYNC_NODES = {
  *   desktop: 'ws://desktop.my-tailnet.ts.net:3913/sync',
@@ -171,8 +171,8 @@ export type WebsocketSyncConfig = {
  * });
  *
  * const client = createClient(definition, {
- *   capabilities: {
- *     // Create a capability for each sync node
+ *   extensions: {
+ *     // Create an extension for each sync node
  *     syncDesktop: websocketSync({ url: SYNC_NODES.desktop }),
  *     syncLaptop: websocketSync({ url: SYNC_NODES.laptop }),
  *     syncCloud: websocketSync({ url: SYNC_NODES.cloud }),
@@ -197,7 +197,7 @@ export type WebsocketSyncConfig = {
  * });
  *
  * const client = createClient(definition, {
- *   capabilities: {
+ *   extensions: {
  *     // Server acts as both:
  *     // 1. A sync server (via createSyncPlugin in server.ts)
  *     // 2. A sync client connecting to other servers
@@ -221,7 +221,7 @@ export type WebsocketSyncConfig = {
  *   new WebsocketProvider('wss://sync.myapp.com/sync', 'blog', doc),
  * ];
  *
- * // Changes sync through ALL connected capabilities
+ * // Changes sync through ALL connected extensions
  * providers.forEach(p => p.on('sync', () => console.log('Synced!')));
  * ```
  */
@@ -230,7 +230,7 @@ export function websocketSync<
 	TKvDefinitionMap extends KvDefinitionMap,
 >(
 	config: WebsocketSyncConfig,
-): CapabilityFactory<TTableDefinitionMap, TKvDefinitionMap> {
+): ExtensionFactory<TTableDefinitionMap, TKvDefinitionMap> {
 	return ({ ydoc }) => {
 		const provider = new WebsocketProvider(
 			config.url,
@@ -238,7 +238,7 @@ export function websocketSync<
 			ydoc,
 		);
 
-		return defineCapabilities({
+		return defineExports({
 			destroy: () => {
 				provider.destroy();
 			},

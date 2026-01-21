@@ -183,7 +183,7 @@ const emailDefinition = defineWorkspace({
 });
 
 await using client = await createClient(emailDefinition, {
-	capabilities: {
+	extensions: {
 		persistence: (ctx) =>
 			persistence(ctx, {
 				filePath: YJS_PATH,

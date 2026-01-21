@@ -2,11 +2,11 @@ import { writeFileSync } from 'node:fs';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import * as Y from 'yjs';
-import type { CapabilityContext } from '../../core/capability';
+import type { ExtensionContext } from '../../core/extension';
 import type { KvDefinitionMap, TableDefinitionMap } from '../../core/schema';
 
 /**
- * Configuration for the persistence capability.
+ * Configuration for the persistence extension.
  */
 export type PersistenceConfig = {
 	/** Absolute path to the .yjs file for storing YJS state. */
@@ -14,7 +14,7 @@ export type PersistenceConfig = {
 };
 
 /**
- * YJS document persistence capability using the filesystem.
+ * YJS document persistence extension using the filesystem.
  * Stores the YDoc as a binary file.
  *
  * **Platform**: Node.js/Desktop (Tauri, Electron, Bun)
@@ -27,7 +27,7 @@ export type PersistenceConfig = {
  * @example
  * ```typescript
  * import { defineWorkspace, createClient } from '@epicenter/hq';
- * import { persistence } from '@epicenter/hq/capabilities/persistence';
+ * import { persistence } from '@epicenter/hq/extensions/persistence';
  * import { join } from 'node:path';
  *
  * const definition = defineWorkspace({
@@ -40,7 +40,7 @@ export type PersistenceConfig = {
  * const epicenterDir = join(projectDir, '.epicenter');
  *
  * const client = createClient(definition, {
- *   capabilities: {
+ *   extensions: {
  *     persistence: (ctx) => persistence(ctx, {
  *       filePath: join(epicenterDir, 'persistence', `${ctx.id}.yjs`),
  *     }),
@@ -52,7 +52,7 @@ export const persistence = async <
 	TTableDefinitionMap extends TableDefinitionMap,
 	TKvDefinitionMap extends KvDefinitionMap,
 >(
-	{ ydoc }: CapabilityContext<TTableDefinitionMap, TKvDefinitionMap>,
+	{ ydoc }: ExtensionContext<TTableDefinitionMap, TKvDefinitionMap>,
 	{ filePath }: PersistenceConfig,
 ) => {
 	await mkdir(path.dirname(filePath), { recursive: true });

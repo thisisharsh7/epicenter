@@ -7,15 +7,15 @@
  * ## Core Concepts
  *
  * - **YJS Document**: Source of truth (CRDT, collaborative)
- * - **Providers**: Extensions that add persistence, sync, and materialized views
+ * - **Extensions**: Plugins that add persistence, sync, and materialized views
  * - **Column Schemas**: Pure JSON definitions (no Drizzle builders)
  *
  * ## Data Flow
  *
- * Write to YJS → Providers auto-sync → Query materialized views
+ * Write to YJS → Extensions auto-sync → Query materialized views
  */
 
-// Re-export commonly used Drizzle utilities for querying providers
+// Re-export commonly used Drizzle utilities for querying extensions
 export {
 	and,
 	asc,
@@ -44,15 +44,6 @@ export {
 	isQuery,
 	iterateActions,
 } from './core/actions';
-export type {
-	CapabilityContext,
-	CapabilityExports,
-	CapabilityFactory,
-	CapabilityFactoryMap,
-	InferCapabilityExports,
-} from './core/capability';
-// Capability system
-export { defineCapabilities } from './core/capability';
 // Y.Doc wrappers for collaborative workspace architecture
 export type {
 	// Workspace doc structure types
@@ -79,14 +70,23 @@ export {
 	// Workspace doc helpers
 	WORKSPACE_DOC_MAPS,
 } from './core/docs';
-export type { CapabilityError } from './core/errors';
+export type { ExtensionError } from './core/errors';
 // Error types
-export { CapabilityErr } from './core/errors';
+export { ExtensionErr } from './core/errors';
+// Extension system (workspace-level plugins)
+export type {
+	ExtensionContext,
+	ExtensionExports,
+	ExtensionFactory,
+	ExtensionFactoryMap,
+	InferExtensionExports,
+} from './core/extension';
+export { defineExports } from './core/extension';
 export type { Kv, KvHelper } from './core/kv/core';
 export { createKv } from './core/kv/core';
-// Lifecycle protocol (shared by providers and capabilities)
+// Lifecycle protocol (shared by providers and extensions)
 export type { Lifecycle, MaybePromise } from './core/lifecycle';
-export { defineExports, LifecycleExports } from './core/lifecycle';
+export { LifecycleExports } from './core/lifecycle';
 // Rich content ID generation
 export type { RichContentId } from './core/rich-content/id';
 export { createRichContentId } from './core/rich-content/id';
@@ -185,7 +185,7 @@ export {
 	defineWorkspace,
 } from './core/workspace/workspace';
 
-// Note: Capabilities (markdown, sqlite) are NOT re-exported here to avoid bundling
+// Note: Extensions (markdown, sqlite) are NOT re-exported here to avoid bundling
 // Node.js-only code in browser builds. Import them directly from subpaths:
-//   import { markdown } from '@epicenter/hq/capabilities/markdown';
-//   import { sqlite } from '@epicenter/hq/capabilities/sqlite';
+//   import { markdown } from '@epicenter/hq/extensions/markdown';
+//   import { sqlite } from '@epicenter/hq/extensions/sqlite';

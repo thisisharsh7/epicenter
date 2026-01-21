@@ -70,7 +70,7 @@
  *
  * // Async - awaits initialization internally
  * const client = await createClient(definition, {
- *   capabilities: { sqlite, persistence },
+ *   extensions: { sqlite, persistence },
  * });
  *
  * // Ready to use immediately
@@ -99,15 +99,12 @@
  *
  * @see {@link ./workspace.ts} - The sync implementation that powers this wrapper
  * @see {@link ../lifecycle.ts} - The Lifecycle protocol (`whenSynced`, `destroy`)
- * @see {@link ../capability.ts} - Capability factory types and `defineCapabilities`
+ * @see {@link ../extension.ts} - Extension factory types
  *
  * @module
  */
 
-import type {
-	CapabilityFactoryMap,
-	InferCapabilityExports,
-} from '../capability';
+import type { ExtensionFactoryMap, InferExtensionExports } from '../extension';
 import type { Lifecycle } from '../lifecycle';
 import type { KvDefinitionMap, TableDefinitionMap } from '../schema';
 import {
@@ -132,7 +129,7 @@ import {
  * ├── name: string                       ├── name: string
  * ├── tables: Tables<T>                  ├── tables: Tables<T>
  * ├── kv: Kv<K>                          ├── kv: Kv<K>
- * ├── capabilities: C                    ├── capabilities: C
+ * ├── extensions: E                      ├── extensions: E
  * ├── ydoc: Y.Doc                        ├── ydoc: Y.Doc
  * ├── whenSynced: Promise<void>  ──────► (omitted - already resolved)
  * ├── destroy(): Promise<void>           ├── destroy(): Promise<void>
@@ -161,16 +158,12 @@ import {
 export type WorkspaceClient<
 	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
 	TKvDefinitionMap extends KvDefinitionMap = KvDefinitionMap,
-	TCapabilityExports extends Record<string, Lifecycle> = Record<
+	TExtensionExports extends Record<string, Lifecycle> = Record<
 		string,
 		Lifecycle
 	>,
 > = Omit<
-	WorkspaceClientSync<
-		TTableDefinitionMap,
-		TKvDefinitionMap,
-		TCapabilityExports
-	>,
+	WorkspaceClientSync<TTableDefinitionMap, TKvDefinitionMap, TExtensionExports>,
 	'whenSynced'
 >;
 
@@ -178,7 +171,7 @@ export type WorkspaceClient<
  * Create a runtime client from a workspace definition (async, awaits internally).
  *
  * This is the Node.js version of `createClient` that awaits `whenSynced`
- * internally. When the Promise resolves, all capabilities are fully
+ * internally. When the Promise resolves, all extensions are fully
  * initialized and ready to use.
  *
  * ## Comparison to browser version
@@ -192,10 +185,10 @@ export type WorkspaceClient<
  *
  * ```typescript
  * // This:
- * const client = await createClient(definition, { capabilities });
+ * const client = await createClient(definition, { extensions });
  *
  * // Is equivalent to:
- * const syncClient = createClientSync(definition, { capabilities });
+ * const syncClient = createClientSync(definition, { extensions });
  * await syncClient.whenSynced;
  * const { whenSynced: _, ...client } = syncClient;
  * ```
@@ -205,7 +198,7 @@ export type WorkspaceClient<
  * @param options.epoch - Workspace Doc version (defaults to 0). The Y.Doc GUID
  *   is `{workspaceId}-{epoch}`. Change this intentionally to create a
  *   separate document namespace (e.g., for migrations or sync isolation).
- * @param options.capabilities - Factory functions that add features like
+ * @param options.extensions - Factory functions that add features like
  *   persistence, sync, or SQL queries.
  *
  * @returns Promise resolving to a fully-initialized client (no `whenSynced`)
@@ -214,7 +207,7 @@ export type WorkspaceClient<
  * ```typescript
  * const definition = defineWorkspace({ id: 'blog', tables: {...}, kv: {} });
  * const client = await createClient(definition, {
- *   capabilities: { sqlite, persistence },
+ *   extensions: { sqlite, persistence },
  * });
  * // Ready to use immediately
  * client.tables.posts.upsert({ id: '1', title: 'Hello' });
@@ -230,13 +223,13 @@ export type WorkspaceClient<
  *
  * const client = await createClient(definition, {
  *   epoch,
- *   capabilities: { sqlite, persistence },
+ *   extensions: { sqlite, persistence },
  * });
  * ```
  *
  * @example Cleanup with try/finally
  * ```typescript
- * const client = await createClient(definition, { capabilities });
+ * const client = await createClient(definition, { extensions });
  * try {
  *   await runMigration(client);
  * } finally {
@@ -247,16 +240,16 @@ export type WorkspaceClient<
  * @example Loading definition from JSON
  * ```typescript
  * const definition = JSON.parse(await readFile('workspace.json', 'utf-8'));
- * const client = await createClient(definition, { capabilities });
+ * const client = await createClient(definition, { extensions });
  * ```
  *
  * @see {@link createClientSync} - The sync version (browser)
- * @see {@link ../capability.ts} - Capability factory documentation
+ * @see {@link ../extension.ts} - Extension factory documentation
  */
 export async function createClient<
 	TTableDefinitionMap extends TableDefinitionMap,
 	TKvDefinitionMap extends KvDefinitionMap,
-	TCapabilityFactories extends CapabilityFactoryMap<
+	TExtensionFactories extends ExtensionFactoryMap<
 		TTableDefinitionMap,
 		TKvDefinitionMap
 	> = Record<string, never>,
@@ -264,13 +257,13 @@ export async function createClient<
 	definition: WorkspaceDefinition<TTableDefinitionMap, TKvDefinitionMap>,
 	options: {
 		epoch?: number;
-		capabilities?: TCapabilityFactories;
+		extensions?: TExtensionFactories;
 	} = {},
 ): Promise<
 	WorkspaceClient<
 		TTableDefinitionMap,
 		TKvDefinitionMap,
-		InferCapabilityExports<TCapabilityFactories>
+		InferExtensionExports<TExtensionFactories>
 	>
 > {
 	// Call the sync createClient() from workspace.ts

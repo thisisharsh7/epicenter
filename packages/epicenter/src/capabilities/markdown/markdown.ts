@@ -4,18 +4,15 @@ import chokidar, { type FSWatcher } from 'chokidar';
 import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
 import { tryAsync, trySync } from 'wellcrafted/result';
 
-import { CapabilityErr, CapabilityError } from '../../core/errors';
-import {
-	defineCapabilities,
-	type CapabilityContext,
-} from '../../core/capability';
-import type { TableHelper } from '../../core/tables/create-tables';
+import { ExtensionErr, ExtensionError } from '../../core/errors';
+import { defineExports, type ExtensionContext } from '../../core/extension';
 import type {
 	FieldSchemaMap,
 	KvDefinitionMap,
 	Row,
 	TableDefinitionMap,
 } from '../../core/schema';
+import type { TableHelper } from '../../core/tables/create-tables';
 import type { AbsolutePath } from '../../core/types';
 import { createIndexLogger } from '../error-logger';
 import {
@@ -32,25 +29,23 @@ import {
 } from './io';
 
 /**
- * Error types for markdown provider diagnostics
+ * Error types for markdown extension diagnostics
  * Used to track files that fail to process during indexing
  *
  * Context is optional since some errors (like read failures) may not
  * have all the structured data (fileName, id, reason) available.
  */
-type MarkdownCapabilityContext = {
+type MarkdownExtensionContext = {
 	fileName: string;
 	id: string;
 	reason: string;
 };
 
-export const { MarkdownCapabilityError, MarkdownCapabilityErr } =
-	createTaggedError('MarkdownCapabilityError').withContext<
-		MarkdownCapabilityContext | undefined
+export const { MarkdownExtensionError, MarkdownExtensionErr } =
+	createTaggedError('MarkdownExtensionError').withContext<
+		MarkdownExtensionContext | undefined
 	>();
-export type MarkdownCapabilityError = ReturnType<
-	typeof MarkdownCapabilityError
->;
+export type MarkdownExtensionError = ReturnType<typeof MarkdownExtensionError>;
 
 // Re-export config types and functions
 export type {
@@ -175,7 +170,7 @@ type ResolvedTableConfig<TFieldSchemaMap extends FieldSchemaMap> = {
  * })
  * ```
  */
-export type MarkdownCapabilityConfig<
+export type MarkdownExtensionConfig<
 	TTableDefinitionMap extends TableDefinitionMap,
 > = {
 	/**
@@ -279,8 +274,8 @@ export const markdown = async <
 	TTableDefinitionMap extends TableDefinitionMap,
 	TKvDefinitionMap extends KvDefinitionMap,
 >(
-	context: CapabilityContext<TTableDefinitionMap, TKvDefinitionMap>,
-	config: MarkdownCapabilityConfig<TTableDefinitionMap>,
+	context: ExtensionContext<TTableDefinitionMap, TKvDefinitionMap>,
+	config: MarkdownExtensionConfig<TTableDefinitionMap>,
 ) => {
 	const { id, tables } = context;
 	const {
@@ -468,7 +463,7 @@ export const markdown = async <
 
 								if (error) {
 									logger.log(
-										CapabilityError({
+										ExtensionError({
 											message: `YJS observer onDelete: failed to delete ${table.name}/${id}`,
 											context: {
 												tableName: table.name,
@@ -493,7 +488,7 @@ export const markdown = async <
 							)
 							.join(', ');
 						logger.log(
-							CapabilityError({
+							ExtensionError({
 								message: `YJS observer ${change.action}: validation failed for ${table.name}/${id}: ${errorMessages}`,
 								context: {
 									tableName: result.tableName,
@@ -512,7 +507,7 @@ export const markdown = async <
 
 						if (error) {
 							logger.log(
-								CapabilityError({
+								ExtensionError({
 									message: `YJS observer ${change.action}: failed to write ${table.name}/${row.id}`,
 									context: { tableName: table.name, rowId: row.id },
 								}),
@@ -547,7 +542,7 @@ export const markdown = async <
 					mkdirSync(tableConfig.directory, { recursive: true });
 				},
 				catch: (error) =>
-					CapabilityErr({
+					ExtensionErr({
 						message: `Failed to create table directory: ${extractErrorMessage(error)}`,
 						context: {
 							tableName: table.name,
@@ -628,12 +623,12 @@ export const markdown = async <
 							filePath: absolutePath,
 							tableName: table.name,
 							filename,
-							error: MarkdownCapabilityError({
+							error: MarkdownExtensionError({
 								message: `Failed to read markdown file at ${absolutePath}: ${readError.message}`,
 							}),
 						});
 						logger.log(
-							CapabilityError({
+							ExtensionError({
 								message: `File watcher: failed to read ${table.name}/${filename}`,
 								context: {
 									filePath: absolutePath,
@@ -651,7 +646,7 @@ export const markdown = async <
 					const parsed = tableConfig.parseFilename(filename);
 					if (!parsed) {
 						dbg('HANDLER', `FAIL ${table.name}/${filename} (parse error)`);
-						const error = MarkdownCapabilityError({
+						const error = MarkdownExtensionError({
 							message: `Failed to parse filename: ${filename}`,
 						});
 						diagnostics.add({
@@ -661,7 +656,7 @@ export const markdown = async <
 							error,
 						});
 						logger.log(
-							CapabilityError({
+							ExtensionError({
 								message: `File watcher: failed to parse filename ${table.name}/${filename}`,
 								context: {
 									filePath: absolutePath,
@@ -698,7 +693,7 @@ export const markdown = async <
 							error: deserializeError,
 						});
 						logger.log(
-							CapabilityError({
+							ExtensionError({
 								message: `File watcher: validation failed for ${table.name}/${filename}`,
 								context: {
 									filePath: absolutePath,
@@ -731,7 +726,7 @@ export const markdown = async <
 							},
 						);
 						logger.log(
-							CapabilityError({
+							ExtensionError({
 								message: `Duplicate file detected: ${filename} has same ID as ${existingFilename}, deleting duplicate`,
 								context: {
 									tableName: table.name,
@@ -792,7 +787,7 @@ export const markdown = async <
 						delete tracking[table.name]![rowIdToDelete];
 					} else {
 						logger.log(
-							CapabilityError({
+							ExtensionError({
 								message: `File deleted but could not parse row ID from ${table.name}/${filename}`,
 								context: { tableName: table.name, filename },
 							}),
@@ -822,7 +817,7 @@ export const markdown = async <
 						error: extractErrorMessage(error),
 					});
 					logger.log(
-						CapabilityError({
+						ExtensionError({
 							message: `File watcher error for ${table.name}: ${extractErrorMessage(error)}`,
 							context: {
 								tableName: table.name,
@@ -877,12 +872,12 @@ export const markdown = async <
 							filePath,
 							tableName: table.name,
 							filename,
-							error: MarkdownCapabilityError({
+							error: MarkdownExtensionError({
 								message: `Failed to read markdown file at ${filePath}: ${readError.message}`,
 							}),
 						});
 						logger.log(
-							CapabilityError({
+							ExtensionError({
 								message: `${operationPrefix}failed to read ${table.name}/${filename}`,
 								context: { filePath, tableName: table.name, filename },
 							}),
@@ -895,7 +890,7 @@ export const markdown = async <
 					// Parse filename to extract structured data
 					const parsed = tableConfig.parseFilename(filename);
 					if (!parsed) {
-						const error = MarkdownCapabilityError({
+						const error = MarkdownExtensionError({
 							message: `Failed to parse filename: ${filename}`,
 						});
 						diagnostics.add({
@@ -905,7 +900,7 @@ export const markdown = async <
 							error,
 						});
 						logger.log(
-							CapabilityError({
+							ExtensionError({
 								message: `${operationPrefix}failed to parse filename ${table.name}/${filename}`,
 								context: { filePath, tableName: table.name, filename },
 							}),
@@ -932,7 +927,7 @@ export const markdown = async <
 						});
 						// Log to historical record
 						logger.log(
-							CapabilityError({
+							ExtensionError({
 								message: `${operationPrefix}validation failed for ${table.name}/${filename}`,
 								context: { filePath, tableName: table.name, filename },
 							}),
@@ -1058,7 +1053,7 @@ export const markdown = async <
 			if (!rowId || !table.has(rowId)) {
 				// Orphan file: no valid row ID or row doesn't exist in Y.js
 				logger.log(
-					CapabilityError({
+					ExtensionError({
 						message: `Startup cleanup: deleting orphan file ${table.name}/${filename}`,
 						context: { tableName: table.name, filename, filePath },
 					}),
@@ -1099,7 +1094,7 @@ export const markdown = async <
 		console.error('[MarkdownProvider] Background validation failed:', err);
 	});
 
-	return defineCapabilities({
+	return defineExports({
 		async destroy() {
 			for (const unsub of unsubscribers) {
 				unsub();
@@ -1158,7 +1153,7 @@ export const markdown = async <
 										const { error } = await deleteMarkdownFile({ filePath });
 										if (error) {
 											logger.log(
-												CapabilityError({
+												ExtensionError({
 													message: `pullToMarkdown: failed to delete ${filePath}`,
 													context: { filePath, tableName: table.name },
 												}),
@@ -1223,7 +1218,7 @@ export const markdown = async <
 											});
 											if (error) {
 												logger.log(
-													CapabilityError({
+													ExtensionError({
 														message: `pullToMarkdown: failed to write ${filePath}`,
 														context: {
 															filePath,
@@ -1247,7 +1242,7 @@ export const markdown = async <
 				},
 				catch: (error) => {
 					syncCoordination.yjsWriteCount--;
-					return CapabilityErr({
+					return ExtensionErr({
 						message: `Markdown capability pull failed: ${extractErrorMessage(error)}`,
 						context: { operation: 'pull' },
 					});
@@ -1346,12 +1341,12 @@ export const markdown = async <
 													filePath,
 													tableName: table.name,
 													filename,
-													error: MarkdownCapabilityError({
+													error: MarkdownExtensionError({
 														message: `Failed to parse filename: ${filename}`,
 													}),
 												});
 												logger.log(
-													CapabilityError({
+													ExtensionError({
 														message: `pushFromMarkdown: failed to parse filename ${table.name}/${filename}`,
 														context: {
 															filePath,
@@ -1371,12 +1366,12 @@ export const markdown = async <
 													filePath,
 													tableName: table.name,
 													filename,
-													error: MarkdownCapabilityError({
+													error: MarkdownExtensionError({
 														message: `Failed to read markdown file at ${filePath}: ${readError.message}`,
 													}),
 												});
 												logger.log(
-													CapabilityError({
+													ExtensionError({
 														message: `pushFromMarkdown: failed to read ${table.name}/${filename}`,
 														context: {
 															filePath,
@@ -1407,7 +1402,7 @@ export const markdown = async <
 													error: deserializeError,
 												});
 												logger.log(
-													CapabilityError({
+													ExtensionError({
 														message: `pushFromMarkdown: validation failed for ${table.name}/${filename}`,
 														context: {
 															filePath,
@@ -1469,7 +1464,7 @@ export const markdown = async <
 				},
 				catch: (error) => {
 					syncCoordination.fileChangeCount--;
-					return CapabilityErr({
+					return ExtensionErr({
 						message: `Markdown capability push failed: ${extractErrorMessage(error)}`,
 						context: { operation: 'push' },
 					});
@@ -1501,7 +1496,7 @@ export const markdown = async <
 					);
 				},
 				catch: (error) => {
-					return CapabilityErr({
+					return ExtensionErr({
 						message: `Markdown capability scan failed: ${extractErrorMessage(error)}`,
 						context: { operation: 'scan' },
 					});

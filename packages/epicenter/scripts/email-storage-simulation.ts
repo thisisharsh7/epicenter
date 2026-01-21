@@ -210,7 +210,7 @@ const emailDefinition = defineWorkspace({
 console.log('Creating client...');
 const totalStart = performance.now();
 await using client = await createClient(emailDefinition, {
-	capabilities: {
+	extensions: {
 		persistence: (ctx) =>
 			persistence(ctx, {
 				filePath: YJS_PATH,

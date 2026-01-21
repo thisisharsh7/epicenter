@@ -6,11 +6,8 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { getTableConfig } from 'drizzle-orm/sqlite-core';
 import { extractErrorMessage } from 'wellcrafted/error';
 import { tryAsync } from 'wellcrafted/result';
-import {
-	type CapabilityContext,
-	defineCapabilities,
-} from '../../core/capability';
-import { CapabilityErr, CapabilityError } from '../../core/errors';
+import { ExtensionErr, ExtensionError } from '../../core/errors';
+import { defineExports, type ExtensionContext } from '../../core/extension';
 import type {
 	KvDefinitionMap,
 	Row,
@@ -22,7 +19,7 @@ import { createIndexLogger } from '../error-logger';
 const DEFAULT_DEBOUNCE_MS = 100;
 
 /**
- * Configuration for the SQLite capability.
+ * Configuration for the SQLite extension.
  */
 export type SqliteConfig = {
 	/** Absolute path to the .db file. */
@@ -44,11 +41,11 @@ export type SqliteConfig = {
 };
 
 /**
- * SQLite capability: syncs YJS changes to SQLite and exposes Drizzle query interface.
+ * SQLite extension: syncs YJS changes to SQLite and exposes Drizzle query interface.
  *
- * This capability creates internal resources (sqliteDb, drizzleTables) and exports them
- * via defineCapabilities(). All exported resources become available in your workspace
- * via `client.capabilities.sqlite`.
+ * This extension creates internal resources (sqliteDb, drizzleTables) and exports them
+ * via defineExports(). All exported resources become available in your workspace
+ * via `client.extensions.sqlite`.
  *
  * **Sync Strategy**:
  * Changes are debounced (default 100ms), then SQLite is rebuilt from YJS.
@@ -60,7 +57,7 @@ export type SqliteConfig = {
  * The rebuild is fast enough for most use cases (<50k items). For very large
  * datasets, consider splitting into multiple workspaces.
  *
- * @param context - Capability context with workspace ID and tables instance
+ * @param context - Extension context with workspace ID and tables instance
  * @param config - Configuration with paths and optional debounce settings
  *
  * @example
@@ -78,7 +75,7 @@ export type SqliteConfig = {
  * const epicenterDir = join(projectDir, '.epicenter');
  *
  * const client = createClient(definition, {
- *   capabilities: {
+ *   extensions: {
  *     sqlite: (ctx) => sqlite(ctx, {
  *       dbPath: join(epicenterDir, 'sqlite', `${ctx.id}.db`),
  *       logsDir: join(epicenterDir, 'sqlite', 'logs'),
@@ -87,16 +84,16 @@ export type SqliteConfig = {
  * });
  *
  * // Query with Drizzle:
- * const posts = await client.capabilities.sqlite.db
+ * const posts = await client.extensions.sqlite.db
  *   .select()
- *   .from(client.capabilities.sqlite.posts);
+ *   .from(client.extensions.sqlite.posts);
  * ```
  */
 export const sqlite = async <
 	TTableDefinitionMap extends TableDefinitionMap,
 	TKvDefinitionMap extends KvDefinitionMap,
 >(
-	{ id, tables }: CapabilityContext<TTableDefinitionMap, TKvDefinitionMap>,
+	{ id, tables }: ExtensionContext<TTableDefinitionMap, TKvDefinitionMap>,
 	config: SqliteConfig,
 ) => {
 	const { dbPath, logsDir, debounceMs = DEFAULT_DEBOUNCE_MS } = config;
@@ -183,7 +180,7 @@ export const sqlite = async <
 						await sqliteDb.insert(drizzleTable).values(rows);
 					},
 					catch: (e) =>
-						CapabilityErr({
+						ExtensionErr({
 							message: `Failed to sync ${rows.length} rows to table "${table.name}" in SQLite: ${extractErrorMessage(e)}`,
 						}),
 				});
@@ -221,8 +218,8 @@ export const sqlite = async <
 				if (change.action === 'delete') continue;
 				if (change.result.status === 'invalid') {
 					logger.log(
-						CapabilityError({
-							message: `SQLite capability ${change.action}: validation failed for ${table.name}`,
+						ExtensionError({
+							message: `SQLite extension ${change.action}: validation failed for ${table.name}`,
 						}),
 					);
 				}
@@ -249,7 +246,7 @@ export const sqlite = async <
 					await sqliteDb.insert(drizzleTable).values(rows);
 				},
 				catch: (e) =>
-					CapabilityErr({
+					ExtensionErr({
 						message: `Failed to sync ${rows.length} rows to table "${table.name}" in SQLite during init: ${extractErrorMessage(e)}`,
 					}),
 			});
@@ -261,7 +258,7 @@ export const sqlite = async <
 	}
 
 	// Return destroy function alongside exported resources (flattened structure)
-	return defineCapabilities({
+	return defineExports({
 		async destroy() {
 			// Clear any pending sync timeout
 			if (syncTimeout) {
@@ -282,8 +279,8 @@ export const sqlite = async <
 			return tryAsync({
 				try: () => rebuildSqlite(),
 				catch: (error) =>
-					CapabilityErr({
-						message: `SQLite capability pull operation failed: ${extractErrorMessage(error)}`,
+					ExtensionErr({
+						message: `SQLite extension pull operation failed: ${extractErrorMessage(error)}`,
 					}),
 			});
 		},
@@ -313,8 +310,8 @@ export const sqlite = async <
 				},
 				catch: (error) => {
 					isPushingFromSqlite = false;
-					return CapabilityErr({
-						message: `SQLite capability push operation failed: ${extractErrorMessage(error)}`,
+					return ExtensionErr({
+						message: `SQLite extension push operation failed: ${extractErrorMessage(error)}`,
 					});
 				},
 			});

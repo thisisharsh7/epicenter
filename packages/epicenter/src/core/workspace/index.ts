@@ -1,11 +1,11 @@
 export type {
-	CapabilityContext,
-	CapabilityExports,
-	CapabilityFactory,
-	CapabilityFactoryMap,
-	InferCapabilityExports,
-} from '../capability';
-export { defineCapabilities } from '../capability';
+	ExtensionContext,
+	ExtensionExports,
+	ExtensionFactory,
+	ExtensionFactoryMap,
+	InferExtensionExports,
+} from '../extension';
+export { defineExports } from '../extension';
 
 // Normalization helpers (for external use if needed)
 export {

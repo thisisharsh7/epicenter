@@ -1,13 +1,23 @@
 import type * as Y from 'yjs';
-import { defineExports, type Lifecycle } from '../lifecycle';
+import type { Lifecycle } from '../lifecycle';
 
 // Re-export lifecycle utilities for provider authors
 export { defineExports, type Lifecycle } from '../lifecycle';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Doc-Level Provider Types
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// These types are for TRUE YJS providers that handle sync/persistence at the
+// doc level (Head Doc, Registry Doc). They receive minimal context (just ydoc).
+//
+// For workspace-level extensions (SQLite, Markdown, etc.), see extension.ts.
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
- * Context provided to provider factories.
+ * Context provided to doc-level provider factories.
  *
- * Providers are doc-level (attached to Y.Doc), unlike capabilities which are
+ * Providers are doc-level (attached to Y.Doc), unlike extensions which are
  * workspace-level (attached to workspace with tables, kv, etc.).
  *
  * Only the Y.Doc is provided; the doc ID is accessible via `ydoc.guid`.
@@ -40,7 +50,7 @@ export type ProviderExports<T extends Record<string, unknown> = {}> =
 	Lifecycle & T;
 
 /**
- * A provider factory function.
+ * A doc-level provider factory function.
  *
  * Factories are **always synchronous**. Async initialization is tracked via
  * the returned `whenSynced` promise, not the factory itself.
@@ -88,29 +98,3 @@ export type ProviderFactoryMap = Record<string, ProviderFactory>;
 export type InferProviderExports<T extends ProviderFactoryMap> = {
 	[K in keyof T]: ReturnType<T[K]>;
 };
-
-/**
- * Helper to define provider exports with proper typing and lifecycle normalization.
- *
- * Automatically fills in missing `whenSynced` and `destroy` fields with defaults.
- * Use this at the return site of your provider factory for explicit type safety.
- *
- * This is an alias for `defineExports()` for consistency with `defineCapabilities()`.
- * Both can be used interchangeably; choose whichever reads better in your context.
- *
- * @example
- * ```typescript
- * const persistence: ProviderFactory = ({ ydoc }) => {
- *   const provider = new IndexeddbPersistence(ydoc.guid, ydoc);
- *   return defineProviders({
- *     whenSynced: provider.whenSynced,
- *     destroy: () => provider.destroy(),
- *   });
- * };
- * ```
- */
-export function defineProviders<T extends Record<string, unknown>>(
-	exports: T,
-): ProviderExports<T> {
-	return defineExports(exports);
-}

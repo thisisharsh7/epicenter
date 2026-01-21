@@ -2,7 +2,7 @@ import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { Ok, tryAsync, trySync } from 'wellcrafted/result';
 import type { AbsolutePath } from '../../core/types';
-import type { MarkdownCapabilityError } from './markdown';
+import type { MarkdownExtensionError } from './markdown';
 
 /**
  * Diagnostic entry tracking a markdown file that failed validation
@@ -30,7 +30,7 @@ export type DiagnosticEntry = {
 	/**
 	 * The validation error that occurred
 	 */
-	error: MarkdownCapabilityError;
+	error: MarkdownExtensionError;
 
 	/**
 	 * ISO 8601 timestamp when this error was first recorded

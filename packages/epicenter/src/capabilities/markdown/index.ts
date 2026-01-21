@@ -1,7 +1,7 @@
 /**
- * Markdown capability - Bidirectional sync between YJS and markdown files
+ * Markdown extension - Bidirectional sync between YJS and markdown files
  *
- * Main entry point for the markdown capability. Exports the markdown function
+ * Main entry point for the markdown extension. Exports the markdown function
  * and utilities for custom serializers and error handling.
  */
 
@@ -33,10 +33,10 @@ export {
 	writeMarkdownFile,
 } from './io';
 
-// Main capability implementation and core exports
-export type { MarkdownCapabilityConfig } from './markdown';
+// Main extension implementation and core exports
+export type { MarkdownExtensionConfig } from './markdown';
 export {
+	MarkdownExtensionErr,
+	MarkdownExtensionError,
 	markdown,
-	MarkdownCapabilityErr,
-	MarkdownCapabilityError,
 } from './markdown';
