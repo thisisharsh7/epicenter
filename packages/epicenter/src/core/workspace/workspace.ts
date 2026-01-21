@@ -74,7 +74,7 @@ import {
 	type WorkspaceDefinitionMap,
 } from '../docs/workspace-doc';
 import { createKv, type Kv } from '../kv/core';
-import { defineExports, type Lifecycle, type MaybePromise } from '../lifecycle';
+import { defineExports, type Lifecycle } from '../lifecycle';
 
 import type {
 	KvDefinition,
@@ -685,83 +685,48 @@ function createClientCore<
 	const tables = createTables(ydoc, tableDefinitions);
 	const kv = createKv(ydoc, kvDefinitions);
 
-	// Initialize capability exports object and tracking arrays
+	// Initialize capabilities synchronously — async work is in their whenSynced
 	const capabilities = {} as InferCapabilityExports<TCapabilityFactories>;
-	const initPromises: Promise<void>[] = [];
-
-	// Pre-seed capabilities with placeholder lifecycle so runtime matches type shape.
-	// Also create destroy functions that reference current exports (handles late binding).
-	const destroyFns: Array<() => MaybePromise<void>> = [];
-	for (const capabilityId of Object.keys(capabilityFactories)) {
-		(capabilities as Record<string, unknown>)[capabilityId] = defineExports();
-		destroyFns.push(() =>
-			// Non-null assertion safe: we just set this key above
-			(capabilities as Record<string, Lifecycle>)[capabilityId]!.destroy(),
-		);
-	}
-
-	// Start capability factories (without awaiting)
 	for (const [capabilityId, capabilityFactory] of Object.entries(
 		capabilityFactories,
 	)) {
-		initPromises.push(
-			Promise.resolve(
-				capabilityFactory({
-					id,
-					capabilityId,
-					ydoc,
-					tables,
-					kv,
-				}),
-			).then((result) => {
-				// Always normalize at boundary - handles void, plain objects, and full lifecycle
-				const exports = defineExports(
-					result as Record<string, unknown> | undefined,
-				);
-				(capabilities as Record<string, unknown>)[capabilityId] = exports;
-			}),
-		);
+		// Factory is sync; normalize exports at boundary
+		const result = capabilityFactory({
+			id,
+			capabilityId,
+			ydoc,
+			tables,
+			kv,
+		});
+		const exports = defineExports(result as Record<string, unknown>);
+		(capabilities as Record<string, unknown>)[capabilityId] = exports;
 	}
 
-	// Use allSettled so init failures don't block destroy
-	const whenCapabilitiesInitializedSettled = Promise.allSettled(
-		initPromises,
-	).then(() => {});
-
-	// whenSynced is fail-fast (any rejection rejects the whole thing)
-	// This is intentional - UI render gates should show error state
+	// Aggregate all capability whenSynced promises
+	// Fail-fast: any rejection rejects the whole thing (UI shows error state)
 	//
 	// ORDER OF OPERATIONS (critical for correctness):
-	// 1. Wait for capability factories to complete
-	// 2. Wait for all capabilities' whenSynced (e.g., persistence finishes loading disk state)
-	// 3. THEN run onSync callback (static schema merges definition here)
-	// 4. Resolve whenSynced
+	// 1. Wait for all capabilities' whenSynced (e.g., persistence finishes loading disk state)
+	// 2. THEN run onSync callback (static schema merges definition here)
+	// 3. Resolve whenSynced
 	//
 	// See: specs/20260119T231252-resilient-client-architecture.md
-	const whenSynced = whenCapabilitiesInitializedSettled
-		.then(() =>
-			Promise.all(
-				Object.values(capabilities).map((c) => (c as Lifecycle).whenSynced),
-			),
-		)
-		.then(() => {
-			// After persistence has loaded disk state, run the sync callback
-			// Static schema: merges definition (code is "last writer")
-			// Dynamic schema: no-op (schema comes from Y.Doc)
-			onSync?.(definitionMap);
-		});
+	const whenSynced = Promise.all(
+		Object.values(capabilities).map((c) => (c as Lifecycle).whenSynced),
+	).then(() => {
+		// After persistence has loaded disk state, run the sync callback
+		// Static schema: merges definition (code is "last writer")
+		// Dynamic schema: no-op (schema comes from Y.Doc)
+		onSync?.(definitionMap);
+	});
 
 	const destroy = async () => {
-		// Wait for init to settle (not complete) - never block on init failures
-		await whenCapabilitiesInitializedSettled;
-
-		try {
-			// Use allSettled so one destroy failure doesn't block others
-			await Promise.allSettled(destroyFns.map((fn) => fn()));
-		} finally {
-			// Always release doc resources
-			ydoc.destroy();
-		}
+		// Use allSettled so one destroy failure doesn't block others
+		await Promise.allSettled(
+			Object.values(capabilities).map((c) => (c as Lifecycle).destroy()),
+		);
+		// Always release doc resources
+		ydoc.destroy();
 	};
 
 	return {

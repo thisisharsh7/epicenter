@@ -1,4 +1,5 @@
 import {
+	defineExports,
 	getWorkspaceDocMaps,
 	type ProviderExports,
 	readDefinitionFromYDoc,
@@ -213,7 +214,7 @@ export function tauriWorkspacePersistence(
 	// Return Provider Exports
 	// =========================================================================
 
-	return {
+	return defineExports({
 		whenSynced: (async () => {
 			const { epochDir, workspaceYjsPath, snapshotsDir } = await pathsPromise;
 
@@ -262,5 +263,5 @@ export function tauriWorkspacePersistence(
 			definitionMap.unobserveDeep(definitionObserverHandler);
 			kvMap.unobserve(kvObserverHandler);
 		},
-	};
+	});
 }

@@ -93,9 +93,10 @@ export type InferProviderExports<T extends ProviderFactoryMap> = {
  * Helper to define provider exports with proper typing and lifecycle normalization.
  *
  * Automatically fills in missing `whenSynced` and `destroy` fields with defaults.
- * Use this at the return site of your provider factory for explicit lifecycle.
+ * Use this at the return site of your provider factory for explicit type safety.
  *
  * This is an alias for `defineExports()` for consistency with `defineCapabilities()`.
+ * Both can be used interchangeably; choose whichever reads better in your context.
  *
  * @example
  * ```typescript

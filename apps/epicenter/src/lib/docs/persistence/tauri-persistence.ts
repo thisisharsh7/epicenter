@@ -1,4 +1,4 @@
-import type { ProviderExports } from '@epicenter/hq';
+import { defineExports, type ProviderExports } from '@epicenter/hq';
 import { appLocalDataDir, dirname, join } from '@tauri-apps/api/path';
 import { mkdir, readFile, writeFile } from '@tauri-apps/plugin-fs';
 import * as Y from 'yjs';
@@ -53,10 +53,12 @@ export type TauriPersistenceConfig = {
  * @example
  * ```typescript
  * // In a provider factory
- * export const registry = createRegistryDoc({ registryId: REGISTRY_ID })
- *   .withProviders({
- *     persistence: (ctx) => tauriPersistence(ctx.ydoc, ['registry']),
- *   });
+ * const registry = createRegistryDoc({
+ *   registryId: REGISTRY_ID,
+ *   providers: {
+ *     persistence: ({ ydoc }) => tauriPersistence(ydoc, ['registry']),
+ *   },
+ * });
  * ```
  */
 export function tauriPersistence(
@@ -140,7 +142,7 @@ export function tauriPersistence(
 	// Provider Exports
 	// =========================================================================
 
-	return {
+	return defineExports({
 		whenSynced: (async () => {
 			const { binaryPath, jsonPath } = await pathsPromise;
 
@@ -187,5 +189,5 @@ export function tauriPersistence(
 				saveJson();
 			}
 		},
-	};
+	});
 }
