@@ -1,9 +1,18 @@
 <script module lang="ts">
 	import { toKebabCase } from '$lib/utils/slug';
-	import { WORKSPACE_TEMPLATES, type WorkspaceTemplate } from '$lib/templates';
+	import {
+		WORKSPACE_TEMPLATES,
+		WORKSPACE_TEMPLATE_BY_ID,
+		type WorkspaceTemplate,
+		type WorkspaceTemplateId,
+	} from '$lib/templates';
 
-	/** Template option for the selector: 'blank' or a template ID */
-	type TemplateOption = 'blank' | string;
+	/**
+	 * Template selection state for the Select component.
+	 * Empty string represents "no template" (blank workspace).
+	 * Template IDs are derived from the registry for type safety.
+	 */
+	type TemplateSelectionId = WorkspaceTemplateId | '';
 
 	export type CreateWorkspaceData = {
 		name: string;
@@ -14,7 +23,7 @@
 	function createWorkspaceDialogState() {
 		let isOpen = $state(false);
 		let isPending = $state(false);
-		let selectedTemplate = $state<TemplateOption>('blank');
+		let selectedTemplateId = $state<TemplateSelectionId>('');
 		let name = $state('');
 		let id = $state('');
 		let isIdManuallyEdited = $state(false);
@@ -25,11 +34,12 @@
 		>(null);
 
 		/**
-		 * Get the resolved template object (or null for blank).
+		 * Resolve selected template ID to template object.
+		 * Returns null for blank (empty string) selection.
 		 */
 		function getTemplate(): WorkspaceTemplate | null {
-			if (selectedTemplate === 'blank') return null;
-			return WORKSPACE_TEMPLATES.find((t) => t.id === selectedTemplate) ?? null;
+			if (!selectedTemplateId) return null;
+			return WORKSPACE_TEMPLATE_BY_ID[selectedTemplateId] ?? null;
 		}
 
 		return {
@@ -42,11 +52,11 @@
 			get isPending() {
 				return isPending;
 			},
-			get selectedTemplate() {
-				return selectedTemplate;
+			get selectedTemplateId() {
+				return selectedTemplateId;
 			},
-			set selectedTemplate(value: TemplateOption) {
-				selectedTemplate = value;
+			set selectedTemplateId(value: TemplateSelectionId) {
+				selectedTemplateId = value;
 				error = null;
 
 				// Auto-fill name and ID from template if not manually edited
@@ -99,7 +109,7 @@
 			}) {
 				onConfirm = opts.onConfirm;
 				isPending = false;
-				selectedTemplate = 'blank';
+				selectedTemplateId = '';
 				name = '';
 				id = '';
 				error = null;
@@ -111,7 +121,7 @@
 			close() {
 				isOpen = false;
 				isPending = false;
-				selectedTemplate = 'blank';
+				selectedTemplateId = '';
 				name = '';
 				id = '';
 				error = null;
@@ -190,7 +200,7 @@
 
 	const templateOptions = [
 		{
-			value: 'blank',
+			value: '' as const,
 			label: 'Blank',
 			description: 'Start with an empty workspace',
 		},
@@ -203,7 +213,7 @@
 
 	const selectedTemplateLabel = $derived(
 		templateOptions.find(
-			(t) => t.value === createWorkspaceDialog.selectedTemplate,
+			(t) => t.value === createWorkspaceDialog.selectedTemplateId,
 		)?.label ?? 'Select template',
 	);
 </script>
@@ -231,9 +241,12 @@
 					<Label for="workspace-template">Template</Label>
 					<Select.Root
 						type="single"
-						value={createWorkspaceDialog.selectedTemplate}
+						value={createWorkspaceDialog.selectedTemplateId}
 						onValueChange={(value) => {
-							if (value) createWorkspaceDialog.selectedTemplate = value;
+							if (value !== undefined) {
+								createWorkspaceDialog.selectedTemplateId =
+									value as TemplateSelectionId;
+							}
 						}}
 					>
 						<Select.Trigger
@@ -242,7 +255,7 @@
 							disabled={createWorkspaceDialog.isPending}
 						>
 							<div class="flex items-center gap-2">
-								{#if createWorkspaceDialog.selectedTemplate === 'blank'}
+								{#if !createWorkspaceDialog.selectedTemplateId}
 									<FileTextIcon class="size-4 text-muted-foreground" />
 								{:else}
 									<LayoutTemplateIcon class="size-4 text-muted-foreground" />
