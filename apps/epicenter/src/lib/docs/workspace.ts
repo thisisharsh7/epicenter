@@ -53,14 +53,13 @@ export function createWorkspaceClient(
 	definition: WorkspaceDefinition,
 	epoch: number,
 ) {
-	return createClient(definition, {
-		epoch,
-		capabilities: {
+	return createClient(definition.id, { epoch })
+		.withDefinition(definition)
+		.withExtensions({
 			persistence: (ctx: { ydoc: Y.Doc }) =>
 				tauriWorkspacePersistence(ctx.ydoc, {
 					workspaceId: definition.id,
 					epoch,
 				}),
-		},
-	});
+		});
 }

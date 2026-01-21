@@ -15,6 +15,7 @@ import { persistence } from '../src/capabilities/persistence/desktop';
 import {
 	createClient,
 	defineWorkspace,
+	type ExtensionContext,
 	generateId,
 	id,
 	integer,
@@ -95,14 +96,14 @@ const emailDefinition = defineWorkspace({
 
 console.log('Creating client...');
 const totalStart = performance.now();
-await using client = await createClient(emailDefinition, {
-	extensions: {
+await using client = await createClient(emailDefinition.id)
+	.withDefinition(emailDefinition)
+	.withExtensions({
 		persistence: (ctx) =>
 			persistence(ctx, {
 				filePath: YJS_PATH,
 			}),
-	},
-});
+	});
 console.log('Client created\n');
 
 // Sample email for size estimation

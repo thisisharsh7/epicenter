@@ -17,14 +17,11 @@ export {
 } from './normalize';
 
 export type {
+	ClientBuilder,
 	NormalizedKv,
 	Workspace,
 	WorkspaceClient,
 	WorkspaceDefinition,
 	WorkspaceInput,
 } from './workspace';
-export {
-	createClient,
-	createDynamicClient,
-	defineWorkspace,
-} from './workspace';
+export { createClient, defineWorkspace } from './workspace';

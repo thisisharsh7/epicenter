@@ -108,6 +108,7 @@ import type { ExtensionFactoryMap, InferExtensionExports } from '../extension';
 import type { Lifecycle } from '../lifecycle';
 import type { KvDefinitionMap, TableDefinitionMap } from '../schema';
 import {
+	type ClientBuilder as ClientBuilderSync,
 	createClient as createClientSync,
 	type WorkspaceClient as WorkspaceClientSync,
 	type WorkspaceDefinition,
@@ -168,115 +169,229 @@ export type WorkspaceClient<
 >;
 
 /**
- * Create a runtime client from a workspace definition (async, awaits internally).
+ * Async builder for creating workspace clients in Node.js.
  *
- * This is the Node.js version of `createClient` that awaits `whenSynced`
- * internally. When the Promise resolves, all extensions are fully
- * initialized and ready to use.
+ * The builder pattern solves TypeScript's limitation with simultaneous generic
+ * inference. By splitting client creation into sequential method calls, TypeScript
+ * can infer types step-by-step.
  *
- * ## Comparison to browser version
+ * ## Two Paths
  *
- * | Import | Function | Returns |
- * |--------|----------|---------|
- * | `@epicenter/hq` | `createClient()` | `WorkspaceClient` (sync, has `whenSynced`) |
- * | `@epicenter/hq/node` | `createClient()` | `Promise<WorkspaceClient>` (no `whenSynced`) |
- *
- * ## What happens under the hood
- *
- * ```typescript
- * // This:
- * const client = await createClient(definition, { extensions });
- *
- * // Is equivalent to:
- * const syncClient = createClientSync(definition, { extensions });
- * await syncClient.whenSynced;
- * const { whenSynced: _, ...client } = syncClient;
+ * ```
+ *                     createClient(workspaceId, { epoch? })
+ *                               │
+ *                               ▼
+ *               ┌───────────────┴───────────────┐
+ *               │                               │
+ *               ▼                               ▼
+ *      .withDefinition(def)              .withExtensions({})
+ *               │                               │
+ *               │                               │
+ *               ▼                               ▼
+ *      .withExtensions({})          Promise<WorkspaceClient>
+ *               │                        (dynamic schema)
+ *               │
+ *               ▼
+ *     Promise<WorkspaceClient>
+ *        (static schema)
  * ```
  *
- * @param definition - A WorkspaceDefinition from `defineWorkspace()` or loaded from JSON
- * @param options - Optional configuration
- * @param options.epoch - Workspace Doc version (defaults to 0). The Y.Doc GUID
- *   is `{workspaceId}-{epoch}`. Change this intentionally to create a
- *   separate document namespace (e.g., for migrations or sync isolation).
- * @param options.extensions - Factory functions that add features like
- *   persistence, sync, or SQL queries.
+ * ## Why async methods?
  *
- * @returns Promise resolving to a fully-initialized client (no `whenSynced`)
- *
- * @example Basic usage
- * ```typescript
- * const definition = defineWorkspace({ id: 'blog', tables: {...}, kv: {} });
- * const client = await createClient(definition, {
- *   extensions: { sqlite, persistence },
- * });
- * // Ready to use immediately
- * client.tables.posts.upsert({ id: '1', title: 'Hello' });
- * ```
- *
- * @example With epoch from Head Doc
- * ```typescript
- * import { createHeadDoc } from '@epicenter/hq';
- *
- * const head = createHeadDoc({ workspaceId: definition.id });
- * await head.whenSynced;
- * const epoch = head.getEpoch();
- *
- * const client = await createClient(definition, {
- *   epoch,
- *   extensions: { sqlite, persistence },
- * });
- * ```
- *
- * @example Cleanup with try/finally
- * ```typescript
- * const client = await createClient(definition, { extensions });
- * try {
- *   await runMigration(client);
- * } finally {
- *   await client.destroy();
- * }
- * ```
- *
- * @example Loading definition from JSON
- * ```typescript
- * const definition = JSON.parse(await readFile('workspace.json', 'utf-8'));
- * const client = await createClient(definition, { extensions });
- * ```
- *
- * @see {@link createClientSync} - The sync version (browser)
- * @see {@link ../extension.ts} - Extension factory documentation
+ * The `.withExtensions()` method returns a Promise that awaits `whenSynced` internally.
+ * This matches the Node.js philosophy of awaiting initialization before returning.
  */
-export async function createClient<
+export type ClientBuilder<
 	TTableDefinitionMap extends TableDefinitionMap,
 	TKvDefinitionMap extends KvDefinitionMap,
-	TExtensionFactories extends ExtensionFactoryMap<
-		TTableDefinitionMap,
-		TKvDefinitionMap
-	> = Record<string, never>,
+> = {
+	/**
+	 * Attach a workspace definition for static schema mode.
+	 *
+	 * This locks in the table/kv types from the definition, enabling
+	 * proper type inference for extensions.
+	 *
+	 * @example
+	 * ```typescript
+	 * const client = await createClient(definition.id)
+	 *   .withDefinition(definition)
+	 *   .withExtensions({
+	 *     persistence: (ctx) => persistence(ctx, { filePath }),
+	 *   });
+	 * ```
+	 */
+	withDefinition<
+		TDefTables extends TableDefinitionMap,
+		TDefKv extends KvDefinitionMap,
+	>(
+		definition: WorkspaceDefinition<TDefTables, TDefKv>,
+	): ClientBuilder<TDefTables, TDefKv>;
+
+	/**
+	 * Attach extensions and create the client.
+	 *
+	 * This is the terminal operation that creates the actual WorkspaceClient.
+	 * The returned Promise resolves after all extensions have completed their `whenSynced`.
+	 *
+	 * Pass an empty object `{}` if you don't need any extensions.
+	 *
+	 * @example
+	 * ```typescript
+	 * // With extensions
+	 * const client = await createClient(definition.id)
+	 *   .withDefinition(definition)
+	 *   .withExtensions({
+	 *     persistence: (ctx) => persistence(ctx, { filePath }),
+	 *     sqlite: (ctx) => sqlite(ctx, { dbPath }),
+	 *   });
+	 *
+	 * client.tables.recordings.upsert({ ... });
+	 *
+	 * // Without extensions
+	 * const client = await createClient(definition.id)
+	 *   .withDefinition(definition)
+	 *   .withExtensions({});
+	 * ```
+	 */
+	withExtensions<
+		TExtensionFactories extends ExtensionFactoryMap<
+			TTableDefinitionMap,
+			TKvDefinitionMap
+		>,
+	>(
+		extensions: TExtensionFactories,
+	): Promise<
+		WorkspaceClient<
+			TTableDefinitionMap,
+			TKvDefinitionMap,
+			InferExtensionExports<TExtensionFactories>
+		>
+	>;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Public API: createClient with Builder Pattern (Node.js async version)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Create an async client builder for a workspace.
+ *
+ * Returns a {@link ClientBuilder} for chaining `.withDefinition()` and `.withExtensions()`.
+ * The client is only created when you call `.withExtensions()` (the terminal operation).
+ *
+ * ## Two Paths
+ *
+ * ```
+ *                     createClient(workspaceId, { epoch? })
+ *                               │
+ *                               ▼
+ *               ┌───────────────┴───────────────┐
+ *               │                               │
+ *               ▼                               ▼
+ *      .withDefinition(def)              .withExtensions({})
+ *               │                               │
+ *               │                               │
+ *               ▼                               ▼
+ *      .withExtensions({})          Promise<WorkspaceClient>
+ *               │                        (dynamic schema)
+ *               │
+ *               ▼
+ *     Promise<WorkspaceClient>
+ *        (static schema)
+ * ```
+ *
+ * ## Path 1: Static Schema (Code-Defined)
+ *
+ * For apps like Whispering where schema is defined in code:
+ *
+ * ```typescript
+ * const client = await createClient(definition.id)
+ *   .withDefinition(definition)
+ *   .withExtensions({
+ *     persistence: (ctx) => persistence(ctx, { filePath }),
+ *     //            ^^^ ctx is properly typed!
+ *   });
+ *
+ * // Ready to use immediately (no whenSynced needed)
+ * client.tables.recordings.upsert({ ... });
+ * ```
+ *
+ * ## Path 2: Dynamic Schema (Y.Doc-Defined)
+ *
+ * For the Epicenter app where schema lives in the Y.Doc:
+ *
+ * ```typescript
+ * const client = await createClient('my-workspace', { epoch: 2 })
+ *   .withExtensions({
+ *     persistence: (ctx) => persistence(ctx, { filePath }),
+ *   });
+ * ```
+ *
+ * ## Without Extensions
+ *
+ * Pass an empty object to `.withExtensions()`:
+ *
+ * ```typescript
+ * const client = await createClient(definition.id)
+ *   .withDefinition(definition)
+ *   .withExtensions({});
+ * ```
+ *
+ * @param workspaceId - The workspace identifier (e.g., "epicenter.whispering")
+ * @param options - Optional configuration
+ * @param options.epoch - Workspace Doc version (defaults to 0)
+ */
+export function createClient(
+	workspaceId: string,
+	options: { epoch?: number } = {},
+): ClientBuilder<TableDefinitionMap, KvDefinitionMap> {
+	// Get the sync builder from workspace.ts
+	const syncBuilder = createClientSync(workspaceId, { epoch: options.epoch });
+
+	// Return async builder that wraps the sync builder
+	return createAsyncClientBuilder(syncBuilder);
+}
+
+/**
+ * Internal: Create an async ClientBuilder that wraps a sync ClientBuilder.
+ */
+function createAsyncClientBuilder<
+	TTableDefinitionMap extends TableDefinitionMap,
+	TKvDefinitionMap extends KvDefinitionMap,
 >(
-	definition: WorkspaceDefinition<TTableDefinitionMap, TKvDefinitionMap>,
-	options: {
-		epoch?: number;
-		extensions?: TExtensionFactories;
-	} = {},
-): Promise<
-	WorkspaceClient<
-		TTableDefinitionMap,
-		TKvDefinitionMap,
-		InferExtensionExports<TExtensionFactories>
-	>
-> {
-	// Call the sync createClient() from workspace.ts
-	const client = createClientSync(definition, options);
+	syncBuilder: ClientBuilderSync<TTableDefinitionMap, TKvDefinitionMap>,
+): ClientBuilder<TTableDefinitionMap, TKvDefinitionMap> {
+	return {
+		withDefinition<
+			TDefTables extends TableDefinitionMap,
+			TDefKv extends KvDefinitionMap,
+		>(
+			definition: WorkspaceDefinition<TDefTables, TDefKv>,
+		): ClientBuilder<TDefTables, TDefKv> {
+			const newSyncBuilder = syncBuilder.withDefinition(definition);
+			return createAsyncClientBuilder(newSyncBuilder);
+		},
 
-	// Await whenSynced internally — this is the key difference from browser
-	await client.whenSynced;
-
-	// Return client without whenSynced property (it's already resolved)
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	const { whenSynced: _, ...clientWithoutWhenSynced } = client;
-
-	return clientWithoutWhenSynced;
+		async withExtensions<
+			TExtFact extends ExtensionFactoryMap<
+				TTableDefinitionMap,
+				TKvDefinitionMap
+			>,
+		>(
+			extensions: TExtFact,
+		): Promise<
+			WorkspaceClient<
+				TTableDefinitionMap,
+				TKvDefinitionMap,
+				InferExtensionExports<TExtFact>
+			>
+		> {
+			const syncClient = syncBuilder.withExtensions(extensions);
+			await syncClient.whenSynced;
+			const { whenSynced: _, ...clientWithoutWhenSynced } = syncClient;
+			return clientWithoutWhenSynced;
+		},
+	};
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

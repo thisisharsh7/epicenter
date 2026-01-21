@@ -87,6 +87,136 @@ import { normalizeKv } from './normalize';
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * Builder for creating workspace clients with proper type inference.
+ *
+ * The builder pattern solves TypeScript's limitation with simultaneous generic
+ * inference. By splitting client creation into sequential method calls, TypeScript
+ * can infer types step-by-step.
+ *
+ * ## Two Paths
+ *
+ * ```
+ *                     createClient(workspaceId, { epoch? })
+ *                               │
+ *                               ▼
+ *               ┌───────────────┴───────────────┐
+ *               │                               │
+ *               ▼                               ▼
+ *      .withDefinition(def)              .withExtensions({})
+ *               │                               │
+ *               │                               │
+ *               ▼                               ▼
+ *      .withExtensions({})               WorkspaceClient
+ *               │                        (dynamic schema)
+ *               │
+ *               ▼
+ *        WorkspaceClient
+ *        (static schema)
+ * ```
+ *
+ * **Path 1: Static Schema (Code-Defined)**
+ *
+ * For apps like Whispering where schema is defined in code:
+ *
+ * ```typescript
+ * const client = createClient(definition.id)
+ *   .withDefinition(definition)
+ *   .withExtensions({
+ *     persistence: (ctx) => persistence(ctx, { filePath }),
+ *     //            ^^^ ctx: ExtensionContext<typeof definition.tables, typeof definition.kv>
+ *   });
+ * ```
+ *
+ * **Path 2: Dynamic Schema (Y.Doc-Defined)**
+ *
+ * For the Epicenter app where schema lives in the Y.Doc:
+ *
+ * ```typescript
+ * const client = createClient('my-workspace')
+ *   .withExtensions({
+ *     persistence: (ctx) => persistence(ctx, { filePath }),
+ *     //            ^^^ ctx: ExtensionContext<TableDefinitionMap, KvDefinitionMap> (generic)
+ *   });
+ * ```
+ *
+ * **Without Extensions**
+ *
+ * Pass an empty object to `.withExtensions()`:
+ *
+ * ```typescript
+ * const client = createClient(definition.id)
+ *   .withDefinition(definition)
+ *   .withExtensions({});
+ * ```
+ */
+export type ClientBuilder<
+	TTableDefinitionMap extends TableDefinitionMap,
+	TKvDefinitionMap extends KvDefinitionMap,
+> = {
+	/**
+	 * Attach a workspace definition for static schema mode.
+	 *
+	 * This locks in the table/kv types from the definition, enabling
+	 * proper type inference for extensions.
+	 *
+	 * @example
+	 * ```typescript
+	 * const client = createClient(definition.id)
+	 *   .withDefinition(definition)
+	 *   .withExtensions({
+	 *     persistence: (ctx) => persistence(ctx, { filePath }),
+	 *   });
+	 * ```
+	 */
+	withDefinition<
+		TDefTables extends TableDefinitionMap,
+		TDefKv extends KvDefinitionMap,
+	>(
+		definition: WorkspaceDefinition<TDefTables, TDefKv>,
+	): ClientBuilder<TDefTables, TDefKv>;
+
+	/**
+	 * Attach extensions and create the client.
+	 *
+	 * This is the terminal operation that creates the actual WorkspaceClient.
+	 * Extensions receive properly typed context with table and kv definitions.
+	 *
+	 * Pass an empty object `{}` if you don't need any extensions.
+	 *
+	 * @example
+	 * ```typescript
+	 * // With extensions
+	 * const client = createClient(definition.id)
+	 *   .withDefinition(definition)
+	 *   .withExtensions({
+	 *     persistence: (ctx) => persistence(ctx, { filePath }),
+	 *     sqlite: (ctx) => sqlite(ctx, { dbPath }),
+	 *   });
+	 *
+	 * await client.whenSynced;
+	 * client.tables.recordings.upsert({ ... });
+	 *
+	 * // Without extensions
+	 * const client = createClient(definition.id)
+	 *   .withDefinition(definition)
+	 *   .withExtensions({});
+	 * ```
+	 */
+	withExtensions<
+		TExtensionFactories extends ExtensionFactoryMap<
+			TTableDefinitionMap,
+			TKvDefinitionMap
+		>,
+	>(
+		extensions: TExtensionFactories,
+	): WorkspaceClient<
+		TTableDefinitionMap,
+		TKvDefinitionMap,
+		InferExtensionExports<TExtensionFactories>
+	>;
+};
+
+/**
  * A workspace definition describes the initial configuration for a workspace.
  *
  * This type is fully JSON-serializable and contains no methods or runtime behavior.
@@ -444,178 +574,159 @@ export function defineWorkspace<
 	return normalizeWorkspaceInput(input);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Public API: createClient with Builder Pattern
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
- * Create a runtime client from a workspace definition (sync construction).
+ * Create a client builder for a workspace.
  *
- * Returns immediately with a usable client. Extensions are initialized
- * in the background; use `client.whenSynced` to await full initialization.
+ * Returns a {@link ClientBuilder} for chaining `.withDefinition()` and `.withExtensions()`.
+ * The client is only created when you call `.withExtensions()` (the terminal operation).
  *
- * ## Two-Phase Initialization
+ * ## Two Paths
  *
- * 1. `defineWorkspace()` creates a static definition (schema + metadata)
- * 2. `createClient()` creates a runtime client (Y.Doc + helpers + extensions)
+ * ```
+ *                     createClient(workspaceId, { epoch? })
+ *                               │
+ *                               ▼
+ *               ┌───────────────┴───────────────┐
+ *               │                               │
+ *               ▼                               ▼
+ *      .withDefinition(def)              .withExtensions({})
+ *               │                               │
+ *               │                               │
+ *               ▼                               ▼
+ *      .withExtensions({})               WorkspaceClient
+ *               │                        (dynamic schema)
+ *               │
+ *               ▼
+ *        WorkspaceClient
+ *        (static schema)
+ * ```
  *
- * ## What happens during creation
+ * ## Path 1: Static Schema (Code-Defined)
  *
- * 1. **Y.Doc created** — A new YJS document with GUID `{id}-{epoch}`.
- *    The epoch creates isolated document namespaces for versioning/sync.
+ * For apps like Whispering where schema is defined in code:
  *
- * 2. **Helpers created** — Typed `tables` and `kv` helpers are bound to
- *    the Y.Doc for CRUD operations.
+ * ```typescript
+ * const definition = defineWorkspace({
+ *   id: 'epicenter.whispering',
+ *   tables: { recordings: { id: id(), title: text() } },
+ *   kv: {},
+ * });
  *
- * 3. **Extensions started** — Factory functions run in parallel (without blocking).
- *    Their exports become available on `client.extensions` after `whenSynced`.
+ * const client = createClient(definition.id)
+ *   .withDefinition(definition)
+ *   .withExtensions({
+ *     persistence: (ctx) => persistence(ctx, { filePath }),
+ *     //            ^^^ ctx: ExtensionContext<typeof definition.tables, typeof definition.kv>
+ *   });
  *
- * ## Important behaviors
+ * await client.whenSynced;
+ * client.tables.recordings.upsert({ ... });
+ * ```
  *
- * - **Sync construction**: The client is returned immediately. Use
- *   `client.whenSynced` as a render gate in UI frameworks.
+ * ## Path 2: Dynamic Schema (Y.Doc-Defined)
  *
- * - **No automatic persistence**: Data lives only in memory unless you
- *   provide a persistence extension.
+ * For the Epicenter app where schema lives in the Y.Doc:
  *
- * - **No automatic sync**: The client is isolated unless you provide
- *   a sync extension (e.g., WebSocket provider).
+ * ```typescript
+ * const client = createClient('my-workspace', { epoch: 2 })
+ *   .withExtensions({
+ *     persistence: (ctx) => persistence(ctx, { filePath }),
+ *     //            ^^^ ctx: ExtensionContext<TableDefinitionMap, KvDefinitionMap> (generic)
+ *   });
  *
- * - **Multiple clients are independent**: Calling `createClient()` twice
- *   returns two separate Y.Docs and clients. They don't share state
- *   unless connected via sync extensions.
+ * await client.whenSynced;
+ * // Schema is read from Y.Doc after persistence loads
+ * ```
  *
- * @param definition - A WorkspaceDefinition from `defineWorkspace()` or loaded from JSON
+ * ## Without Extensions
+ *
+ * Pass an empty object to `.withExtensions()`:
+ *
+ * ```typescript
+ * const client = createClient(definition.id)
+ *   .withDefinition(definition)
+ *   .withExtensions({});
+ * ```
+ *
+ * @param workspaceId - The workspace identifier (e.g., "epicenter.whispering")
  * @param options - Optional configuration
- * @param options.epoch - Workspace Doc version (defaults to 0). The Y.Doc GUID
- *   is `{workspaceId}-{epoch}`. Change this intentionally to create a
- *   separate document namespace (e.g., for migrations or sync isolation).
- * @param options.extensions - Factory functions that add features like
- *   persistence, sync, or SQL queries.
- *
- * @example Sync construction with render gate
- * ```typescript
- * const definition = defineWorkspace({ id: 'blog', tables: {...}, kv: {} });
- * const client = createClient(definition, {
- *   extensions: { sqlite, persistence },
- * });
- *
- * // In Svelte
- * {#await client.whenSynced}
- *   <Loading />
- * {:then}
- *   <App />
- * {/await}
- * ```
- *
- * @example With epoch from Head Doc
- * ```typescript
- * const head = createHeadDoc({ workspaceId: definition.id });
- * const epoch = head.getEpoch();
- * const client = createClient(definition, {
- *   epoch,
- *   extensions: { sqlite, persistence },
- * });
- * await client.whenSynced;
- * ```
- *
- * @example Loading definition from JSON
- * ```typescript
- * const definition = JSON.parse(await readFile('workspace.json', 'utf-8'));
- * const client = createClient(definition, { extensions });
- * await client.whenSynced;
- * ```
- *
+ * @param options.epoch - Workspace Doc version (defaults to 0)
  */
-export function createClient<
-	TTableDefinitionMap extends TableDefinitionMap,
-	TKvDefinitionMap extends KvDefinitionMap,
-	TExtensionFactories extends ExtensionFactoryMap<
-		TTableDefinitionMap,
-		TKvDefinitionMap
-	> = Record<string, never>,
->(
-	definition: WorkspaceDefinition<TTableDefinitionMap, TKvDefinitionMap>,
-	{
-		epoch = 0,
-		extensions: extensionFactories = {} as TExtensionFactories,
-	}: {
-		epoch?: number;
-		extensions?: TExtensionFactories;
-	} = {},
-): WorkspaceClient<
-	TTableDefinitionMap,
-	TKvDefinitionMap,
-	InferExtensionExports<TExtensionFactories>
-> {
-	return createClientCore({
-		id: definition.id,
+export function createClient(
+	workspaceId: string,
+	options: { epoch?: number } = {},
+): ClientBuilder<TableDefinitionMap, KvDefinitionMap> {
+	const epoch = options.epoch ?? 0;
+
+	return createClientBuilder({
+		id: workspaceId,
 		epoch,
-		extensionFactories,
-		tables: definition.tables,
-		kv: definition.kv,
-		// Static schema mode: merge the definition after persistence loads
-		onSync: (definitionMap) => {
-			mergeDefinitionIntoYDoc(definitionMap, definition);
-		},
-		// Fallback name from definition
-		fallbackName: definition.name,
+		tables: {} as TableDefinitionMap,
+		kv: {} as KvDefinitionMap,
+		onSync: undefined,
+		fallbackName: undefined,
 	});
 }
 
 /**
- * Create a workspace client for dynamic schema mode (Epicenter app).
- *
- * Use this when the schema lives in the Y.Doc itself, not in code.
- * Only the workspace ID is required; name, tables, and kv are read from
- * the Y.Doc after persistence loads.
- *
- * For static schema apps (like Whispering), use {@link createClient} instead.
- *
- * @param workspaceId - The workspace identifier
- * @param options - Configuration options
- * @param options.epoch - Workspace Doc version (defaults to 0)
- * @param options.extensions - Factory functions for persistence, sync, etc.
- *
- * @example
- * ```typescript
- * // Dynamic schema - schema comes from Y.Doc
- * const client = createDynamicClient('my-workspace', {
- *   epoch,
- *   extensions: { persistence },
- * });
- * await client.whenSynced;
- *
- * // Name and schema are read from Y.Doc
- * console.log(client.name);
- * ```
+ * Internal: Create a ClientBuilder from builder config.
  */
-export function createDynamicClient<
-	TExtensionFactories extends ExtensionFactoryMap<
-		TableDefinitionMap,
-		KvDefinitionMap
-	> = Record<string, never>,
->(
-	workspaceId: string,
-	{
-		epoch = 0,
-		extensions: extensionFactories = {} as TExtensionFactories,
-	}: {
-		epoch?: number;
-		extensions?: TExtensionFactories;
-	} = {},
-): WorkspaceClient<
-	TableDefinitionMap,
-	KvDefinitionMap,
-	InferExtensionExports<TExtensionFactories>
-> {
-	return createClientCore({
-		id: workspaceId,
-		epoch,
-		extensionFactories,
-		tables: {} as TableDefinitionMap,
-		kv: {} as KvDefinitionMap,
-		// Dynamic schema mode: don't merge anything, schema comes from Y.Doc
-		onSync: undefined,
-		// No fallback name - read from Y.Doc
-		fallbackName: undefined,
-	});
+function createClientBuilder<
+	TTableDefinitionMap extends TableDefinitionMap,
+	TKvDefinitionMap extends KvDefinitionMap,
+>(config: {
+	id: string;
+	epoch: number;
+	tables: TTableDefinitionMap;
+	kv: TKvDefinitionMap;
+	onSync:
+		| ((
+				definitionMap: ReturnType<typeof getWorkspaceDocMaps>['definition'],
+		  ) => void)
+		| undefined;
+	fallbackName: string | undefined;
+}): ClientBuilder<TTableDefinitionMap, TKvDefinitionMap> {
+	return {
+		withDefinition<
+			TDefTables extends TableDefinitionMap,
+			TDefKv extends KvDefinitionMap,
+		>(
+			definition: WorkspaceDefinition<TDefTables, TDefKv>,
+		): ClientBuilder<TDefTables, TDefKv> {
+			return createClientBuilder({
+				id: config.id,
+				epoch: config.epoch,
+				tables: definition.tables,
+				kv: definition.kv,
+				onSync: (definitionMap) => {
+					mergeDefinitionIntoYDoc(definitionMap, definition);
+				},
+				fallbackName: definition.name,
+			});
+		},
+
+		withExtensions<
+			TExtensionFactories extends ExtensionFactoryMap<
+				TTableDefinitionMap,
+				TKvDefinitionMap
+			>,
+		>(
+			extensions: TExtensionFactories,
+		): WorkspaceClient<
+			TTableDefinitionMap,
+			TKvDefinitionMap,
+			InferExtensionExports<TExtensionFactories>
+		> {
+			return createClientCore({
+				...config,
+				extensionFactories: extensions,
+			});
+		},
+	};
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -625,10 +736,9 @@ export function createDynamicClient<
 /**
  * Internal core function for creating workspace clients.
  *
- * Both `createClient` (static schema) and `createDynamicClient` (dynamic schema)
- * use this function. The key difference is the `onSync` callback:
- * - Static schema: merges definition after persistence loads
- * - Dynamic schema: no merge, schema comes from Y.Doc
+ * The key difference between static and dynamic schema:
+ * - Static schema: merges definition after persistence loads (onSync provided)
+ * - Dynamic schema: no merge, schema comes from Y.Doc (onSync undefined)
  */
 function createClientCore<
 	TTableDefinitionMap extends TableDefinitionMap,
