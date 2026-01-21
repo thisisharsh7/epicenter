@@ -193,7 +193,6 @@
 	import * as Select from '@epicenter/ui/select';
 	import { Input } from '@epicenter/ui/input';
 	import { Button } from '@epicenter/ui/button';
-	import { Label } from '@epicenter/ui/label';
 	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
 	import FileTextIcon from '@lucide/svelte/icons/file-text';
 	import LayoutTemplateIcon from '@lucide/svelte/icons/layout-template';
@@ -236,9 +235,9 @@
 				</Dialog.Description>
 			</Dialog.Header>
 
-			<div class="grid gap-4">
+			<Field.Group>
 				<Field.Field>
-					<Label for="workspace-template">Template</Label>
+					<Field.Label for="workspace-template">Template</Field.Label>
 					<Select.Root
 						type="single"
 						bind:value={createWorkspaceDialog.selectedTemplateId}
@@ -276,7 +275,7 @@
 				</Field.Field>
 
 				<Field.Field>
-					<Label for="workspace-name">Workspace Name</Label>
+					<Field.Label for="workspace-name">Workspace Name</Field.Label>
 					<Input
 						id="workspace-name"
 						bind:value={createWorkspaceDialog.name}
@@ -285,22 +284,20 @@
 					/>
 				</Field.Field>
 
-				<Field.Field>
-					<div class="flex items-center justify-between">
-						<Label for="workspace-id">
-							Workspace ID
-							{#if !createWorkspaceDialog.isIdManuallyEdited && createWorkspaceDialog.id}
-								<span class="text-muted-foreground ml-2 text-xs font-normal"
-									>(auto-generated)</span
-								>
-							{/if}
-						</Label>
+				<Field.Field data-invalid={!!createWorkspaceDialog.error}>
+					<Field.Label for="workspace-id">
+						Workspace ID
+						{#if !createWorkspaceDialog.isIdManuallyEdited && createWorkspaceDialog.id}
+							<span class="text-muted-foreground ml-2 text-xs font-normal">
+								(auto-generated)
+							</span>
+						{/if}
 						{#if createWorkspaceDialog.isIdManuallyEdited}
 							<Button
 								type="button"
 								variant="ghost"
 								size="sm"
-								class="h-6 px-2 text-xs"
+								class="ml-auto h-5 px-1.5 text-xs"
 								onclick={() => createWorkspaceDialog.resetId()}
 								disabled={createWorkspaceDialog.isPending}
 							>
@@ -308,7 +305,7 @@
 								Reset
 							</Button>
 						{/if}
-					</div>
+					</Field.Label>
 					<Input
 						id="workspace-id"
 						bind:value={createWorkspaceDialog.id}
@@ -325,7 +322,7 @@
 						</Field.Description>
 					{/if}
 				</Field.Field>
-			</div>
+			</Field.Group>
 
 			<Dialog.Footer>
 				<Button
