@@ -1,11 +1,9 @@
 import * as Y from 'yjs';
 
-import {
-	defineExports,
-	type InferProviderExports,
-	type Lifecycle,
-	type MaybePromise,
-	type ProviderFactoryMap,
+import type {
+	InferProviderExports,
+	Lifecycle,
+	ProviderFactoryMap,
 } from './provider-types.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -28,7 +26,15 @@ import {
  *
  * @example
  * ```typescript
- * const registry = createRegistryDoc({ registryId: 'xyz789012345abc' });
+ * const registry = createRegistryDoc({
+ *   registryId: 'xyz789012345abc',
+ *   providers: {
+ *     persistence: ({ ydoc }) => tauriPersistence(ydoc, ['registry']),
+ *   },
+ * });
+ *
+ * // Await sync before reading (persistence loads from disk)
+ * await registry.whenSynced;
  *
  * // Add workspace to registry
  * registry.addWorkspace('abc123xyz789012');
@@ -49,13 +55,25 @@ import {
  * });
  * ```
  */
-export function createRegistryDoc(options: {
+export function createRegistryDoc<T extends ProviderFactoryMap>(options: {
 	registryId: string;
 	ydoc?: Y.Doc;
+	providers: T;
 }) {
-	const { registryId } = options;
+	const { registryId, providers: providerFactories } = options;
 	const ydoc = options.ydoc ?? new Y.Doc({ guid: registryId });
 	const workspacesMap = ydoc.getMap<true>('workspaces');
+
+	// Initialize providers synchronously — async work is in their whenSynced
+	const providers = {} as InferProviderExports<T>;
+	for (const [id, factory] of Object.entries(providerFactories)) {
+		(providers as Record<string, unknown>)[id] = factory({ ydoc });
+	}
+
+	// Aggregate all provider whenSynced promises
+	const whenSynced = Promise.all(
+		Object.values(providers).map((p) => (p as Lifecycle).whenSynced),
+	).then(() => {});
 
 	return {
 		/** The underlying Y.Doc instance. */
@@ -63,6 +81,12 @@ export function createRegistryDoc(options: {
 
 		/** The registry ID (Y.Doc guid). */
 		registryId,
+
+		/** Provider exports. */
+		providers,
+
+		/** Resolves when all providers are synced. */
+		whenSynced,
 
 		/**
 		 * Add a workspace to the registry.
@@ -131,104 +155,21 @@ export function createRegistryDoc(options: {
 			return () => workspacesMap.unobserve(handler);
 		},
 
-		/** Destroy the registry doc and clean up resources. */
-		destroy() {
-			ydoc.destroy();
-		},
-
 		/**
-		 * Attach providers and get an enhanced doc with `whenSynced`.
+		 * Destroy providers and the underlying Y.Doc.
 		 *
-		 * This is the key pattern: construction is synchronous, but providers
-		 * may have async initialization tracked via `whenSynced`. The returned
-		 * object carries its own sync state—no external tracking needed.
-		 *
-		 * > The initialization of the client is synchronous. The async work is
-		 * > stored as a property you can await, while passing the reference around.
-		 *
-		 * @example
-		 * ```typescript
-		 * const registry = createRegistryDoc({ registryId: 'local' })
-		 *   .withProviders({
-		 *     persistence: (ctx) => registryPersistence(ctx.ydoc),
-		 *   });
-		 *
-		 * // Sync access (immediate)
-		 * registry.getWorkspaceIds();
-		 *
-		 * // Async gate (for UI render gate pattern)
-		 * await registry.whenSynced;
-		 *
-		 * // Provider exports
-		 * registry.providers.persistence;
-		 * ```
+		 * Cleans up all provider resources before destroying the Y.Doc.
+		 * Uses `allSettled` so one provider's destroy failure doesn't block others.
 		 */
-		withProviders<T extends ProviderFactoryMap>(factories: T) {
-			const providers = {} as InferProviderExports<T>;
-			const initPromises: Promise<void>[] = [];
-
-			// Pre-seed providers with placeholder lifecycle so runtime matches type shape.
-			// Also create destroy functions that reference current exports (handles late binding).
-			const destroyFns: (() => MaybePromise<void>)[] = [];
-			for (const id of Object.keys(factories)) {
-				(providers as Record<string, unknown>)[id] = defineExports();
-				destroyFns.push(() =>
-					// Non-null assertion safe: we just set this key above
-					(providers as Record<string, Lifecycle>)[id]!.destroy(),
-				);
-			}
-
-			// Initialize all providers (sync or async factories)
-			for (const [id, factory] of Object.entries(factories)) {
-				initPromises.push(
-					Promise.resolve(factory({ ydoc })).then((result) => {
-						// Always normalize at boundary
-						const exports = defineExports(
-							result as Record<string, unknown> | undefined,
-						);
-						(providers as Record<string, unknown>)[id] = exports;
-					}),
-				);
-			}
-
-			// Use allSettled so init failures don't block destroy
-			const whenProvidersInitializedSettled = Promise.allSettled(
-				initPromises,
-			).then(() => {});
-
-			// whenSynced is fail-fast (any rejection rejects the whole thing)
-			const whenSynced = whenProvidersInitializedSettled
-				.then(() =>
-					Promise.all(
-						Object.values(providers).map((p) => (p as Lifecycle).whenSynced),
-					),
-				)
-				.then(() => {});
-
-			const base = this;
-
-			return {
-				...base,
-				providers,
-				whenSynced,
-
-				/** Destroy providers and the underlying Y.Doc. */
-				async destroy() {
-					// Wait for init to settle (not complete) - never block on init failures
-					await whenProvidersInitializedSettled;
-
-					try {
-						// Use allSettled so one destroy failure doesn't block others
-						await Promise.allSettled(destroyFns.map((fn) => fn()));
-					} finally {
-						// Always release doc resources
-						ydoc.destroy();
-					}
-				},
-			};
+		async destroy() {
+			await Promise.allSettled(
+				Object.values(providers).map((p) => (p as Lifecycle).destroy()),
+			);
+			ydoc.destroy();
 		},
 	};
 }
 
 /** Registry Y.Doc wrapper type - inferred from factory function. */
-export type RegistryDoc = ReturnType<typeof createRegistryDoc>;
+export type RegistryDoc<T extends ProviderFactoryMap = ProviderFactoryMap> =
+	ReturnType<typeof createRegistryDoc<T>>;

@@ -1,8 +1,8 @@
 import type * as Y from 'yjs';
-import { defineExports, type Lifecycle, type MaybePromise } from '../lifecycle';
+import { defineExports, type Lifecycle } from '../lifecycle';
 
 // Re-export lifecycle utilities for provider authors
-export { defineExports, type Lifecycle, type MaybePromise } from '../lifecycle';
+export { defineExports, type Lifecycle } from '../lifecycle';
 
 /**
  * Context provided to provider factories.
@@ -42,17 +42,13 @@ export type ProviderExports<T extends Record<string, unknown> = {}> =
 /**
  * A provider factory function.
  *
- * Supports both sync and async factories (sync construction pattern).
- * Sync factories return immediately; async work is tracked via `whenSynced`.
+ * Factories are **always synchronous**. Async initialization is tracked via
+ * the returned `whenSynced` promise, not the factory itself.
  *
- * The framework normalizes all returns, so you can:
- * - Return void (framework provides default lifecycle)
- * - Return a plain object (framework adds `whenSynced` and `destroy` defaults)
- * - Return via `defineExports()` (explicit lifecycle)
- *
- * The optional lifecycle fields:
- * - `whenSynced?: Promise<unknown>` - Resolves when initialization complete (default: resolved)
- * - `destroy?: () => MaybePromise<void>` - Cleanup function (default: no-op)
+ * Use `defineExports()` to wrap your return for explicit type safety and
+ * lifecycle normalization. The framework fills in defaults for missing fields:
+ * - `whenSynced`: defaults to `Promise.resolve()`
+ * - `destroy`: defaults to no-op `() => {}`
  *
  * @example Persistence provider
  * ```typescript
@@ -65,7 +61,7 @@ export type ProviderExports<T extends Record<string, unknown> = {}> =
  * };
  * ```
  *
- * @example Sync provider
+ * @example Sync provider with WebSocket
  * ```typescript
  * const websocket: ProviderFactory = ({ ydoc }) => {
  *   const ws = new WebsocketProvider(url, ydoc.guid, ydoc);
@@ -79,7 +75,7 @@ export type ProviderExports<T extends Record<string, unknown> = {}> =
  */
 export type ProviderFactory<
 	TExports extends ProviderExports = ProviderExports,
-> = (context: ProviderContext) => MaybePromise<TExports | void>;
+> = (context: ProviderContext) => TExports;
 
 /**
  * Map of provider factories keyed by provider ID.
@@ -90,7 +86,7 @@ export type ProviderFactoryMap = Record<string, ProviderFactory>;
  * Infer exports from provider factories.
  */
 export type InferProviderExports<T extends ProviderFactoryMap> = {
-	[K in keyof T]: Awaited<ReturnType<T[K]>>;
+	[K in keyof T]: ReturnType<T[K]>;
 };
 
 /**
