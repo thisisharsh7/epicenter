@@ -95,15 +95,16 @@ Yjs supports multiple providers simultaneously. Phone can connect to desktop, la
 
 ### How It All Fits Together
 
-1. **Define workspace** with `defineWorkspace({ id, tables, providers, exports })`
-2. **Create client** with `createClient(workspace)`
-3. **Y.Doc created** with workspace ID as GUID
-4. **Providers initialize** in parallel (persistence, SQLite, markdown, sync)
-5. **Tables API** wraps Y.Doc with type-safe CRUD
-6. **Exports factory** receives tables + providers + dependencies
-7. **Server** exposes REST/MCP/WebSocket endpoints
-8. **Multi-device sync** via y-websocket to any number of nodes
-9. **CRDTs ensure** eventual consistency across all clients
+1. **Define workspace** with `defineWorkspace({ id, tables, kv })`
+2. **Create client builder** with `createClient(workspace.id)`
+3. **Chain definition** with `.withDefinition(workspace)`
+4. **Attach extensions** with `.withExtensions({ persistence, sqlite })`
+5. **Y.Doc created** with workspace ID + epoch as GUID
+6. **Extensions initialize** in parallel (persistence, SQLite, markdown, sync)
+7. **Tables API** wraps Y.Doc with type-safe CRUD
+8. **Server** exposes REST/MCP/WebSocket endpoints for actions and tables
+9. **Multi-device sync** via y-websocket to any number of nodes
+10. **CRDTs ensure** eventual consistency across all clients
 
 The architecture is **local-first**: everything works offline, syncs opportunistically, and your data lives in plain files (`.yjs`, SQLite, markdown) that you fully control.
 
@@ -160,69 +161,73 @@ const blogWorkspace = defineWorkspace({
 		},
 	},
 
-	providers: {
+	kv: {},
+});
+
+// 2. Initialize the workspace client
+const client = createClient(blogWorkspace.id)
+	.withDefinition(blogWorkspace)
+	.withExtensions({
 		// Optional: Add YJS persistence (IndexedDB in browser, filesystem in Node.js)
 		persistence: setupPersistence,
 		// Optional: Add SQLite for SQL queries
 		sqlite: (c) => sqliteProvider(c),
 		// Optional: Add markdown for file-based persistence
 		markdown: (c) => markdownProvider(c),
-	},
+	});
 
-	actions: ({ tables, providers }) => ({
-		createPost: defineMutation({
-			input: type({
-				title: 'string',
-				'category?': '"tech" | "personal"',
-			}),
-			handler: ({ title, category }) => {
-				const id = generateId();
-				tables.posts.upsert({
-					id,
-					title,
-					content: null,
-					category: category ?? 'tech',
-					published: false,
-					views: 0,
-					publishedAt: null,
-				});
-
-				return Ok({ id });
-			},
+// 3. Define actions (exposed via REST/MCP)
+const blogActions = {
+	createPost: defineMutation({
+		input: type({
+			title: 'string',
+			'category?': '"tech" | "personal"',
 		}),
+		handler: async ({ title, category }) => {
+			const id = generateId();
+			client.tables.posts.upsert({
+				id,
+				title,
+				content: null,
+				category: category ?? 'tech',
+				published: false,
+				views: 0,
+				publishedAt: null,
+			});
 
-		getPublishedPosts: defineQuery({
-			handler: async () => {
-				// Query the SQLite provider with Drizzle
-				return await providers.sqlite.posts
-					.select()
-					.where(eq(providers.sqlite.posts.published, true))
-					.orderBy(desc(providers.sqlite.posts.publishedAt));
-			},
-		}),
+			return Ok({ id });
+		},
 	}),
-});
 
-// 2. Initialize the workspace client
-const client = await createClient(blogWorkspace);
+	getPublishedPosts: defineQuery({
+		handler: async () => {
+			// Query the SQLite extension with Drizzle
+			const { posts } = client.extensions.sqlite;
+			return await posts
+				.select()
+				.where(eq(posts.published, true))
+				.orderBy(desc(posts.publishedAt));
+		},
+	}),
+};
 
-// 3. Use the workspace
-const result = await client.actions.createPost({ title: 'Hello World' });
+// 4. Use the actions or tables directly
+const result = await blogActions.createPost.handler({ title: 'Hello World' });
 if (result.error) {
 	console.error('Failed to create post:', result.error);
 } else {
 	console.log('Created post:', result.data.id);
 }
 
-// 4. Query via table operations
+// 5. Query via table operations
 const allPosts = client.tables.posts.getAll();
 console.log('All posts:', allPosts);
 
-// 5. Query published posts (uses SQLite provider)
-const published = await client.actions.getPublishedPosts();
+// 6. Query published posts (uses SQLite extension)
+const published = await blogActions.getPublishedPosts.handler();
 console.log('Published:', published);
 
-// 6. Cleanup when done
+// 7. Cleanup when done
 await client.destroy();
 ```
 
@@ -233,10 +238,10 @@ await client.destroy();
 A workspace is a self-contained module with:
 
 - **Tables**: Table definitions with column types
-- **Providers**: Unified map of capabilities including persistence, sync, and materializers (SQLite, markdown, custom)
-- **Exports**: Actions and utilities for interacting with the workspace
+- **KV Store**: Simple key-value store for settings and metadata
+- **Extensions**: Capabilities including persistence, sync, and materializers (SQLite, markdown, custom)
 
-Workspaces can depend on other workspaces, creating a graph of interconnected modules.
+Workspaces can be defined once and used to create multiple clients at different epochs.
 
 ### YJS Document
 
@@ -272,73 +277,79 @@ tables.posts.update({ id: '1', views: 100 })
 tables.posts.delete({ id: '1' })
 ```
 
-### Providers
+### Extensions
 
-Providers are a unified map of capabilities including persistence, sync, and materializers (SQLite, markdown):
+Extensions add capabilities to your workspace, such as persistence, sync, and materializers (SQLite, markdown). They are attached to the client during initialization:
 
 ```typescript
-providers: {
-  persistence: setupPersistence,           // YJS persistence
-  sqlite: (c) => sqliteProvider(c),        // SQL queries via Drizzle ORM
-  markdown: (c) => markdownProvider(c),    // File-based persistence
-}
+const client = createClient(definition.id)
+	.withDefinition(definition)
+	.withExtensions({
+		persistence: setupPersistence, // YJS persistence
+		sqlite: (c) => sqliteProvider(c), // SQL queries via Drizzle ORM
+		markdown: (c) => markdownProvider(c), // File-based persistence
+	});
 ```
 
-Materializer providers (sqlite, markdown) automatically sync with YJS:
+Materializer extensions (sqlite, markdown) automatically sync with YJS:
 
-- **Write to YJS** → Providers auto-update
-- **Pull from provider** → Replaces YJS data
-- **Push to provider** → Replaces provider data
+- **Write to YJS** → Extensions auto-update
+- **Pull from extension** → Replaces YJS data
+- **Push to extension** → Replaces extension data
 
-Access provider exports in workspace actions:
+Access extension exports in your actions:
 
 ```typescript
-actions: ({ providers }) => ({
-  queryPosts: defineQuery({
-    handler: async () => {
-      return await providers.sqlite.posts.select().where(...);
-    }
-  })
-})
+const queryPosts = defineQuery({
+  handler: async () => {
+    // Access SQLite extension via client.extensions
+    const { sqlite } = client.extensions;
+    return await sqlite.posts.select().where(...);
+  }
+});
 ```
 
-Provider functions receive a context object with `{ id, providerId, ydoc, schema, tables, paths }` and can return exports. For example, sync providers:
+Extension factory functions receive a context object with `{ id, extensionId, ydoc, tables, kv }` and can return exports. For example, sync extensions:
 
 ```typescript
-providers: {
-  persistence: setupPersistence,
-  sqlite: (c) => sqliteProvider(c),
+const client = createClient(definition.id)
+	.withDefinition(definition)
+	.withExtensions({
+		persistence: setupPersistence,
+		sqlite: (c) => sqliteProvider(c),
 
-  // WebSocket sync (y-websocket protocol)
-  sync: createWebsocketSyncProvider({
-    url: 'ws://localhost:3913/sync',
-  }),
-}
+		// WebSocket sync (y-websocket protocol)
+		sync: createWebsocketSyncProvider({
+			url: 'ws://localhost:3913/sync',
+		}),
+	});
 ```
 
 ### Actions
 
-Actions are workspace operations defined with `defineQuery` (read) or `defineMutation` (write):
+Actions are workspace operations defined with `defineQuery` (read) or `defineMutation` (write). They are lightweight objects that can be exposed via REST, MCP, or CLI:
 
 ```typescript
-actions: ({ tables }) => ({
+const blogActions = {
   getPost: defineQuery({
     input: type({ id: 'string' }),
     handler: ({ id }) => {
-      return tables.posts.get({ id });
+      return client.tables.posts.get({ id });
     }
   }),
 
   createPost: defineMutation({
     input: type({ title: 'string' }),
     handler: ({ title }) => {
-      tables.posts.upsert({ ... });
+      const id = generateId();
+      client.tables.posts.upsert({ id, title, ... });
+      return { id };
     }
   })
-})
+};
 ```
 
-Actions can be exposed via MCP servers or HTTP APIs.
+Actions can be exposed via MCP servers or HTTP APIs by passing them to `createServer()`.
 
 ## Column Types
 
@@ -698,18 +709,20 @@ unsubscribe();
 
 Providers are a unified map of capabilities. All workspace capabilities (persistence, sync, materializers like SQLite/markdown) are defined in a single `providers` map.
 
-### SQLite Provider
+### SQLite Extension
 
-The SQLite provider provides SQL query capabilities via Drizzle ORM.
+The SQLite extension provides SQL query capabilities via Drizzle ORM.
 
 **Setup:**
 
 ```typescript
-import { sqliteProvider } from '@epicenter/hq';
+import { createClient, sqliteProvider } from '@epicenter/hq';
 
-providers: {
-	sqlite: (c) => sqliteProvider(c);
-}
+const client = createClient(definition.id)
+	.withDefinition(definition)
+	.withExtensions({
+		sqlite: (c) => sqliteProvider(c),
+	});
 ```
 
 **Storage:**
@@ -733,34 +746,37 @@ providers: {
 **Usage:**
 
 ```typescript
-actions: ({ providers }) => ({
+const blogActions = {
 	getPublishedPosts: defineQuery({
 		handler: async () => {
-			// Query with full Drizzle power
-			return await providers.sqlite.posts
+			// Query with full Drizzle power via client.extensions
+			const { sqlite } = client.extensions;
+			return await sqlite.posts
 				.select()
-				.where(eq(providers.sqlite.posts.published, true))
-				.orderBy(desc(providers.sqlite.posts.publishedAt))
+				.where(eq(sqlite.posts.published, true))
+				.orderBy(desc(sqlite.posts.publishedAt))
 				.limit(10);
 		},
 	}),
 
 	getPostStats: defineQuery({
 		handler: async () => {
-			return await providers.sqlite.posts
+			const { sqlite } = client.extensions;
+			return await sqlite.posts
 				.select({
-					category: providers.sqlite.posts.category,
+					category: sqlite.posts.category,
 					total: count(),
-					avgViews: avg(providers.sqlite.posts.views),
+					avgViews: avg(sqlite.posts.views),
 				})
-				.groupBy(providers.sqlite.posts.category);
+				.groupBy(sqlite.posts.category);
 		},
 	}),
 
 	// Manual sync operations
-	syncToSqlite: providers.sqlite.pullToSqlite,
-	syncFromSqlite: providers.sqlite.pushFromSqlite,
-});
+	syncToSqlite: defineMutation({
+		handler: () => client.extensions.sqlite.pullToSqlite(),
+	}),
+};
 ```
 
 **How it works:**
@@ -771,35 +787,37 @@ actions: ({ providers }) => ({
 - Logs validation errors without blocking sync
 - Performs full initial sync on startup
 
-### Markdown Provider
+### Markdown Extension
 
-The markdown provider persists data as human-readable markdown files.
+The markdown extension persists data as human-readable markdown files.
 
 **Setup:**
 
 ```typescript
-import { markdownProvider } from '@epicenter/hq';
+import { createClient, markdownProvider } from '@epicenter/hq';
 
-providers: {
-	markdown: (c) =>
-		markdownProvider(c, {
-			directory: './data', // Optional: workspace-level directory
-			tableConfigs: {
-				posts: {
-					directory: './posts', // Optional: per-table directory
-					serialize: ({ row }) => ({
-						frontmatter: { title: row.title, published: row.published },
-						body: row.content,
-						filename: `${row.id}.md`,
-					}),
-					deserialize: ({ frontmatter, body, filename }) => {
-						const id = basename(filename, '.md');
-						return Ok({ id, content: body, ...frontmatter });
+const client = createClient(definition.id)
+	.withDefinition(definition)
+	.withExtensions({
+		markdown: (c) =>
+			markdownProvider(c, {
+				directory: './data', // Optional: workspace-level directory
+				tableConfigs: {
+					posts: {
+						directory: './posts', // Optional: per-table directory
+						serialize: ({ row }) => ({
+							frontmatter: { title: row.title, published: row.published },
+							body: row.content,
+							filename: `${row.id}.md`,
+						}),
+						deserialize: ({ frontmatter, body, filename }) => {
+							const id = basename(filename, '.md');
+							return Ok({ id, content: body, ...frontmatter });
+						},
 					},
 				},
-			},
-		});
-}
+			}),
+	});
 ```
 
 **Storage:**
@@ -821,12 +839,18 @@ providers: {
 **Usage:**
 
 ```typescript
-actions: ({ providers }) => ({
+const blogActions = {
 	// Export markdown sync operations
-	syncToMarkdown: providers.markdown.pullToMarkdown,
-	syncFromMarkdown: providers.markdown.pushFromMarkdown,
-	validateFiles: providers.markdown.scanForErrors,
-});
+	syncToMarkdown: defineMutation({
+		handler: () => client.extensions.markdown.pullToMarkdown(),
+	}),
+	syncFromMarkdown: defineMutation({
+		handler: () => client.extensions.markdown.pushFromMarkdown(),
+	}),
+	validateFiles: defineQuery({
+		handler: () => client.extensions.markdown.scanForErrors(),
+	}),
+};
 ```
 
 **How it works:**
@@ -862,20 +886,23 @@ deserialize: ({ frontmatter, body, filename, table }) => {
 }
 ```
 
-### WebSocket Sync Provider
+### WebSocket Sync Extension
 
-The WebSocket sync provider enables real-time Y.Doc synchronization using the y-websocket protocol. This is the recommended sync solution for Epicenter.
+The WebSocket sync extension enables real-time Y.Doc synchronization using the y-websocket protocol. This is the recommended sync solution for Epicenter.
 
 **Setup:**
 
 ```typescript
+import { createClient } from '@epicenter/hq';
 import { createWebsocketSyncProvider } from '@epicenter/hq/providers/websocket-sync';
 
-providers: {
-	sync: createWebsocketSyncProvider({
-		url: 'ws://localhost:3913/sync',
+const client = createClient(definition.id)
+	.withDefinition(definition)
+	.withExtensions({
+		sync: createWebsocketSyncProvider({
+			url: 'ws://localhost:3913/sync',
+		}),
 	});
-}
 ```
 
 **Server-side sync endpoint:**
@@ -936,25 +963,29 @@ export const SYNC_NODES = {
 | Laptop server   | Node + Client | `desktop`, `cloud`           |
 | Desktop server  | Node + Client | `laptop`, `cloud`            |
 
-**Multi-provider example (phone):**
+**Multi-extension example (phone):**
 
 ```typescript
 // Phone connects to ALL available sync nodes
-providers: {
-  syncDesktop: createWebsocketSyncProvider({ url: SYNC_NODES.desktop }),
-  syncLaptop: createWebsocketSyncProvider({ url: SYNC_NODES.laptop }),
-  syncCloud: createWebsocketSyncProvider({ url: SYNC_NODES.cloud }),
-}
+const client = createClient(definition.id)
+	.withDefinition(definition)
+	.withExtensions({
+		syncDesktop: createWebsocketSyncProvider({ url: SYNC_NODES.desktop }),
+		syncLaptop: createWebsocketSyncProvider({ url: SYNC_NODES.laptop }),
+		syncCloud: createWebsocketSyncProvider({ url: SYNC_NODES.cloud }),
+	});
 ```
 
 **Server-to-server sync:**
 
 ```typescript
 // Desktop server connects to OTHER servers (not itself!)
-providers: {
-  syncToLaptop: createWebsocketSyncProvider({ url: SYNC_NODES.laptop }),
-  syncToCloud: createWebsocketSyncProvider({ url: SYNC_NODES.cloud }),
-}
+const client = createClient(definition.id)
+	.withDefinition(definition)
+	.withExtensions({
+		syncToLaptop: createWebsocketSyncProvider({ url: SYNC_NODES.laptop }),
+		syncToCloud: createWebsocketSyncProvider({ url: SYNC_NODES.cloud }),
+	});
 ```
 
 Yjs supports multiple providers simultaneously. Changes merge automatically via CRDTs regardless of which provider delivers them first.
@@ -971,34 +1002,29 @@ Workspaces can depend on other workspaces, enabling modular architecture. For cr
 import { authClient } from './auth-client';
 import { storageClient } from './storage-client';
 
-const blogWorkspace = defineWorkspace({
-	id: 'blog',
+// blog-actions.ts
+export const createPost = defineMutation({
+	input: type({ title: 'string', authorId: 'string' }),
+	handler: async ({ title, authorId }) => {
+		// Access dependency workspace actions via imported client
+		const user = await authClient.getUserById({ id: authorId });
+		if (!user) {
+			return Err({ message: 'User not found' });
+		}
 
-	actions: ({ tables, providers }) => ({
-		createPost: defineMutation({
-			input: type({ title: 'string', authorId: 'string' }),
-			handler: async ({ title, authorId }) => {
-				// Access dependency workspace actions via imported client
-				const user = await authClient.getUserById({ id: authorId });
-				if (!user) {
-					return Err({ message: 'User not found' });
-				}
+		// Access dependency workspace tables
+		const allUsers = authClient.tables.users.getAll();
 
-				// Access dependency workspace tables
-				const allUsers = authClient.tables.users.getAll();
-
-				// Create post in local workspace
-				const id = generateId();
-				tables.posts.upsert({
-					id,
-					title,
-					authorId,
-					published: false,
-				});
-				return Ok({ id });
-			},
-		}),
-	}),
+		// Create post in local workspace
+		const id = generateId();
+		blogClient.tables.posts.upsert({
+			id,
+			title,
+			authorId,
+			published: false,
+		});
+		return Ok({ id });
+	},
 });
 ```
 
@@ -1216,20 +1242,13 @@ Providers run in parallel during initialization. Providers that return exports m
 
 ### Create Client
 
-Create a workspace client with handlers:
+Create a workspace client using the builder pattern:
 
 ```typescript
-// Create a client with handlers
-const blogClient = await blogWorkspace
-  .withProviders({ sqlite: sqliteProvider })
-  .createWithHandlers({
-    createPost: async (input, ctx) => { ... },
-    getPost: async (input, ctx) => { ... },
-  });
-
-// Call actions via the .actions namespace
-await blogClient.actions.createPost({ title: 'Hello' });
-const post = await blogClient.actions.getPost({ id: '123' });
+// Create a client with extensions
+const blogClient = createClient(blogWorkspace.id)
+	.withDefinition(blogWorkspace)
+	.withExtensions({ sqlite: sqliteProvider });
 
 // Direct table access
 const posts = blogClient.tables.posts.getAllValid();
@@ -1239,11 +1258,11 @@ await blogClient.destroy();
 
 // Or use with `await using` for automatic cleanup
 {
-  await using client = await blogWorkspace
-    .withProviders({ sqlite: sqliteProvider })
-    .createWithHandlers({ ... });
+	await using client = createClient(blogWorkspace.id)
+		.withDefinition(blogWorkspace)
+		.withExtensions({ sqlite: sqliteProvider });
 
-  await client.actions.createPost({ title: 'Hello' });
+	client.tables.posts.upsert({ id: '1', title: 'Hello' });
 }
 ```
 
@@ -1253,7 +1272,7 @@ await blogClient.destroy();
 
 ### Client Initialization Lifecycle
 
-When you call `.createWithHandlers()`, here's what happens:
+When you call `.withExtensions()`, here's what happens:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -1379,9 +1398,12 @@ Create a client directly for standalone scripts. Use `await using` for automatic
 ```typescript
 // Script or migration
 {
-  await using client = await createClient(blogWorkspace);
-  await client.actions.createPost({ ... });
-  // Automatic cleanup when block exits
+	await using client = createClient(blogWorkspace.id)
+		.withDefinition(blogWorkspace)
+		.withExtensions({ sqlite: sqliteProvider });
+
+	client.tables.posts.upsert({ id: '1', title: 'Hello' });
+	// Automatic cleanup when block exits
 }
 ```
 
@@ -1389,18 +1411,25 @@ Create a client directly for standalone scripts. Use `await using` for automatic
 
 ### 2. As a Server (Web APIs, Long-Running Processes)
 
-The server is a wrapper around the client that maps REST, MCP, and WebSocket Sync endpoints to workspace actions.
+The server is a wrapper around the client that maps REST, MCP, and WebSocket Sync endpoints to workspace actions and tables.
 
 ```typescript
 import { createClient, createServer } from '@epicenter/hq';
 
-const client = await createClient([blogWorkspace]);
-const server = createServer(client);
+const client = createClient(blogWorkspace.id)
+  .withDefinition(blogWorkspace)
+  .withExtensions({ sqlite: sqliteProvider });
 
-server.start({ port: 3913 });
+// Expose the client and custom actions via HTTP
+const server = createServer(client, {
+  port: 3913,
+  actions: blogActions
+});
+
+server.start();
 
 // Other processes can now use the HTTP API
-await fetch('http://localhost:3913/workspaces/blog/createPost', {
+await fetch('http://localhost:3913/actions/createPost', {
   method: 'POST',
   body: JSON.stringify({ title: 'New Post', ... }),
 });
@@ -1414,38 +1443,34 @@ await fetch('http://localhost:3913/workspaces/blog/createPost', {
 import { defineWorkspace, defineMutation, defineQuery } from '@epicenter/hq';
 ```
 
-**`defineWorkspace({ id, tables, actions })`**
+**`defineWorkspace({ id, tables, kv })`**
 
-Define a workspace contract with tables and action contracts.
+Define a workspace contract with tables and key-value store.
 
 ```typescript
 const blogWorkspace = defineWorkspace({
 	id: 'blog',
 	tables: {
-		posts: { id: id(), title: text() },
+		posts: {
+			name: 'Posts',
+			fields: { id: id(), title: text() },
+		},
 	},
-	actions: {
-		createPost: defineMutation({
-			input: type({ title: 'string' }),
-			output: type({ id: 'string' }),
-		}),
-	},
+	kv: {},
 });
 ```
 
 ### Client Creation
 
 ```typescript
-// Create client with handlers
-const client = await blogWorkspace
-	.withProviders({ sqlite: sqliteProvider })
-	.createWithHandlers({
-		createPost: async (input, ctx) => {
-			const id = generateId();
-			ctx.tables.posts.upsert({ id, title: input.title });
-			return { id };
-		},
-	});
+// Create client with extensions
+const client = createClient(blogWorkspace.id)
+	.withDefinition(blogWorkspace)
+	.withExtensions({ sqlite: sqliteProvider });
+
+// Use tables directly
+const id = generateId();
+client.tables.posts.upsert({ id, title: 'Hello' });
 ```
 
 ### Client Properties
@@ -1453,12 +1478,10 @@ const client = await blogWorkspace
 ```typescript
 client.id; // Workspace ID ('blog')
 client.tables; // YJS-backed table operations
-client.actions; // Bound action methods
-client.contracts; // Action contracts (for introspection)
-client.providers; // Provider exports
-client.validators; // Runtime validators
+client.kv; // Key-value store
+client.extensions; // Extension exports
 client.ydoc; // Underlying Y.Doc
-client.paths; // Filesystem paths (undefined in browser)
+client.whenSynced; // Promise for async initialization
 
 await client.destroy(); // Cleanup resources
 ```
@@ -1747,16 +1770,16 @@ Workspace actions are exposed via REST endpoints under the `/workspaces` prefix:
 ### Setup
 
 ```typescript
-import { createServer } from '@epicenter/hq';
+import { createClient, createServer } from '@epicenter/hq';
 
-// Create clients with handlers
-const blogClient = await blogWorkspace
-  .withProviders({ sqlite: sqliteProvider })
-  .createWithHandlers({ ... });
+// Create clients with extensions
+const blogClient = createClient(blogWorkspace.id)
+	.withDefinition(blogWorkspace)
+	.withExtensions({ sqlite: sqliteProvider });
 
-const authClient = await authWorkspace
-  .withProviders({ sqlite: sqliteProvider })
-  .createWithHandlers({ ... });
+const authClient = createClient(authWorkspace.id)
+	.withDefinition(authWorkspace)
+	.withExtensions({ sqlite: sqliteProvider });
 
 // Create and start server
 const server = createServer([blogClient, authClient], { port: 3913 });
