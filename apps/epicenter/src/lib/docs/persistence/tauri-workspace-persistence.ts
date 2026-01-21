@@ -13,7 +13,7 @@ import * as Y from 'yjs';
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Configuration for the Tauri workspace persistence capability.
+ * Configuration for the Tauri workspace persistence extension.
  */
 export type TauriWorkspacePersistenceConfig = {
 	/**
@@ -50,11 +50,11 @@ const FILE_NAMES = {
 } as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tauri Workspace Persistence Capability
+// Tauri Workspace Persistence Extension
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Unified workspace persistence capability for Tauri apps.
+ * Unified workspace persistence extension for Tauri apps.
  *
  * Persists a workspace Y.Doc with multiple outputs:
  * - `workspace.yjs` - Full Y.Doc binary for sync

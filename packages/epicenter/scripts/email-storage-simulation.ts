@@ -15,7 +15,7 @@
 
 import { existsSync, mkdirSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { persistence } from '../src/capabilities/persistence/desktop';
+import { persistence } from '../src/extensions/persistence/desktop';
 import {
 	createClient,
 	defineWorkspace,
@@ -209,14 +209,14 @@ const emailDefinition = defineWorkspace({
 // Create the client
 console.log('Creating client...');
 const totalStart = performance.now();
-await using client = await createClient(emailDefinition, {
-	capabilities: {
+await using client = await createClient(emailDefinition.id)
+	.withDefinition(emailDefinition)
+	.withExtensions({
 		persistence: (ctx) =>
 			persistence(ctx, {
 				filePath: YJS_PATH,
 			}),
-	},
-});
+	});
 console.log('Client created\n');
 
 // Sample email for size estimation

@@ -12,7 +12,7 @@
 import { Database } from 'bun:sqlite';
 import { existsSync, mkdirSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { persistence } from '../src/capabilities/persistence/desktop';
+import { persistence } from '../src/extensions/persistence/desktop';
 import {
 	createClient,
 	defineWorkspace,
@@ -182,14 +182,14 @@ const emailDefinition = defineWorkspace({
 	},
 });
 
-await using client = await createClient(emailDefinition, {
-	capabilities: {
+await using client = await createClient(emailDefinition.id)
+	.withDefinition(emailDefinition)
+	.withExtensions({
 		persistence: (ctx) =>
 			persistence(ctx, {
 				filePath: YJS_PATH,
 			}),
-	},
-});
+	});
 
 // Insert in batches
 for (let i = 0; i < EMAIL_COUNT; i += BATCH_SIZE) {

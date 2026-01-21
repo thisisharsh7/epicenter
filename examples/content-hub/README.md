@@ -416,16 +416,16 @@ For content that doesn't fit the posts model, create a new workspace:
 
    ```typescript
    import { defineWorkspace, sqliteIndex, ... } from '@epicenter/hq';
-   import { persistence } from '@epicenter/hq/capabilities/persistence';
+   import { persistence } from '@epicenter/hq/extensions/persistence';
 
    export const newWorkspace = defineWorkspace({
      id: 'new-workspace',
      tables: { items: { /* your table definitions */ } },
-     capabilities: {
+     extensions: {
        sqlite: (c) => sqlite(c),
        persistence,
      },
-     actions: ({ tables, capabilities }) => ({
+     actions: ({ tables, extensions }) => ({
        // Implement actions...
      }),
    });

@@ -1,4 +1,4 @@
-import { createDynamicClient, createHeadDoc } from '@epicenter/hq';
+import { createClient, createHeadDoc } from '@epicenter/hq';
 import type * as Y from 'yjs';
 import { tauriPersistence } from './persistence/tauri-persistence';
 import { tauriWorkspacePersistence } from './persistence/tauri-workspace-persistence';
@@ -81,15 +81,12 @@ export function createHead(workspaceId: string) {
 		 * ```
 		 */
 		client({ epoch = baseHead.getEpoch() }: { epoch?: number } = {}) {
-			return createDynamicClient(workspaceId, {
-				epoch,
-				capabilities: {
-					persistence: (ctx: { ydoc: Y.Doc }) =>
-						tauriWorkspacePersistence(ctx.ydoc, {
-							workspaceId,
-							epoch,
-						}),
-				},
+			return createClient(workspaceId, { epoch }).withExtensions({
+				persistence: (ctx: { ydoc: Y.Doc }) =>
+					tauriWorkspacePersistence(ctx.ydoc, {
+						workspaceId,
+						epoch,
+					}),
 			});
 		},
 	};

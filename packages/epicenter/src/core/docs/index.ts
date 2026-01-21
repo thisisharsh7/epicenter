@@ -1,7 +1,6 @@
 export { createHeadDoc, type HeadDoc } from './head-doc';
 export {
 	defineExports,
-	defineProviders,
 	type InferProviderExports,
 	type Lifecycle,
 	type ProviderContext,

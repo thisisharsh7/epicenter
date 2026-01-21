@@ -1,6 +1,6 @@
 import { createTaggedError } from 'wellcrafted/error';
 
-type CapabilityErrorContext = {
+type ExtensionErrorContext = {
 	tableName?: string;
 	rowId?: string;
 	filename?: string;
@@ -9,7 +9,7 @@ type CapabilityErrorContext = {
 	operation?: string;
 };
 
-export const { CapabilityError, CapabilityErr } = createTaggedError(
-	'CapabilityError',
-).withContext<CapabilityErrorContext | undefined>();
-export type CapabilityError = ReturnType<typeof CapabilityError>;
+export const { ExtensionError, ExtensionErr } = createTaggedError(
+	'ExtensionError',
+).withContext<ExtensionErrorContext | undefined>();
+export type ExtensionError = ReturnType<typeof ExtensionError>;

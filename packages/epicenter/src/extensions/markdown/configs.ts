@@ -49,13 +49,10 @@ import path from 'node:path';
 import { type } from 'arktype';
 import filenamify from 'filenamify';
 import { Ok, type Result } from 'wellcrafted/result';
-import type { TableHelper } from '../../core/tables/table-helper';
 import type { FieldSchemaMap, Row } from '../../core/schema';
 import { tableSchemaToArktype } from '../../core/schema';
-import {
-	MarkdownCapabilityErr,
-	type MarkdownCapabilityError,
-} from './markdown';
+import type { TableHelper } from '../../core/tables/table-helper';
+import { MarkdownExtensionErr, type MarkdownExtensionError } from './markdown';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Core Types
@@ -112,7 +109,7 @@ export type MarkdownSerializer<
 			filename: string;
 			parsed: TParsed;
 			table: TableHelper<TFieldSchemaMap>;
-		}) => Result<Row<TFieldSchemaMap>, MarkdownCapabilityError>;
+		}) => Result<Row<TFieldSchemaMap>, MarkdownExtensionError>;
 	};
 };
 
@@ -205,7 +202,7 @@ type SerializerBuilderWithSerialize<
 			filename: TFilename;
 			parsed: TParsed;
 			table: TableHelper<TFieldSchemaMap>;
-		}) => Result<Row<TFieldSchemaMap>, MarkdownCapabilityError>,
+		}) => Result<Row<TFieldSchemaMap>, MarkdownExtensionError>,
 	): MarkdownSerializer<TFieldSchemaMap, TParsed>;
 };
 
@@ -346,7 +343,7 @@ export function defaultSerializer<
 			const result = validator(data);
 
 			if (result instanceof type.errors) {
-				return MarkdownCapabilityErr({
+				return MarkdownExtensionErr({
 					message: `Failed to validate row ${id}`,
 					context: { fileName: `${id}.md`, id, reason: result.summary },
 				});
@@ -439,7 +436,7 @@ export function bodyFieldSerializer<TFieldSchemaMap extends FieldSchemaMap>(
 			const validatedFrontmatter = FrontMatter(frontmatter);
 
 			if (validatedFrontmatter instanceof type.errors) {
-				return MarkdownCapabilityErr({
+				return MarkdownExtensionErr({
 					message: `Invalid frontmatter for row ${rowId}`,
 					context: {
 						fileName: `${rowId}.md`,
@@ -582,7 +579,7 @@ export function titleFilenameSerializer<TFieldSchemaMap extends FieldSchemaMap>(
 			const result = validator(data);
 
 			if (result instanceof type.errors) {
-				return MarkdownCapabilityErr({
+				return MarkdownExtensionErr({
 					message: `Failed to validate row ${id}`,
 					context: {
 						fileName: `${id}.md`,
@@ -745,7 +742,7 @@ export function domainTitleFilenameSerializer<
 			const result = validator(data);
 
 			if (result instanceof type.errors) {
-				return MarkdownCapabilityErr({
+				return MarkdownExtensionErr({
 					message: `Failed to validate row ${id}`,
 					context: {
 						fileName: `${id}.md`,

@@ -1,5 +1,5 @@
 /**
- * Revision History Capability
+ * Revision History Extension
  *
  * Stores Y.Snapshots for time-travel and revision history.
  * Currently only supports local filesystem storage.
@@ -7,7 +7,7 @@
  * @example
  * ```typescript
  * import { defineWorkspace, createClient } from '@epicenter/hq';
- * import { localRevisionHistory } from '@epicenter/hq/capabilities/revision-history';
+ * import { localRevisionHistory } from '@epicenter/hq/extensions/revision-history';
  *
  * const definition = defineWorkspace({
  *   id: 'blog',
@@ -15,27 +15,27 @@
  *   kv: {},
  * });
  *
- * const client = createClient(definition, {
- *   capabilities: {
+ * const client = createClient(definition.id)
+ *   .withDefinition(definition)
+ *   .withExtensions({
  *     revisions: (ctx) => localRevisionHistory(ctx, {
  *       directory: './workspaces',
  *       epoch: 0,
  *       maxVersions: 50,
  *     }),
- *   },
- * });
+ *   });
  *
  * // Save manually (bypasses debounce)
- * client.capabilities.revisions.save('Before refactor');
+ * client.extensions.revisions.save('Before refactor');
  *
  * // List versions
- * const versions = await client.capabilities.revisions.list();
+ * const versions = await client.extensions.revisions.list();
  *
  * // View historical state (read-only)
- * const oldDoc = await client.capabilities.revisions.view(5);
+ * const oldDoc = await client.extensions.revisions.view(5);
  *
  * // Restore to a version
- * await client.capabilities.revisions.restore(5);
+ * await client.extensions.revisions.restore(5);
  * ```
  */
 export {

@@ -7,25 +7,28 @@ A workspace is a self-contained domain module with its own schema and capabiliti
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                                                                             │
-│   defineWorkspace()                    createClient()                       │
-│   ─────────────────                    ──────────────                       │
+│   defineWorkspace()              createClient() Builder Pattern             │
+│   ─────────────────              ──────────────────────────────             │
 │                                                                             │
-│   ┌─────────────────┐                 ┌─────────────────┐                  │
-│   │ Pure Definition │                 │ Runtime Client  │                  │
-│   │                 │      epoch      │                 │                  │
-│   │ - id (GUID)     │ ─────────────▶  │ - Workspace Doc │                  │
-│   │ - name          │   capabilities  │ - Tables        │                  │
-│   │ - tables schema │                 │ - KV            │                  │
-│   │ - kv schema     │                 │ - Capabilities  │                  │
-│   └─────────────────┘                 └─────────────────┘                  │
-│                                                                             │
-│   Static (no I/O)                     Dynamic (creates Y.Doc)               │
+│   ┌─────────────────┐           createClient(workspaceId, { epoch? })       │
+│   │ Pure Definition │                         │                             │
+│   │                 │           ┌─────────────┴─────────────┐               │
+│   │ - id            │           │                           │               │
+│   │ - name          │           ▼                           ▼               │
+│   │ - tables schema │    .withDefinition(def)        .withExtensions({})    │
+│   │ - kv schema     │           │                           │               │
+│   └─────────────────┘           ▼                           ▼               │
+│                          .withExtensions({})         WorkspaceClient        │
+│   Static (no I/O)               │                    (dynamic schema)       │
+│                                 ▼                                           │
+│                          WorkspaceClient                                    │
+│                          (static schema)                                    │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 - **`defineWorkspace()`**: Pure schema definition. No I/O. Just describes the shape.
-- **`createClient()`**: Creates the runtime client. Connects to the Workspace Doc at the specified epoch.
+- **`createClient()`**: Returns a builder. Chain `.withDefinition()` for static schema, then `.withExtensions()` to create the client.
 
 ## Minimal vs Full Definition
 
@@ -87,13 +90,13 @@ const whisperingWorkspace = defineWorkspace({
 	kv: {},
 });
 
-// Step 2: Create client at a specific epoch
-const client = createClient(whisperingWorkspace, {
-	epoch: 0,
-	capabilities: { sqlite, persistence },
-});
+// Step 2: Create client at a specific epoch using the builder pattern
+const client = createClient(whisperingWorkspace.id, { epoch: 0 })
+	.withDefinition(whisperingWorkspace)
+	.withExtensions({ sqlite, persistence });
 
 // Use the client
+await client.whenSynced;
 client.tables.recordings.upsert({
 	id: '1',
 	title: 'Meeting notes',
@@ -129,21 +132,24 @@ returns `max()` of all proposals. See `../docs/README.md` for details.
 
 ```typescript
 // New workspace or prototyping (epoch defaults to 0)
-const client = createClient(definition, {
-	capabilities: { sqlite },
-});
+const client = createClient(definition.id)
+	.withDefinition(definition)
+	.withExtensions({ sqlite });
 
 // Specific epoch (from Head Doc)
 const head = createHeadDoc({ workspaceId: definition.id });
 const epoch = head.getEpoch(); // e.g., 2
-const client = createClient(definition, {
-	epoch,
-	capabilities: { sqlite },
-});
+const client = createClient(definition.id, { epoch })
+	.withDefinition(definition)
+	.withExtensions({ sqlite });
 
 // Migration: connect to multiple epochs
-const oldClient = createClient(definition, { epoch: 1 });
-const newClient = createClient(definition, { epoch: 2 });
+const oldClient = createClient(definition.id, { epoch: 1 })
+	.withDefinition(definition)
+	.withExtensions({});
+const newClient = createClient(definition.id, { epoch: 2 })
+	.withDefinition(definition)
+	.withExtensions({});
 // Migrate data from old to new...
 ```
 
@@ -151,7 +157,7 @@ See `../docs/README.md` for the full three-document architecture.
 
 ## What Happens in `createClient()`
 
-When you call `createClient(definition, { epoch, capabilities })`:
+When you call `createClient(workspaceId, { epoch }).withDefinition(definition).withExtensions({...})`:
 
 ```
 1. Normalize definition (if minimal input)
@@ -164,7 +170,7 @@ When you call `createClient(definition, { epoch, capabilities })`:
 3. Create table and KV helpers
    └── Typed CRUD operations backed by Y.Doc
 
-4. Run capability factories
+4. Run extension factories
    └── SQLite, persistence, sync, etc.
 
 5. Return WorkspaceClient
@@ -178,10 +184,9 @@ When you call `createClient(definition, { epoch, capabilities })`:
 Write regular functions that use your client:
 
 ```typescript
-const client = createClient(blogWorkspace, {
-	epoch: 0,
-	capabilities: { sqlite, persistence },
-});
+const client = createClient(blogWorkspace.id)
+	.withDefinition(blogWorkspace)
+	.withExtensions({ sqlite, persistence });
 
 function createPost(title: string) {
 	const id = generateId();
@@ -206,20 +211,20 @@ app.get('/posts', () => getPublishedPosts());
 ## Client Properties
 
 ```typescript
-const client = createClient(blogWorkspace, {
-	epoch: 0,
-	capabilities: { sqlite, persistence },
-});
+const client = createClient(blogWorkspace.id)
+	.withDefinition(blogWorkspace)
+	.withExtensions({ sqlite, persistence });
 
-client.id;            // Globally unique ID for sync (e.g., 'abc123xyz789012')
+client.id;            // Workspace ID (e.g., 'epicenter.blog')
 client.name;          // Display name (e.g., 'Blog')
 client.tables;        // YJS-backed table operations
 client.kv;            // Key-value store
-client.capabilities;  // Capability exports
-client.ydoc;          // Underlying YJS document (Workspace Doc, DATA ONLY)
+client.extensions;    // Extension exports
+client.ydoc;          // Underlying YJS document (Workspace Doc)
+client.whenSynced;    // Promise that resolves when extensions are ready
 
 await client.destroy();           // Cleanup resources
-await using client = await ...;   // Auto-cleanup with dispose
+await using client = ...;         // Auto-cleanup with dispose
 ```
 
 ## Full Flow with Head Doc
@@ -240,18 +245,16 @@ const blogWorkspace = defineWorkspace({
 });
 
 // 3. Create client at that epoch
-const client = createClient(blogWorkspace, {
-	epoch,
-	capabilities: { sqlite, persistence },
-});
+const client = createClient(blogWorkspace.id, { epoch })
+	.withDefinition(blogWorkspace)
+	.withExtensions({ sqlite, persistence });
 
 // 4. Subscribe to epoch changes (optional)
 head.observeEpoch(async (newEpoch) => {
 	await client.destroy();
-	const newClient = createClient(blogWorkspace, {
-		epoch: newEpoch,
-		capabilities: { sqlite, persistence },
-	});
+	const newClient = createClient(blogWorkspace.id, { epoch: newEpoch })
+		.withDefinition(blogWorkspace)
+		.withExtensions({ sqlite, persistence });
 	// Update your app's reference to newClient
 });
 ```
@@ -285,10 +288,9 @@ Use regular JavaScript imports for dependencies:
 
 ```typescript
 // auth-client.ts
-export const authClient = createClient(authWorkspace, {
-	epoch: 0,
-	capabilities: { sqlite, persistence },
-});
+export const authClient = createClient(authWorkspace.id)
+	.withDefinition(authWorkspace)
+	.withExtensions({ sqlite, persistence });
 
 // blog-client.ts
 import { authClient } from './auth-client';
@@ -313,10 +315,9 @@ Multiple scripts can safely run using `await using`:
 ```typescript
 // Script 1: Import data
 {
-	await using client = createClient(blogWorkspace, {
-		epoch: 0,
-		capabilities: { sqlite, persistence },
-	});
+	await using client = createClient(blogWorkspace.id)
+		.withDefinition(blogWorkspace)
+		.withExtensions({ sqlite, persistence });
 
 	client.tables.posts.upsert({ id: '1', title: 'Hello' });
 	// Auto-disposed when block exits
@@ -324,10 +325,9 @@ Multiple scripts can safely run using `await using`:
 
 // Script 2: Process data (runs after Script 1)
 {
-	await using client = createClient(blogWorkspace, {
-		epoch: 0,
-		capabilities: { sqlite, persistence },
-	});
+	await using client = createClient(blogWorkspace.id)
+		.withDefinition(blogWorkspace)
+		.withExtensions({ sqlite, persistence });
 
 	const posts = client.tables.posts.getAllValid();
 	// Auto-disposed when block exits
@@ -346,8 +346,12 @@ const definition = defineWorkspace({
 });
 
 // Connect to old and new epochs
-const oldClient = createClient(definition, { epoch: 1 });
-const newClient = createClient(definition, { epoch: 2 });
+const oldClient = createClient(definition.id, { epoch: 1 })
+	.withDefinition(definition)
+	.withExtensions({});
+const newClient = createClient(definition.id, { epoch: 2 })
+	.withDefinition(definition)
+	.withExtensions({});
 
 // Migrate data
 for (const post of oldClient.tables.posts.getAllValid()) {

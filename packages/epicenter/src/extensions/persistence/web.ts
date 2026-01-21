@@ -1,13 +1,13 @@
 import { IndexeddbPersistence } from 'y-indexeddb';
 import {
-	type CapabilityContext,
-	type CapabilityFactory,
-	defineCapabilities,
-} from '../../core/capability';
+	defineExports,
+	type ExtensionContext,
+	type ExtensionFactory,
+} from '../../core/extension';
 import type { KvDefinitionMap, TableDefinitionMap } from '../../core/schema';
 
 /**
- * YJS document persistence capability using IndexedDB.
+ * YJS document persistence extension using IndexedDB.
  * Stores the YDoc in the browser's IndexedDB storage.
  *
  * **Platform**: Web/Browser
@@ -34,7 +34,7 @@ import type { KvDefinitionMap, TableDefinitionMap } from '../../core/schema';
  * @example Basic usage in a browser app
  * ```typescript
  * import { defineWorkspace, createClient } from '@epicenter/hq';
- * import { persistence } from '@epicenter/hq/capabilities/persistence';
+ * import { persistence } from '@epicenter/hq/extensions/persistence';
  *
  * const definition = defineWorkspace({
  *   id: 'blog',  // This becomes the IndexedDB database name
@@ -42,9 +42,9 @@ import type { KvDefinitionMap, TableDefinitionMap } from '../../core/schema';
  *   kv: {},
  * });
  *
- * const client = createClient(definition, {
- *   capabilities: { persistence },
- * });
+ * const client = createClient(definition.id)
+ *   .withDefinition(definition)
+ *   .withExtensions({ persistence });
  * ```
  *
  * @example In a Svelte/React component
@@ -53,9 +53,9 @@ import type { KvDefinitionMap, TableDefinitionMap } from '../../core/schema';
  * import { createClient } from '@epicenter/hq';
  *
  * // Inside component setup/onMount:
- * const client = createClient(definition, {
- *   capabilities: { persistence },
- * });
+ * const client = createClient(definition.id)
+ *   .withDefinition(definition)
+ *   .withExtensions({ persistence });
  *
  * // Data persists across page refreshes!
  * // Check DevTools → Application → IndexedDB to see the database
@@ -76,12 +76,13 @@ import type { KvDefinitionMap, TableDefinitionMap } from '../../core/schema';
  *   kv: {},
  * });
  *
- * const blogClient = createClient(blogDefinition, {
- *   capabilities: { persistence },
- * });
- * const notesClient = createClient(notesDefinition, {
- *   capabilities: { persistence },
- * });
+ * const blogClient = createClient(blogDefinition.id)
+ *   .withDefinition(blogDefinition)
+ *   .withExtensions({ persistence });
+ *
+ * const notesClient = createClient(notesDefinition.id)
+ *   .withDefinition(notesDefinition)
+ *   .withExtensions({ persistence });
  *
  * // Workspaces are isolated, each with separate IndexedDB storage
  * ```
@@ -95,14 +96,14 @@ import type { KvDefinitionMap, TableDefinitionMap } from '../../core/schema';
  * 5. Click to inspect the stored YJS document
  * ```
  *
- * @see {@link persistence} from `@epicenter/hq/capabilities/persistence/desktop` for Node.js/filesystem version
+ * @see {@link persistence} from `@epicenter/hq/extensions/persistence/desktop` for Node.js/filesystem version
  */
 export const persistence = (<
 	TTableDefinitionMap extends TableDefinitionMap,
 	TKvDefinitionMap extends KvDefinitionMap,
 >({
 	ydoc,
-}: CapabilityContext<TTableDefinitionMap, TKvDefinitionMap>) => {
+}: ExtensionContext<TTableDefinitionMap, TKvDefinitionMap>) => {
 	// y-indexeddb handles both loading and saving automatically
 	// Uses the YDoc's guid as the IndexedDB database name
 	const persistence = new IndexeddbPersistence(ydoc.guid, ydoc);
@@ -111,10 +112,10 @@ export const persistence = (<
 
 	// Return exports with whenSynced for the y-indexeddb pattern
 	// This allows the workspace to know when data has been loaded from IndexedDB
-	return defineCapabilities({
+	return defineExports({
 		whenSynced: persistence.whenSynced.then(() => {
 			console.log(`[Persistence] IndexedDB synced for ${ydoc.guid}`);
 		}),
 		destroy: () => persistence.destroy(),
 	});
-}) satisfies CapabilityFactory<TableDefinitionMap, KvDefinitionMap>;
+}) satisfies ExtensionFactory<TableDefinitionMap, KvDefinitionMap>;

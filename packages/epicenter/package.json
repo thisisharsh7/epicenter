@@ -6,21 +6,25 @@
 	"exports": {
 		".": "./src/index.ts",
 		"./node": "./src/core/workspace/node.ts",
-		"./capabilities/persistence": {
-			"browser": "./src/capabilities/persistence/index.browser.ts",
-			"node": "./src/capabilities/persistence/index.node.ts",
-			"default": "./src/capabilities/persistence/index.node.ts"
+		"./extensions/persistence": {
+			"browser": "./src/extensions/persistence/index.browser.ts",
+			"node": "./src/extensions/persistence/index.node.ts",
+			"default": "./src/extensions/persistence/index.node.ts"
 		},
-		"./capabilities/persistence/web": "./src/capabilities/persistence/web.ts",
-		"./capabilities/persistence/desktop": "./src/capabilities/persistence/desktop.ts",
-		"./capabilities/websocket-sync": "./src/capabilities/websocket-sync.ts",
-		"./capabilities/markdown": {
-			"node": "./src/capabilities/markdown/index.ts",
-			"default": "./src/capabilities/markdown/index.ts"
+		"./extensions/persistence/web": "./src/extensions/persistence/web.ts",
+		"./extensions/persistence/desktop": "./src/extensions/persistence/desktop.ts",
+		"./extensions/websocket-sync": "./src/extensions/websocket-sync.ts",
+		"./extensions/markdown": {
+			"node": "./src/extensions/markdown/index.ts",
+			"default": "./src/extensions/markdown/index.ts"
 		},
-		"./capabilities/sqlite": {
-			"node": "./src/capabilities/sqlite/index.ts",
-			"default": "./src/capabilities/sqlite/index.ts"
+		"./extensions/sqlite": {
+			"node": "./src/extensions/sqlite/index.ts",
+			"default": "./src/extensions/sqlite/index.ts"
+		},
+		"./extensions/revision-history": {
+			"node": "./src/extensions/revision-history/index.ts",
+			"default": "./src/extensions/revision-history/index.ts"
 		},
 		"./cli": "./src/cli/index.ts",
 		"./server": "./src/server/index.ts"

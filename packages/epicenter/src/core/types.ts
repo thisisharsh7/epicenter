@@ -17,7 +17,7 @@ export type AbsolutePath = string & Brand<'AbsolutePath'>;
  *
  * @example
  * ```typescript
- * // Markdown capability stores user content relative to project root
+ * // Markdown extension stores user content relative to project root
  * const vaultDir = path.join(projectDir, 'vault');
  * const postsDir = path.join(projectDir, 'content/posts');
  * ```

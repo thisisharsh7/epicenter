@@ -1,5 +1,4 @@
 import slugify from '@sindresorhus/slugify';
-import type { TSchema, Static } from 'typebox';
 import type { $Type, IsPrimaryKey, NotNull } from 'drizzle-orm';
 import {
 	integer,
@@ -13,13 +12,15 @@ import {
 	sqliteTable,
 	text,
 } from 'drizzle-orm/sqlite-core';
-import { date, json, tags } from '../../../capabilities/sqlite/builders';
+import type { Static, TSchema } from 'typebox';
+import { date, json, tags } from '../../../extensions/sqlite/builders';
 import type { DateTimeString } from '../fields/datetime';
+import { isNullableFieldSchema } from '../fields/helpers';
 import type {
 	BooleanFieldSchema,
+	DateFieldSchema,
 	FieldSchema,
 	FieldSchemaMap,
-	DateFieldSchema,
 	IdFieldSchema,
 	IntegerFieldSchema,
 	JsonFieldSchema,
@@ -30,8 +31,6 @@ import type {
 	TagsFieldSchema,
 	TextFieldSchema,
 } from '../fields/types';
-
-import { isNullableFieldSchema } from '../fields/helpers';
 
 export function toSqlIdentifier(displayName: string): string {
 	return slugify(displayName, { separator: '_' });
@@ -62,7 +61,7 @@ export type TableDefinitionsToDrizzle<
  *
  * @example
  * ```typescript
- * // In a capability, use tables.$definitions directly
+ * // In an extension, use tables.$definitions directly
  * const drizzleTables = convertTableDefinitionsToDrizzle(tables.$definitions);
  *
  * // Use with Drizzle queries

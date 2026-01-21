@@ -241,7 +241,9 @@ export function createHeadDoc<T extends ProviderFactoryMap>(options: {
 		 * ```typescript
 		 * const actualEpoch = head.setOwnEpoch(2);
 		 * await oldClient.destroy();
-		 * const newClient = createClient(definition, { epoch: actualEpoch });
+		 * const newClient = createClient(definition.id)
+		 *   .withDefinition(definition)
+		 *   .withExtensions({});
 		 * ```
 		 *
 		 * @param epoch - The epoch number to set (clamped to current global epoch)
@@ -259,7 +261,9 @@ export function createHeadDoc<T extends ProviderFactoryMap>(options: {
 		 *
 		 * // Recreate client at the actual epoch
 		 * const epoch = head.setOwnEpoch(2);
-		 * const client = createClient(definition, { epoch });
+		 * const client = createClient(definition.id)
+		 *   .withDefinition(definition)
+		 *   .withExtensions({});
 		 * ```
 		 */
 		setOwnEpoch(epoch: number): number {
