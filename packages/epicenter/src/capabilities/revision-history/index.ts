@@ -15,15 +15,15 @@
  *   kv: {},
  * });
  *
- * const client = createClient(definition, {
- *   extensions: {
+ * const client = createClient(definition.id)
+ *   .withDefinition(definition)
+ *   .withExtensions({
  *     revisions: (ctx) => localRevisionHistory(ctx, {
  *       directory: './workspaces',
  *       epoch: 0,
  *       maxVersions: 50,
  *     }),
- *   },
- * });
+ *   });
  *
  * // Save manually (bypasses debounce)
  * client.extensions.revisions.save('Before refactor');

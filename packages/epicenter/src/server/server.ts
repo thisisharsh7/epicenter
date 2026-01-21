@@ -35,7 +35,9 @@ type AnyWorkspaceClient = WorkspaceClient<any, any, any>;
  *   kv: {},
  * });
  *
- * const client = createClient(definition, { capabilities: { ... } });
+ * const client = createClient(definition.id)
+ *   .withDefinition(definition)
+ *   .withExtensions({ ... });
  *
  * const server = createServer(client, { port: 3913 });
  * server.start();

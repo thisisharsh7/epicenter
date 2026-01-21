@@ -292,5 +292,10 @@ const client = createClient(emailDefinition).withExtensions({
 - [x] Implement `.withExtensions()` method (terminal operation, returns client)
 - [x] ~~Implement `.build()` method~~ (removed - `.withExtensions({})` serves same purpose)
 - [x] Update all usages in codebase (scripts, apps/epicenter)
-- [ ] Update documentation (READMEs, JSDoc examples throughout codebase)
+- [x] Update JSDoc examples in source files (persistence, sqlite, websocket-sync, revision-history, head-doc, server)
+- [x] Update internal READMEs (core/workspace/README.md, core/docs/README.md)
 - [x] ~~Deprecate old API with JSDoc warning~~ (removed old API entirely)
+
+## Out of Scope
+
+The main `packages/epicenter/README.md` documents a planned future API (`withProviders`, `createWithHandlers`, `actions` factory) that was never implemented. It needs a larger documentation overhaul to match the current implementation, but that's a separate task from the builder API migration.

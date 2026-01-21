@@ -89,16 +89,16 @@ export type LocalRevisionHistoryConfig = {
  *   kv: {},
  * });
  *
- * const client = createClient(definition, {
- *   extensions: {
+ * const client = createClient(definition.id)
+ *   .withDefinition(definition)
+ *   .withExtensions({
  *     persistence,
  *     revisions: (ctx) => localRevisionHistory(ctx, {
  *       directory: './workspaces',
  *       epoch: 0,  // Snapshots saved to ./workspaces/{id}/0/snapshots/
  *       maxVersions: 50,
  *     }),
- *   },
- * });
+ *   });
  *
  * // Save a version manually (bypasses debounce)
  * client.extensions.revisions.save('Before refactor');
@@ -116,15 +116,15 @@ export type LocalRevisionHistoryConfig = {
  *
  * @example Custom debounce interval
  * ```typescript
- * const client = createClient(definition, {
- *   extensions: {
+ * const client = createClient(definition.id)
+ *   .withDefinition(definition)
+ *   .withExtensions({
  *     revisions: (ctx) => localRevisionHistory(ctx, {
  *       directory: './workspaces',
  *       epoch: 0,
  *       debounceMs: 5000,  // Save 5 seconds after last change
  *     }),
- *   },
- * });
+ *   });
  * ```
  *
  * @example Google Docs-style slider UI

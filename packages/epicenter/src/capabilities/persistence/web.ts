@@ -42,9 +42,9 @@ import type { KvDefinitionMap, TableDefinitionMap } from '../../core/schema';
  *   kv: {},
  * });
  *
- * const client = createClient(definition, {
- *   extensions: { persistence },
- * });
+ * const client = createClient(definition.id)
+ *   .withDefinition(definition)
+ *   .withExtensions({ persistence });
  * ```
  *
  * @example In a Svelte/React component
@@ -53,9 +53,9 @@ import type { KvDefinitionMap, TableDefinitionMap } from '../../core/schema';
  * import { createClient } from '@epicenter/hq';
  *
  * // Inside component setup/onMount:
- * const client = createClient(definition, {
- *   extensions: { persistence },
- * });
+ * const client = createClient(definition.id)
+ *   .withDefinition(definition)
+ *   .withExtensions({ persistence });
  *
  * // Data persists across page refreshes!
  * // Check DevTools → Application → IndexedDB to see the database
@@ -76,12 +76,13 @@ import type { KvDefinitionMap, TableDefinitionMap } from '../../core/schema';
  *   kv: {},
  * });
  *
- * const blogClient = createClient(blogDefinition, {
- *   extensions: { persistence },
- * });
- * const notesClient = createClient(notesDefinition, {
- *   extensions: { persistence },
- * });
+ * const blogClient = createClient(blogDefinition.id)
+ *   .withDefinition(blogDefinition)
+ *   .withExtensions({ persistence });
+ *
+ * const notesClient = createClient(notesDefinition.id)
+ *   .withDefinition(notesDefinition)
+ *   .withExtensions({ persistence });
  *
  * // Workspaces are isolated, each with separate IndexedDB storage
  * ```
