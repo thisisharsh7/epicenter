@@ -54,7 +54,6 @@ export type TauriPersistenceConfig = {
  * ```typescript
  * // In a provider factory
  * const registry = createRegistryDoc({
- *   registryId: REGISTRY_ID,
  *   providers: {
  *     persistence: ({ ydoc }) => tauriPersistence(ydoc, ['registry']),
  *   },

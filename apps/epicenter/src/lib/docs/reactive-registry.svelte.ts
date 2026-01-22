@@ -19,7 +19,6 @@ import { createSubscriber } from 'svelte/reactivity';
  *
  * const registry = reactiveRegistryDoc(
  *   createRegistryDoc({
- *     registryId: 'local',
  *     providers: { persistence: ({ ydoc }) => tauriPersistence(ydoc, ['registry']) },
  *   })
  * );

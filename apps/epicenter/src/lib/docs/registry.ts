@@ -2,13 +2,10 @@ import { createRegistryDoc } from '@epicenter/hq';
 import { createHead } from './head';
 import { tauriPersistence } from './persistence/tauri-persistence';
 
-const REGISTRY_ID = 'local';
-
 /**
  * Create the base registry doc with persistence.
  */
 const baseRegistry = createRegistryDoc({
-	registryId: REGISTRY_ID,
 	providers: {
 		persistence: ({ ydoc }) => tauriPersistence(ydoc, ['registry']),
 	},

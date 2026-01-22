@@ -11,12 +11,18 @@ import type {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * The registry ID used as the Y.Doc GUID.
+ *
+ * This is a constant because there's only one registry per app instance.
+ * The registry tracks which workspaces exist for this user.
+ */
+const REGISTRY_ID = 'registry';
+
+/**
  * Create a Registry Y.Doc wrapper for managing a user's workspace list.
  *
  * Each user has one Registry Y.Doc that syncs only across their own devices.
  * It stores a set of workspace IDs (not the workspace data itself).
- *
- * Y.Doc ID: `{registryId}` (from auth server)
  *
  * Structure:
  * ```
@@ -27,7 +33,6 @@ import type {
  * @example
  * ```typescript
  * const registry = createRegistryDoc({
- *   registryId: 'xyz789012345abc',
  *   providers: {
  *     persistence: ({ ydoc }) => tauriPersistence(ydoc, ['registry']),
  *   },
@@ -55,13 +60,12 @@ import type {
  * });
  * ```
  */
-export function createRegistryDoc<T extends ProviderFactoryMap>(options: {
-	registryId: string;
-	ydoc?: Y.Doc;
+export function createRegistryDoc<T extends ProviderFactoryMap>({
+	providers: providerFactories,
+}: {
 	providers: T;
 }) {
-	const { registryId, providers: providerFactories } = options;
-	const ydoc = options.ydoc ?? new Y.Doc({ guid: registryId });
+	const ydoc = new Y.Doc({ guid: REGISTRY_ID });
 	const workspacesMap = ydoc.getMap<true>('workspaces');
 
 	// Initialize providers synchronously — async work is in their whenSynced
@@ -80,7 +84,7 @@ export function createRegistryDoc<T extends ProviderFactoryMap>(options: {
 		ydoc,
 
 		/** The registry ID (Y.Doc guid). */
-		registryId,
+		registryId: REGISTRY_ID,
 
 		/** Provider exports. */
 		providers,
