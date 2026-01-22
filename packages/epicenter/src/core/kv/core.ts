@@ -8,6 +8,9 @@ import { createKvHelpers } from './kv-helper';
 
 const KV_KEY_PATTERN = regex('^[a-z][a-z0-9_]*$');
 
+/** Y.Map storing all KV values, keyed by key name. */
+export type KvMap = Y.Map<KvValue>;
+
 export type { KvHelper } from './kv-helper';
 
 /**
@@ -67,6 +70,34 @@ export function createKv<TKvDefinitionMap extends KvDefinitionMap>(
 
 	return {
 		...kvHelpers,
+
+		/**
+		 * Direct access to the underlying Y.Map storing all KV values.
+		 *
+		 * **Escape hatch for advanced use cases.** Using `$raw` bypasses all
+		 * validation and type safety. Prefer the typed KV helpers for
+		 * normal operations.
+		 *
+		 * Use cases for `$raw`:
+		 * - Bulk operations in a single `ydoc.transact()` for performance
+		 * - Custom observation patterns with `observe` / `observeDeep`
+		 * - Direct iteration over all KV entries
+		 * - Interop with external YJS tools
+		 *
+		 * @example
+		 * ```typescript
+		 * // Direct iteration
+		 * for (const [key, value] of kv.$raw.entries()) {
+		 *   console.log(key, value);
+		 * }
+		 *
+		 * // Custom observation
+		 * kv.$raw.observe((event) => {
+		 *   // Raw YJS map events...
+		 * });
+		 * ```
+		 */
+		$raw: ykvMap,
 
 		/**
 		 * The raw KV definitions passed to createKv.

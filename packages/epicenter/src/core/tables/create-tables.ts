@@ -1,7 +1,11 @@
 import { regex } from 'arkregex';
 import type * as Y from 'yjs';
 import type { TableDefinitionMap } from '../schema';
-import { createTableHelpers, type TableHelper } from './table-helper';
+import {
+	createTableHelpers,
+	type TableHelper,
+	type TablesMap,
+} from './table-helper';
 
 /**
  * Valid table name pattern: lowercase letters, numbers, and underscores, starting with a letter.
@@ -47,9 +51,12 @@ const COLUMN_NAME_PATTERN = regex('^[a-z][a-zA-Z0-9_]*$');
 export type {
 	GetResult,
 	InvalidRowResult,
+	RowMap,
 	RowResult,
 	TableHelper,
+	TableMap,
 	TableRowChange,
+	TablesMap,
 	ValidRowResult,
 } from './table-helper';
 
@@ -124,9 +131,39 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 	}
 
 	const tableHelpers = createTableHelpers({ ydoc, tableDefinitions });
+	const ytables: TablesMap = ydoc.getMap('tables');
 
 	return {
 		...tableHelpers,
+
+		/**
+		 * Direct access to the underlying Y.Map storing all tables.
+		 *
+		 * **Escape hatch for advanced use cases.** Using `$raw` bypasses all
+		 * validation and type safety. Prefer the typed table helpers for
+		 * normal operations.
+		 *
+		 * Use cases for `$raw`:
+		 * - Bulk operations in a single `ydoc.transact()` for performance
+		 * - Custom observation patterns with `observeDeep`
+		 * - Interop with external YJS tools
+		 * - Non-standard data modeling (nested Y.Maps, Y.Arrays)
+		 *
+		 * @example
+		 * ```typescript
+		 * // Bulk operation in single transaction
+		 * ydoc.transact(() => {
+		 *   const rawPostsTable = tables.$raw.get('posts');
+		 *   // Direct Y.Map manipulation...
+		 * });
+		 *
+		 * // Custom deep observation
+		 * tables.$raw.observeDeep((events) => {
+		 *   // Fine-grained YJS events across all tables...
+		 * });
+		 * ```
+		 */
+		$raw: ytables,
 
 		/**
 		 * The raw table definitions passed to createTables.

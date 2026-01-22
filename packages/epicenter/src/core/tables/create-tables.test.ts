@@ -762,4 +762,80 @@ describe('createTables', () => {
 			unsub2();
 		});
 	});
+
+	describe('$raw escape hatch', () => {
+		test('tables.$raw provides direct access to the root TablesMap', () => {
+			const ydoc = new Y.Doc({ guid: 'test-workspace' });
+			const tables = createTables(ydoc, {
+				posts: table({
+					name: 'Posts',
+					description: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
+				}),
+			});
+
+			// $raw should be the same Y.Map as ydoc.getMap('tables')
+			expect(tables.$raw).toBe(ydoc.getMap('tables'));
+
+			// After upserting, the raw map should have the table
+			tables.posts.upsert({ id: '1', title: 'Hello' });
+			expect(tables.$raw.has('posts')).toBe(true);
+		});
+
+		test('table.$raw provides direct access to the TableMap for that table', () => {
+			const ydoc = new Y.Doc({ guid: 'test-workspace' });
+			const tables = createTables(ydoc, {
+				posts: table({
+					name: 'Posts',
+					description: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
+				}),
+			});
+
+			// Insert via helper
+			tables.posts.upsert({ id: '1', title: 'Hello' });
+
+			// Access raw TableMap
+			const rawPostsTable = tables.posts.$raw;
+			expect(rawPostsTable.has('1')).toBe(true);
+
+			// Raw row map should have the cell values
+			const rawRow = rawPostsTable.get('1');
+			expect(rawRow?.get('title')).toBe('Hello');
+		});
+
+		test('mutations via $raw are reflected in helpers', () => {
+			const ydoc = new Y.Doc({ guid: 'test-workspace' });
+			const tables = createTables(ydoc, {
+				posts: table({
+					name: 'Posts',
+					description: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
+				}),
+			});
+
+			// Insert via helper first
+			tables.posts.upsert({ id: '1', title: 'Original' });
+
+			// Mutate via $raw
+			const rawRow = tables.posts.$raw.get('1');
+			rawRow?.set('title', 'Modified via raw');
+
+			// Should be reflected in helper
+			const result = tables.posts.get('1');
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.row.title).toBe('Modified via raw');
+			}
+		});
+	});
 });

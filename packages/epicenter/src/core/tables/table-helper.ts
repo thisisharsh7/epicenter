@@ -2,9 +2,9 @@ import { Compile } from 'typebox/compile';
 import type { TLocalizedValidationError } from 'typebox/error';
 import * as Y from 'yjs';
 import type {
+	FieldSchemaMap,
 	PartialRow,
 	Row,
-	FieldSchemaMap,
 	TableDefinitionMap,
 } from '../schema';
 import { fieldsSchemaToTypebox } from '../schema';
@@ -30,13 +30,13 @@ import { fieldsSchemaToTypebox } from '../schema';
 export type ValidationError = TLocalizedValidationError;
 
 /** Y.Map storing cell values for a single row, keyed by column name. */
-type RowMap = Y.Map<unknown>;
+export type RowMap = Y.Map<unknown>;
 
 /** Y.Map storing rows for a single table, keyed by row ID. */
-type TableMap = Y.Map<RowMap>;
+export type TableMap = Y.Map<RowMap>;
 
 /** Y.Map storing all tables, keyed by table name. */
-type TablesMap = Y.Map<TableMap>;
+export type TablesMap = Y.Map<TableMap>;
 
 /** A row that passed validation. */
 export type ValidRowResult<TRow> = { status: 'valid'; row: TRow };
@@ -749,6 +749,39 @@ function createTableHelper<TFieldSchemaMap extends FieldSchemaMap>({
 				ytables.unobserve(ytablesObserver);
 				teardownTableObservers();
 			};
+		},
+
+		/**
+		 * Direct access to the underlying Y.Map for this table.
+		 *
+		 * **Escape hatch for advanced use cases.** Using `$raw` bypasses all
+		 * validation and type safety. Prefer the typed helper methods for
+		 * normal operations.
+		 *
+		 * Returns the TableMap (Y.Map<RowMap>) for this table. Creates the
+		 * Y.Map if it doesn't exist yet.
+		 *
+		 * Use cases for `$raw`:
+		 * - Bulk operations in a single `ydoc.transact()` for performance
+		 * - Custom observation patterns with `observe` / `observeDeep`
+		 * - Direct iteration over row Y.Maps
+		 * - Interop with external YJS tools
+		 *
+		 * @example
+		 * ```typescript
+		 * // Direct iteration over raw row maps
+		 * for (const [rowId, rowMap] of tables.posts.$raw.entries()) {
+		 *   console.log(rowId, rowMap.toJSON());
+		 * }
+		 *
+		 * // Custom observation
+		 * tables.posts.$raw.observe((event) => {
+		 *   // Raw YJS map events...
+		 * });
+		 * ```
+		 */
+		get $raw(): TableMap {
+			return getOrCreateTableMap();
 		},
 
 		$inferRow: null as unknown as TRow,
