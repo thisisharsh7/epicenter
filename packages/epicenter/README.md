@@ -668,31 +668,27 @@ tables('posts').clear();
 
 ### Reactive Updates
 
-**`observe({ onAdd?, onUpdate?, onDelete? })`**
+**`observe(callback)`**
 
 Watch for real-time changes. Returns unsubscribe function.
 
-Callbacks receive `Result` types with validation errors:
+The callback receives a `Map<id, action>` where action is `'add' | 'update' | 'delete'`. To get row data, call `table.get(id)`; the observer intentionally does not include row data to avoid unnecessary reconstruction.
 
 ```typescript
-const unsubscribe = tables('posts').observe({
-	onAdd: (result) => {
-		if (result.error) {
-			console.error('Invalid row added:', result.error);
+const unsubscribe = tables.posts.observe((changes, transaction) => {
+	for (const [id, action] of changes) {
+		if (action === 'delete') {
+			console.log('Post deleted:', id);
+			removeFromCache(id);
 		} else {
-			console.log('New post:', result.data);
+			// Fetch row data only when needed
+			const result = tables.posts.get(id);
+			if (result.status === 'valid') {
+				console.log(`Post ${action}:`, result.row);
+				updateCache(id, result.row);
+			}
 		}
-	},
-	onUpdate: (result) => {
-		if (result.error) {
-			console.error('Invalid row updated:', result.error);
-		} else {
-			console.log('Post updated:', result.data);
-		}
-	},
-	onDelete: (id) => {
-		console.log('Post deleted:', id);
-	},
+	}
 });
 
 // Stop watching
@@ -701,9 +697,11 @@ unsubscribe();
 
 **How it works:**
 
-- `onAdd`: Fires when a new row Y.Map is added to the table
-- `onUpdate`: Fires when any field changes within an existing row (add/modify/delete fields, edit Y.Text, modify Y.Array)
-- `onDelete`: Fires when a row Y.Map is removed from the table
+- Changes are batched per Y.Transaction; bulk operations fire one callback
+- The `transaction` object enables origin checks (local vs remote changes)
+- `'add'`: Fires when a new row Y.Map is added to the table
+- `'update'`: Fires when any field changes within an existing row
+- `'delete'`: Fires when a row Y.Map is removed from the table
 
 ## Provider System
 
@@ -1572,7 +1570,7 @@ import { type Tables, type TableHelper } from '@epicenter/hq';
 - `has({ id })`, `count()`
 - `delete({ id })`, `deleteMany({ ids })`, `clear()`
 - `filter(predicate)`, `find(predicate)`
-- `observe({ onAdd?, onUpdate?, onDelete? })`
+- `observe(callback)`: Watch for changes (receives `Map<id, 'add'|'update'|'delete'>`)
 
 ### Providers
 
