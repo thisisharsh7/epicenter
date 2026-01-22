@@ -458,12 +458,11 @@ export function createHeadDoc<T extends ProviderFactoryMap>(options: {
 		 * @example
 		 * ```typescript
 		 * if (!head.hasMeta()) {
-		 *   // Migrate from old Workspace Doc
-		 *   const oldMeta = workspaceDoc.getDefinition();
+		 *   // Set initial identity for new workspace
 		 *   head.setMeta({
-		 *     name: oldMeta.name,
-		 *     icon: oldMeta.icon,
-		 *     description: oldMeta.description,
+		 *     name: 'My Workspace',
+		 *     icon: null,
+		 *     description: '',
 		 *   });
 		 * }
 		 * ```

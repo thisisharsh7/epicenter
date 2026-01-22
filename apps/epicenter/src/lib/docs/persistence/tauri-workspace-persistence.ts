@@ -58,18 +58,21 @@ const FILE_NAMES = {
  *
  * Persists a workspace Y.Doc with multiple outputs:
  * - `workspace.yjs` - Full Y.Doc binary for sync
- * - `definition.json` - Human-readable schema (git-friendly)
+ * - `schema.json` - Human-readable table/KV schemas (git-friendly)
  * - `kv.json` - Human-readable settings
  *
  * **Storage Layout:**
  * ```
  * {appLocalDataDir}/workspaces/{workspaceId}/{epoch}/
  * ├── workspace.yjs
- * ├── definition.json
+ * ├── schema.json
  * ├── kv.json
  * └── snapshots/
  *     └── {unix-ms}.ysnap
  * ```
+ *
+ * Note: Workspace identity (name, icon, description) lives in Head Doc's
+ * Y.Map('meta'), not in the Workspace Doc.
  *
  * Note: Unlike the Node.js version, this does NOT include SQLite persistence
  * since Tauri apps use a different approach for database access.
