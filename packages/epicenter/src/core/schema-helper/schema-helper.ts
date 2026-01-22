@@ -223,15 +223,6 @@ function createFieldsHelper(
 			fieldsMap.observe(handler);
 			return () => fieldsMap.unobserve(handler);
 		},
-
-		/**
-		 * Direct access to the underlying Y.Map for fields.
-		 *
-		 * **Escape hatch for advanced use cases.**
-		 */
-		get $raw(): FieldsMap {
-			return getOrCreateFieldsMap();
-		},
 	};
 }
 
@@ -325,23 +316,38 @@ function createTableSchemaHelper(
 		 * Table metadata operations (name, icon, description).
 		 */
 		metadata: createMetadataHelper(tableSchemaMap),
-
-		/**
-		 * Direct access to this table's schema Y.Map.
-		 *
-		 * **Escape hatch for advanced use cases.**
-		 */
-		$raw: tableSchemaMap,
 	};
 }
 
 export type TableSchemaHelper = ReturnType<typeof createTableSchemaHelper>;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Helper: Tables schema collection helper
+// Helper: Tables schema collection helper (callable)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function createTablesSchemaHelper(schemaMap: SchemaMap) {
+/**
+ * Callable function type for accessing table schema helpers.
+ *
+ * The schema.tables object is callable: `schema.tables('posts')` returns a TableSchemaHelper.
+ * It also has properties for utility methods: `schema.tables.get()`, `schema.tables.set()`, etc.
+ */
+export type TablesSchemaHelper = {
+	// Call signature
+	(tableName: string): TableSchemaHelper | undefined;
+
+	// Properties
+	get(tableName: string): StoredTableSchema | undefined;
+	getAll(): Record<string, StoredTableSchema>;
+	set(tableName: string, definition: TableSchemaInput): void;
+	delete(tableName: string): boolean;
+	has(tableName: string): boolean;
+	keys(): string[];
+	observe(
+		callback: (changes: SchemaChange<StoredTableSchema>[]) => void,
+	): () => void;
+};
+
+function createTablesSchemaHelper(schemaMap: SchemaMap): TablesSchemaHelper {
 	const getTablesMap = (): TablesSchemaMap | null => {
 		return (schemaMap.get('tables') as TablesSchemaMap) ?? null;
 	};
@@ -374,9 +380,35 @@ function createTablesSchemaHelper(schemaMap: SchemaMap) {
 		return helper;
 	};
 
-	return {
+	// ════════════════════════════════════════════════════════════════════
+	// BUILD CALLABLE FUNCTION WITH PROPERTIES
+	// ════════════════════════════════════════════════════════════════════
+
+	/**
+	 * The main accessor function. Call with a table name to get a per-table helper.
+	 *
+	 * Returns undefined if the table doesn't exist.
+	 *
+	 * @example
+	 * ```typescript
+	 * const postsHelper = schema.tables('posts');
+	 * if (postsHelper) {
+	 *   postsHelper.fields.set('dueDate', date());
+	 *   postsHelper.metadata.set({ name: 'Blog Posts' });
+	 * }
+	 * ```
+	 */
+	const tablesAccessor = (tableName: string): TableSchemaHelper | undefined => {
+		return getTableHelper(tableName);
+	};
+
+	// Build the callable function with properties
+	// NOTE: We use Object.assign for methods but defineProperty for getters
+	// because Object.assign evaluates getters immediately (which would create
+	// the tables Y.Map eagerly, breaking the "empty schema" test case).
+	const result = Object.assign(tablesAccessor, {
 		/**
-		 * Get a table's schema by name.
+		 * Get a table's schema by name (as a snapshot, not a helper).
 		 *
 		 * @example
 		 * ```typescript
@@ -585,37 +617,10 @@ function createTablesSchemaHelper(schemaMap: SchemaMap) {
 			tablesMap.observe(handler);
 			return () => tablesMap.unobserve(handler);
 		},
+	});
 
-		/**
-		 * Direct access to the underlying Y.Map for tables schema.
-		 *
-		 * **Escape hatch for advanced use cases.**
-		 */
-		get $raw(): TablesSchemaMap {
-			return getOrCreateTablesMap();
-		},
-
-		/**
-		 * Get a per-table schema helper for granular operations.
-		 *
-		 * Returns undefined if the table doesn't exist.
-		 *
-		 * @example
-		 * ```typescript
-		 * const postsHelper = schema.tables.table('posts');
-		 * if (postsHelper) {
-		 *   postsHelper.fields.set('dueDate', date());
-		 *   postsHelper.metadata.set({ name: 'Blog Posts' });
-		 * }
-		 * ```
-		 */
-		table(tableName: string): TableSchemaHelper | undefined {
-			return getTableHelper(tableName);
-		},
-	};
+	return result as TablesSchemaHelper;
 }
-
-export type TablesSchemaHelper = ReturnType<typeof createTablesSchemaHelper>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper: KV schema collection helper
@@ -812,15 +817,6 @@ function createKvSchemaHelper(schemaMap: SchemaMap) {
 			kvMap.observe(handler);
 			return () => kvMap.unobserve(handler);
 		},
-
-		/**
-		 * Direct access to the underlying Y.Map for KV schema.
-		 *
-		 * **Escape hatch for advanced use cases.**
-		 */
-		get $raw(): KvSchemaMap {
-			return getOrCreateKvMap();
-		},
 	};
 }
 
@@ -943,13 +939,6 @@ export function createSchema(schemaMap: SchemaMap) {
 		 * KV schema operations.
 		 */
 		kv: createKvSchemaHelper(schemaMap),
-
-		/**
-		 * Direct access to the underlying schema Y.Map.
-		 *
-		 * **Escape hatch for advanced use cases.**
-		 */
-		$raw: schemaMap,
 	};
 }
 

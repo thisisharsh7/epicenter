@@ -185,7 +185,7 @@ const blogActions = {
 		}),
 		handler: async ({ title, category }) => {
 			const id = generateId();
-			client.tables.posts.upsert({
+			client.tables('posts').upsert({
 				id,
 				title,
 				content: null,
@@ -220,7 +220,7 @@ if (result.error) {
 }
 
 // 5. Query via table operations
-const allPosts = client.tables.posts.getAll();
+const allPosts = client.tables('posts').getAll();
 console.log('All posts:', allPosts);
 
 // 6. Query published posts (uses SQLite extension)
@@ -271,10 +271,10 @@ tables: {
 At runtime, tables become YJS-backed collections with CRUD operations:
 
 ```typescript
-tables.posts.upsert({ id: '1', title: 'Hello', ... })
-tables.posts.get({ id: '1' })
-tables.posts.update({ id: '1', views: 100 })
-tables.posts.delete({ id: '1' })
+tables('posts').upsert({ id: '1', title: 'Hello', ... })
+tables('posts').get({ id: '1' })
+tables('posts').update({ id: '1', views: 100 })
+tables('posts').delete({ id: '1' })
 ```
 
 ### Extensions
@@ -334,7 +334,7 @@ const blogActions = {
   getPost: defineQuery({
     input: type({ id: 'string' }),
     handler: ({ id }) => {
-      return client.tables.posts.get({ id });
+      return client.tables('posts').get({ id });
     }
   }),
 
@@ -342,7 +342,7 @@ const blogActions = {
     input: type({ title: 'string' }),
     handler: ({ title }) => {
       const id = generateId();
-      client.tables.posts.upsert({ id, title, ... });
+      client.tables('posts').upsert({ id, title, ... });
       return { id };
     }
   })
@@ -497,7 +497,7 @@ preferences: json({
 
 ## Table Operations
 
-All table operations are accessed via `tables.{tableName}`.
+All table operations are accessed via `tables('{tableName}')`.
 
 ### Upsert Operations
 
@@ -511,7 +511,7 @@ For Y.js columns (ytext, tags), provide plain values:
 - tags: provide arrays
 
 ```typescript
-tables.posts.upsert({
+tables('posts').upsert({
 	id: generateId(),
 	title: 'Hello World',
 	content: 'Post content here', // For ytext column, pass string
@@ -535,7 +535,7 @@ This is intentional: Y.js uses Last-Writer-Wins at the key level when setting a 
 For Y.js columns, pass plain values and they'll be synced to existing Y.Text/Y.Array.
 
 ```typescript
-tables.posts.update({
+tables('posts').update({
 	id: '1',
 	title: 'New Title',
 	tags: ['updated', 'tags'], // Syncs to existing Y.Array
@@ -562,7 +562,7 @@ Returns Y.js objects for collaborative editing:
 - tags columns: Y.Array instances
 
 ```typescript
-const result = tables.posts.get({ id: '1' });
+const result = tables('posts').get({ id: '1' });
 switch (result.status) {
 	case 'valid':
 		console.log('Row:', result.row);
@@ -582,7 +582,7 @@ switch (result.status) {
 Get all rows with their validation status. Returns `RowResult<Row>[]`.
 
 ```typescript
-const results = tables.posts.getAll();
+const results = tables('posts').getAll();
 for (const result of results) {
 	if (result.status === 'valid') {
 		console.log(result.row.title);
@@ -597,7 +597,7 @@ for (const result of results) {
 Get all valid rows. Skips invalid rows that fail validation.
 
 ```typescript
-const posts = tables.posts.getAllValid(); // Row[]
+const posts = tables('posts').getAllValid(); // Row[]
 ```
 
 **`getAllInvalid()`**
@@ -605,7 +605,7 @@ const posts = tables.posts.getAllValid(); // Row[]
 Get validation errors for all invalid rows.
 
 ```typescript
-const errors = tables.posts.getAllInvalid(); // RowValidationError[]
+const errors = tables('posts').getAllInvalid(); // RowValidationError[]
 ```
 
 **`has({ id })`**
@@ -613,7 +613,7 @@ const errors = tables.posts.getAllInvalid(); // RowValidationError[]
 Check if a row exists.
 
 ```typescript
-const exists = tables.posts.has({ id: '1' }); // boolean
+const exists = tables('posts').has({ id: '1' }); // boolean
 ```
 
 **`count()`**
@@ -621,7 +621,7 @@ const exists = tables.posts.has({ id: '1' }); // boolean
 Get total row count.
 
 ```typescript
-const total = tables.posts.count(); // number
+const total = tables('posts').count(); // number
 ```
 
 **`filter(predicate)`**
@@ -629,7 +629,7 @@ const total = tables.posts.count(); // number
 Filter valid rows by predicate. Invalid rows are skipped.
 
 ```typescript
-const published = tables.posts.filter((row) => row.published);
+const published = tables('posts').filter((row) => row.published);
 ```
 
 **`find(predicate)`**
@@ -637,7 +637,7 @@ const published = tables.posts.filter((row) => row.published);
 Find first valid row matching predicate. Returns `Row | null`.
 
 ```typescript
-const first = tables.posts.find((row) => row.published);
+const first = tables('posts').find((row) => row.published);
 ```
 
 ### Delete Operations
@@ -647,7 +647,7 @@ const first = tables.posts.find((row) => row.published);
 Delete a row.
 
 ```typescript
-tables.posts.delete({ id: '1' });
+tables('posts').delete({ id: '1' });
 ```
 
 **`deleteMany({ ids })`**
@@ -655,7 +655,7 @@ tables.posts.delete({ id: '1' });
 Delete multiple rows.
 
 ```typescript
-tables.posts.deleteMany({ ids: ['1', '2', '3'] });
+tables('posts').deleteMany({ ids: ['1', '2', '3'] });
 ```
 
 **`clear()`**
@@ -663,7 +663,7 @@ tables.posts.deleteMany({ ids: ['1', '2', '3'] });
 Delete all rows.
 
 ```typescript
-tables.posts.clear();
+tables('posts').clear();
 ```
 
 ### Reactive Updates
@@ -675,7 +675,7 @@ Watch for real-time changes. Returns unsubscribe function.
 Callbacks receive `Result` types with validation errors:
 
 ```typescript
-const unsubscribe = tables.posts.observe({
+const unsubscribe = tables('posts').observe({
 	onAdd: (result) => {
 		if (result.error) {
 			console.error('Invalid row added:', result.error);
@@ -1013,11 +1013,11 @@ export const createPost = defineMutation({
 		}
 
 		// Access dependency workspace tables
-		const allUsers = authClient.tables.users.getAll();
+		const allUsers = authClient.tables('users').getAll();
 
 		// Create post in local workspace
 		const id = generateId();
-		blogClient.tables.posts.upsert({
+		blogClient.tables('posts').upsert({
 			id,
 			title,
 			authorId,
@@ -1043,7 +1043,7 @@ Read operations with no side effects. Use HTTP GET when exposed via API/MCP.
 defineQuery({
 	input: type({ id: 'string' }),
 	handler: ({ id }) => {
-		const post = db.tables.posts.get({ id });
+		const post = db.tables('posts').get({ id });
 		if (!post) {
 			return Err({ message: 'Not found' });
 		}
@@ -1055,7 +1055,7 @@ defineQuery({
 defineQuery({
 	input: type({ limit: 'number' }),
 	handler: ({ limit }) => {
-		return db.tables.posts.getAll().slice(0, limit);
+		return db.tables('posts').getAll().slice(0, limit);
 	},
 });
 
@@ -1073,7 +1073,7 @@ defineQuery({
 // No input, returns T (can't fail)
 defineQuery({
 	handler: () => {
-		return db.tables.posts.count();
+		return db.tables('posts').count();
 	},
 });
 ```
@@ -1102,7 +1102,7 @@ defineMutation({
 	input: type({ title: 'string' }),
 	handler: ({ title }) => {
 		const id = generateId();
-		db.tables.posts.upsert({
+		db.tables('posts').upsert({
 			id,
 			title,
 			published: false,
@@ -1115,7 +1115,7 @@ defineMutation({
 defineMutation({
 	input: type({ id: 'string' }),
 	handler: ({ id }) => {
-		db.tables.posts.delete({ id });
+		db.tables('posts').delete({ id });
 	},
 });
 ```
@@ -1251,7 +1251,7 @@ const blogClient = createClient(blogWorkspace.id)
 	.withExtensions({ sqlite: sqliteProvider });
 
 // Direct table access
-const posts = blogClient.tables.posts.getAllValid();
+const posts = blogClient.tables('posts').getAllValid();
 
 // Cleanup when done
 await blogClient.destroy();
@@ -1262,7 +1262,7 @@ await blogClient.destroy();
 		.withDefinition(blogWorkspace)
 		.withExtensions({ sqlite: sqliteProvider });
 
-	client.tables.posts.upsert({ id: '1', title: 'Hello' });
+	client.tables('posts').upsert({ id: '1', title: 'Hello' });
 }
 ```
 
@@ -1402,7 +1402,7 @@ Create a client directly for standalone scripts. Use `await using` for automatic
 		.withDefinition(blogWorkspace)
 		.withExtensions({ sqlite: sqliteProvider });
 
-	client.tables.posts.upsert({ id: '1', title: 'Hello' });
+	client.tables('posts').upsert({ id: '1', title: 'Hello' });
 	// Automatic cleanup when block exits
 }
 ```
@@ -1470,7 +1470,7 @@ const client = createClient(blogWorkspace.id)
 
 // Use tables directly
 const id = generateId();
-client.tables.posts.upsert({ id, title: 'Hello' });
+client.tables('posts').upsert({ id, title: 'Hello' });
 ```
 
 ### Client Properties

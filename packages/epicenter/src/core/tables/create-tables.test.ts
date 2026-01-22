@@ -20,7 +20,7 @@ describe('createTables', () => {
 		});
 
 		// Create a row
-		doc.posts.upsert({
+		doc('posts').upsert({
 			id: '1',
 			title: 'Test Post',
 			view_count: 0,
@@ -28,7 +28,7 @@ describe('createTables', () => {
 		});
 
 		// Retrieve the row
-		const result = doc.posts.get('1');
+		const result = doc('posts').get('1');
 		expect(result.status).toBe('valid');
 		if (result.status === 'valid') {
 			expect(result.row.title).toBe('Test Post');
@@ -53,14 +53,14 @@ describe('createTables', () => {
 		});
 
 		// Create multiple rows
-		doc.posts.upsertMany([
+		doc('posts').upsertMany([
 			{ id: '1', title: 'Post 1', view_count: 10, published: true },
 			{ id: '2', title: 'Post 2', view_count: 20, published: false },
 		]);
 
 		// Retrieve and verify rows
-		const row1 = doc.posts.get('1');
-		const row2 = doc.posts.get('2');
+		const row1 = doc('posts').get('1');
+		const row2 = doc('posts').get('2');
 		expect(row1.status).toBe('valid');
 		expect(row2.status).toBe('valid');
 		if (row1.status === 'valid') {
@@ -86,18 +86,18 @@ describe('createTables', () => {
 			}),
 		});
 
-		doc.posts.upsertMany([
+		doc('posts').upsertMany([
 			{ id: '1', title: 'Post 1', view_count: 10, published: true },
 			{ id: '2', title: 'Post 2', view_count: 20, published: false },
 			{ id: '3', title: 'Post 3', view_count: 30, published: true },
 		]);
 
 		// Filter published posts
-		const publishedPosts = doc.posts.filter((post) => post.published);
+		const publishedPosts = doc('posts').filter((post) => post.published);
 		expect(publishedPosts).toHaveLength(2);
 
 		// Find first unpublished post
-		const firstDraft = doc.posts.find((post) => !post.published);
+		const firstDraft = doc('posts').find((post) => !post.published);
 		expect(firstDraft).not.toBeNull();
 		if (firstDraft) {
 			expect(firstDraft.id).toBe('2');
@@ -120,14 +120,14 @@ describe('createTables', () => {
 		});
 
 		// Test get() with non-existent id
-		const getResult = doc.posts.get('non-existent');
+		const getResult = doc('posts').get('non-existent');
 		expect(getResult.status).toBe('not_found');
 		if (getResult.status === 'not_found') {
 			expect(getResult.id).toBe('non-existent');
 		}
 
 		// Test find() with no matches
-		const findResult = doc.posts.find((post) => post.id === 'non-existent');
+		const findResult = doc('posts').find((post) => post.id === 'non-existent');
 		expect(findResult).toBeNull();
 	});
 
@@ -145,26 +145,26 @@ describe('createTables', () => {
 			}),
 		});
 
-		doc.posts.upsert({
+		doc('posts').upsert({
 			id: '1',
 			title: 'rtxt_hello123',
 			tags: ['typescript', 'javascript'],
 		});
 
-		const result1 = doc.posts.get('1');
+		const result1 = doc('posts').get('1');
 		expect(result1.status).toBe('valid');
 		if (result1.status === 'valid') {
 			expect(result1.row.title).toBe('rtxt_hello123');
 			expect(result1.row.tags).toEqual(['typescript', 'javascript']);
 		}
 
-		doc.posts.upsert({
+		doc('posts').upsert({
 			id: '2',
 			title: 'rtxt_second456',
 			tags: ['python'],
 		});
 
-		const rows = doc.posts.getAllValid();
+		const rows = doc('posts').getAllValid();
 		expect(rows).toHaveLength(2);
 		const firstRow = rows[0]!;
 		const secondRow = rows[1]!;
@@ -186,9 +186,9 @@ describe('createTables', () => {
 			}),
 		});
 
-		doc.posts.upsert({ id: '1', title: 'Test', published: false });
+		doc('posts').upsert({ id: '1', title: 'Test', published: false });
 
-		const result = doc.posts.get('1');
+		const result = doc('posts').get('1');
 		expect(result.status).toBe('valid');
 		if (result.status === 'valid') {
 			const row = result.row;
@@ -216,7 +216,7 @@ describe('createTables', () => {
 			});
 
 			const addedRows: string[] = [];
-			tables.posts.observeChanges((changes) => {
+			tables('posts').observeChanges((changes) => {
 				for (const [id, change] of changes) {
 					if (change.action === 'add') {
 						addedRows.push(id);
@@ -224,8 +224,16 @@ describe('createTables', () => {
 				}
 			});
 
-			tables.posts.upsert({ id: 'post-1', title: 'First', published: false });
-			tables.posts.upsert({ id: 'post-2', title: 'Second', published: true });
+			tables('posts').upsert({
+				id: 'post-1',
+				title: 'First',
+				published: false,
+			});
+			tables('posts').upsert({
+				id: 'post-2',
+				title: 'Second',
+				published: true,
+			});
 
 			expect(addedRows).toEqual(['post-1', 'post-2']);
 		});
@@ -244,10 +252,14 @@ describe('createTables', () => {
 				}),
 			});
 
-			tables.posts.upsert({ id: 'post-1', title: 'Original', view_count: 0 });
+			tables('posts').upsert({
+				id: 'post-1',
+				title: 'Original',
+				view_count: 0,
+			});
 
 			const updates: Array<{ id: string; title: string }> = [];
-			tables.posts.observeChanges((changes) => {
+			tables('posts').observeChanges((changes) => {
 				for (const [id, change] of changes) {
 					if (change.action === 'update' && change.result.status === 'valid') {
 						updates.push({
@@ -258,8 +270,8 @@ describe('createTables', () => {
 				}
 			});
 
-			tables.posts.update({ id: 'post-1', title: 'Updated' });
-			tables.posts.update({ id: 'post-1', view_count: 100 });
+			tables('posts').update({ id: 'post-1', title: 'Updated' });
+			tables('posts').update({ id: 'post-1', view_count: 100 });
 
 			expect(updates).toHaveLength(2);
 			expect(updates[0]?.title).toBe('Updated');
@@ -278,11 +290,11 @@ describe('createTables', () => {
 				}),
 			});
 
-			tables.posts.upsert({ id: 'post-1', title: 'First' });
-			tables.posts.upsert({ id: 'post-2', title: 'Second' });
+			tables('posts').upsert({ id: 'post-1', title: 'First' });
+			tables('posts').upsert({ id: 'post-2', title: 'Second' });
 
 			const deletedIds: string[] = [];
-			tables.posts.observeChanges((changes) => {
+			tables('posts').observeChanges((changes) => {
 				for (const [id, change] of changes) {
 					if (change.action === 'delete') {
 						deletedIds.push(id);
@@ -290,7 +302,7 @@ describe('createTables', () => {
 				}
 			});
 
-			tables.posts.delete('post-1');
+			tables('posts').delete('post-1');
 
 			expect(deletedIds).toEqual(['post-1']);
 		});
@@ -310,7 +322,7 @@ describe('createTables', () => {
 
 			const receivedRows: Array<{ id: string; title: string }> = [];
 
-			tables.posts.observeChanges((changes) => {
+			tables('posts').observeChanges((changes) => {
 				for (const [id, change] of changes) {
 					if (change.action === 'add' && change.result.status === 'valid') {
 						receivedRows.push({ id, title: change.result.row.title });
@@ -318,7 +330,7 @@ describe('createTables', () => {
 				}
 			});
 
-			tables.posts.upsert({ id: 'post-1', title: 'Test' });
+			tables('posts').upsert({ id: 'post-1', title: 'Test' });
 
 			expect(receivedRows).toHaveLength(1);
 			expect(receivedRows[0]).toEqual({ id: 'post-1', title: 'Test' });
@@ -344,7 +356,7 @@ describe('createTables', () => {
 			});
 
 			let receivedResult: unknown = null;
-			tables.posts.observeChanges((changes) => {
+			tables('posts').observeChanges((changes) => {
 				for (const [_id, change] of changes) {
 					if (change.action === 'add') {
 						receivedResult = change.result;
@@ -386,7 +398,7 @@ describe('createTables', () => {
 			});
 
 			const addedIds: string[] = [];
-			const unsubscribe = tables.posts.observeChanges((changes) => {
+			const unsubscribe = tables('posts').observeChanges((changes) => {
 				for (const [id, change] of changes) {
 					if (change.action === 'add') {
 						addedIds.push(id);
@@ -394,9 +406,9 @@ describe('createTables', () => {
 				}
 			});
 
-			tables.posts.upsert({ id: 'post-1', title: 'First' });
+			tables('posts').upsert({ id: 'post-1', title: 'First' });
 			unsubscribe();
-			tables.posts.upsert({ id: 'post-2', title: 'Second' });
+			tables('posts').upsert({ id: 'post-2', title: 'Second' });
 
 			expect(addedIds).toEqual(['post-1']);
 		});
@@ -417,7 +429,7 @@ describe('createTables', () => {
 			let callbackCount = 0;
 			const allChanges: Map<string, string>[] = [];
 
-			tables.posts.observeChanges((changes) => {
+			tables('posts').observeChanges((changes) => {
 				callbackCount++;
 				const changeMap = new Map<string, string>();
 				for (const [id, change] of changes) {
@@ -426,7 +438,7 @@ describe('createTables', () => {
 				allChanges.push(changeMap);
 			});
 
-			tables.posts.upsertMany([
+			tables('posts').upsertMany([
 				{ id: 'post-1', title: 'First' },
 				{ id: 'post-2', title: 'Second' },
 				{ id: 'post-3', title: 'Third' },
@@ -453,7 +465,7 @@ describe('createTables', () => {
 				}),
 			});
 
-			tables.posts.upsertMany([
+			tables('posts').upsertMany([
 				{ id: 'post-1', title: 'First', view_count: 0 },
 				{ id: 'post-2', title: 'Second', view_count: 0 },
 			]);
@@ -461,7 +473,7 @@ describe('createTables', () => {
 			let callbackCount = 0;
 			const allChanges: Map<string, string>[] = [];
 
-			tables.posts.observeChanges((changes) => {
+			tables('posts').observeChanges((changes) => {
 				callbackCount++;
 				const changeMap = new Map<string, string>();
 				for (const [id, change] of changes) {
@@ -471,8 +483,8 @@ describe('createTables', () => {
 			});
 
 			ydoc.transact(() => {
-				tables.posts.update({ id: 'post-1', title: 'Updated First' });
-				tables.posts.update({ id: 'post-2', title: 'Updated Second' });
+				tables('posts').update({ id: 'post-1', title: 'Updated First' });
+				tables('posts').update({ id: 'post-2', title: 'Updated Second' });
 			});
 
 			expect(callbackCount).toBe(1);
@@ -494,12 +506,12 @@ describe('createTables', () => {
 				}),
 			});
 
-			tables.posts.upsert({ id: 'post-1', title: 'First' });
+			tables('posts').upsert({ id: 'post-1', title: 'First' });
 
 			let callbackCount = 0;
 			let lastChanges: Map<string, string> = new Map();
 
-			tables.posts.observeChanges((changes) => {
+			tables('posts').observeChanges((changes) => {
 				callbackCount++;
 				lastChanges = new Map();
 				for (const [id, change] of changes) {
@@ -508,9 +520,9 @@ describe('createTables', () => {
 			});
 
 			ydoc.transact(() => {
-				tables.posts.update({ id: 'post-1', title: 'Updated' });
-				tables.posts.upsert({ id: 'post-2', title: 'New' });
-				tables.posts.delete('post-1');
+				tables('posts').update({ id: 'post-1', title: 'Updated' });
+				tables('posts').upsert({ id: 'post-2', title: 'New' });
+				tables('posts').delete('post-1');
 			});
 
 			expect(callbackCount).toBe(1);
@@ -531,7 +543,7 @@ describe('createTables', () => {
 				}),
 			});
 
-			tables.posts.upsertMany([
+			tables('posts').upsertMany([
 				{ id: 'post-1', title: 'First' },
 				{ id: 'post-2', title: 'Second' },
 				{ id: 'post-3', title: 'Third' },
@@ -540,7 +552,7 @@ describe('createTables', () => {
 			let callbackCount = 0;
 			let lastChanges: Map<string, string> = new Map();
 
-			tables.posts.observeChanges((changes) => {
+			tables('posts').observeChanges((changes) => {
 				callbackCount++;
 				lastChanges = new Map();
 				for (const [id, change] of changes) {
@@ -548,7 +560,7 @@ describe('createTables', () => {
 				}
 			});
 
-			tables.posts.deleteMany(['post-1', 'post-2']);
+			tables('posts').deleteMany(['post-1', 'post-2']);
 
 			expect(callbackCount).toBe(1);
 			expect(lastChanges.size).toBe(2);
@@ -570,7 +582,11 @@ describe('createTables', () => {
 				}),
 			});
 
-			tables.posts.upsert({ id: 'post-1', title: 'Original', view_count: 0 });
+			tables('posts').upsert({
+				id: 'post-1',
+				title: 'Original',
+				view_count: 0,
+			});
 
 			let callbackCount = 0;
 			type ChangeRecord = {
@@ -580,7 +596,7 @@ describe('createTables', () => {
 			};
 			let lastChange: ChangeRecord | null = null;
 
-			tables.posts.observeChanges((changes) => {
+			tables('posts').observeChanges((changes) => {
 				callbackCount++;
 				const change = changes.get('post-1');
 				if (
@@ -597,9 +613,9 @@ describe('createTables', () => {
 			});
 
 			ydoc.transact(() => {
-				tables.posts.update({ id: 'post-1', title: 'First Update' });
-				tables.posts.update({ id: 'post-1', title: 'Second Update' });
-				tables.posts.update({ id: 'post-1', view_count: 100 });
+				tables('posts').update({ id: 'post-1', title: 'First Update' });
+				tables('posts').update({ id: 'post-1', title: 'Second Update' });
+				tables('posts').update({ id: 'post-1', view_count: 100 });
 			});
 
 			expect(callbackCount).toBe(1);
@@ -631,7 +647,7 @@ describe('createTables', () => {
 			});
 
 			const changes: Array<{ action: string; id: string }> = [];
-			tables.posts.observeChanges((changeMap) => {
+			tables('posts').observeChanges((changeMap) => {
 				for (const [rowId, change] of changeMap) {
 					changes.push({ action: change.action, id: rowId });
 				}
@@ -674,19 +690,19 @@ describe('createTables', () => {
 			});
 
 			const postsChanges: string[] = [];
-			tables.posts.observeChanges((changes) => {
+			tables('posts').observeChanges((changes) => {
 				for (const [rowId] of changes) {
 					postsChanges.push(rowId);
 				}
 			});
 
-			tables.comments.upsert({ id: 'comment-1', content: 'Hello' });
-			tables.comments.update({ id: 'comment-1', content: 'Updated' });
-			tables.comments.delete('comment-1');
+			tables('comments').upsert({ id: 'comment-1', content: 'Hello' });
+			tables('comments').update({ id: 'comment-1', content: 'Updated' });
+			tables('comments').delete('comment-1');
 
 			expect(postsChanges).toHaveLength(0);
 
-			tables.posts.upsert({ id: 'post-1', title: 'Test' });
+			tables('posts').upsert({ id: 'post-1', title: 'Test' });
 			expect(postsChanges).toContain('post-1');
 		});
 
@@ -703,16 +719,16 @@ describe('createTables', () => {
 				}),
 			});
 
-			tables.posts.upsert({ id: 'post-1', title: 'Original' });
+			tables('posts').upsert({ id: 'post-1', title: 'Original' });
 
 			let callbackCalled = false;
 
-			tables.posts.observeChanges(() => {
+			tables('posts').observeChanges(() => {
 				callbackCalled = true;
 			});
 
 			ydoc.transact(() => {
-				tables.posts.update({ id: 'post-1', title: 'Updated' });
+				tables('posts').update({ id: 'post-1', title: 'Updated' });
 				expect(callbackCalled).toBe(false);
 			});
 
@@ -735,107 +751,31 @@ describe('createTables', () => {
 			const subscriber1Changes: string[] = [];
 			const subscriber2Changes: string[] = [];
 
-			const unsub1 = tables.posts.observeChanges((changes) => {
+			const unsub1 = tables('posts').observeChanges((changes) => {
 				for (const [rowId] of changes) {
 					subscriber1Changes.push(rowId);
 				}
 			});
 
-			const unsub2 = tables.posts.observeChanges((changes) => {
+			const unsub2 = tables('posts').observeChanges((changes) => {
 				for (const [rowId] of changes) {
 					subscriber2Changes.push(rowId);
 				}
 			});
 
-			tables.posts.upsert({ id: 'post-1', title: 'Test' });
+			tables('posts').upsert({ id: 'post-1', title: 'Test' });
 
 			expect(subscriber1Changes).toEqual(['post-1']);
 			expect(subscriber2Changes).toEqual(['post-1']);
 
 			unsub1();
 
-			tables.posts.upsert({ id: 'post-2', title: 'Second' });
+			tables('posts').upsert({ id: 'post-2', title: 'Second' });
 
 			expect(subscriber1Changes).toEqual(['post-1']);
 			expect(subscriber2Changes).toEqual(['post-1', 'post-2']);
 
 			unsub2();
-		});
-	});
-
-	describe('raw escape hatch', () => {
-		test('tables.raw provides direct access to the root TablesMap', () => {
-			const ydoc = new Y.Doc({ guid: 'test-workspace' });
-			const tables = createTables(ydoc, {
-				posts: table({
-					name: 'Posts',
-					description: '',
-					fields: {
-						id: id(),
-						title: text(),
-					},
-				}),
-			});
-
-			// raw should be the same Y.Map as ydoc.getMap('tables')
-			expect(tables.raw).toBe(ydoc.getMap('tables'));
-
-			// After upserting, the raw map should have the table
-			tables.posts.upsert({ id: '1', title: 'Hello' });
-			expect(tables.raw.has('posts')).toBe(true);
-		});
-
-		test('table.raw provides direct access to the TableMap for that table', () => {
-			const ydoc = new Y.Doc({ guid: 'test-workspace' });
-			const tables = createTables(ydoc, {
-				posts: table({
-					name: 'Posts',
-					description: '',
-					fields: {
-						id: id(),
-						title: text(),
-					},
-				}),
-			});
-
-			// Insert via helper
-			tables.posts.upsert({ id: '1', title: 'Hello' });
-
-			// Access raw TableMap
-			const rawPostsTable = tables.posts.raw;
-			expect(rawPostsTable.has('1')).toBe(true);
-
-			// Raw row map should have the cell values
-			const rawRow = rawPostsTable.get('1');
-			expect(rawRow?.get('title')).toBe('Hello');
-		});
-
-		test('mutations via raw are reflected in helpers', () => {
-			const ydoc = new Y.Doc({ guid: 'test-workspace' });
-			const tables = createTables(ydoc, {
-				posts: table({
-					name: 'Posts',
-					description: '',
-					fields: {
-						id: id(),
-						title: text(),
-					},
-				}),
-			});
-
-			// Insert via helper first
-			tables.posts.upsert({ id: '1', title: 'Original' });
-
-			// Mutate via raw
-			const rawRow = tables.posts.raw.get('1');
-			rawRow?.set('title', 'Modified via raw');
-
-			// Should be reflected in helper
-			const result = tables.posts.get('1');
-			expect(result.status).toBe('valid');
-			if (result.status === 'valid') {
-				expect(result.row.title).toBe('Modified via raw');
-			}
 		});
 	});
 
@@ -854,15 +794,15 @@ describe('createTables', () => {
 			});
 
 			// Access via table() should work the same as direct access
-			tables.table('posts').upsert({ id: '1', title: 'Hello' });
-			const result = tables.table('posts').get('1');
+			tables('posts').upsert({ id: '1', title: 'Hello' });
+			const result = tables('posts').get('1');
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.row.title).toBe('Hello');
 			}
 
 			// Same as direct access
-			expect(tables.table('posts').count()).toBe(tables.posts.count());
+			expect(tables('posts').count()).toBe(tables('posts').count());
 		});
 
 		test('table() returns untyped helper for undefined tables', () => {
@@ -879,7 +819,7 @@ describe('createTables', () => {
 			});
 
 			// Access a table not in schema
-			const customTable = tables.table('custom_data');
+			const customTable = tables('custom_data');
 			customTable.upsert({ id: '1', foo: 'bar', count: 42 });
 
 			const result = customTable.get('1');
@@ -904,11 +844,11 @@ describe('createTables', () => {
 			});
 
 			// Defined table
-			expect(tables.table('posts')).toBe(tables.table('posts'));
+			expect(tables('posts')).toBe(tables('posts'));
 
 			// Dynamic table (should cache the helper)
-			const helper1 = tables.table('dynamic');
-			const helper2 = tables.table('dynamic');
+			const helper1 = tables('dynamic');
+			const helper2 = tables('dynamic');
 			expect(helper1).toBe(helper2);
 		});
 
@@ -930,12 +870,12 @@ describe('createTables', () => {
 			expect(tables.has('custom')).toBe(false);
 
 			// After upsert, table exists
-			tables.posts.upsert({ id: '1', title: 'Hello' });
+			tables('posts').upsert({ id: '1', title: 'Hello' });
 			expect(tables.has('posts')).toBe(true);
 			expect(tables.has('custom')).toBe(false);
 
 			// After dynamic upsert
-			tables.table('custom').upsert({ id: '1', data: 'test' });
+			tables('custom').upsert({ id: '1', data: 'test' });
 			expect(tables.has('custom')).toBe(true);
 		});
 	});
@@ -966,8 +906,8 @@ describe('createTables', () => {
 			expect(tables.all()).toHaveLength(0);
 
 			// After creating some data
-			tables.posts.upsert({ id: '1', title: 'Hello' });
-			tables.table('custom').upsert({ id: '1', foo: 'bar' });
+			tables('posts').upsert({ id: '1', title: 'Hello' });
+			tables('custom').upsert({ id: '1', foo: 'bar' });
 
 			const allHelpers = tables.all();
 			expect(allHelpers).toHaveLength(2);
@@ -991,8 +931,8 @@ describe('createTables', () => {
 
 			expect(tables.names()).toHaveLength(0);
 
-			tables.posts.upsert({ id: '1', title: 'Hello' });
-			tables.table('custom').upsert({ id: '1', data: 'test' });
+			tables('posts').upsert({ id: '1', title: 'Hello' });
+			tables('custom').upsert({ id: '1', data: 'test' });
 
 			const names = tables.names().sort();
 			expect(names).toEqual(['custom', 'posts']);
@@ -1026,7 +966,7 @@ describe('createTables', () => {
 			expect(names).toEqual(['posts', 'users']);
 
 			// Adding dynamic tables doesn't affect defined()
-			tables.table('custom').upsert({ id: '1', data: 'test' });
+			tables('custom').upsert({ id: '1', data: 'test' });
 			expect(tables.defined()).toHaveLength(2);
 		});
 
@@ -1070,7 +1010,7 @@ describe('createTables', () => {
 				}),
 			});
 
-			tables.posts.upsert({ id: '1', title: 'Hello' });
+			tables('posts').upsert({ id: '1', title: 'Hello' });
 			expect(tables.has('posts')).toBe(true);
 
 			const result = tables.drop('posts');
@@ -1108,7 +1048,7 @@ describe('createTables', () => {
 				}),
 			});
 
-			tables.table('custom').upsert({ id: '1', data: 'test' });
+			tables('custom').upsert({ id: '1', data: 'test' });
 			expect(tables.has('custom')).toBe(true);
 
 			tables.drop('custom');
@@ -1133,22 +1073,6 @@ describe('createTables', () => {
 			expect(tables.definitions.posts.name).toBe('Posts');
 			expect(tables.definitions.posts.description).toBe('Blog posts');
 			expect(tables.definitions.posts.fields.id).toBeDefined();
-		});
-
-		test('raw property provides direct YJS access', () => {
-			const ydoc = new Y.Doc({ guid: 'test-workspace' });
-			const tables = createTables(ydoc, {
-				posts: table({
-					name: 'Posts',
-					description: '',
-					fields: {
-						id: id(),
-						title: text(),
-					},
-				}),
-			});
-
-			expect(tables.raw).toBe(ydoc.getMap('tables'));
 		});
 
 		test('zip() pairs tables with configs', () => {

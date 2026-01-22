@@ -752,39 +752,14 @@ function createTableHelper<TFieldSchemaMap extends FieldSchemaMap>({
 		},
 
 		/**
-		 * Direct access to the underlying Y.Map for this table.
-		 *
-		 * **Escape hatch for advanced use cases.** Using `raw` bypasses all
-		 * validation and type safety. Prefer the typed helper methods for
-		 * normal operations.
-		 *
-		 * Returns the TableMap (Y.Map<RowMap>) for this table. Creates the
-		 * Y.Map if it doesn't exist yet.
-		 *
-		 * Use cases for `raw`:
-		 * - Bulk operations in a single `ydoc.transact()` for performance
-		 * - Custom observation patterns with `observe` / `observeDeep`
-		 * - Direct iteration over row Y.Maps
-		 * - Interop with external YJS tools
+		 * Type inference helper for the row type.
 		 *
 		 * @example
 		 * ```typescript
-		 * // Direct iteration over raw row maps
-		 * for (const [rowId, rowMap] of tables.posts.raw.entries()) {
-		 *   console.log(rowId, rowMap.toJSON());
-		 * }
-		 *
-		 * // Custom observation
-		 * tables.posts.raw.observe((event) => {
-		 *   // Raw YJS map events...
-		 * });
+		 * type PostRow = typeof tables('posts').inferRow;
 		 * ```
 		 */
-		get raw(): TableMap {
-			return getOrCreateTableMap();
-		},
-
-		$inferRow: null as unknown as TRow,
+		inferRow: null as unknown as TRow,
 	};
 }
 
@@ -829,8 +804,7 @@ export type UntypedTableHelper = {
 			transaction: Y.Transaction,
 		) => void,
 	): () => void;
-	raw: TableMap;
-	$inferRow: { id: string } & Record<string, unknown>;
+	inferRow: { id: string } & Record<string, unknown>;
 };
 
 /**
@@ -1250,6 +1224,14 @@ export function createUntypedTableHelper({
 			return getOrCreateTableMap();
 		},
 
-		$inferRow: null as unknown as TRow,
+		/**
+		 * Type inference helper for the row type.
+		 *
+		 * @example
+		 * ```typescript
+		 * type PostRow = typeof tables('posts').inferRow;
+		 * ```
+		 */
+		inferRow: null as unknown as TRow,
 	};
 }
