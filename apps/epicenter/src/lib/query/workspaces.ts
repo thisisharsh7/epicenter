@@ -35,43 +35,34 @@ export const workspaces = {
 	/**
 	 * List all workspaces from the registry with their names.
 	 *
-	 * Uses Head Doc meta for identity (name, icon) and Workspace Doc for schema.
-	 * Falls back to ID if workspace can't be loaded.
+	 * Uses Head Doc meta for identity (name, icon). Schema is only loaded
+	 * when entering a workspace, not for the list view.
 	 */
 	listWorkspaces: defineQuery({
 		queryKey: workspaceKeys.list(),
 		queryFn: async () => {
 			const guids = registry.getWorkspaceIds();
 
-			// Load workspaces in parallel
+			// Load workspace metadata in parallel (head docs only, no workspace clients)
 			const workspaces = await Promise.all(
 				guids.map(async (id) => {
 					try {
-						// Get identity from Head Doc
 						const head = createHead(id);
 						await head.whenSynced;
 						const meta = head.getMeta();
-
-						// Get schema from Workspace Doc
-						const client = createWorkspaceClient(head);
-						await client.whenSynced;
-						const schema = client.schema.get();
-						await client.destroy();
 						await head.destroy();
 
 						return {
 							id,
-							name: meta.name || id,
-							tables: schema.tables,
-							kv: schema.kv,
+							...meta,
 						};
 					} catch {
 						// Workspace exists in registry but can't be loaded
 						return {
 							id,
 							name: id,
-							tables: {},
-							kv: {},
+							icon: null,
+							description: '',
 						};
 					}
 				}),
