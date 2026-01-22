@@ -802,7 +802,7 @@ describe('KV Helpers', () => {
 			}
 		});
 
-		test('$all() returns all helpers', () => {
+		test('defined() returns all helpers', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
 				theme: setting({
@@ -813,7 +813,7 @@ describe('KV Helpers', () => {
 				enabled: setting({ name: '', field: boolean({ default: true }) }),
 			});
 
-			const all = kv.$all();
+			const all = kv.defined();
 			expect(all).toHaveLength(3);
 			expect(all.map((h) => h.name).sort()).toEqual([
 				'count',
@@ -822,7 +822,7 @@ describe('KV Helpers', () => {
 			]);
 		});
 
-		test('$toJSON() serializes all values', () => {
+		test('toJSON() serializes all values', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {
 				theme: setting({
@@ -836,7 +836,7 @@ describe('KV Helpers', () => {
 			kv.theme.set('dark');
 			kv.count.set(42);
 
-			const json = kv.$toJSON();
+			const json = kv.toJSON();
 			expect(json).toEqual({
 				theme: 'dark',
 				count: 42,
@@ -915,23 +915,23 @@ describe('KV Helpers', () => {
 		});
 	});
 
-	describe('$raw escape hatch', () => {
-		test('kv.$raw provides direct access to the underlying KvMap', () => {
+	describe('raw escape hatch', () => {
+		test('kv.raw provides direct access to the underlying KvMap', () => {
 			const ydoc = new Y.Doc({ guid: 'test-workspace' });
 			const kv = createKv(ydoc, {
 				theme: { name: 'Theme', field: select({ options: ['light', 'dark'] }) },
 				count: { name: 'Count', field: integer({ default: 0 }) },
 			});
 
-			// $raw should be the same Y.Map as ydoc.getMap('kv')
-			expect(kv.$raw).toBe(ydoc.getMap('kv'));
+			// raw should be the same Y.Map as ydoc.getMap('kv')
+			expect(kv.raw).toBe(ydoc.getMap('kv'));
 
 			// After setting a value, the raw map should have it
 			kv.theme.set('dark');
-			expect(kv.$raw.get('theme')).toBe('dark');
+			expect(kv.raw.get('theme')).toBe('dark');
 		});
 
-		test('mutations via $raw are reflected in helpers', () => {
+		test('mutations via raw are reflected in helpers', () => {
 			const ydoc = new Y.Doc({ guid: 'test-workspace' });
 			const kv = createKv(ydoc, {
 				theme: { name: 'Theme', field: select({ options: ['light', 'dark'] }) },
@@ -941,14 +941,14 @@ describe('KV Helpers', () => {
 			kv.theme.set('light');
 			expect(kv.theme.get()).toEqual({ status: 'valid', value: 'light' });
 
-			// Mutate via $raw
-			kv.$raw.set('theme', 'dark');
+			// Mutate via raw
+			kv.raw.set('theme', 'dark');
 
 			// Should be reflected in helper
 			expect(kv.theme.get()).toEqual({ status: 'valid', value: 'dark' });
 		});
 
-		test('$raw allows direct iteration over all KV entries', () => {
+		test('raw allows direct iteration over all KV entries', () => {
 			const ydoc = new Y.Doc({ guid: 'test-workspace' });
 			const kv = createKv(ydoc, {
 				theme: { name: 'Theme', field: select({ options: ['light', 'dark'] }) },
@@ -958,9 +958,9 @@ describe('KV Helpers', () => {
 			kv.theme.set('dark');
 			kv.count.set(42);
 
-			// Direct iteration via $raw
+			// Direct iteration via raw
 			const entries: [string, unknown][] = [];
-			for (const [key, value] of kv.$raw.entries()) {
+			for (const [key, value] of kv.raw.entries()) {
 				entries.push([key, value]);
 			}
 

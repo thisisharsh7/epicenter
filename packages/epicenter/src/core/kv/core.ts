@@ -74,11 +74,11 @@ export function createKv<TKvDefinitionMap extends KvDefinitionMap>(
 		/**
 		 * Direct access to the underlying Y.Map storing all KV values.
 		 *
-		 * **Escape hatch for advanced use cases.** Using `$raw` bypasses all
+		 * **Escape hatch for advanced use cases.** Using `raw` bypasses all
 		 * validation and type safety. Prefer the typed KV helpers for
 		 * normal operations.
 		 *
-		 * Use cases for `$raw`:
+		 * Use cases for `raw`:
 		 * - Bulk operations in a single `ydoc.transact()` for performance
 		 * - Custom observation patterns with `observe` / `observeDeep`
 		 * - Direct iteration over all KV entries
@@ -87,17 +87,17 @@ export function createKv<TKvDefinitionMap extends KvDefinitionMap>(
 		 * @example
 		 * ```typescript
 		 * // Direct iteration
-		 * for (const [key, value] of kv.$raw.entries()) {
+		 * for (const [key, value] of kv.raw.entries()) {
 		 *   console.log(key, value);
 		 * }
 		 *
 		 * // Custom observation
-		 * kv.$raw.observe((event) => {
+		 * kv.raw.observe((event) => {
 		 *   // Raw YJS map events...
 		 * });
 		 * ```
 		 */
-		$raw: ykvMap,
+		raw: ykvMap,
 
 		/**
 		 * The raw KV definitions passed to createKv.
@@ -108,21 +108,21 @@ export function createKv<TKvDefinitionMap extends KvDefinitionMap>(
 		 * @example
 		 * ```typescript
 		 * // Access definition metadata
-		 * console.log(kv.$definitions.theme.name);        // 'Theme'
-		 * console.log(kv.$definitions.theme.icon);        // { type: 'emoji', value: '🎨' }
-		 * console.log(kv.$definitions.theme.description); // 'Application color theme'
+		 * console.log(kv.definitions.theme.name);        // 'Theme'
+		 * console.log(kv.definitions.theme.icon);        // { type: 'emoji', value: '🎨' }
+		 * console.log(kv.definitions.theme.description); // 'Application color theme'
 		 *
 		 * // Access the field schema
-		 * console.log(kv.$definitions.theme.field.type);    // 'select'
-		 * console.log(kv.$definitions.theme.field.options); // ['light', 'dark']
+		 * console.log(kv.definitions.theme.field.type);    // 'select'
+		 * console.log(kv.definitions.theme.field.options); // ['light', 'dark']
 		 *
 		 * // Iterate over all definitions
-		 * for (const [key, def] of Object.entries(kv.$definitions)) {
+		 * for (const [key, def] of Object.entries(kv.definitions)) {
 		 *   console.log(`${def.name} (${key}): ${def.field.type}`);
 		 * }
 		 * ```
 		 */
-		$definitions: definitions,
+		definitions: definitions,
 
 		/**
 		 * Get all KV helpers as an array.
@@ -133,7 +133,7 @@ export function createKv<TKvDefinitionMap extends KvDefinitionMap>(
 		 * @example
 		 * ```typescript
 		 * // Log all current values
-		 * for (const helper of kv.$all()) {
+		 * for (const helper of kv.defined()) {
 		 *   const result = helper.get();
 		 *   if (result.status === 'valid') {
 		 *     console.log(helper.name, result.value);
@@ -141,12 +141,12 @@ export function createKv<TKvDefinitionMap extends KvDefinitionMap>(
 		 * }
 		 *
 		 * // Reset all keys to defaults
-		 * for (const helper of kv.$all()) {
+		 * for (const helper of kv.defined()) {
 		 *   helper.reset();
 		 * }
 		 * ```
 		 */
-		$all() {
+		defined() {
 			return Object.values(kvHelpers) as KvHelper<
 				FieldOf<keyof TKvDefinitionMap>
 			>[];
@@ -163,14 +163,14 @@ export function createKv<TKvDefinitionMap extends KvDefinitionMap>(
 		 * kv.theme.set('dark');
 		 * kv.fontSize.set(16);
 		 *
-		 * const json = kv.$toJSON();
+		 * const json = kv.toJSON();
 		 * // { theme: 'dark', fontSize: 16 }
 		 *
 		 * // Save to localStorage
-		 * localStorage.setItem('settings', JSON.stringify(kv.$toJSON()));
+		 * localStorage.setItem('settings', JSON.stringify(kv.toJSON()));
 		 * ```
 		 */
-		$toJSON() {
+		toJSON() {
 			const result: Record<string, unknown> = {};
 			for (const keyName of Object.keys(definitions)) {
 				const helper = kvHelpers[keyName as keyof typeof kvHelpers];
