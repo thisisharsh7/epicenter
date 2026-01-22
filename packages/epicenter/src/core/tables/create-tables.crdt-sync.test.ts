@@ -480,9 +480,12 @@ describe('Cell-Level CRDT Merging', () => {
 
 		// Set up observer on doc2 BEFORE any sync
 		const addedIds: string[] = [];
-		tables2('posts').observeChanges((changes) => {
-			for (const [id, change] of changes) {
-				if (change.action === 'add') {
+		tables2('posts').observe((changedIds) => {
+			for (const id of changedIds) {
+				const result = tables2('posts').get(id);
+				if (result.status !== 'not_found') {
+					// Could be add or update - we only care about new rows here
+					// Since we're tracking before any sync, these are all adds
 					addedIds.push(id);
 				}
 			}
@@ -519,9 +522,11 @@ describe('Cell-Level CRDT Merging', () => {
 
 		// Set up observer on doc2
 		const updatedIds: string[] = [];
-		tables2('posts').observeChanges((changes) => {
-			for (const [id, change] of changes) {
-				if (change.action === 'update') {
+		tables2('posts').observe((changedIds) => {
+			for (const id of changedIds) {
+				const result = tables2('posts').get(id);
+				if (result.status !== 'not_found') {
+					// Row exists, so it was added or updated
 					updatedIds.push(id);
 				}
 			}
@@ -555,9 +560,11 @@ describe('Cell-Level CRDT Merging', () => {
 
 		// Set up observer on doc2
 		const deletedIds: string[] = [];
-		tables2('posts').observeChanges((changes) => {
-			for (const [id, change] of changes) {
-				if (change.action === 'delete') {
+		tables2('posts').observe((changedIds) => {
+			for (const id of changedIds) {
+				const result = tables2('posts').get(id);
+				if (result.status === 'not_found') {
+					// Row was deleted
 					deletedIds.push(id);
 				}
 			}
@@ -730,7 +737,10 @@ describe('Cell-Level CRDT Merging', () => {
 		expect(tables2('posts').count()).toBe(3);
 	});
 
-	test('observer continues working after table deletion', () => {
+	test('observer continues working after clear() and detects new rows', () => {
+		// Tables are permanent structures; they can be emptied but never deleted.
+		// This test verifies that clear() properly notifies observers and the
+		// observer continues working for new rows.
 		const doc1 = new Y.Doc();
 		const doc2 = new Y.Doc();
 		doc1.clientID = 1;
@@ -747,26 +757,24 @@ describe('Cell-Level CRDT Merging', () => {
 		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
 
 		const changes: Array<{ action: string; id: string }> = [];
-		tables2('posts').observeChanges((changeMap) => {
-			for (const [id, change] of changeMap) {
-				changes.push({ action: change.action, id });
+		tables2('posts').observe((changedIds) => {
+			for (const id of changedIds) {
+				const result = tables2('posts').get(id);
+				if (result.status === 'not_found') {
+					changes.push({ action: 'delete', id });
+				} else {
+					changes.push({ action: 'add', id });
+				}
 			}
 		});
 
-		const ytables2 = doc2.getMap('tables') as Y.Map<Y.Map<Y.Map<unknown>>>;
-		ytables2.delete('posts');
+		// Use clear() instead of deleting the table Y.Map directly
+		tables2('posts').clear();
 
 		expect(changes).toContainEqual({ action: 'delete', id: 'post-1' });
 
-		const postsTable = new Y.Map() as Y.Map<Y.Map<unknown>>;
-		ytables2.set('posts', postsTable);
-
-		const rowMap = new Y.Map() as Y.Map<unknown>;
-		postsTable.set('post-new', rowMap);
-		doc2.transact(() => {
-			rowMap.set('id', 'post-new');
-			rowMap.set('title', 'New Post');
-		});
+		// Add a new row; observer should still be working
+		tables2('posts').upsert({ id: 'post-new', title: 'New Post' });
 
 		expect(changes).toContainEqual({ action: 'add', id: 'post-new' });
 	});
@@ -791,9 +799,14 @@ describe('Cell-Level CRDT Merging', () => {
 		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
 
 		const changes: Array<{ action: string; id: string }> = [];
-		tables2('posts').observeChanges((changeMap) => {
-			for (const [id, change] of changeMap) {
-				changes.push({ action: change.action, id });
+		tables2('posts').observe((changedIds) => {
+			for (const id of changedIds) {
+				const result = tables2('posts').get(id);
+				if (result.status === 'not_found') {
+					changes.push({ action: 'delete', id });
+				} else {
+					changes.push({ action: 'update', id });
+				}
 			}
 		});
 
@@ -809,13 +822,11 @@ describe('Cell-Level CRDT Merging', () => {
 		}
 	});
 
-	test('table replacement emits delete for old rows and add for new rows', () => {
+	test('clear then upsertMany emits delete for old rows and add for new rows', () => {
+		// Tables are permanent structures; to "replace" a table's contents,
+		// use clear() followed by upsertMany(). This test verifies that
+		// observers see deletions for old rows and additions for new rows.
 		const ydoc = new Y.Doc({ guid: 'test-table-replacement' });
-		type RowMap = Y.Map<unknown>;
-		type TableMap = Y.Map<RowMap>;
-		type TablesMap = Y.Map<TableMap>;
-
-		const ytables: TablesMap = ydoc.getMap('tables');
 
 		const tables = createTables(ydoc, {
 			posts: table({ name: '', fields: { id: id(), title: text() } }),
@@ -827,23 +838,23 @@ describe('Cell-Level CRDT Merging', () => {
 		]);
 
 		const changes: Array<{ action: string; id: string }> = [];
-		tables('posts').observeChanges((changeMap) => {
-			for (const [rowId, change] of changeMap) {
-				changes.push({ action: change.action, id: rowId });
+		tables('posts').observe((changedIds) => {
+			for (const rowId of changedIds) {
+				const result = tables('posts').get(rowId);
+				if (result.status === 'not_found') {
+					changes.push({ action: 'delete', id: rowId });
+				} else {
+					changes.push({ action: 'add', id: rowId });
+				}
 			}
 		});
 
-		const newPostsTable = new Y.Map() as TableMap;
-		const newRow1 = new Y.Map() as RowMap;
-		const newRow2 = new Y.Map() as RowMap;
-		newRow1.set('id', 'new-1');
-		newRow1.set('title', 'New Post 1');
-		newRow2.set('id', 'new-2');
-		newRow2.set('title', 'New Post 2');
-		newPostsTable.set('new-1', newRow1);
-		newPostsTable.set('new-2', newRow2);
-
-		ytables.set('posts', newPostsTable);
+		// Clear and add new rows (simulates "table replacement")
+		tables('posts').clear();
+		tables('posts').upsertMany([
+			{ id: 'new-1', title: 'New Post 1' },
+			{ id: 'new-2', title: 'New Post 2' },
+		]);
 
 		expect(changes).toContainEqual({ action: 'delete', id: 'old-1' });
 		expect(changes).toContainEqual({ action: 'delete', id: 'old-2' });
@@ -866,16 +877,21 @@ describe('Cell-Level CRDT Merging', () => {
 		tables('posts').upsert({ id: 'post-1', title: 'Original' });
 
 		const changes: Array<{ action: string; id: string; title?: string }> = [];
-		tables('posts').observeChanges((changeMap) => {
-			for (const [rowId, change] of changeMap) {
-				const entry: { action: string; id: string; title?: string } = {
-					action: change.action,
-					id: rowId,
-				};
-				if (change.action !== 'delete' && change.result.status === 'valid') {
-					entry.title = change.result.row.title;
+		tables('posts').observe((changedIds) => {
+			for (const rowId of changedIds) {
+				const result = tables('posts').get(rowId);
+				if (result.status === 'not_found') {
+					changes.push({ action: 'delete', id: rowId });
+				} else {
+					const entry: { action: string; id: string; title?: string } = {
+						action: 'update',
+						id: rowId,
+					};
+					if (result.status === 'valid') {
+						entry.title = result.row.title;
+					}
+					changes.push(entry);
 				}
-				changes.push(entry);
 			}
 		});
 
@@ -913,9 +929,14 @@ describe('Cell-Level CRDT Merging', () => {
 		});
 
 		const changes: Array<{ action: string; id: string }> = [];
-		tables('posts').observeChanges((changeMap) => {
-			for (const [rowId, change] of changeMap) {
-				changes.push({ action: change.action, id: rowId });
+		tables('posts').observe((changedIds) => {
+			for (const rowId of changedIds) {
+				const result = tables('posts').get(rowId);
+				if (result.status === 'not_found') {
+					changes.push({ action: 'delete', id: rowId });
+				} else {
+					changes.push({ action: 'add', id: rowId });
+				}
 			}
 		});
 

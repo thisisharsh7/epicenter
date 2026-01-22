@@ -78,6 +78,15 @@ export type KvFunction<TKvDefinitionMap extends KvDefinitionMap> = {
 	definitions: TKvDefinitionMap;
 
 	// ════════════════════════════════════════════════════════════════════
+	// OBSERVATION
+	// ════════════════════════════════════════════════════════════════════
+
+	/**
+	 * Observe any KV changes. Callback is notified when any key changes.
+	 */
+	observe(callback: () => void): () => void;
+
+	// ════════════════════════════════════════════════════════════════════
 	// UTILITIES
 	// ════════════════════════════════════════════════════════════════════
 
@@ -285,6 +294,35 @@ export function createKv<TKvDefinitionMap extends KvDefinitionMap>(
 		 * ```
 		 */
 		definitions,
+
+		// ════════════════════════════════════════════════════════════════════
+		// OBSERVATION
+		// ════════════════════════════════════════════════════════════════════
+
+		/**
+		 * Observe any KV changes. Callback is notified when any key changes.
+		 *
+		 * The observer just notifies that something changed. To get the current
+		 * state, call `toJSON()` inside your callback or use individual key getters.
+		 *
+		 * @returns Unsubscribe function to stop observing
+		 *
+		 * @example
+		 * ```typescript
+		 * const unsubscribe = kv.observe(() => {
+		 *   // Something changed - fetch current state if needed
+		 *   const snapshot = kv.toJSON();
+		 *   saveToFile(snapshot);
+		 * });
+		 *
+		 * // Later, stop observing
+		 * unsubscribe();
+		 * ```
+		 */
+		observe(callback: () => void): () => void {
+			ykvMap.observeDeep(callback);
+			return () => ykvMap.unobserveDeep(callback);
+		},
 
 		// ════════════════════════════════════════════════════════════════════
 		// UTILITIES

@@ -8,10 +8,6 @@ import { appLocalDataDir, dirname, join } from '@tauri-apps/api/path';
 import { mkdir, readFile, writeFile } from '@tauri-apps/plugin-fs';
 import * as Y from 'yjs';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────────────────────────────────────
-
 /**
  * Configuration for the workspace persistence extension.
  */
@@ -93,15 +89,11 @@ export function workspacePersistence<
 	ctx: ExtensionContext<TTableDefinitionMap, TKvDefinitionMap>,
 	config: WorkspacePersistenceConfig = {},
 ): ProviderExports {
-	const { workspaceDoc } = ctx;
-	const { ydoc, workspaceId, epoch } = workspaceDoc;
+	const { ydoc, workspaceId, epoch, schema, kv } = ctx;
 	const { jsonDebounceMs = 500 } = config;
 
 	// For logging
 	const logPath = `workspaces/${workspaceId}/${epoch}`;
-
-	// Get the top-level Y.Maps from the workspace doc wrapper (stable references)
-	const { schemaMap, kvMap } = workspaceDoc;
 
 	// Resolve paths once, cache the promise
 	const pathsPromise = (async () => {
@@ -155,8 +147,8 @@ export function workspacePersistence<
 	const saveSchemaJson = async () => {
 		const { schemaJsonPath } = await pathsPromise;
 		try {
-			const schema = workspaceDoc.schema.get();
-			const json = JSON.stringify(schema, null, '\t');
+			const schemaSnapshot = schema.get();
+			const json = JSON.stringify(schemaSnapshot, null, '\t');
 			await writeFile(schemaJsonPath, new TextEncoder().encode(json));
 			console.log(
 				`[WorkspacePersistence] Saved schema.json for ${workspaceId}`,
@@ -177,11 +169,8 @@ export function workspacePersistence<
 		}, jsonDebounceMs);
 	};
 
-	// Observe schema map changes
-	const schemaObserverHandler = () => {
-		scheduleSchemaSave();
-	};
-	schemaMap.observeDeep(schemaObserverHandler);
+	// Observe schema changes using the schema helper's observe method
+	const unsubscribeSchema = schema.observe(scheduleSchemaSave);
 
 	// =========================================================================
 	// 3. KV JSON Persistence (kv.json)
@@ -192,7 +181,7 @@ export function workspacePersistence<
 	const saveKvJson = async () => {
 		const { kvJsonPath } = await pathsPromise;
 		try {
-			const kvData = kvMap.toJSON();
+			const kvData = kv.toJSON();
 			const json = JSON.stringify(kvData, null, '\t');
 			await writeFile(kvJsonPath, new TextEncoder().encode(json));
 			console.log(`[WorkspacePersistence] Saved kv.json for ${workspaceId}`);
@@ -209,11 +198,8 @@ export function workspacePersistence<
 		}, jsonDebounceMs);
 	};
 
-	// Observe KV map changes
-	const kvObserverHandler = () => {
-		scheduleKvSave();
-	};
-	kvMap.observe(kvObserverHandler);
+	// Observe KV changes using the kv helper's observe method
+	const unsubscribeKv = kv.observe(scheduleKvSave);
 
 	// =========================================================================
 	// Return Provider Exports
@@ -266,9 +252,9 @@ export function workspacePersistence<
 			// Remove Y.Doc observer
 			ydoc.off('update', saveYDoc);
 
-			// Remove map observers
-			schemaMap.unobserveDeep(schemaObserverHandler);
-			kvMap.unobserve(kvObserverHandler);
+			// Remove map observers via unsubscribe functions
+			unsubscribeSchema();
+			unsubscribeKv();
 		},
 	});
 }

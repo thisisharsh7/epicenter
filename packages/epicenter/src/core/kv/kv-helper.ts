@@ -185,7 +185,7 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		 *
 		 * @example
 		 * ```typescript
-		 * const unsubscribe = kv.theme.observeChanges((change, transaction) => {
+		 * const unsubscribe = kv('theme').observe((change, transaction) => {
 		 *   switch (change.action) {
 		 *     case 'add':
 		 *     case 'update':
@@ -199,7 +199,7 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		 * unsubscribe(); // Stop watching
 		 * ```
 		 */
-		observeChanges(
+		observe(
 			callback: (change: KvChange<TValue>, transaction: Y.Transaction) => void,
 		): () => void {
 			const handler = (

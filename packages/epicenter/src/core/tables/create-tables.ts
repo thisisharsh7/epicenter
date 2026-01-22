@@ -53,11 +53,12 @@ const COLUMN_NAME_PATTERN = regex('^[a-z][a-zA-Z0-9_]*$');
 export type {
 	GetResult,
 	InvalidRowResult,
+	RowAction,
+	RowChanges,
 	RowMap,
 	RowResult,
 	TableHelper,
 	TableMap,
-	TableRowChange,
 	TablesMap,
 	UntypedTableHelper,
 	ValidRowResult,

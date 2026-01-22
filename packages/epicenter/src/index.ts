@@ -151,6 +151,8 @@ export type {
 	GetResult,
 	InvalidRowResult,
 	NotFoundResult,
+	RowAction,
+	RowChanges,
 	RowResult,
 	UpdateManyResult,
 	UpdateResult,
