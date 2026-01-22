@@ -193,7 +193,7 @@ export function createWorkspaceDoc(options: {
 		 * Read the current schema from the Y.Doc as a plain object.
 		 *
 		 * Returns table and KV schema definitions (NOT workspace identity).
-		 * Use HeadDoc.getMeta() for workspace identity.
+		 * Use `head.name`, `head.icon`, `head.description` for workspace identity.
 		 *
 		 * @example
 		 * ```typescript
@@ -202,7 +202,7 @@ export function createWorkspaceDoc(options: {
 		 * ```
 		 */
 		getSchema(): WorkspaceSchemaMap {
-			return readSchemaFromYDoc(schemaMap);
+			return schemaMap.toJSON() as WorkspaceSchemaMap;
 		},
 
 		/**
@@ -226,7 +226,63 @@ export function createWorkspaceDoc(options: {
 			TTableDefinitionMap extends TableDefinitionMap,
 			TKvDefinitionMap extends KvDefinitionMap,
 		>(schema: { tables: TTableDefinitionMap; kv: TKvDefinitionMap }) {
-			mergeSchemaIntoYDoc(schemaMap, schema);
+			// Merge tables schema
+			let tablesYMap = schemaMap.get('tables') as Y.Map<unknown> | undefined;
+			if (!tablesYMap) {
+				tablesYMap = new Y.Map();
+				schemaMap.set('tables', tablesYMap);
+			}
+
+			for (const [tableName, tableDefinition] of Object.entries(
+				schema.tables,
+			)) {
+				let tableSchemaMap = tablesYMap.get(tableName) as
+					| Y.Map<unknown>
+					| undefined;
+				if (!tableSchemaMap) {
+					tableSchemaMap = new Y.Map();
+					tablesYMap.set(tableName, tableSchemaMap);
+				}
+
+				tableSchemaMap.set('name', tableDefinition.name);
+				tableSchemaMap.set('icon', tableDefinition.icon ?? null);
+				tableSchemaMap.set('description', tableDefinition.description ?? '');
+
+				// Store fields as a nested Y.Map
+				let fieldsMap = tableSchemaMap.get('fields') as
+					| Y.Map<unknown>
+					| undefined;
+				if (!fieldsMap) {
+					fieldsMap = new Y.Map();
+					tableSchemaMap.set('fields', fieldsMap);
+				}
+
+				for (const [fieldName, fieldSchema] of Object.entries(
+					tableDefinition.fields,
+				)) {
+					fieldsMap.set(fieldName, fieldSchema);
+				}
+			}
+
+			// Merge KV schema
+			let kvSchemaMap = schemaMap.get('kv') as Y.Map<unknown> | undefined;
+			if (!kvSchemaMap) {
+				kvSchemaMap = new Y.Map();
+				schemaMap.set('kv', kvSchemaMap);
+			}
+
+			for (const [keyName, kvDefinition] of Object.entries(schema.kv)) {
+				let kvEntryMap = kvSchemaMap.get(keyName) as Y.Map<unknown> | undefined;
+				if (!kvEntryMap) {
+					kvEntryMap = new Y.Map();
+					kvSchemaMap.set(keyName, kvEntryMap);
+				}
+
+				kvEntryMap.set('name', kvDefinition.name);
+				kvEntryMap.set('icon', kvDefinition.icon ?? null);
+				kvEntryMap.set('description', kvDefinition.description ?? '');
+				kvEntryMap.set('field', kvDefinition.field);
+			}
 		},
 
 		/**
@@ -251,7 +307,7 @@ export function createWorkspaceDoc(options: {
 		 */
 		observeSchema(callback: (schema: WorkspaceSchemaMap) => void) {
 			const handler = () => {
-				callback(readSchemaFromYDoc(schemaMap));
+				callback(this.getSchema());
 			};
 
 			schemaMap.observeDeep(handler);
@@ -262,139 +318,3 @@ export function createWorkspaceDoc(options: {
 
 /** Workspace Y.Doc wrapper type - inferred from factory function. */
 export type WorkspaceDoc = ReturnType<typeof createWorkspaceDoc>;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Schema Helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Merge table/KV schema into the Y.Map('schema').
- *
- * This is called during workspace creation to ensure the schema is stored
- * in the Y.Doc. Uses CRDT merge semantics so concurrent edits merge correctly.
- *
- * Note: Workspace identity (name, icon, description) is NOT stored here.
- * Use HeadDoc.setMeta() to set workspace identity.
- *
- * @param schemaMap - The Y.Map('schema') to write to
- * @param workspaceSchema - The schema to merge (tables and kv from defineSchema or inline)
- */
-export function mergeSchemaIntoYDoc<
-	TTableDefinitionMap extends TableDefinitionMap,
-	TKvDefinitionMap extends KvDefinitionMap,
->(
-	schemaMap: SchemaMap,
-	workspaceSchema: {
-		tables: TTableDefinitionMap;
-		kv: TKvDefinitionMap;
-	},
-) {
-	// Merge tables schema
-	let tablesMap = schemaMap.get('tables') as Y.Map<unknown> | undefined;
-	if (!tablesMap) {
-		tablesMap = new Y.Map();
-		schemaMap.set('tables', tablesMap);
-	}
-
-	for (const [tableName, tableDefinition] of Object.entries(
-		workspaceSchema.tables,
-	)) {
-		let tableSchemaMap = tablesMap.get(tableName) as Y.Map<unknown> | undefined;
-		if (!tableSchemaMap) {
-			tableSchemaMap = new Y.Map();
-			tablesMap.set(tableName, tableSchemaMap);
-		}
-
-		tableSchemaMap.set('name', tableDefinition.name);
-		tableSchemaMap.set('icon', tableDefinition.icon ?? null);
-		tableSchemaMap.set('description', tableDefinition.description ?? '');
-
-		// Store fields as a nested Y.Map
-		let fieldsMap = tableSchemaMap.get('fields') as Y.Map<unknown> | undefined;
-		if (!fieldsMap) {
-			fieldsMap = new Y.Map();
-			tableSchemaMap.set('fields', fieldsMap);
-		}
-
-		for (const [fieldName, fieldSchema] of Object.entries(
-			tableDefinition.fields,
-		)) {
-			// Store field schema as JSON (it's already JSON-serializable)
-			fieldsMap.set(fieldName, fieldSchema);
-		}
-	}
-
-	// Merge KV schema
-	let kvSchemaMap = schemaMap.get('kv') as Y.Map<unknown> | undefined;
-	if (!kvSchemaMap) {
-		kvSchemaMap = new Y.Map();
-		schemaMap.set('kv', kvSchemaMap);
-	}
-
-	for (const [keyName, kvDefinition] of Object.entries(workspaceSchema.kv)) {
-		let kvEntryMap = kvSchemaMap.get(keyName) as Y.Map<unknown> | undefined;
-		if (!kvEntryMap) {
-			kvEntryMap = new Y.Map();
-			kvSchemaMap.set(keyName, kvEntryMap);
-		}
-
-		kvEntryMap.set('name', kvDefinition.name);
-		kvEntryMap.set('icon', kvDefinition.icon ?? null);
-		kvEntryMap.set('description', kvDefinition.description ?? '');
-		kvEntryMap.set('field', kvDefinition.field);
-	}
-}
-
-/**
- * Read the schema from Y.Map('schema') as a plain object.
- *
- * Useful for introspection and migration.
- *
- * Note: Workspace identity (name, icon, description) is NOT returned here.
- * Use HeadDoc.getMeta() to read workspace identity.
- *
- * @param schemaMap - The Y.Map('schema') to read from
- * @returns The schema as a plain JSON object
- */
-export function readSchemaFromYDoc(schemaMap: SchemaMap): WorkspaceSchemaMap {
-	const tablesYMap = schemaMap.get('tables') as Y.Map<unknown> | undefined;
-	const tables: WorkspaceSchemaMap['tables'] = {};
-
-	if (tablesYMap) {
-		for (const [tableName, tableSchemaYMap] of tablesYMap.entries()) {
-			const tableMap = tableSchemaYMap as Y.Map<unknown>;
-			const fieldsYMap = tableMap.get('fields') as Y.Map<unknown> | undefined;
-			const fields: Record<string, unknown> = {};
-
-			if (fieldsYMap) {
-				for (const [fieldName, fieldSchema] of fieldsYMap.entries()) {
-					fields[fieldName] = fieldSchema;
-				}
-			}
-
-			tables[tableName] = {
-				name: (tableMap.get('name') as string) ?? tableName,
-				icon: (tableMap.get('icon') as IconDefinition | null) ?? null,
-				description: (tableMap.get('description') as string) ?? '',
-				fields,
-			};
-		}
-	}
-
-	const kvYMap = schemaMap.get('kv') as Y.Map<unknown> | undefined;
-	const kv: WorkspaceSchemaMap['kv'] = {};
-
-	if (kvYMap) {
-		for (const [keyName, kvEntryYMap] of kvYMap.entries()) {
-			const entryMap = kvEntryYMap as Y.Map<unknown>;
-			kv[keyName] = {
-				name: (entryMap.get('name') as string) ?? keyName,
-				icon: (entryMap.get('icon') as IconDefinition | null) ?? null,
-				description: (entryMap.get('description') as string) ?? '',
-				field: entryMap.get('field'),
-			};
-		}
-	}
-
-	return { tables, kv };
-}
