@@ -69,19 +69,19 @@ JSDoc explains **when and why** to use something, not just what it does.
  *
  * @example
  * ```typescript
- * for (const table of tables.$all()) {
+ * for (const table of tables.defined()) {
  *   console.log(table.name, table.count());
  * }
  * ```
  */
-$all() { ... }
+defined() { ... }
 ````
 
 ### Bad
 
 ```typescript
 /** Returns all table helpers as an array. */
-$all() { ... }
+defined() { ... }
 ```
 
 ### Rules

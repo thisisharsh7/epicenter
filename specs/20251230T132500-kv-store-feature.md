@@ -293,10 +293,10 @@ export type Kv<TKvSchema extends KvSchema> = {
 	[K in keyof TKvSchema]: KvHelper<TKvSchema[K]>;
 } & {
 	/** Get all KV helpers as an array */
-	$all(): KvHelper<TKvSchema[keyof TKvSchema]>[];
+	defined(): KvHelper<TKvSchema[keyof TKvSchema]>[];
 
 	/** Get all values as a plain object */
-	$toJSON(): { [K in keyof TKvSchema]: SerializedKvValue<TKvSchema[K]> };
+	toJSON(): { [K in keyof TKvSchema]: SerializedKvValue<TKvSchema[K]> };
 };
 ```
 
@@ -390,11 +390,11 @@ export function createKv<TKvSchema extends KvSchema>(
 	return {
 		...kvHelpers,
 
-		$all() {
+		defined() {
 			return Object.values(kvHelpers);
 		},
 
-		$toJSON() {
+		toJSON() {
 			const result: Record<string, unknown> = {};
 			for (const [key, helper] of Object.entries(kvHelpers)) {
 				result[key] = serializeCellValue(helper.get());
@@ -514,12 +514,12 @@ export function createKvPlugin(
 		const tags = [workspaceId, 'kv'];
 
 		// List all KV pairs
-		app.get(basePath, () => kv.$toJSON(), {
+		app.get(basePath, () => kv.toJSON(), {
 			detail: { description: `List all KV pairs for ${workspaceId}`, tags },
 		});
 
 		// Per-key endpoints
-		for (const kvHelper of kv.$all()) {
+		for (const kvHelper of kv.defined()) {
 			const keyPath = `${basePath}/${kvHelper.name}`;
 
 			// Get value

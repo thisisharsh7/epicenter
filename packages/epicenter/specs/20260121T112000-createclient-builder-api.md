@@ -271,7 +271,7 @@ const client = createClient('user-workspace-123', { epoch: 2 }).withExtensions({
 await client.whenSynced;
 
 // Tables are dynamically available based on Y.Doc schema
-for (const table of client.tables.$all()) {
+for (const table of client.tables.defined()) {
 	console.log(table.name, table.count());
 }
 ```
