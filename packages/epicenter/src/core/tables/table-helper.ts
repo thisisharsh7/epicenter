@@ -120,15 +120,25 @@ export type DeleteManyResult =
 	| { status: 'none_deleted'; notFoundLocally: string[] };
 
 /**
- * Action that occurred on a row.
+ * Set of row IDs that changed.
  *
- * The observer only tells you WHAT changed (IDs) and HOW (action).
- * To get the actual row data, call table.get(id).
+ * The observer tells you WHICH rows changed. To know what happened:
+ * - Call `table.get(id)` to get current state
+ * - If `not_found`, the row was deleted
+ * - Otherwise, the row was added or updated (use your own tracking if you need to distinguish)
+ *
+ * This simple contract avoids semantic complexity around action classification
+ * and lets callers decide how to handle changes.
+ */
+export type ChangedRowIds = Set<string>;
+
+/**
+ * @deprecated Use ChangedRowIds (Set<string>) instead. RowAction is no longer tracked.
  */
 export type RowAction = 'add' | 'update' | 'delete';
 
 /**
- * Map of row IDs to the action that occurred.
+ * @deprecated Use ChangedRowIds (Set<string>) instead. The new observe() returns just IDs.
  */
 export type RowChanges = Map<string, RowAction>;
 
@@ -319,8 +329,8 @@ function createTableHelper<TFieldSchemaMap extends FieldSchemaMap>({
 		},
 
 		upsert(rowData: TRow): void {
-			const rowMap = getOrCreateRow(rowData.id);
 			ydoc.transact(() => {
+				const rowMap = getOrCreateRow(rowData.id);
 				for (const [key, value] of Object.entries(rowData)) {
 					rowMap.set(key, value);
 				}
@@ -451,6 +461,23 @@ function createTableHelper<TFieldSchemaMap extends FieldSchemaMap>({
 			return { status: 'partially_deleted', deleted, notFoundLocally };
 		},
 
+		/**
+		 * Delete all rows from the table.
+		 *
+		 * ## Design: Tables Are Never Deleted
+		 *
+		 * This method deletes all rows within the table, but the table's Y.Map
+		 * structure itself is preserved. Tables defined in your schema are permanent;
+		 * they can be emptied but never removed.
+		 *
+		 * This design ensures:
+		 * - Observers remain attached (no need to re-observe after clearing)
+		 * - `tables('posts')` always returns a valid helper
+		 * - No edge cases around table deletion/recreation during sync
+		 *
+		 * If you need to "reset" a table, call `clear()`. The table structure
+		 * persists, ready for new rows.
+		 */
 		clear(): void {
 			const tableMap = getExistingTableMap();
 			if (!tableMap) return;
@@ -504,213 +531,133 @@ function createTableHelper<TFieldSchemaMap extends FieldSchemaMap>({
 		},
 
 		/**
-		 * Watch for row changes with validation status.
+		 * Watch for row changes.
+		 *
+		 * ## Simple Contract
+		 *
+		 * The callback receives a Set of row IDs that changed. To determine what happened:
+		 * - Call `table.get(id)` to get the current state
+		 * - If `status === 'not_found'`, the row was deleted
+		 * - Otherwise, the row was added or updated
+		 *
+		 * This intentionally does NOT distinguish between add and update. If you need
+		 * that distinction, track row existence yourself before/after changes.
 		 *
 		 * ## Transaction Batching
 		 *
-		 * Changes are collected during a Yjs transaction and delivered in a single
-		 * callback after the transaction completes. `upsertMany(1000)` fires ONE
-		 * callback with 1000 changes, not 1000 separate callbacks.
+		 * Changes are batched per Y.Transaction. `upsertMany(1000)` fires ONE callback
+		 * with 1000 IDs, not 1000 callbacks.
 		 *
 		 * ## Deduplication
 		 *
-		 * If a row changes multiple times in one transaction, only the final state
-		 * is reported. The Map key is the row ID, so later changes overwrite earlier
-		 * ones (last-write-wins per row per transaction).
+		 * If a row changes multiple times in one transaction, it appears once in the Set.
 		 *
-		 * ## Add vs Update Classification
+		 * ## Y.Text and Nested Changes
 		 *
-		 * A row is classified as 'add' on its first cell-level change after appearing
-		 * in the table map. Subsequent changes are 'update'. This means 'add' fires
-		 * when data arrives, not when the empty row container is created.
+		 * Changes to Y.Text fields (or any nested Y.AbstractType) are automatically
+		 * detected and included. No special handling needed.
 		 *
-		 * ## Table Replacement (Sync Conflicts)
+		 * @returns Unsubscribe function
 		 *
-		 * During sync, the entire table Y.Map can be replaced due to CRDT conflict
-		 * resolution. When this happens, 'delete' events fire for all rows in the old
-		 * table, then 'add' events fire for all rows in the new table.
-		 *
-		 * @returns Unsubscribe function that fully detaches all observers
+		 * @example
+		 * ```typescript
+		 * const unsubscribe = table.observe((changedIds, transaction) => {
+		 *   for (const id of changedIds) {
+		 *     const result = table.get(id);
+		 *     if (result.status === 'not_found') {
+		 *       console.log('Deleted:', id);
+		 *     } else if (result.status === 'valid') {
+		 *       console.log('Added/Updated:', result.row);
+		 *     }
+		 *   }
+		 * });
+		 * ```
 		 */
 		observe(
-			callback: (changes: RowChanges, transaction: Y.Transaction) => void,
+			callback: (changedIds: ChangedRowIds, transaction: Y.Transaction) => void,
 		): () => void {
-			/**
-			 * Maps rowId → unsubscribe function for that row's cell-level observer.
-			 * Each row has its own Y.Map that emits cell changes.
-			 */
-			const rowObservers = new Map<string, () => void>();
-
-			/**
-			 * Tracks rows that were just added to the table map but haven't emitted
-			 * their first cell change yet. The first cell change for a row in this set
-			 * becomes an 'add' event; subsequent changes become 'update' events.
-			 */
-			const pendingAdds = new Set<string>();
-
 			let tableMap = getExistingTableMap();
-			let tableUnobserve: (() => void) | null = null;
 
-			/**
-			 * Transaction batching state. Changes accumulate here during a transaction
-			 * and are delivered once via afterTransaction hook. This is O(1) per change
-			 * and ensures bulk operations fire a single callback.
-			 */
-			let pendingChanges: RowChanges = new Map();
-			let pendingTransaction: Y.Transaction | null = null;
-
-			const afterTransactionHandler = () => {
-				if (pendingChanges.size > 0 && pendingTransaction) {
-					const changesToDeliver = pendingChanges;
-					const transactionToDeliver = pendingTransaction;
-					pendingChanges = new Map();
-					pendingTransaction = null;
-					callback(changesToDeliver, transactionToDeliver);
-				} else {
-					pendingChanges = new Map();
-					pendingTransaction = null;
-				}
-			};
-
-			ydoc.on('afterTransaction', afterTransactionHandler);
-
-			const queueChange = (
-				rowId: string,
-				action: RowAction,
+			const handler = (
+				events: Y.YEvent<unknown>[],
 				transaction: Y.Transaction,
 			) => {
-				pendingTransaction = transaction;
-				pendingChanges.set(rowId, action);
-			};
+				const changedIds = new Set<string>();
 
-			/**
-			 * Attach a cell-level observer to a row. Returns unsubscribe function.
-			 */
-			const observeRow = (rowId: string, rowMap: RowMap) => {
-				const handler = (event: Y.YMapEvent<unknown>) => {
-					if (pendingAdds.has(rowId)) {
-						pendingAdds.delete(rowId);
-						queueChange(rowId, 'add', event.transaction);
+				for (const event of events) {
+					if (event.target === tableMap) {
+						// Table-level event: row added or deleted
+						for (const rowId of event.changes.keys.keys()) {
+							changedIds.add(rowId);
+						}
 					} else {
-						queueChange(rowId, 'update', event.transaction);
-					}
-				};
-
-				rowMap.observe(handler);
-				return () => rowMap.unobserve(handler);
-			};
-
-			/**
-			 * Rebind observer for a row whose underlying RowMap was replaced.
-			 * This can happen during sync when LWW resolves conflicting row structures.
-			 */
-			const rebindRowObserver = (
-				rowId: string,
-				newRowMap: RowMap,
-				transaction: Y.Transaction,
-			) => {
-				rowObservers.get(rowId)?.();
-				rowObservers.set(rowId, observeRow(rowId, newRowMap));
-				queueChange(rowId, 'update', transaction);
-			};
-
-			const tableObserver = (event: Y.YMapEvent<RowMap>) => {
-				const currentTableMap = event.target;
-
-				event.changes.keys.forEach((change, rowId) => {
-					if (change.action === 'add') {
-						const rowMap = currentTableMap.get(rowId);
-						if (rowMap) {
-							rowObservers.set(rowId, observeRow(rowId, rowMap));
-
-							if (rowMap.size > 0) {
-								queueChange(rowId, 'add', event.transaction);
-							} else {
-								pendingAdds.add(rowId);
-							}
+						// Nested event: cell change or Y.Text edit
+						// event.path[0] is the rowId for nested events
+						const rowId = event.path[0];
+						if (typeof rowId === 'string') {
+							changedIds.add(rowId);
 						}
-					} else if (change.action === 'update') {
-						const newRowMap = currentTableMap.get(rowId);
-						if (newRowMap) {
-							rebindRowObserver(rowId, newRowMap, event.transaction);
-						}
-					} else if (change.action === 'delete') {
-						rowObservers.get(rowId)?.();
-						rowObservers.delete(rowId);
-						pendingAdds.delete(rowId);
-						queueChange(rowId, 'delete', event.transaction);
-					}
-				});
-			};
-
-			const teardownTableObservers = () => {
-				tableUnobserve?.();
-				tableUnobserve = null;
-				for (const unsubscribe of rowObservers.values()) unsubscribe();
-				rowObservers.clear();
-				pendingAdds.clear();
-			};
-
-			/**
-			 * Begin observing a table map. If fireAddForExisting is true, queues 'add'
-			 * events for all existing rows (used when table is created or replaced
-			 * after subscription started).
-			 */
-			const setupTableObserver = (
-				map: TableMap,
-				fireAddForExisting: boolean,
-				transaction?: Y.Transaction,
-			) => {
-				for (const [rowId, rowMap] of map.entries()) {
-					rowObservers.set(rowId, observeRow(rowId, rowMap));
-					if (fireAddForExisting && transaction) {
-						queueChange(rowId, 'add', transaction);
 					}
 				}
 
-				map.observe(tableObserver);
-				tableUnobserve = () => map.unobserve(tableObserver);
+				if (changedIds.size > 0) {
+					callback(changedIds, transaction);
+				}
 			};
 
+			// If table already exists, start observing it
 			if (tableMap) {
-				setupTableObserver(tableMap, false);
+				tableMap.observeDeep(handler);
 			}
 
-			const ytablesObserver = (event: Y.YMapEvent<TableMap>) => {
-				event.changes.keys.forEach((change, key) => {
-					if (key !== tableName) return;
+			// Watch for table creation/replacement at the ytables level
+			const ytablesHandler = (event: Y.YMapEvent<TableMap>) => {
+				for (const [key, change] of event.changes.keys) {
+					if (key !== tableName) continue;
 
-					if (change.action === 'add') {
-						const newTableMap = ytables.get(tableName);
-						if (newTableMap && !tableMap) {
-							tableMap = newTableMap;
-							setupTableObserver(newTableMap, true, event.transaction);
-						}
-					} else if (change.action === 'update') {
+					if (change.action === 'add' || change.action === 'update') {
 						const newTableMap = ytables.get(tableName);
 						if (newTableMap && newTableMap !== tableMap) {
-							for (const rowId of rowObservers.keys()) {
-								queueChange(rowId, 'delete', event.transaction);
+							// Unobserve old table if it existed
+							if (tableMap) {
+								tableMap.unobserveDeep(handler);
 							}
-							teardownTableObservers();
 							tableMap = newTableMap;
-							setupTableObserver(newTableMap, true, event.transaction);
+							tableMap.observeDeep(handler);
+
+							// Fire callback for all rows in the new/replaced table
+							const changedIds = new Set<string>();
+							for (const rowId of tableMap.keys()) {
+								changedIds.add(rowId);
+							}
+							if (changedIds.size > 0) {
+								callback(changedIds, event.transaction);
+							}
 						}
 					} else if (change.action === 'delete') {
-						for (const rowId of rowObservers.keys()) {
-							queueChange(rowId, 'delete', event.transaction);
+						if (tableMap) {
+							// Fire callback for all deleted rows before unobserving
+							const changedIds = new Set<string>();
+							for (const rowId of tableMap.keys()) {
+								changedIds.add(rowId);
+							}
+							tableMap.unobserveDeep(handler);
+							tableMap = null;
+							if (changedIds.size > 0) {
+								callback(changedIds, event.transaction);
+							}
 						}
-						teardownTableObservers();
-						tableMap = null;
 					}
-				});
+				}
 			};
-			ytables.observe(ytablesObserver);
+
+			ytables.observe(ytablesHandler);
 
 			return () => {
-				ydoc.off('afterTransaction', afterTransactionHandler);
-				ytables.unobserve(ytablesObserver);
-				teardownTableObservers();
+				if (tableMap) {
+					tableMap.unobserveDeep(handler);
+				}
+				ytables.unobserve(ytablesHandler);
 			};
 		},
 
@@ -750,6 +697,12 @@ export type UntypedTableHelper = {
 	has(id: string): boolean;
 	delete(id: string): DeleteResult;
 	deleteMany(ids: string[]): DeleteManyResult;
+	/**
+	 * Delete all rows from the table.
+	 *
+	 * Tables are permanent structures; they can be emptied but never removed.
+	 * Observers remain attached after clearing.
+	 */
 	clear(): void;
 	count(): number;
 	filter(
@@ -759,7 +712,7 @@ export type UntypedTableHelper = {
 		predicate: (row: { id: string } & Record<string, unknown>) => boolean,
 	): ({ id: string } & Record<string, unknown>) | null;
 	observe(
-		callback: (changes: RowChanges, transaction: Y.Transaction) => void,
+		callback: (changedIds: ChangedRowIds, transaction: Y.Transaction) => void,
 	): () => void;
 	inferRow: { id: string } & Record<string, unknown>;
 };
@@ -837,8 +790,8 @@ export function createUntypedTableHelper({
 		},
 
 		upsert(rowData: TRow): void {
-			const rowMap = getOrCreateRow(rowData.id);
 			ydoc.transact(() => {
+				const rowMap = getOrCreateRow(rowData.id);
 				for (const [key, value] of Object.entries(rowData)) {
 					rowMap.set(key, value);
 				}
@@ -956,6 +909,23 @@ export function createUntypedTableHelper({
 			return { status: 'partially_deleted', deleted, notFoundLocally };
 		},
 
+		/**
+		 * Delete all rows from the table.
+		 *
+		 * ## Design: Tables Are Never Deleted
+		 *
+		 * This method deletes all rows within the table, but the table's Y.Map
+		 * structure itself is preserved. Tables defined in your schema are permanent;
+		 * they can be emptied but never removed.
+		 *
+		 * This design ensures:
+		 * - Observers remain attached (no need to re-observe after clearing)
+		 * - `tables('posts')` always returns a valid helper
+		 * - No edge cases around table deletion/recreation during sync
+		 *
+		 * If you need to "reset" a table, call `clear()`. The table structure
+		 * persists, ready for new rows.
+		 */
 		clear(): void {
 			const tableMap = getExistingTableMap();
 			if (!tableMap) return;
@@ -1000,157 +970,76 @@ export function createUntypedTableHelper({
 		},
 
 		observe(
-			callback: (changes: RowChanges, transaction: Y.Transaction) => void,
+			callback: (changedIds: ChangedRowIds, transaction: Y.Transaction) => void,
 		): () => void {
-			const rowObservers = new Map<string, () => void>();
-			const pendingAdds = new Set<string>();
-
 			let tableMap = getExistingTableMap();
-			let tableUnobserve: (() => void) | null = null;
 
-			let pendingChanges: RowChanges = new Map();
-			let pendingTransaction: Y.Transaction | null = null;
-
-			const afterTransactionHandler = () => {
-				if (pendingChanges.size > 0 && pendingTransaction) {
-					const changesToDeliver = pendingChanges;
-					const transactionToDeliver = pendingTransaction;
-					pendingChanges = new Map();
-					pendingTransaction = null;
-					callback(changesToDeliver, transactionToDeliver);
-				} else {
-					pendingChanges = new Map();
-					pendingTransaction = null;
-				}
-			};
-
-			ydoc.on('afterTransaction', afterTransactionHandler);
-
-			const queueChange = (
-				rowId: string,
-				action: RowAction,
+			const handler = (
+				events: Y.YEvent<unknown>[],
 				transaction: Y.Transaction,
 			) => {
-				pendingTransaction = transaction;
-				pendingChanges.set(rowId, action);
-			};
+				const changedIds = new Set<string>();
 
-			const observeRow = (rowId: string, rowMap: RowMap) => {
-				const handler = (event: Y.YMapEvent<unknown>) => {
-					if (pendingAdds.has(rowId)) {
-						pendingAdds.delete(rowId);
-						queueChange(rowId, 'add', event.transaction);
+				for (const event of events) {
+					if (event.target === tableMap) {
+						// Table-level event: row added or deleted
+						for (const rowId of event.changes.keys.keys()) {
+							changedIds.add(rowId);
+						}
 					} else {
-						queueChange(rowId, 'update', event.transaction);
-					}
-				};
-
-				rowMap.observe(handler);
-				return () => rowMap.unobserve(handler);
-			};
-
-			const rebindRowObserver = (
-				rowId: string,
-				newRowMap: RowMap,
-				transaction: Y.Transaction,
-			) => {
-				rowObservers.get(rowId)?.();
-				rowObservers.set(rowId, observeRow(rowId, newRowMap));
-				queueChange(rowId, 'update', transaction);
-			};
-
-			const tableObserver = (event: Y.YMapEvent<RowMap>) => {
-				const currentTableMap = event.target;
-
-				event.changes.keys.forEach((change, rowId) => {
-					if (change.action === 'add') {
-						const rowMap = currentTableMap.get(rowId);
-						if (rowMap) {
-							rowObservers.set(rowId, observeRow(rowId, rowMap));
-
-							if (rowMap.size > 0) {
-								queueChange(rowId, 'add', event.transaction);
-							} else {
-								pendingAdds.add(rowId);
-							}
+						// Nested event: cell change or Y.Text edit
+						const rowId = event.path[0];
+						if (typeof rowId === 'string') {
+							changedIds.add(rowId);
 						}
-					} else if (change.action === 'update') {
-						const newRowMap = currentTableMap.get(rowId);
-						if (newRowMap) {
-							rebindRowObserver(rowId, newRowMap, event.transaction);
-						}
-					} else if (change.action === 'delete') {
-						rowObservers.get(rowId)?.();
-						rowObservers.delete(rowId);
-						pendingAdds.delete(rowId);
-						queueChange(rowId, 'delete', event.transaction);
-					}
-				});
-			};
-
-			const teardownTableObservers = () => {
-				tableUnobserve?.();
-				tableUnobserve = null;
-				for (const unsubscribe of rowObservers.values()) unsubscribe();
-				rowObservers.clear();
-				pendingAdds.clear();
-			};
-
-			const setupTableObserver = (
-				map: TableMap,
-				fireAddForExisting: boolean,
-				transaction?: Y.Transaction,
-			) => {
-				for (const [rowId, rowMap] of map.entries()) {
-					rowObservers.set(rowId, observeRow(rowId, rowMap));
-					if (fireAddForExisting && transaction) {
-						queueChange(rowId, 'add', transaction);
 					}
 				}
 
-				map.observe(tableObserver);
-				tableUnobserve = () => map.unobserve(tableObserver);
+				if (changedIds.size > 0) {
+					callback(changedIds, transaction);
+				}
 			};
 
+			// If table already exists, start observing it
 			if (tableMap) {
-				setupTableObserver(tableMap, false);
+				tableMap.observeDeep(handler);
 			}
 
-			const ytablesObserver = (event: Y.YMapEvent<TableMap>) => {
-				event.changes.keys.forEach((change, key) => {
-					if (key !== tableName) return;
+			// Watch for table creation at the ytables level (lazy creation on first write).
+			// Tables are never deleted or replaced; this only handles initial creation.
+			const ytablesHandler = (event: Y.YMapEvent<TableMap>) => {
+				for (const [key, change] of event.changes.keys) {
+					if (key !== tableName) continue;
 
-					if (change.action === 'add') {
+					if (change.action === 'add' && !tableMap) {
+						// Table was lazily created on first write
 						const newTableMap = ytables.get(tableName);
-						if (newTableMap && !tableMap) {
+						if (newTableMap) {
 							tableMap = newTableMap;
-							setupTableObserver(newTableMap, true, event.transaction);
-						}
-					} else if (change.action === 'update') {
-						const newTableMap = ytables.get(tableName);
-						if (newTableMap && newTableMap !== tableMap) {
-							for (const rowId of rowObservers.keys()) {
-								queueChange(rowId, 'delete', event.transaction);
+							tableMap.observeDeep(handler);
+
+							// Fire callback for all rows in the newly created table
+							const changedIds = new Set<string>();
+							for (const rowId of tableMap.keys()) {
+								changedIds.add(rowId);
 							}
-							teardownTableObservers();
-							tableMap = newTableMap;
-							setupTableObserver(newTableMap, true, event.transaction);
+							if (changedIds.size > 0) {
+								callback(changedIds, event.transaction);
+							}
 						}
-					} else if (change.action === 'delete') {
-						for (const rowId of rowObservers.keys()) {
-							queueChange(rowId, 'delete', event.transaction);
-						}
-						teardownTableObservers();
-						tableMap = null;
 					}
-				});
+					// Note: We intentionally don't handle 'delete' or 'update' (table replacement).
+					// Tables are permanent structures; use clear() to empty a table.
+				}
 			};
-			ytables.observe(ytablesObserver);
+
+			ytables.observe(ytablesHandler);
 
 			return () => {
-				ydoc.off('afterTransaction', afterTransactionHandler);
-				ytables.unobserve(ytablesObserver);
-				teardownTableObservers();
+				if (tableMap) {
+					tableMap.unobserveDeep(handler);
+				}
+				ytables.unobserve(ytablesHandler);
 			};
 		},
 

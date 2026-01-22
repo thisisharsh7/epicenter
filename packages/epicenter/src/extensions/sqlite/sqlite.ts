@@ -213,19 +213,23 @@ export const sqlite = async <
 	const unsubscribers: Array<() => void> = [];
 
 	for (const { table } of tables.zip(drizzleTables)) {
-		const unsub = table.observe((changes) => {
+		const unsub = table.observe((changedIds) => {
 			if (isPushingFromSqlite) return;
 
-			for (const [id, action] of changes) {
-				if (action === 'delete') continue;
+			for (const id of changedIds) {
 				const result = table.get(id);
+				if (result.status === 'not_found') {
+					// Row was deleted - no validation needed
+					continue;
+				}
 				if (result.status === 'invalid') {
 					logger.log(
 						ExtensionError({
-							message: `SQLite extension ${action}: validation failed for ${table.name}`,
+							message: `SQLite extension: validation failed for ${table.name}`,
 						}),
 					);
 				}
+				// result.status === 'valid' means row was added or updated - sync will handle it
 			}
 
 			scheduleSync();

@@ -93,15 +93,15 @@ export function workspacePersistence<
 	ctx: ExtensionContext<TTableDefinitionMap, TKvDefinitionMap>,
 	config: WorkspacePersistenceConfig = {},
 ): ProviderExports {
-	const { workspaceDoc } = ctx;
-	const { ydoc, workspaceId, epoch } = workspaceDoc;
+	const { ydoc, workspaceId, epoch, schema } = ctx;
 	const { jsonDebounceMs = 500 } = config;
 
 	// For logging
 	const logPath = `workspaces/${workspaceId}/${epoch}`;
 
-	// Get the top-level Y.Maps from the workspace doc wrapper (stable references)
-	const { schemaMap, kvMap } = workspaceDoc;
+	// Get the top-level Y.Maps directly from ydoc (stable references)
+	const schemaMap = ydoc.getMap('schema');
+	const kvMap = ydoc.getMap('kv');
 
 	// Resolve paths once, cache the promise
 	const pathsPromise = (async () => {
@@ -155,8 +155,8 @@ export function workspacePersistence<
 	const saveSchemaJson = async () => {
 		const { schemaJsonPath } = await pathsPromise;
 		try {
-			const schema = workspaceDoc.schema.get();
-			const json = JSON.stringify(schema, null, '\t');
+			const schemaSnapshot = schema.get();
+			const json = JSON.stringify(schemaSnapshot, null, '\t');
 			await writeFile(schemaJsonPath, new TextEncoder().encode(json));
 			console.log(
 				`[WorkspacePersistence] Saved schema.json for ${workspaceId}`,

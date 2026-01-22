@@ -442,11 +442,15 @@ export const markdown = async <
 				});
 			}
 
-			const unsub = table.observe((changes) => {
+			const unsub = table.observe((changedIds) => {
 				if (syncCoordination.fileChangeCount > 0) return;
 
-				for (const [id, action] of changes) {
-					if (action === 'delete') {
+				for (const id of changedIds) {
+					// Fetch the row data to determine if it was added/updated or deleted
+					const result = table.get(id);
+
+					if (result.status === 'not_found') {
+						// Row was deleted
 						void (async () => {
 							syncCoordination.yjsWriteCount++;
 
@@ -480,12 +484,6 @@ export const markdown = async <
 						continue;
 					}
 
-					// For add/update, fetch the row data
-					const result = table.get(id);
-					if (result.status === 'not_found') {
-						// Row was deleted between action and fetch, skip
-						continue;
-					}
 					if (result.status === 'invalid') {
 						const errorMessages = result.errors
 							.map(
@@ -494,7 +492,7 @@ export const markdown = async <
 							.join(', ');
 						logger.log(
 							ExtensionError({
-								message: `YJS observer ${action}: validation failed for ${table.name}/${id}: ${errorMessages}`,
+								message: `YJS observer: validation failed for ${table.name}/${id}: ${errorMessages}`,
 								context: {
 									tableName: result.tableName,
 									rowId: id,
@@ -504,6 +502,7 @@ export const markdown = async <
 						continue;
 					}
 
+					// Row was added or updated
 					const row = result.row;
 					void (async () => {
 						syncCoordination.yjsWriteCount++;
@@ -513,7 +512,7 @@ export const markdown = async <
 						if (error) {
 							logger.log(
 								ExtensionError({
-									message: `YJS observer ${action}: failed to write ${table.name}/${row.id}`,
+									message: `YJS observer: failed to write ${table.name}/${row.id}`,
 									context: { tableName: table.name, rowId: row.id },
 								}),
 							);

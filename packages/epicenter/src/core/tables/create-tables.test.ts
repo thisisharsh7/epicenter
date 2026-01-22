@@ -201,7 +201,7 @@ describe('createTables', () => {
 	});
 
 	describe('observe', () => {
-		test('onAdd fires when row is added via upsert', () => {
+		test('observe fires when row is added via upsert', () => {
 			const ydoc = new Y.Doc({ guid: 'test-observe' });
 			const tables = createTables(ydoc, {
 				posts: table({
@@ -215,12 +215,11 @@ describe('createTables', () => {
 				}),
 			});
 
-			const addedRows: string[] = [];
-			tables('posts').observe((changes) => {
-				for (const [id, action] of changes) {
-					if (action === 'add') {
-						addedRows.push(id);
-					}
+			// Use a Set to collect unique IDs (observer may fire multiple times per transaction)
+			const changedRows = new Set<string>();
+			tables('posts').observe((changedIds) => {
+				for (const id of changedIds) {
+					changedRows.add(id);
 				}
 			});
 
@@ -235,10 +234,12 @@ describe('createTables', () => {
 				published: true,
 			});
 
-			expect(addedRows).toEqual(['post-1', 'post-2']);
+			expect(changedRows.has('post-1')).toBe(true);
+			expect(changedRows.has('post-2')).toBe(true);
+			expect(changedRows.size).toBe(2);
 		});
 
-		test('onUpdate fires when row field is modified', () => {
+		test('observe fires when row field is modified', () => {
 			const ydoc = new Y.Doc({ guid: 'test-observe' });
 			const tables = createTables(ydoc, {
 				posts: table({
@@ -259,16 +260,15 @@ describe('createTables', () => {
 			});
 
 			const updates: Array<{ id: string; title: string }> = [];
-			tables('posts').observe((changes) => {
-				for (const [id, action] of changes) {
-					if (action === 'update') {
-						const result = tables('posts').get(id);
-						if (result.status === 'valid') {
-							updates.push({
-								id,
-								title: result.row.title,
-							});
-						}
+			tables('posts').observe((changedIds) => {
+				for (const id of changedIds) {
+					const result = tables('posts').get(id);
+					// New API cannot distinguish add vs update, check if row exists
+					if (result.status === 'valid') {
+						updates.push({
+							id,
+							title: result.row.title,
+						});
 					}
 				}
 			});
@@ -280,7 +280,7 @@ describe('createTables', () => {
 			expect(updates[0]?.title).toBe('Updated');
 		});
 
-		test('onDelete fires when row is removed', () => {
+		test('observe fires when row is removed', () => {
 			const ydoc = new Y.Doc({ guid: 'test-observe' });
 			const tables = createTables(ydoc, {
 				posts: table({
@@ -297,9 +297,11 @@ describe('createTables', () => {
 			tables('posts').upsert({ id: 'post-2', title: 'Second' });
 
 			const deletedIds: string[] = [];
-			tables('posts').observe((changes) => {
-				for (const [id, action] of changes) {
-					if (action === 'delete') {
+			tables('posts').observe((changedIds) => {
+				for (const id of changedIds) {
+					// Check if row was deleted by seeing if it no longer exists
+					const result = tables('posts').get(id);
+					if (result.status === 'not_found') {
 						deletedIds.push(id);
 					}
 				}
@@ -310,7 +312,7 @@ describe('createTables', () => {
 			expect(deletedIds).toEqual(['post-1']);
 		});
 
-		test('callbacks receive raw row data', () => {
+		test('callbacks can access row data via get()', () => {
 			const ydoc = new Y.Doc({ guid: 'test-observe' });
 			const tables = createTables(ydoc, {
 				posts: table({
@@ -325,13 +327,12 @@ describe('createTables', () => {
 
 			const receivedRows: Array<{ id: string; title: string }> = [];
 
-			tables('posts').observe((changes) => {
-				for (const [id, action] of changes) {
-					if (action === 'add') {
-						const result = tables('posts').get(id);
-						if (result.status === 'valid') {
-							receivedRows.push({ id, title: result.row.title });
-						}
+			tables('posts').observe((changedIds) => {
+				for (const id of changedIds) {
+					const result = tables('posts').get(id);
+					// For non-deleted rows, we can access the data
+					if (result.status === 'valid') {
+						receivedRows.push({ id, title: result.row.title });
 					}
 				}
 			});
@@ -362,11 +363,9 @@ describe('createTables', () => {
 			});
 
 			let receivedResult: unknown = null;
-			tables('posts').observe((changes) => {
-				for (const [id, action] of changes) {
-					if (action === 'add') {
-						receivedResult = tables('posts').get(id);
-					}
+			tables('posts').observe((changedIds) => {
+				for (const id of changedIds) {
+					receivedResult = tables('posts').get(id);
 				}
 			});
 
@@ -403,12 +402,11 @@ describe('createTables', () => {
 				}),
 			});
 
-			const addedIds: string[] = [];
-			const unsubscribe = tables('posts').observe((changes) => {
-				for (const [id, action] of changes) {
-					if (action === 'add') {
-						addedIds.push(id);
-					}
+			// Use a Set to collect unique IDs (observer may fire multiple times per transaction)
+			const changedIds = new Set<string>();
+			const unsubscribe = tables('posts').observe((ids) => {
+				for (const id of ids) {
+					changedIds.add(id);
 				}
 			});
 
@@ -416,7 +414,9 @@ describe('createTables', () => {
 			unsubscribe();
 			tables('posts').upsert({ id: 'post-2', title: 'Second' });
 
-			expect(addedIds).toEqual(['post-1']);
+			// Only post-1 should be observed; post-2 happened after unsubscribe
+			expect(changedIds.has('post-1')).toBe(true);
+			expect(changedIds.has('post-2')).toBe(false);
 		});
 
 		test('transaction batching: upsertMany fires callback once with all changes', () => {
@@ -433,15 +433,11 @@ describe('createTables', () => {
 			});
 
 			let callbackCount = 0;
-			const allChanges: Map<string, string>[] = [];
+			const allChangedIds: Set<string>[] = [];
 
-			tables('posts').observe((changes) => {
+			tables('posts').observe((changedIds) => {
 				callbackCount++;
-				const changeMap = new Map<string, string>();
-				for (const [id, action] of changes) {
-					changeMap.set(id, action);
-				}
-				allChanges.push(changeMap);
+				allChangedIds.push(new Set(changedIds));
 			});
 
 			tables('posts').upsertMany([
@@ -451,10 +447,10 @@ describe('createTables', () => {
 			]);
 
 			expect(callbackCount).toBe(1);
-			expect(allChanges[0]?.size).toBe(3);
-			expect(allChanges[0]?.get('post-1')).toBe('add');
-			expect(allChanges[0]?.get('post-2')).toBe('add');
-			expect(allChanges[0]?.get('post-3')).toBe('add');
+			expect(allChangedIds[0]?.size).toBe(3);
+			expect(allChangedIds[0]?.has('post-1')).toBe(true);
+			expect(allChangedIds[0]?.has('post-2')).toBe(true);
+			expect(allChangedIds[0]?.has('post-3')).toBe(true);
 		});
 
 		test('transaction batching: multiple updates in transact fires callback once', () => {
@@ -477,15 +473,11 @@ describe('createTables', () => {
 			]);
 
 			let callbackCount = 0;
-			const allChanges: Map<string, string>[] = [];
+			const allChangedIds: Set<string>[] = [];
 
-			tables('posts').observe((changes) => {
+			tables('posts').observe((changedIds) => {
 				callbackCount++;
-				const changeMap = new Map<string, string>();
-				for (const [id, action] of changes) {
-					changeMap.set(id, action);
-				}
-				allChanges.push(changeMap);
+				allChangedIds.push(new Set(changedIds));
 			});
 
 			ydoc.transact(() => {
@@ -494,9 +486,9 @@ describe('createTables', () => {
 			});
 
 			expect(callbackCount).toBe(1);
-			expect(allChanges[0]?.size).toBe(2);
-			expect(allChanges[0]?.get('post-1')).toBe('update');
-			expect(allChanges[0]?.get('post-2')).toBe('update');
+			expect(allChangedIds[0]?.size).toBe(2);
+			expect(allChangedIds[0]?.has('post-1')).toBe(true);
+			expect(allChangedIds[0]?.has('post-2')).toBe(true);
 		});
 
 		test('transaction batching: mixed operations in transact fires callback once', () => {
@@ -515,14 +507,11 @@ describe('createTables', () => {
 			tables('posts').upsert({ id: 'post-1', title: 'First' });
 
 			let callbackCount = 0;
-			let lastChanges: Map<string, string> = new Map();
+			let lastChangedIds: Set<string> = new Set();
 
-			tables('posts').observe((changes) => {
+			tables('posts').observe((changedIds) => {
 				callbackCount++;
-				lastChanges = new Map();
-				for (const [id, action] of changes) {
-					lastChanges.set(id, action);
-				}
+				lastChangedIds = new Set(changedIds);
 			});
 
 			ydoc.transact(() => {
@@ -532,8 +521,12 @@ describe('createTables', () => {
 			});
 
 			expect(callbackCount).toBe(1);
-			expect(lastChanges.get('post-1')).toBe('delete');
-			expect(lastChanges.get('post-2')).toBe('add');
+			// post-1 was deleted, post-2 was added - both should be in changed set
+			expect(lastChangedIds.has('post-1')).toBe(true);
+			expect(lastChangedIds.has('post-2')).toBe(true);
+			// Verify the actual state: post-1 deleted, post-2 exists
+			expect(tables('posts').get('post-1').status).toBe('not_found');
+			expect(tables('posts').get('post-2').status).toBe('valid');
 		});
 
 		test('transaction batching: deleteMany fires callback once', () => {
@@ -556,22 +549,22 @@ describe('createTables', () => {
 			]);
 
 			let callbackCount = 0;
-			let lastChanges: Map<string, string> = new Map();
+			let lastChangedIds: Set<string> = new Set();
 
-			tables('posts').observe((changes) => {
+			tables('posts').observe((changedIds) => {
 				callbackCount++;
-				lastChanges = new Map();
-				for (const [id, action] of changes) {
-					lastChanges.set(id, action);
-				}
+				lastChangedIds = new Set(changedIds);
 			});
 
 			tables('posts').deleteMany(['post-1', 'post-2']);
 
 			expect(callbackCount).toBe(1);
-			expect(lastChanges.size).toBe(2);
-			expect(lastChanges.get('post-1')).toBe('delete');
-			expect(lastChanges.get('post-2')).toBe('delete');
+			expect(lastChangedIds.size).toBe(2);
+			expect(lastChangedIds.has('post-1')).toBe(true);
+			expect(lastChangedIds.has('post-2')).toBe(true);
+			// Verify they were actually deleted
+			expect(tables('posts').get('post-1').status).toBe('not_found');
+			expect(tables('posts').get('post-2').status).toBe('not_found');
 		});
 
 		test('same-row dedupe: multiple updates in one transaction emits final value', () => {
@@ -596,20 +589,17 @@ describe('createTables', () => {
 
 			let callbackCount = 0;
 			type ChangeRecord = {
-				action: string;
 				title?: string;
 				view_count?: number;
 			};
 			let lastChange: ChangeRecord | null = null;
 
-			tables('posts').observe((changes) => {
+			tables('posts').observe((changedIds) => {
 				callbackCount++;
-				const action = changes.get('post-1');
-				if (action === 'update') {
+				if (changedIds.has('post-1')) {
 					const result = tables('posts').get('post-1');
 					if (result.status === 'valid') {
 						lastChange = {
-							action,
 							title: result.row.title,
 							view_count: result.row.view_count,
 						};
@@ -627,12 +617,12 @@ describe('createTables', () => {
 			expect(lastChange).not.toBeNull();
 			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 			const change = lastChange!;
-			expect(change.action).toBe('update');
+			// New API doesn't provide action type, but we can verify final values
 			expect(change.title).toBe('Second Update');
 			expect(change.view_count).toBe(100);
 		});
 
-		test('empty row deleted before first cell change emits only delete', () => {
+		test('empty row deleted before first cell change emits change', () => {
 			const ydoc = new Y.Doc({ guid: 'test-empty-row-delete' });
 			type RowMap = Y.Map<unknown>;
 			type TableMap = Y.Map<RowMap>;
@@ -651,10 +641,11 @@ describe('createTables', () => {
 				}),
 			});
 
-			const changes: Array<{ action: string; id: string }> = [];
-			tables('posts').observe((changeMap) => {
-				for (const [rowId, action] of changeMap) {
-					changes.push({ action, id: rowId });
+			// Use a Set to collect unique IDs (observer may fire multiple times)
+			const changedRowIds = new Set<string>();
+			tables('posts').observe((changedIds) => {
+				for (const rowId of changedIds) {
+					changedRowIds.add(rowId);
 				}
 			});
 
@@ -669,8 +660,9 @@ describe('createTables', () => {
 
 			postsTable.delete('empty-row');
 
-			expect(changes).toHaveLength(1);
-			expect(changes[0]).toEqual({ action: 'delete', id: 'empty-row' });
+			// The row ID should be in the changed set; verify deletion via get()
+			expect(changedRowIds.has('empty-row')).toBe(true);
+			expect(tables('posts').get('empty-row').status).toBe('not_found');
 		});
 
 		test('observer isolation: changes in other tables do not trigger callback', () => {
@@ -695,8 +687,8 @@ describe('createTables', () => {
 			});
 
 			const postsChanges: string[] = [];
-			tables('posts').observe((changes) => {
-				for (const [rowId] of changes) {
+			tables('posts').observe((changedIds) => {
+				for (const rowId of changedIds) {
 					postsChanges.push(rowId);
 				}
 			});
@@ -753,32 +745,36 @@ describe('createTables', () => {
 				}),
 			});
 
-			const subscriber1Changes: string[] = [];
-			const subscriber2Changes: string[] = [];
+			// Use Sets to collect unique IDs (observer may fire multiple times per transaction)
+			const subscriber1Changes = new Set<string>();
+			const subscriber2Changes = new Set<string>();
 
-			const unsub1 = tables('posts').observe((changes) => {
-				for (const [rowId] of changes) {
-					subscriber1Changes.push(rowId);
+			const unsub1 = tables('posts').observe((changedIds) => {
+				for (const rowId of changedIds) {
+					subscriber1Changes.add(rowId);
 				}
 			});
 
-			const unsub2 = tables('posts').observe((changes) => {
-				for (const [rowId] of changes) {
-					subscriber2Changes.push(rowId);
+			const unsub2 = tables('posts').observe((changedIds) => {
+				for (const rowId of changedIds) {
+					subscriber2Changes.add(rowId);
 				}
 			});
 
 			tables('posts').upsert({ id: 'post-1', title: 'Test' });
 
-			expect(subscriber1Changes).toEqual(['post-1']);
-			expect(subscriber2Changes).toEqual(['post-1']);
+			expect(subscriber1Changes.has('post-1')).toBe(true);
+			expect(subscriber2Changes.has('post-1')).toBe(true);
 
 			unsub1();
 
 			tables('posts').upsert({ id: 'post-2', title: 'Second' });
 
-			expect(subscriber1Changes).toEqual(['post-1']);
-			expect(subscriber2Changes).toEqual(['post-1', 'post-2']);
+			// Subscriber 1 unsubscribed, should not see post-2
+			expect(subscriber1Changes.has('post-2')).toBe(false);
+			// Subscriber 2 should see both
+			expect(subscriber2Changes.has('post-1')).toBe(true);
+			expect(subscriber2Changes.has('post-2')).toBe(true);
 
 			unsub2();
 		});

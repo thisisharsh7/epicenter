@@ -651,21 +651,62 @@ export default defineBackground(() => {
 	// Only process changes for THIS device - other devices manage themselves
 	// ─────────────────────────────────────────────────────────────────────────
 
-	client.tables('tabs').observe((changes, transaction) => {
-		for (const [id, action] of changes) {
-			if (action === 'add') {
+	client.tables('tabs').observe((changedIds, transaction) => {
+		for (const id of changedIds) {
+			const result = client.tables('tabs').get(id);
+			if (result.status === 'not_found') {
+				// Deleted
 				void (async () => {
 					await initPromise;
 
-					// Fetch the row data
-					const result = client.tables('tabs').get(id);
-					if (result.status !== 'valid') {
+					console.log('[Background] tabs.onDelete fired:', {
+						id,
+						origin: transaction.origin,
+						isRemote: transaction.origin !== null,
+					});
+
+					if (transaction.origin === null) {
 						console.log(
-							'[Background] tabs.onAdd SKIPPED: row not found or invalid',
+							'[Background] tabs.onDelete SKIPPED: local origin (our own change)',
 						);
 						return;
 					}
-					const row = result.row;
+
+					const deviceId = await deviceIdPromise;
+					const parsed = parseTabId(id);
+
+					if (!parsed || parsed.deviceId !== deviceId) {
+						console.log(
+							'[Background] tabs.onDelete SKIPPED: different device or invalid ID',
+						);
+						return;
+					}
+
+					console.log(
+						'[Background] tabs.onDelete REMOVING Browser tab:',
+						parsed.tabId,
+					);
+					syncCoordination.yDocChangeCount++;
+					await tryAsync({
+						try: async () => {
+							await browser.tabs.remove(parsed.tabId);
+							console.log(
+								'[Background] tabs.onDelete SUCCESS: removed tab',
+								parsed.tabId,
+							);
+						},
+						catch: (error) => {
+							console.log(`[Background] Failed to close tab ${id}:`, error);
+							return Ok(undefined);
+						},
+					});
+					syncCoordination.yDocChangeCount--;
+				})();
+			} else if (result.status === 'valid') {
+				// Added or updated
+				const row = result.row;
+				void (async () => {
+					await initPromise;
 
 					console.log('[Background] tabs.onAdd fired:', {
 						origin: transaction.origin,
@@ -743,69 +784,44 @@ export default defineBackground(() => {
 					});
 					syncCoordination.yDocChangeCount--;
 				})();
-			} else if (action === 'delete') {
-				void (async () => {
-					await initPromise;
-
-					console.log('[Background] tabs.onDelete fired:', {
-						id,
-						origin: transaction.origin,
-						isRemote: transaction.origin !== null,
-					});
-
-					if (transaction.origin === null) {
-						console.log(
-							'[Background] tabs.onDelete SKIPPED: local origin (our own change)',
-						);
-						return;
-					}
-
-					const deviceId = await deviceIdPromise;
-					const parsed = parseTabId(id);
-
-					if (!parsed || parsed.deviceId !== deviceId) {
-						console.log(
-							'[Background] tabs.onDelete SKIPPED: different device or invalid ID',
-						);
-						return;
-					}
-
-					console.log(
-						'[Background] tabs.onDelete REMOVING Browser tab:',
-						parsed.tabId,
-					);
-					syncCoordination.yDocChangeCount++;
-					await tryAsync({
-						try: async () => {
-							await browser.tabs.remove(parsed.tabId);
-							console.log(
-								'[Background] tabs.onDelete SUCCESS: removed tab',
-								parsed.tabId,
-							);
-						},
-						catch: (error) => {
-							console.log(`[Background] Failed to close tab ${id}:`, error);
-							return Ok(undefined);
-						},
-					});
-					syncCoordination.yDocChangeCount--;
-				})();
 			}
 		}
 	});
 
-	client.tables('windows').observe((changes, transaction) => {
-		for (const [id, action] of changes) {
-			if (action === 'add') {
+	client.tables('windows').observe((changedIds, transaction) => {
+		for (const id of changedIds) {
+			const result = client.tables('windows').get(id);
+			if (result.status === 'not_found') {
+				// Deleted
 				void (async () => {
 					await initPromise;
 
 					if (transaction.origin === null) return;
 
-					// Fetch the row data
-					const result = client.tables('windows').get(id);
-					if (result.status !== 'valid') return;
-					const row = result.row;
+					const deviceId = await deviceIdPromise;
+					const parsed = parseWindowId(id);
+
+					if (!parsed || parsed.deviceId !== deviceId) return;
+
+					syncCoordination.yDocChangeCount++;
+					await tryAsync({
+						try: async () => {
+							await browser.windows.remove(parsed.windowId);
+						},
+						catch: (error) => {
+							console.log(`[Background] Failed to close window ${id}:`, error);
+							return Ok(undefined);
+						},
+					});
+					syncCoordination.yDocChangeCount--;
+				})();
+			} else if (result.status === 'valid') {
+				// Added or updated
+				const row = result.row;
+				void (async () => {
+					await initPromise;
+
+					if (transaction.origin === null) return;
 
 					const deviceId = await deviceIdPromise;
 
@@ -830,37 +846,16 @@ export default defineBackground(() => {
 					});
 					syncCoordination.yDocChangeCount--;
 				})();
-			} else if (action === 'delete') {
-				void (async () => {
-					await initPromise;
-
-					if (transaction.origin === null) return;
-
-					const deviceId = await deviceIdPromise;
-					const parsed = parseWindowId(id);
-
-					if (!parsed || parsed.deviceId !== deviceId) return;
-
-					syncCoordination.yDocChangeCount++;
-					await tryAsync({
-						try: async () => {
-							await browser.windows.remove(parsed.windowId);
-						},
-						catch: (error) => {
-							console.log(`[Background] Failed to close window ${id}:`, error);
-							return Ok(undefined);
-						},
-					});
-					syncCoordination.yDocChangeCount--;
-				})();
 			}
 		}
 	});
 
 	if (browser.tabGroups) {
-		client.tables('tab_groups').observe((changes, transaction) => {
-			for (const [id, action] of changes) {
-				if (action === 'delete') {
+		client.tables('tab_groups').observe((changedIds, transaction) => {
+			for (const id of changedIds) {
+				const result = client.tables('tab_groups').get(id);
+				if (result.status === 'not_found') {
+					// Deleted
 					void (async () => {
 						await initPromise;
 
