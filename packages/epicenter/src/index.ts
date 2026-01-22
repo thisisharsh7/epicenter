@@ -63,6 +63,7 @@ export {
 	createWorkspaceDoc,
 	WORKSPACE_DOC_MAPS,
 } from './core/docs';
+
 export type { ExtensionError } from './core/errors';
 // Error types
 export { ExtensionErr } from './core/errors';
@@ -167,7 +168,6 @@ export {
 export type {
 	ClientBuilder,
 	Workspace,
-	WorkspaceClient,
 	WorkspaceDefinition,
 	WorkspaceSchema,
 } from './core/workspace/workspace';

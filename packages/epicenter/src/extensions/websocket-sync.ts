@@ -228,8 +228,7 @@ export function websocketSync<
 >(
 	config: WebsocketSyncConfig,
 ): ExtensionFactory<TTableDefinitionMap, TKvDefinitionMap> {
-	return ({ workspaceDoc }) => {
-		const { ydoc } = workspaceDoc;
+	return ({ ydoc }) => {
 		const provider = new WebsocketProvider(
 			config.url,
 			ydoc.guid, // Room name is the workspace ID (Y.Doc guid)

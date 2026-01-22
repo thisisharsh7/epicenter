@@ -3,8 +3,8 @@
  *
  * This module provides the core workspace API:
  * - {@link defineSchema} - Type inference helper for workspace schemas (pass-through)
- * - {@link createClient} - Factory to create runtime clients with builder pattern
- * - {@link WorkspaceClient} - The runtime client for interacting with data
+ * - {@link createClient} - Factory to create workspaces with builder pattern
+ * - {@link WorkspaceDoc} - The unified workspace abstraction (from workspace-doc.ts)
  * - {@link WorkspaceSchema} - Schema type for `.withSchema()` (tables + kv only)
  *
  * ## Architecture Overview
@@ -22,10 +22,10 @@
  * │   .withSchema(schema)    .withExtensions({})                                │
  * │         │                       │                                           │
  * │         ▼                       ▼                                           │
- * │   .withExtensions({})    WorkspaceClient                                    │
+ * │   .withExtensions({})    WorkspaceDoc                                       │
  * │         │                (dynamic schema)                                   │
  * │         ▼                                                                   │
- * │   WorkspaceClient                                                           │
+ * │   WorkspaceDoc                                                              │
  * │   (static schema)                                                           │
  * └─────────────────────────────────────────────────────────────────────────────┘
  * ```
@@ -34,8 +34,8 @@
  *
  * This module implements the "sync construction, async property" pattern:
  *
- * - `createClient()` returns **immediately** with a client object
- * - Async initialization (persistence, sync) tracked via `client.whenSynced`
+ * - `createClient()` returns **immediately** with a workspace object
+ * - Async initialization (persistence, sync) tracked via `workspace.whenSynced`
  * - UI frameworks use `whenSynced` as a render gate
  *
  * ```typescript
@@ -43,15 +43,15 @@
  * const head = createHeadDoc({ workspaceId: 'blog', providers: {} });
  *
  * // Sync construction - returns immediately
- * const client = createClient(head)
+ * const workspace = createClient(head)
  *   .withSchema({ tables: {...}, kv: {} })
  *   .withExtensions({ persistence });
  *
  * // Sync access works immediately (operates on in-memory Y.Doc)
- * client.tables.posts.upsert({ id: '1', title: 'Hello' });
+ * workspace.tables.posts.upsert({ id: '1', title: 'Hello' });
  *
  * // Await when you need initialization complete
- * await client.whenSynced;
+ * await workspace.whenSynced;
  * ```
  *
  * For Node.js scripts that prefer async semantics, see {@link ./node.ts}.
@@ -62,27 +62,24 @@
  * - {@link ../extension.ts} - Extension factory types
  * - {@link ../docs/head-doc.ts} - Head Doc for workspace identity and epoch
  * - {@link ../docs/registry-doc.ts} - Registry Doc for workspace discovery
+ * - {@link ../docs/workspace-doc.ts} - WorkspaceDoc type definition
  * - {@link ./node.ts} - Node.js async wrapper
  *
  * @module
  */
 
-import type * as Y from 'yjs';
 import type { HeadDoc } from '../docs/head-doc';
 import {
 	createWorkspaceDoc,
+	type ExtensionFactoryMap,
+	type InferExtensionExports,
 	type WorkspaceDoc,
-	type WorkspaceSchemaMap,
 } from '../docs/workspace-doc';
-import type { ExtensionFactoryMap, InferExtensionExports } from '../extension';
-import type { Kv } from '../kv/core';
-import { defineExports, type Lifecycle } from '../lifecycle';
 
 import type {
 	KvDefinitionMap,
 	TableDefinitionMap,
 } from '../schema/fields/types';
-import type { Tables } from '../tables/create-tables';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public API: Types
@@ -211,9 +208,9 @@ export type ClientBuilder<
 	): ClientBuilder<TSchemaTables, TSchemaKv>;
 
 	/**
-	 * Attach extensions and create the client.
+	 * Attach extensions and create the workspace.
 	 *
-	 * This is the terminal operation that creates the actual WorkspaceClient.
+	 * This is the terminal operation that creates the actual WorkspaceDoc.
 	 * Extensions receive properly typed context with table and kv definitions.
 	 *
 	 * Pass an empty object `{}` if you don't need any extensions.
@@ -222,19 +219,19 @@ export type ClientBuilder<
 	 * ```typescript
 	 * // With extensions
 	 * const head = createHeadDoc({ workspaceId: 'whispering', providers: {} });
-	 * const client = createClient(head)
+	 * const workspace = createClient(head)
 	 *   .withSchema({ tables: {...}, kv: {} })
 	 *   .withExtensions({
 	 *     persistence: (ctx) => persistence(ctx, { filePath }),
 	 *     sqlite: (ctx) => sqlite(ctx, { dbPath }),
 	 *   });
 	 *
-	 * await client.whenSynced;
-	 * client.tables.recordings.upsert({ ... });
+	 * await workspace.whenSynced;
+	 * workspace.tables.recordings.upsert({ ... });
 	 *
 	 * // Without extensions
 	 * const head = createHeadDoc({ workspaceId: 'blog', providers: {} });
-	 * const client = createClient(head)
+	 * const workspace = createClient(head)
 	 *   .withSchema({ tables: {...}, kv: {} })
 	 *   .withExtensions({});
 	 * ```
@@ -246,7 +243,7 @@ export type ClientBuilder<
 		>,
 	>(
 		extensions: TExtensionFactories,
-	): WorkspaceClient<
+	): WorkspaceDoc<
 		TTableDefinitionMap,
 		TKvDefinitionMap,
 		InferExtensionExports<TExtensionFactories>
@@ -347,108 +344,8 @@ export type Workspace<
 	TKvDefinitionMap extends KvDefinitionMap = KvDefinitionMap,
 > = WorkspaceDefinition<TTableDefinitionMap, TKvDefinitionMap>;
 
-/**
- * A fully initialized workspace client.
- *
- * This is the main interface for interacting with a workspace:
- * - Access tables via `client.tables.tableName.get/upsert/etc.`
- * - Access kv store via `client.kv.key.get/set/etc.`
- * - Access extension exports via `client.extensions.extensionId`
- * - Access the underlying YJS document via `client.ydoc`
- *
- * ## Identity vs Live State
- *
- * - `client.id` — **immutable** identity (from Y.Doc GUID, never changes)
- * - Workspace identity (name, icon, description) lives in Head Doc, not the client
- *
- * Write functions that use the client to compose your own "actions":
- *
- * ```typescript
- * const client = createClient('blog', { epoch })
- *   .withSchema({ tables: {...}, kv: {} })
- *   .withExtensions({ persistence });
- *
- * // Your own functions that use the client
- * function createPost(title: string) {
- *   const rowId = generateId();
- *   client.tables.posts.upsert({ id: rowId, title, published: false });
- *   return { id: rowId };
- * }
- *
- * function getAllPosts() {
- *   return client.tables.posts.getAllValid();
- * }
- *
- * // Expose via HTTP, MCP, CLI however you want
- * ```
- *
- * Supports `await using` for automatic cleanup:
- * ```typescript
- * {
- *   const head = createHeadDoc({ workspaceId: 'blog', providers: {} });
- *   await using client = createClient(head)
- *     .withSchema({ tables: {...}, kv: {} })
- *     .withExtensions({});
- *   client.tables.posts.upsert({ id: '1', title: 'Hello' });
- * } // Automatically cleaned up here
- * ```
- */
-export type WorkspaceClient<
-	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
-	TKvDefinitionMap extends KvDefinitionMap = KvDefinitionMap,
-	TExtensionExports extends Record<string, Lifecycle> = Record<
-		string,
-		Lifecycle
-	>,
-> = {
-	/**
-	 * Immutable workspace identity for sync coordination.
-	 * Derived from Y.Doc GUID — never changes after creation.
-	 */
-	readonly id: string;
-
-	/** Typed table helpers for CRUD operations. */
-	tables: Tables<TTableDefinitionMap>;
-	/** Key-value store for simple values. */
-	kv: Kv<TKvDefinitionMap>;
-	/** Exports from initialized extensions. */
-	extensions: TExtensionExports;
-	/** The underlying YJS document. */
-	ydoc: Y.Doc;
-	/**
-	 * Read the current schema from the Y.Doc.
-	 *
-	 * Returns the workspace schema including tables and kv definitions.
-	 * This is a live read from the CRDT state, so it reflects real-time changes.
-	 *
-	 * Note: Workspace identity (name, icon, description) is NOT included here.
-	 * Use HeadDoc.getMeta() to read workspace identity.
-	 *
-	 * @example
-	 * ```typescript
-	 * const schema = client.getSchema();
-	 * console.log(schema.tables.posts);  // { name: 'Posts', fields: {...} }
-	 * ```
-	 */
-	getSchema(): WorkspaceSchemaMap;
-	/**
-	 * Resolves when all extensions are initialized and ready.
-	 *
-	 * Use this as a render gate in UI frameworks:
-	 * ```svelte
-	 * {#await client.whenSynced}
-	 *   <Loading />
-	 * {:then}
-	 *   <App />
-	 * {/await}
-	 * ```
-	 */
-	whenSynced: Promise<void>;
-	/** Clean up resources (close extensions, destroy YJS doc). */
-	destroy(): Promise<void>;
-	/** Symbol.asyncDispose for `await using` support. */
-	[Symbol.asyncDispose](): Promise<void>;
-};
+// WorkspaceClient type has been consolidated into WorkspaceDoc
+// See: workspace-doc.ts for the unified WorkspaceDoc type
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public API: Functions
@@ -575,12 +472,16 @@ export function createClient(
 		epoch: head.getEpoch(),
 		tables: {} as TableDefinitionMap,
 		kv: {} as KvDefinitionMap,
-		onSync: undefined,
+		schemaToMerge: undefined,
 	});
 }
 
 /**
  * Internal: Create a ClientBuilder from builder config.
+ *
+ * The `schemaToMerge` parameter captures the schema for static schema mode.
+ * When `withExtensions` is called, it passes a closure that merges the schema
+ * after all extensions sync.
  */
 function createClientBuilder<
 	TTableDefinitionMap extends TableDefinitionMap,
@@ -590,10 +491,9 @@ function createClientBuilder<
 	epoch: number;
 	tables: TTableDefinitionMap;
 	kv: TKvDefinitionMap;
-	onSync:
-		| ((
-				workspaceDoc: WorkspaceDoc<TTableDefinitionMap, TKvDefinitionMap>,
-		  ) => void)
+	/** Schema to merge after persistence loads (static schema mode) */
+	schemaToMerge:
+		| WorkspaceSchema<TTableDefinitionMap, TKvDefinitionMap>
 		| undefined;
 }): ClientBuilder<TTableDefinitionMap, TKvDefinitionMap> {
 	return {
@@ -608,9 +508,7 @@ function createClientBuilder<
 				epoch: config.epoch,
 				tables: schema.tables,
 				kv: schema.kv,
-				onSync: (workspaceDoc) => {
-					workspaceDoc.mergeSchema(schema);
-				},
+				schemaToMerge: schema,
 			});
 		},
 
@@ -621,128 +519,37 @@ function createClientBuilder<
 			>,
 		>(
 			extensions: TExtensionFactories,
-		): WorkspaceClient<
+		): WorkspaceDoc<
 			TTableDefinitionMap,
 			TKvDefinitionMap,
 			InferExtensionExports<TExtensionFactories>
 		> {
-			return createClientCore({
-				...config,
+			// Capture schema for use in onSync closure
+			const schemaToMerge = config.schemaToMerge;
+
+			// Create the workspace doc with all configuration
+			// Use a variable to break the circular reference
+			let workspaceDocRef: WorkspaceDoc<
+				TTableDefinitionMap,
+				TKvDefinitionMap,
+				InferExtensionExports<TExtensionFactories>
+			>;
+
+			workspaceDocRef = createWorkspaceDoc({
+				workspaceId: config.id,
+				epoch: config.epoch,
+				tableDefinitions: config.tables,
+				kvDefinitions: config.kv,
 				extensionFactories: extensions,
+				// Static schema: merge after persistence loads
+				// Dynamic schema: no-op
+				onSync: schemaToMerge
+					? () => workspaceDocRef.mergeSchema(schemaToMerge)
+					: undefined,
 			});
+
+			return workspaceDocRef;
 		},
-	};
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Internal: Core Client Creation
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Internal core function for creating workspace clients.
- *
- * The key difference between static and dynamic schema:
- * - Static schema: merges definition after persistence loads (onSync provided)
- * - Dynamic schema: no merge, schema comes from Y.Doc (onSync undefined)
- */
-function createClientCore<
-	TTableDefinitionMap extends TableDefinitionMap,
-	TKvDefinitionMap extends KvDefinitionMap,
-	TExtensionFactories extends ExtensionFactoryMap<
-		TTableDefinitionMap,
-		TKvDefinitionMap
-	>,
->({
-	id,
-	epoch,
-	extensionFactories,
-	tables: tableDefinitions,
-	kv: kvDefinitions,
-	onSync,
-}: {
-	id: string;
-	epoch: number;
-	extensionFactories: TExtensionFactories;
-	tables: TTableDefinitionMap;
-	kv: TKvDefinitionMap;
-	/** Called after persistence loads. Static schema uses this to merge schema. */
-	onSync:
-		| ((
-				workspaceDoc: WorkspaceDoc<TTableDefinitionMap, TKvDefinitionMap>,
-		  ) => void)
-		| undefined;
-}): WorkspaceClient<
-	TTableDefinitionMap,
-	TKvDefinitionMap,
-	InferExtensionExports<TExtensionFactories>
-> {
-	// Create Workspace Doc wrapper (handles Y.Doc creation, map access, and table/kv helpers)
-	const workspaceDoc = createWorkspaceDoc({
-		workspaceId: id,
-		epoch,
-		tableDefinitions,
-		kvDefinitions,
-	});
-	const { ydoc, tables, kv } = workspaceDoc;
-
-	// NOTE: We do NOT call mergeSchema() here!
-	// It must happen AFTER persistence loads (inside whenSynced) so that
-	// code-defined schema is "last writer" and overrides stale disk values.
-	// See: specs/20260119T231252-resilient-client-architecture.md
-
-	// Initialize extensions synchronously — async work is in their whenSynced
-	const extensions = {} as InferExtensionExports<TExtensionFactories>;
-	for (const [extensionId, extensionFactory] of Object.entries(
-		extensionFactories,
-	)) {
-		// Factory is sync; normalize exports at boundary
-		const result = extensionFactory({
-			workspaceDoc,
-			extensionId,
-		});
-		const exports = defineExports(result as Record<string, unknown>);
-		(extensions as Record<string, unknown>)[extensionId] = exports;
-	}
-
-	// Aggregate all extension whenSynced promises
-	// Fail-fast: any rejection rejects the whole thing (UI shows error state)
-	//
-	// ORDER OF OPERATIONS (critical for correctness):
-	// 1. Wait for all extensions' whenSynced (e.g., persistence finishes loading disk state)
-	// 2. THEN run onSync callback (static schema merges schema here)
-	// 3. Resolve whenSynced
-	//
-	// See: specs/20260119T231252-resilient-client-architecture.md
-	const whenSynced = Promise.all(
-		Object.values(extensions).map((e) => (e as Lifecycle).whenSynced),
-	).then(() => {
-		// After persistence has loaded disk state, run the sync callback
-		// Static schema: merges schema (code is "last writer")
-		// Dynamic schema: no-op (schema comes from Y.Doc)
-		onSync?.(workspaceDoc);
-	});
-
-	const destroy = async () => {
-		// Use allSettled so one destroy failure doesn't block others
-		await Promise.allSettled(
-			Object.values(extensions).map((e) => (e as Lifecycle).destroy()),
-		);
-		// Always release doc resources
-		ydoc.destroy();
-	};
-
-	return {
-		id,
-		ydoc,
-		tables,
-		kv,
-		extensions,
-		getSchema() {
-			return workspaceDoc.getSchema();
-		},
-		whenSynced,
-		destroy,
-		[Symbol.asyncDispose]: destroy,
 	};
 }
 

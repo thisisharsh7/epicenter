@@ -10,8 +10,8 @@
  *
  * | Environment | Import | `createClient()` returns | Use case |
  * |-------------|--------|-------------------------|----------|
- * | Browser/UI | `@epicenter/hq` | `WorkspaceClient` (sync) | Render gates, reactive UI |
- * | Node.js/CLI | `@epicenter/hq/node` | `Promise<WorkspaceClient>` | Scripts, servers, migrations |
+ * | Browser/UI | `@epicenter/hq` | `WorkspaceDoc` (sync) | Render gates, reactive UI |
+ * | Node.js/CLI | `@epicenter/hq/node` | `Promise<WorkspaceDoc>` | Scripts, servers, migrations |
  *
  * ## Architecture
  *
@@ -34,7 +34,7 @@
  * │                                                                     │
  * │    createClient(head).withSchema(schema).withExtensions({})         │
  * │         │                              │                            │
- * │         │                              └── Promise<WorkspaceClient>
+ * │         │                              └── Promise<WorkspaceDoc>
  * │         │                                   whenSynced already resolved
  * │         │                                   (property omitted)      │
  * │         │                                                           │
@@ -50,7 +50,7 @@
  * The actual workspace creation logic lives in {@link ./workspace.ts | workspace.ts}:
  * - {@link defineSchema} - Type inference helper for workspace schemas (pass-through)
  * - {@link createClient} - Creates a runtime client builder (sync)
- * - {@link WorkspaceClient} - The full client type with `whenSynced`
+ * - {@link WorkspaceDoc} - The full client type with `whenSynced`
  *
  * This module simply:
  * 1. Re-exports `defineSchema` (pure pass-through for type inference)
@@ -120,29 +120,32 @@
  */
 
 import type { HeadDoc } from '../docs/head-doc';
+import type {
+	ExtensionExports,
+	WorkspaceDoc as WorkspaceDocSync,
+} from '../docs/workspace-doc';
 import type { ExtensionFactoryMap, InferExtensionExports } from '../extension';
-import type { Lifecycle } from '../lifecycle';
 import type { KvDefinitionMap, TableDefinitionMap } from '../schema';
 import {
 	type ClientBuilder as ClientBuilderSync,
 	createClient as createClientSync,
-	type WorkspaceClient as WorkspaceClientSync,
 	type WorkspaceSchema,
 } from './workspace';
 
 /**
- * Workspace client type for Node.js environments.
+ * Workspace type for Node.js environments.
  *
- * This type is derived from the browser {@link WorkspaceClientSync | WorkspaceClient}
+ * This type is derived from the browser {@link WorkspaceDocSync | WorkspaceDoc}
  * with the `whenSynced` property omitted. Since the Node.js `createClient()` function
  * awaits initialization internally, `whenSynced` has already resolved by the
- * time you receive the client.
+ * time you receive the workspace.
  *
- * ## Relationship to browser client
+ * ## Relationship to browser workspace
  *
  * ```
- * WorkspaceClient (browser)              WorkspaceClient (node)
- * ├── id: string                         ├── id: string
+ * WorkspaceDoc (browser)                 WorkspaceDoc (node)
+ * ├── workspaceId: string                ├── workspaceId: string
+ * ├── epoch: number                      ├── epoch: number
  * ├── tables: Tables<T>                  ├── tables: Tables<T>
  * ├── kv: Kv<K>                          ├── kv: Kv<K>
  * ├── extensions: E                      ├── extensions: E
@@ -153,14 +156,14 @@ import {
  * ```
  *
  * Note: Workspace identity (name, icon, description) comes from HeadDoc.getMeta(),
- * not from the client.
+ * not from the workspace.
  *
  * ## Why omit `whenSynced`?
  *
  * In browser/UI contexts, `whenSynced` enables the render gate pattern:
  *
  * ```svelte
- * {#await client.whenSynced}
+ * {#await workspace.whenSynced}
  *   <Loading />
  * {:then}
  *   <App />
@@ -169,20 +172,20 @@ import {
  *
  * In Node.js scripts, this pattern isn't useful. You just want to `await`
  * creation and start working. So we await internally and remove the property
- * to signal "this client is ready."
+ * to signal "this workspace is ready."
  *
- * @see {@link WorkspaceClientSync} - The browser version with `whenSynced`
- * @see {@link ./workspace.ts} - Where `WorkspaceClientSync` is defined
+ * @see {@link WorkspaceDocSync} - The browser version with `whenSynced`
+ * @see {@link ../docs/workspace-doc.ts} - Where `WorkspaceDocSync` is defined
  */
-export type WorkspaceClient<
+export type WorkspaceDoc<
 	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
 	TKvDefinitionMap extends KvDefinitionMap = KvDefinitionMap,
-	TExtensionExports extends Record<string, Lifecycle> = Record<
+	TExtensionExports extends Record<string, ExtensionExports> = Record<
 		string,
-		Lifecycle
+		ExtensionExports
 	>,
 > = Omit<
-	WorkspaceClientSync<TTableDefinitionMap, TKvDefinitionMap, TExtensionExports>,
+	WorkspaceDocSync<TTableDefinitionMap, TKvDefinitionMap, TExtensionExports>,
 	'whenSynced'
 >;
 
@@ -206,11 +209,11 @@ export type WorkspaceClient<
  *               │                               │
  *               │                               │
  *               ▼                               ▼
- *      .withExtensions({})          Promise<WorkspaceClient>
+ *      .withExtensions({})          Promise<WorkspaceDoc>
  *               │                        (dynamic schema)
  *               │
  *               ▼
- *     Promise<WorkspaceClient>
+ *     Promise<WorkspaceDoc>
  *        (static schema)
  * ```
  *
@@ -251,7 +254,7 @@ export type ClientBuilder<
 	/**
 	 * Attach extensions and create the client.
 	 *
-	 * This is the terminal operation that creates the actual WorkspaceClient.
+	 * This is the terminal operation that creates the actual WorkspaceDoc.
 	 * The returned Promise resolves after all extensions have completed their `whenSynced`.
 	 *
 	 * Pass an empty object `{}` if you don't need any extensions.
@@ -286,7 +289,7 @@ export type ClientBuilder<
 	>(
 		extensions: TExtensionFactories,
 	): Promise<
-		WorkspaceClient<
+		WorkspaceDoc<
 			TTableDefinitionMap,
 			TKvDefinitionMap,
 			InferExtensionExports<TExtensionFactories>
@@ -317,11 +320,11 @@ export type ClientBuilder<
  *               │                               │
  *               │                               │
  *               ▼                               ▼
- *      .withExtensions({})          Promise<WorkspaceClient>
+ *      .withExtensions({})          Promise<WorkspaceDoc>
  *               │                        (dynamic schema)
  *               │
  *               ▼
- *     Promise<WorkspaceClient>
+ *     Promise<WorkspaceDoc>
  *        (static schema)
  * ```
  *
@@ -414,7 +417,7 @@ function createAsyncClientBuilder<
 		>(
 			extensions: TExtFact,
 		): Promise<
-			WorkspaceClient<
+			WorkspaceDoc<
 				TTableDefinitionMap,
 				TKvDefinitionMap,
 				InferExtensionExports<TExtFact>

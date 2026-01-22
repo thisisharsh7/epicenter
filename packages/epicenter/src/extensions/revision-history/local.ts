@@ -146,7 +146,10 @@ export async function localRevisionHistory<
 	TTableDefinitionMap extends TableDefinitionMap,
 	TKvDefinitionMap extends KvDefinitionMap,
 >(
-	{ workspaceDoc }: ExtensionContext<TTableDefinitionMap, TKvDefinitionMap>,
+	{
+		ydoc,
+		workspaceId: id,
+	}: ExtensionContext<TTableDefinitionMap, TKvDefinitionMap>,
 	{
 		directory,
 		epoch,
@@ -154,7 +157,6 @@ export async function localRevisionHistory<
 		maxVersions,
 	}: LocalRevisionHistoryConfig,
 ) {
-	const { ydoc, workspaceId: id } = workspaceDoc;
 	// CRITICAL: Snapshots require gc: false
 	if (ydoc.gc) {
 		throw new Error(

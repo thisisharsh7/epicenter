@@ -1,5 +1,6 @@
 import * as Y from 'yjs';
 import { createKv, type Kv } from '../kv/core';
+import { defineExports, type Lifecycle } from '../lifecycle';
 import type {
 	KvDefinitionMap,
 	KvValue,
@@ -95,263 +96,77 @@ export type KvMap = Y.Map<KvValue>;
 export type SchemaMap = Y.Map<unknown>;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Workspace Doc Wrapper
+// Extension Types
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Create a Workspace Y.Doc wrapper for managing workspace data.
+ * Extension exports - returned values accessible via `workspace.extensions.{name}`.
  *
- * Each workspace epoch has one Workspace Y.Doc containing schema definitions
- * and data (tables + kv values). This wrapper provides typed accessors for
- * the three top-level Y.Maps, plus typed table and kv helpers.
- *
- * Y.Doc ID: `{workspaceId}:{epoch}`
- *
- * ## Structure
- *
- * ```
- * Y.Map('schema')  - Table/KV definitions (rarely changes)
- * Y.Map('kv')      - Settings values (changes occasionally)
- * Y.Map('tables')  - Row data by table name (changes frequently)
- * ```
- *
- * @example
- * ```typescript
- * const workspaceDoc = createWorkspaceDoc({
- *   workspaceId: 'abc123',
- *   epoch: 0,
- *   tableDefinitions: { posts: table({ name: 'Posts', fields: { id: id(), title: text() } }) },
- *   kvDefinitions: {},
- * });
- *
- * // Use typed table helpers directly
- * workspaceDoc.tables.posts.upsert({ id: '1', title: 'Hello' });
- *
- * // Access schema
- * const schema = workspaceDoc.getSchema();
- *
- * // Merge code-defined schema into Y.Doc
- * workspaceDoc.mergeSchema({ tables: {...}, kv: {} });
- *
- * // Observe schema changes
- * const unsubscribe = workspaceDoc.observeSchema((schema) => {
- *   console.log('Schema changed:', schema);
- * });
- *
- * // Get raw maps for low-level operations
- * const schemaMap = workspaceDoc.getSchemaMap();
- * const kvMap = workspaceDoc.getKvMap();
- * const tablesMap = workspaceDoc.getTablesMap();
- * ```
+ * This type combines the lifecycle protocol with custom exports.
+ * The framework guarantees `whenSynced` and `destroy` exist on all extensions.
  */
-export function createWorkspaceDoc<
-	TTableDefinitionMap extends TableDefinitionMap,
-	TKvDefinitionMap extends KvDefinitionMap,
->(options: {
-	workspaceId: string;
-	epoch: number;
-	tableDefinitions: TTableDefinitionMap;
-	kvDefinitions: TKvDefinitionMap;
-}) {
-	const { workspaceId, epoch, tableDefinitions, kvDefinitions } = options;
-	const docId = `${workspaceId}:${epoch}`;
-	// gc: false is required for revision history snapshots to work
-	const ydoc = new Y.Doc({ guid: docId, gc: false });
-
-	// Get maps once, keep in closure
-	const schemaMap = ydoc.getMap(WORKSPACE_DOC_MAPS.SCHEMA) as SchemaMap;
-	const kvMap = ydoc.getMap(WORKSPACE_DOC_MAPS.KV) as KvMap;
-	const tablesMap = ydoc.getMap(WORKSPACE_DOC_MAPS.TABLES) as TablesMap;
-
-	// Create table and kv helpers bound to the Y.Doc
-	// These just bind to Y.Maps - actual data comes from persistence
-	const tables = createTables(ydoc, tableDefinitions);
-	const kv = createKv(ydoc, kvDefinitions);
-
-	return {
-		/** The underlying Y.Doc instance. */
-		ydoc,
-
-		/** The workspace ID (without epoch suffix). */
-		workspaceId,
-
-		/** The epoch number for this workspace doc. */
-		epoch,
-
-		/** Typed table helpers for CRUD operations. */
-		tables,
-
-		/** Key-value store for simple values. */
-		kv,
-
-		/**
-		 * Get the schema Y.Map for low-level operations.
-		 *
-		 * Prefer `getSchema()` for reading and `mergeSchema()` for writing
-		 * unless you need direct Y.Map access for observation or custom logic.
-		 */
-		getSchemaMap() {
-			return schemaMap;
-		},
-
-		/**
-		 * Get the KV Y.Map for low-level operations.
-		 *
-		 * This contains the actual KV values, not the KV schema definitions.
-		 */
-		getKvMap() {
-			return kvMap;
-		},
-
-		/**
-		 * Get the tables Y.Map for low-level operations.
-		 *
-		 * Structure: `Y.Map<tableName, Y.Map<rowId, Y.Map<fieldName, value>>>`
-		 */
-		getTablesMap() {
-			return tablesMap;
-		},
-
-		/**
-		 * Read the current schema from the Y.Doc as a plain object.
-		 *
-		 * Returns table and KV schema definitions (NOT workspace identity).
-		 * Use `head.name`, `head.icon`, `head.description` for workspace identity.
-		 *
-		 * @example
-		 * ```typescript
-		 * const schema = workspaceDoc.getSchema();
-		 * console.log(schema.tables.posts);  // { name: 'Posts', fields: {...} }
-		 * ```
-		 */
-		getSchema(): WorkspaceSchemaMap {
-			return schemaMap.toJSON() as WorkspaceSchemaMap;
-		},
-
-		/**
-		 * Merge table/KV schema into the Y.Doc.
-		 *
-		 * Uses CRDT merge semantics so concurrent edits merge correctly.
-		 * Call this after persistence loads to ensure code-defined schema
-		 * is "last writer" and overrides stale disk values.
-		 *
-		 * @param schema - The schema to merge (tables and kv)
-		 *
-		 * @example
-		 * ```typescript
-		 * workspaceDoc.mergeSchema({
-		 *   tables: { posts: table({ name: 'Posts', fields: { id: id(), title: text() } }) },
-		 *   kv: {},
-		 * });
-		 * ```
-		 */
-		mergeSchema<
-			TTableDefinitionMap extends TableDefinitionMap,
-			TKvDefinitionMap extends KvDefinitionMap,
-		>(schema: { tables: TTableDefinitionMap; kv: TKvDefinitionMap }) {
-			// Merge tables schema
-			let tablesYMap = schemaMap.get('tables') as Y.Map<unknown> | undefined;
-			if (!tablesYMap) {
-				tablesYMap = new Y.Map();
-				schemaMap.set('tables', tablesYMap);
-			}
-
-			for (const [tableName, tableDefinition] of Object.entries(
-				schema.tables,
-			)) {
-				let tableSchemaMap = tablesYMap.get(tableName) as
-					| Y.Map<unknown>
-					| undefined;
-				if (!tableSchemaMap) {
-					tableSchemaMap = new Y.Map();
-					tablesYMap.set(tableName, tableSchemaMap);
-				}
-
-				tableSchemaMap.set('name', tableDefinition.name);
-				tableSchemaMap.set('icon', tableDefinition.icon ?? null);
-				tableSchemaMap.set('description', tableDefinition.description ?? '');
-
-				// Store fields as a nested Y.Map
-				let fieldsMap = tableSchemaMap.get('fields') as
-					| Y.Map<unknown>
-					| undefined;
-				if (!fieldsMap) {
-					fieldsMap = new Y.Map();
-					tableSchemaMap.set('fields', fieldsMap);
-				}
-
-				for (const [fieldName, fieldSchema] of Object.entries(
-					tableDefinition.fields,
-				)) {
-					fieldsMap.set(fieldName, fieldSchema);
-				}
-			}
-
-			// Merge KV schema
-			let kvSchemaMap = schemaMap.get('kv') as Y.Map<unknown> | undefined;
-			if (!kvSchemaMap) {
-				kvSchemaMap = new Y.Map();
-				schemaMap.set('kv', kvSchemaMap);
-			}
-
-			for (const [keyName, kvDefinition] of Object.entries(schema.kv)) {
-				let kvEntryMap = kvSchemaMap.get(keyName) as Y.Map<unknown> | undefined;
-				if (!kvEntryMap) {
-					kvEntryMap = new Y.Map();
-					kvSchemaMap.set(keyName, kvEntryMap);
-				}
-
-				kvEntryMap.set('name', kvDefinition.name);
-				kvEntryMap.set('icon', kvDefinition.icon ?? null);
-				kvEntryMap.set('description', kvDefinition.description ?? '');
-				kvEntryMap.set('field', kvDefinition.field);
-			}
-		},
-
-		/**
-		 * Observe schema changes.
-		 *
-		 * Fires when any part of the schema (tables or kv definitions) changes.
-		 * Useful for UI that needs to react to collaborative schema edits.
-		 *
-		 * @param callback - Function called with the new schema when it changes
-		 * @returns Unsubscribe function
-		 *
-		 * @example
-		 * ```typescript
-		 * const unsubscribe = workspaceDoc.observeSchema((schema) => {
-		 *   console.log('Schema updated:', schema.tables);
-		 *   // Re-render table list, etc.
-		 * });
-		 *
-		 * // Later: stop observing
-		 * unsubscribe();
-		 * ```
-		 */
-		observeSchema(callback: (schema: WorkspaceSchemaMap) => void) {
-			const handler = () => {
-				callback(this.getSchema());
-			};
-
-			schemaMap.observeDeep(handler);
-			return () => schemaMap.unobserveDeep(handler);
-		},
-	};
-}
+export type ExtensionExports<T extends Record<string, unknown> = {}> =
+	Lifecycle & T;
 
 /**
- * Workspace Y.Doc wrapper type with typed tables and kv.
+ * An extension factory function that attaches functionality to a workspace.
  *
- * Use the generic parameters to get proper typing for table/kv access:
+ * Receives a flattened context with all workspace data directly accessible.
+ * Factories are **always synchronous**. Async initialization is tracked via
+ * the returned `whenSynced` promise.
+ */
+export type ExtensionFactory<
+	TTableDefinitionMap extends TableDefinitionMap,
+	TKvDefinitionMap extends KvDefinitionMap,
+	TExports extends ExtensionExports = ExtensionExports,
+> = (
+	context: ExtensionContext<TTableDefinitionMap, TKvDefinitionMap>,
+) => TExports;
+
+/**
+ * A map of extension factory functions keyed by extension ID.
+ */
+export type ExtensionFactoryMap<
+	TTableDefinitionMap extends TableDefinitionMap,
+	TKvDefinitionMap extends KvDefinitionMap,
+> = Record<string, ExtensionFactory<TTableDefinitionMap, TKvDefinitionMap>>;
+
+/**
+ * Utility type to infer exports from an extension factory map.
+ */
+export type InferExtensionExports<TExtensionFactories> = {
+	[K in keyof TExtensionFactories]: TExtensionFactories[K] extends ExtensionFactory<
+		TableDefinitionMap,
+		KvDefinitionMap,
+		infer TExports
+	>
+		? TExports extends ExtensionExports
+			? TExports
+			: ExtensionExports
+		: ExtensionExports;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Extension Context Type (flattened)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Context provided to each extension function.
+ *
+ * This is a flattened view of the workspace doc plus the extension's ID.
+ * Extensions can destructure exactly what they need without nesting.
  *
  * @example
  * ```typescript
- * type MyWorkspaceDoc = WorkspaceDoc<typeof myTableDefs, typeof myKvDefs>;
+ * // Destructure only what you need
+ * const persistence: ExtensionFactory = ({ ydoc }) => { ... };
+ * const sqlite: ExtensionFactory = ({ workspaceId, tables }) => { ... };
+ * const markdown: ExtensionFactory = ({ ydoc, tables, workspaceId }) => { ... };
  * ```
  */
-export type WorkspaceDoc<
-	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
-	TKvDefinitionMap extends KvDefinitionMap = KvDefinitionMap,
+export type ExtensionContext<
+	TTableDefinitionMap extends TableDefinitionMap,
+	TKvDefinitionMap extends KvDefinitionMap,
 > = {
 	/** The underlying Y.Doc instance. */
 	ydoc: Y.Doc;
@@ -378,4 +193,323 @@ export type WorkspaceDoc<
 	>(schema: { tables: TMergeTables; kv: TMergeKv }): void;
 	/** Observe schema changes. */
 	observeSchema(callback: (schema: WorkspaceSchemaMap) => void): () => void;
+	/** This extension's key from `.withExtensions({ key: ... })`. */
+	extensionId: string;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Workspace Doc Creation
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Create a Workspace Y.Doc with typed accessors, extensions, and lifecycle management.
+ *
+ * This is the primary abstraction for working with workspaces. It combines:
+ * - Y.Doc wrapper with typed table and kv helpers
+ * - Extension initialization and lifecycle management
+ * - Schema merge and observation capabilities
+ *
+ * Y.Doc ID: `{workspaceId}:{epoch}`
+ *
+ * ## Structure
+ *
+ * ```
+ * Y.Map('schema')  - Table/KV definitions (rarely changes)
+ * Y.Map('kv')      - Settings values (changes occasionally)
+ * Y.Map('tables')  - Row data by table name (changes frequently)
+ * ```
+ *
+ * @example
+ * ```typescript
+ * const workspace = createWorkspaceDoc({
+ *   workspaceId: 'blog',
+ *   epoch: 0,
+ *   tableDefinitions: { posts: table({ name: 'Posts', fields: { id: id(), title: text() } }) },
+ *   kvDefinitions: {},
+ *   extensionFactories: {
+ *     persistence: ({ ydoc }) => persistence({ ydoc }, { filePath: './data.yjs' }),
+ *     sqlite: ({ workspaceId, tables }) => sqlite({ workspaceId, tables }, { dbPath: './data.db' }),
+ *   },
+ * });
+ *
+ * // Wait for extensions to sync
+ * await workspace.whenSynced;
+ *
+ * // Use typed table helpers
+ * workspace.tables.posts.upsert({ id: '1', title: 'Hello' });
+ *
+ * // Access extension exports
+ * workspace.extensions.sqlite.db.select().from(...);
+ *
+ * // Cleanup
+ * await workspace.destroy();
+ * ```
+ */
+export function createWorkspaceDoc<
+	TTableDefinitionMap extends TableDefinitionMap,
+	TKvDefinitionMap extends KvDefinitionMap,
+	TExtensionFactories extends ExtensionFactoryMap<
+		TTableDefinitionMap,
+		TKvDefinitionMap
+	>,
+>(options: {
+	workspaceId: string;
+	epoch: number;
+	tableDefinitions: TTableDefinitionMap;
+	kvDefinitions: TKvDefinitionMap;
+	extensionFactories: TExtensionFactories;
+	/** Called after all extensions sync. Static schema uses this to merge schema. */
+	onSync?: () => void;
+}): WorkspaceDoc<
+	TTableDefinitionMap,
+	TKvDefinitionMap,
+	InferExtensionExports<TExtensionFactories>
+> {
+	const {
+		workspaceId,
+		epoch,
+		tableDefinitions,
+		kvDefinitions,
+		extensionFactories,
+		onSync,
+	} = options;
+	const docId = `${workspaceId}:${epoch}`;
+	// gc: false is required for revision history snapshots to work
+	const ydoc = new Y.Doc({ guid: docId, gc: false });
+
+	// Get maps once, keep in closure
+	const schemaMap = ydoc.getMap(WORKSPACE_DOC_MAPS.SCHEMA) as SchemaMap;
+	const kvMap = ydoc.getMap(WORKSPACE_DOC_MAPS.KV) as KvMap;
+	const tablesMap = ydoc.getMap(WORKSPACE_DOC_MAPS.TABLES) as TablesMap;
+
+	// Create table and kv helpers bound to the Y.Doc
+	// These just bind to Y.Maps - actual data comes from persistence
+	const tables = createTables(ydoc, tableDefinitions);
+	const kv = createKv(ydoc, kvDefinitions);
+
+	// Schema methods (shared between workspace doc and extension context)
+	const getSchemaMap = () => schemaMap;
+	const getKvMap = () => kvMap;
+	const getTablesMap = () => tablesMap;
+
+	const getSchema = (): WorkspaceSchemaMap => {
+		return schemaMap.toJSON() as WorkspaceSchemaMap;
+	};
+
+	const mergeSchema = <
+		TMergeTables extends TableDefinitionMap,
+		TMergeKv extends KvDefinitionMap,
+	>(schema: {
+		tables: TMergeTables;
+		kv: TMergeKv;
+	}) => {
+		// Merge tables schema
+		let tablesYMap = schemaMap.get('tables') as Y.Map<unknown> | undefined;
+		if (!tablesYMap) {
+			tablesYMap = new Y.Map();
+			schemaMap.set('tables', tablesYMap);
+		}
+
+		for (const [tableName, tableDefinition] of Object.entries(schema.tables)) {
+			let tableSchemaMap = tablesYMap.get(tableName) as
+				| Y.Map<unknown>
+				| undefined;
+			if (!tableSchemaMap) {
+				tableSchemaMap = new Y.Map();
+				tablesYMap.set(tableName, tableSchemaMap);
+			}
+
+			tableSchemaMap.set('name', tableDefinition.name);
+			tableSchemaMap.set('icon', tableDefinition.icon ?? null);
+			tableSchemaMap.set('description', tableDefinition.description ?? '');
+
+			// Store fields as a nested Y.Map
+			let fieldsMap = tableSchemaMap.get('fields') as
+				| Y.Map<unknown>
+				| undefined;
+			if (!fieldsMap) {
+				fieldsMap = new Y.Map();
+				tableSchemaMap.set('fields', fieldsMap);
+			}
+
+			for (const [fieldName, fieldSchema] of Object.entries(
+				tableDefinition.fields,
+			)) {
+				fieldsMap.set(fieldName, fieldSchema);
+			}
+		}
+
+		// Merge KV schema
+		let kvSchemaMap = schemaMap.get('kv') as Y.Map<unknown> | undefined;
+		if (!kvSchemaMap) {
+			kvSchemaMap = new Y.Map();
+			schemaMap.set('kv', kvSchemaMap);
+		}
+
+		for (const [keyName, kvDefinition] of Object.entries(schema.kv)) {
+			let kvEntryMap = kvSchemaMap.get(keyName) as Y.Map<unknown> | undefined;
+			if (!kvEntryMap) {
+				kvEntryMap = new Y.Map();
+				kvSchemaMap.set(keyName, kvEntryMap);
+			}
+
+			kvEntryMap.set('name', kvDefinition.name);
+			kvEntryMap.set('icon', kvDefinition.icon ?? null);
+			kvEntryMap.set('description', kvDefinition.description ?? '');
+			kvEntryMap.set('field', kvDefinition.field);
+		}
+	};
+
+	const observeSchema = (callback: (schema: WorkspaceSchemaMap) => void) => {
+		const handler = () => {
+			callback(getSchema());
+		};
+		schemaMap.observeDeep(handler);
+		return () => schemaMap.unobserveDeep(handler);
+	};
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// Extension Initialization
+	// ─────────────────────────────────────────────────────────────────────────
+
+	// Initialize extensions synchronously — async work is in their whenSynced
+	const extensions = {} as InferExtensionExports<TExtensionFactories>;
+	for (const [extensionId, extensionFactory] of Object.entries(
+		extensionFactories,
+	)) {
+		// Build flattened context for this extension
+		const context: ExtensionContext<TTableDefinitionMap, TKvDefinitionMap> = {
+			ydoc,
+			workspaceId,
+			epoch,
+			tables,
+			kv,
+			getSchemaMap,
+			getKvMap,
+			getTablesMap,
+			getSchema,
+			mergeSchema,
+			observeSchema,
+			extensionId,
+		};
+
+		// Factory is sync; normalize exports at boundary
+		const result = extensionFactory(context);
+		const exports = defineExports(result as Record<string, unknown>);
+		(extensions as Record<string, unknown>)[extensionId] = exports;
+	}
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// Lifecycle Management
+	// ─────────────────────────────────────────────────────────────────────────
+
+	// Aggregate all extension whenSynced promises
+	// Fail-fast: any rejection rejects the whole thing (UI shows error state)
+	//
+	// ORDER OF OPERATIONS (critical for correctness):
+	// 1. Wait for all extensions' whenSynced (e.g., persistence finishes loading disk state)
+	// 2. THEN run onSync callback (static schema merges schema here)
+	// 3. Resolve whenSynced
+	//
+	// See: specs/20260119T231252-resilient-client-architecture.md
+	const whenSynced = Promise.all(
+		Object.values(extensions).map((e) => (e as Lifecycle).whenSynced),
+	).then(() => {
+		// After persistence has loaded disk state, run the sync callback
+		// Static schema: merges schema (code is "last writer")
+		// Dynamic schema: no-op (schema comes from Y.Doc)
+		onSync?.();
+	});
+
+	const destroy = async () => {
+		// Use allSettled so one destroy failure doesn't block others
+		await Promise.allSettled(
+			Object.values(extensions).map((e) => (e as Lifecycle).destroy()),
+		);
+		// Always release doc resources
+		ydoc.destroy();
+	};
+
+	return {
+		ydoc,
+		workspaceId,
+		epoch,
+		tables,
+		kv,
+		extensions,
+		getSchemaMap,
+		getKvMap,
+		getTablesMap,
+		getSchema,
+		mergeSchema,
+		observeSchema,
+		whenSynced,
+		destroy,
+		[Symbol.asyncDispose]: destroy,
+	};
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WorkspaceDoc Type
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The unified workspace abstraction with typed tables, kv, extensions, and lifecycle.
+ *
+ * This is the return type of `createWorkspaceDoc()` and `createClient()`.
+ * It combines Y.Doc wrapper, typed accessors, extension exports, and lifecycle management.
+ *
+ * @example
+ * ```typescript
+ * const workspace: WorkspaceDoc<MyTables, MyKv, MyExtensions> = createClient('blog')
+ *   .withSchema(schema)
+ *   .withExtensions({ persistence, sqlite });
+ *
+ * await workspace.whenSynced;
+ * workspace.tables.posts.upsert({ id: '1', title: 'Hello' });
+ * workspace.extensions.sqlite.db.select()...;
+ * await workspace.destroy();
+ * ```
+ */
+export type WorkspaceDoc<
+	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
+	TKvDefinitionMap extends KvDefinitionMap = KvDefinitionMap,
+	TExtensions extends Record<string, ExtensionExports> = Record<
+		string,
+		ExtensionExports
+	>,
+> = {
+	/** The underlying Y.Doc instance. */
+	ydoc: Y.Doc;
+	/** The workspace ID (without epoch suffix). */
+	workspaceId: string;
+	/** The epoch number for this workspace doc. */
+	epoch: number;
+	/** Typed table helpers for CRUD operations. */
+	tables: Tables<TTableDefinitionMap>;
+	/** Key-value store for simple values. */
+	kv: Kv<TKvDefinitionMap>;
+	/** Extension exports keyed by extension ID. */
+	extensions: TExtensions;
+	/** Get the schema Y.Map for low-level operations. */
+	getSchemaMap(): SchemaMap;
+	/** Get the KV Y.Map for low-level operations. */
+	getKvMap(): KvMap;
+	/** Get the tables Y.Map for low-level operations. */
+	getTablesMap(): TablesMap;
+	/** Read the current schema from the Y.Doc as a plain object. */
+	getSchema(): WorkspaceSchemaMap;
+	/** Merge table/KV schema into the Y.Doc. */
+	mergeSchema<
+		TMergeTables extends TableDefinitionMap,
+		TMergeKv extends KvDefinitionMap,
+	>(schema: { tables: TMergeTables; kv: TMergeKv }): void;
+	/** Observe schema changes. */
+	observeSchema(callback: (schema: WorkspaceSchemaMap) => void): () => void;
+	/** Promise that resolves when all extensions have synced. */
+	whenSynced: Promise<void>;
+	/** Clean up all extensions and release Y.Doc resources. */
+	destroy(): Promise<void>;
+	/** Async disposable for `await using` syntax. */
+	[Symbol.asyncDispose]: () => Promise<void>;
 };

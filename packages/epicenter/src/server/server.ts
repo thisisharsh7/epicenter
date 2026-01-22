@@ -1,7 +1,7 @@
 import { openapi } from '@elysiajs/openapi';
 import { Elysia } from 'elysia';
 import type { Actions } from '../core/actions';
-import type { WorkspaceClient } from '../core/workspace/workspace';
+import type { WorkspaceDoc } from '../core/docs/workspace-doc';
 import { collectActionPaths, createActionsRouter } from './actions';
 import { createSyncPlugin } from './sync';
 import { createTablesPlugin } from './tables';
@@ -13,7 +13,7 @@ export type ServerOptions = {
 	actions?: Actions;
 };
 
-type AnyWorkspaceClient = WorkspaceClient<any, any, any>;
+type AnyWorkspaceDoc = WorkspaceDoc<any, any, any>;
 
 /**
  * Create an HTTP server that exposes workspace clients as REST APIs and WebSocket sync.
@@ -48,15 +48,15 @@ type AnyWorkspaceClient = WorkspaceClient<any, any, any>;
  * ```
  */
 function createServer(
-	client: AnyWorkspaceClient,
+	client: AnyWorkspaceDoc,
 	options?: ServerOptions,
 ): ReturnType<typeof createServerInternal>;
 function createServer(
-	clients: AnyWorkspaceClient[],
+	clients: AnyWorkspaceDoc[],
 	options?: ServerOptions,
 ): ReturnType<typeof createServerInternal>;
 function createServer(
-	clientOrClients: AnyWorkspaceClient | AnyWorkspaceClient[],
+	clientOrClients: AnyWorkspaceDoc | AnyWorkspaceDoc[],
 	options?: ServerOptions,
 ): ReturnType<typeof createServerInternal> {
 	const clients = Array.isArray(clientOrClients)
@@ -66,13 +66,13 @@ function createServer(
 }
 
 function createServerInternal(
-	clients: AnyWorkspaceClient[],
+	clients: AnyWorkspaceDoc[],
 	options?: ServerOptions,
 ) {
-	const workspaces: Record<string, AnyWorkspaceClient> = {};
+	const workspaces: Record<string, AnyWorkspaceDoc> = {};
 
 	for (const client of clients) {
-		workspaces[client.id] = client;
+		workspaces[client.workspaceId] = client;
 	}
 
 	const actionPaths = options?.actions

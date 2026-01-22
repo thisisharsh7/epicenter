@@ -92,10 +92,12 @@ export const sqlite = async <
 	TTableDefinitionMap extends TableDefinitionMap,
 	TKvDefinitionMap extends KvDefinitionMap,
 >(
-	{ workspaceDoc }: ExtensionContext<TTableDefinitionMap, TKvDefinitionMap>,
+	{
+		workspaceId: id,
+		tables,
+	}: ExtensionContext<TTableDefinitionMap, TKvDefinitionMap>,
 	config: SqliteConfig,
 ) => {
-	const { workspaceId: id, tables } = workspaceDoc;
 	const { dbPath, logsDir, debounceMs = DEFAULT_DEBOUNCE_MS } = config;
 
 	const drizzleTables = convertTableDefinitionsToDrizzle(tables.$definitions);

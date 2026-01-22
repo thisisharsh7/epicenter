@@ -1,21 +1,19 @@
 import { type } from 'arktype';
 import { Elysia } from 'elysia';
 import { Ok } from 'wellcrafted/result';
-import type { Row, FieldSchemaMap } from '../core/schema';
+import type { WorkspaceDoc } from '../core/docs/workspace-doc';
+import type { FieldSchemaMap, Row } from '../core/schema';
 import { tableSchemaToArktype } from '../core/schema';
-import type { WorkspaceClient } from '../core/workspace/workspace';
 
-type AnyWorkspaceClient = WorkspaceClient<any, any, any>;
+type AnyWorkspaceDoc = WorkspaceDoc<any, any, any>;
 
 export function createTablesPlugin(
-	workspaceClients: Record<string, AnyWorkspaceClient>,
+	workspaceDocs: Record<string, AnyWorkspaceDoc>,
 ) {
 	const app = new Elysia();
 
-	for (const [workspaceId, workspaceClient] of Object.entries(
-		workspaceClients,
-	)) {
-		for (const tableHelper of workspaceClient.tables.$all()) {
+	for (const [workspaceId, workspaceDoc] of Object.entries(workspaceDocs)) {
+		for (const tableHelper of workspaceDoc.tables.$all()) {
 			const tableName = tableHelper.name;
 			const basePath = `/workspaces/${workspaceId}/tables/${tableName}`;
 			const tags = [workspaceId, 'tables'];
