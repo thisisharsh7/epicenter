@@ -167,18 +167,15 @@ export {
 	isKvDefinition,
 	isTableDefinition,
 	normalizeIcon,
-	normalizeKv,
 } from './core/workspace/normalize';
 export type {
 	ClientBuilder,
-	NormalizedKv,
 	Workspace,
 	WorkspaceClient,
 	WorkspaceDefinition,
-	WorkspaceInput,
 	WorkspaceSchema,
 } from './core/workspace/workspace';
-export { createClient, defineWorkspace } from './core/workspace/workspace';
+export { createClient, defineSchema } from './core/workspace/workspace';
 
 // Note: Extensions (markdown, sqlite) are NOT re-exported here to avoid bundling
 // Node.js-only code in browser builds. Import them directly from subpaths:

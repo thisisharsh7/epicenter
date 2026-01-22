@@ -14,8 +14,7 @@ import { join } from 'node:path';
 import { persistence } from '../src/extensions/persistence/desktop';
 import {
 	createClient,
-	defineWorkspace,
-	type ExtensionContext,
+	defineSchema,
 	generateId,
 	id,
 	integer,
@@ -76,9 +75,7 @@ console.log('='.repeat(70));
 console.log('');
 
 // Minimal email schema
-const emailSchema = defineWorkspace({
-	id: 'emails-minimal',
-	kv: {},
+const emailSchema = defineSchema({
 	tables: {
 		emails: table({
 			name: 'Emails',
@@ -92,11 +89,12 @@ const emailSchema = defineWorkspace({
 			},
 		}),
 	},
+	kv: {},
 });
 
 console.log('Creating client...');
 const totalStart = performance.now();
-await using client = await createClient(emailSchema.id)
+await using client = await createClient('emails-minimal')
 	.withSchema(emailSchema)
 	.withExtensions({
 		persistence: (ctx) =>

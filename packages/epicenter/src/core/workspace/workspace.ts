@@ -2,7 +2,7 @@
  * Workspace definition and creation for YJS-first collaborative workspaces.
  *
  * This module provides the core workspace API:
- * - {@link defineWorkspace} - Factory to create workspace definitions (legacy)
+ * - {@link defineSchema} - Type inference helper for workspace schemas (pass-through)
  * - {@link createClient} - Factory to create runtime clients with builder pattern
  * - {@link WorkspaceClient} - The runtime client for interacting with data
  * - {@link WorkspaceSchema} - Schema type for `.withSchema()` (tables + kv only)
@@ -64,7 +64,6 @@
  * @module
  */
 
-import humanizeString from 'humanize-string';
 import * as Y from 'yjs';
 import {
 	getWorkspaceDocMaps,
@@ -77,13 +76,10 @@ import { createKv, type Kv } from '../kv/core';
 import { defineExports, type Lifecycle } from '../lifecycle';
 
 import type {
-	KvDefinition,
 	KvDefinitionMap,
-	KvSchemaMap,
 	TableDefinitionMap,
 } from '../schema/fields/types';
 import { createTables, type Tables } from '../tables/create-tables';
-import { normalizeKv } from './normalize';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public API: Types
@@ -248,10 +244,10 @@ export type ClientBuilder<
 };
 
 /**
- * A workspace definition describes the initial configuration for a workspace.
+ * A workspace definition describes the full configuration for a workspace.
  *
  * This type is fully JSON-serializable and contains no methods or runtime behavior.
- * It represents the configuration passed to `defineWorkspace()`.
+ * It includes both the schema (tables, kv) and identity (id, name).
  *
  * ## Initial Values vs Live State
  *
@@ -259,26 +255,25 @@ export type ClientBuilder<
  * into the Y.Doc's CRDT state for schema tracking.
  *
  * - `id` — Immutable identity, baked into Y.Doc GUID. Never changes.
- * - `name` — Auto-generated from `id` via humanization (legacy, for backward compat).
- * - `tables`, `kv` — Initial definitions; merged into Y.Doc schema map.
+ * - `name` — Display name for the workspace.
+ * - `tables`, `kv` — Schema definitions; merged into Y.Doc schema map.
  *
  * **Note**: Workspace identity (name, icon, description) now lives in the Head Doc,
  * not in the definition. Use `head.getMeta()` for identity.
  *
  * @example
  * ```typescript
- * const definition = defineWorkspace({
- *   id: 'epicenter.blog',
- *   tables: { posts: {...} },
+ * const schema = defineSchema({
+ *   tables: { posts: table({ name: 'Posts', fields: { id: id(), title: text() } }) },
  *   kv: {},
  * });
  *
- * const client = createClient(definition.id, { epoch })
- *   .withSchema(definition)
+ * const client = createClient('epicenter.blog', { epoch })
+ *   .withSchema(schema)
  *   .withExtensions({ persistence });
  *
  * // Identity comes from Head Doc, not the client
- * const head = createHead(definition.id);
+ * const head = createHead('epicenter.blog');
  * console.log(head.getMeta().name);  // "My Blog"
  * ```
  */
@@ -324,8 +319,7 @@ export type WorkspaceDefinition<
 };
 
 /**
- * @deprecated Use `WorkspaceDefinition` instead. The `.create()` method has been
- * extracted to a standalone `createClient()` function.
+ * @deprecated Use `WorkspaceDefinition` instead.
  *
  * Migration:
  * ```typescript
@@ -334,8 +328,8 @@ export type WorkspaceDefinition<
  * const client = workspace.create({ epoch, extensions });
  *
  * // New API
- * const definition = defineWorkspace({ id, tables, kv });
- * const client = createClient(definition, { epoch, extensions });
+ * const schema = defineSchema({ tables, kv });
+ * const client = createClient(id, { epoch }).withSchema(schema).withExtensions({});
  * ```
  */
 export type Workspace<
@@ -450,148 +444,36 @@ export type WorkspaceClient<
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Input type for `defineWorkspace()`.
+ * Define a workspace schema for type inference.
  *
- * Tables must be `TableDefinition` objects. Use the `table()` helper for ergonomic
- * table definitions—it requires `name` and `fields`, with optional `description` and `icon`.
- *
- * After normalization, this becomes a `WorkspaceDefinition` (the canonical form).
- * The only normalization performed is:
- * - Workspace `name` derived from `id` via humanization
- * - KV metadata auto-generated from keys
+ * This is a simple pass-through function that helps TypeScript infer
+ * the schema types. It performs no normalization or transformation.
  *
  * @example
  * ```typescript
- * const definition = defineWorkspace({
- *   id: 'epicenter.blog',
+ * const schema = defineSchema({
  *   tables: {
  *     posts: table({
  *       name: 'Posts',
- *       description: 'Blog posts and articles',
- *       icon: '📝',
  *       fields: { id: id(), title: text(), published: boolean({ default: false }) },
  *     }),
  *   },
- *   kv: {
- *     theme: select({ options: ['light', 'dark'] as const, default: 'light' }),
- *   },
+ *   kv: {},
  * });
- * // definition.name === 'Epicenter blog' (derived from id)
- * ```
- */
-export type WorkspaceInput<
-	TTables extends TableDefinitionMap = TableDefinitionMap,
-	TKv extends KvSchemaMap = KvSchemaMap,
-> = {
-	/** Workspace identifier (e.g., "epicenter.blog"). Name is derived from this. */
-	id: string;
-	/** Tables created with `table()` helper. Each table requires name and fields. */
-	tables: TTables;
-	/** KV entries as field schemas. Metadata is auto-generated. */
-	kv: TKv;
-};
-
-/**
- * Type-level normalization for KV entries.
  *
- * Converts a map of KV field schemas into a map of `KvDefinition`.
- * This ensures the output type is always the canonical form.
- *
- * @example
- * ```typescript
- * // Input: { theme: select({ options: ['light', 'dark'] }) }
- * // NormalizedKv<...> = { theme: KvDefinition<SelectFieldSchema<...>> }
- * ```
- */
-export type NormalizedKv<TKv extends KvSchemaMap> = {
-	[K in keyof TKv]: KvDefinition<TKv[K]>;
-};
-
-/**
- * Normalize a workspace input to a full WorkspaceDefinition.
- *
- * Tables are passed through unchanged (they're already `TableDefinition`).
- * - Workspace name is derived from id via humanization
- * - KV metadata is auto-generated from keys
- */
-function normalizeWorkspaceInput<
-	TTables extends TableDefinitionMap,
-	TKv extends KvSchemaMap,
->(
-	input: WorkspaceInput<TTables, TKv>,
-): WorkspaceDefinition<TTables, NormalizedKv<TKv>> {
-	// Normalize all KV entries (field schemas → full definitions)
-	const kv = {} as NormalizedKv<TKv>;
-	for (const [key, field] of Object.entries(input.kv)) {
-		(kv as Record<string, KvDefinition>)[key] = normalizeKv(key, field);
-	}
-
-	return {
-		id: input.id,
-		name: humanizeString(input.id),
-		tables: input.tables,
-		kv,
-	};
-}
-
-/**
- * Define a collaborative workspace with YJS-first architecture.
- *
- * Takes table definitions (via `table()` helper) and returns a complete
- * `WorkspaceDefinition`.
- *
- * This is a **pure normalization** function. It performs no I/O and returns
- * a JSON-serializable definition. To create a runtime client, pass the
- * definition to `createClient()`.
- *
- * **Normalization performed:**
- * - Workspace `name`: humanized from ID (e.g., "epicenter.blog" → "Epicenter blog")
- * - KV metadata: auto-generated from keys
- *
- * **Tables are passed through unchanged** — use `table()` helper which handles
- * normalization (requires `name` and `fields`, optional `description` and `icon`).
- *
- * @example Define and create client
- * ```typescript
- * // Step 1: Define workspace
- * const definition = defineWorkspace({
- *   id: 'epicenter.blog',
- *   tables: {
- *     posts: table({
- *       name: 'Posts',
- *       description: 'Blog posts and articles',
- *       icon: '📝',
- *       fields: { id: id(), title: text(), published: boolean({ default: false }) },
- *     }),
- *   },
- *   kv: {
- *     theme: select({ options: ['light', 'dark'] as const, default: 'light' }),
- *   },
- * });
- * // definition.name === 'Epicenter blog'
- *
- * // Step 2: Create client (runtime)
- * const client = createClient(definition, {
- *   extensions: { sqlite, persistence },
- * });
- * await client.whenSynced;
+ * const client = createClient('blog', { epoch })
+ *   .withSchema(schema)
+ *   .withExtensions({ persistence });
  * ```
  *
- * @param input - Workspace input with table definitions
- * @returns A WorkspaceDefinition (JSON-serializable)
+ * @param schema - The workspace schema with tables and kv definitions
+ * @returns The same schema, unchanged (for type inference)
  */
-export function defineWorkspace<
+export function defineSchema<
 	const TTables extends TableDefinitionMap,
-	const TKv extends KvSchemaMap = Record<string, never>,
->(
-	input: WorkspaceInput<TTables, TKv>,
-): WorkspaceDefinition<TTables, NormalizedKv<TKv>> {
-	if (!input.id || typeof input.id !== 'string') {
-		throw new Error('Workspace must have a valid ID');
-	}
-
-	// Normalize the input to a full definition
-	return normalizeWorkspaceInput(input);
+	const TKv extends KvDefinitionMap = Record<string, never>,
+>(schema: WorkspaceSchema<TTables, TKv>): WorkspaceSchema<TTables, TKv> {
+	return schema;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

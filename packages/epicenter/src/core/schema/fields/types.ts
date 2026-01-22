@@ -375,7 +375,7 @@ export type FieldSchemaMap = { id: IdFieldSchema } & Record<
 
 /**
  * Table definition with metadata for UI display.
- * This is the **normalized** output type after `defineWorkspace()` processes input.
+ * This is the **normalized** output type created by the `table()` factory function.
  *
  * @example
  * ```typescript
@@ -406,8 +406,8 @@ export type TableDefinition<TFields extends FieldSchemaMap = FieldSchemaMap> = {
  * Map of table names to their full definitions (metadata + fields).
  *
  * This is the normalized format that flows through the entire system
- * (capabilities, table helpers, etc.). It's what `defineWorkspace()` returns
- * after normalizing the input.
+ * (capabilities, table helpers, etc.). Created using the `table()` factory
+ * function for each table.
  *
  * @example
  * ```typescript
@@ -528,7 +528,7 @@ export type KvDefinition<TField extends KvFieldSchema = KvFieldSchema> = {
  * Map of KV key names to their full definitions (metadata + field).
  *
  * This is the normalized format that flows through the entire system.
- * It's what `defineWorkspace()` returns after normalizing the input.
+ * Created using the `kv()` factory function for each key-value entry.
  *
  * @example
  * ```typescript
@@ -553,9 +553,8 @@ export type KvDefinitionMap = Record<string, KvDefinition>;
 /**
  * Map of KV keys to their field schemas (no metadata).
  *
- * This is the minimal input format for `defineWorkspace().kv`.
- * Each KV entry is just its field schema; metadata (name, icon, etc.)
- * is auto-generated during normalization.
+ * This is a minimal input format for KV definitions where metadata
+ * (name, icon, etc.) is auto-generated.
  *
  * @example
  * ```typescript
@@ -564,11 +563,10 @@ export type KvDefinitionMap = Record<string, KvDefinition>;
  *   fontSize: integer({ default: 14 }),
  * };
  *
- * // Use in defineWorkspace:
- * const definition = defineWorkspace({
- *   id: 'epicenter.blog',
- *   tables: { posts: { id: id(), title: text() } },
- *   kv,  // KvSchemaMap - will be normalized to KvDefinitionMap
+ * // Use in defineSchema:
+ * const schema = defineSchema({
+ *   tables: { posts: table({ name: 'Posts', fields: { id: id(), title: text() } }) },
+ *   kv,  // KvSchemaMap
  * });
  * ```
  */

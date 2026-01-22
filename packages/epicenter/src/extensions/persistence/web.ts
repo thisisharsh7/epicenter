@@ -33,17 +33,17 @@ import type { KvDefinitionMap, TableDefinitionMap } from '../../core/schema';
  *
  * @example Basic usage in a browser app
  * ```typescript
- * import { defineWorkspace, createClient } from '@epicenter/hq';
+ * import { defineSchema, createClient } from '@epicenter/hq';
  * import { persistence } from '@epicenter/hq/extensions/persistence';
  *
- * const definition = defineWorkspace({
- *   id: 'blog',  // This becomes the IndexedDB database name
+ * const schema = defineSchema({
  *   tables: { ... },
  *   kv: {},
  * });
  *
- * const client = createClient(definition.id, { epoch })
- *   .withSchema(definition)
+ * // 'blog' becomes the IndexedDB database name
+ * const client = createClient('blog', { epoch })
+ *   .withSchema(schema)
  *   .withExtensions({ persistence });
  * ```
  *
@@ -64,23 +64,23 @@ import type { KvDefinitionMap, TableDefinitionMap } from '../../core/schema';
  * @example Multi-workspace setup
  * ```typescript
  * // Each workspace gets its own IndexedDB database
- * const blogSchema = defineWorkspace({
- *   id: 'blog',  // → IndexedDB database named 'blog'
+ * const blogSchema = defineSchema({
  *   tables: { ... },
  *   kv: {},
  * });
  *
- * const notesSchema = defineWorkspace({
- *   id: 'notes',  // → IndexedDB database named 'notes'
+ * const notesSchema = defineSchema({
  *   tables: { ... },
  *   kv: {},
  * });
  *
- * const blogClient = createClient(blogSchema.id, { epoch })
+ * // 'blog' → IndexedDB database named 'blog'
+ * const blogClient = createClient('blog', { epoch })
  *   .withSchema(blogSchema)
  *   .withExtensions({ persistence });
  *
- * const notesClient = createClient(notesSchema.id, { epoch })
+ * // 'notes' → IndexedDB database named 'notes'
+ * const notesClient = createClient('notes', { epoch })
  *   .withSchema(notesSchema)
  *   .withExtensions({ persistence });
  *

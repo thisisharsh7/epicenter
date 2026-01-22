@@ -135,18 +135,17 @@ export type WebsocketSyncConfig = {
  *
  * @example Single extension (browser to local server)
  * ```typescript
- * import { defineWorkspace, createClient } from '@epicenter/hq';
+ * import { defineSchema, createClient } from '@epicenter/hq';
  * import { websocketSync } from '@epicenter/hq/extensions/websocket-sync';
  *
  * // Browser connects to its own local Elysia server
- * const definition = defineWorkspace({
- *   id: 'blog',
+ * const schema = defineSchema({
  *   tables: { ... },
  *   kv: {},
  * });
  *
- * const client = createClient(definition.id, { epoch })
- *   .withSchema(definition)
+ * const client = createClient('blog', { epoch })
+ *   .withSchema(schema)
  *   .withExtensions({
  *     sync: websocketSync({ url: 'ws://localhost:3913/sync' }),
  *   });
@@ -154,7 +153,7 @@ export type WebsocketSyncConfig = {
  *
  * @example Multi-extension (phone connecting to all nodes)
  * ```typescript
- * import { defineWorkspace, createClient } from '@epicenter/hq';
+ * import { defineSchema, createClient } from '@epicenter/hq';
  * import { websocketSync } from '@epicenter/hq/extensions/websocket-sync';
  *
  * const SYNC_NODES = {
@@ -164,13 +163,12 @@ export type WebsocketSyncConfig = {
  * } as const;
  *
  * // Phone browser connects to ALL available sync nodes
- * const schema = defineWorkspace({
- *   id: 'blog',
+ * const schema = defineSchema({
  *   tables: { ... },
  *   kv: {},
  * });
  *
- * const client = createClient(schema.id, { epoch })
+ * const client = createClient('blog', { epoch })
  *   .withSchema(schema)
  *   .withExtensions({
  *     // Create an extension for each sync node
@@ -190,13 +188,12 @@ export type WebsocketSyncConfig = {
  *   cloud: 'wss://sync.myapp.com/sync',
  * } as const;
  *
- * const schema = defineWorkspace({
- *   id: 'blog',
+ * const schema = defineSchema({
  *   tables: { ... },
  *   kv: {},
  * });
  *
- * const client = createClient(schema.id, { epoch })
+ * const client = createClient('blog', { epoch })
  *   .withSchema(schema)
  *   .withExtensions({
  *     // Server acts as both:

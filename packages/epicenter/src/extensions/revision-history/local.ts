@@ -80,17 +80,16 @@ export type LocalRevisionHistoryConfig = {
  *
  * @example Basic usage
  * ```typescript
- * import { defineWorkspace, createClient } from '@epicenter/hq';
+ * import { defineSchema, createClient } from '@epicenter/hq';
  * import { localRevisionHistory } from '@epicenter/hq/extensions/revision-history';
  *
- * const definition = defineWorkspace({
- *   id: 'blog',
+ * const schema = defineSchema({
  *   tables: { ... },
  *   kv: {},
  * });
  *
- * const client = createClient(definition.id, { epoch })
- *   .withSchema(definition)
+ * const client = createClient('blog', { epoch })
+ *   .withSchema(schema)
  *   .withExtensions({
  *     persistence,
  *     revisions: (ctx) => localRevisionHistory(ctx, {
@@ -116,8 +115,8 @@ export type LocalRevisionHistoryConfig = {
  *
  * @example Custom debounce interval
  * ```typescript
- * const client = createClient(definition.id, { epoch })
- *   .withSchema(definition)
+ * const client = createClient('blog', { epoch })
+ *   .withSchema(schema)
  *   .withExtensions({
  *     revisions: (ctx) => localRevisionHistory(ctx, {
  *       directory: './workspaces',

@@ -26,12 +26,11 @@ export type PersistenceConfig = {
  *
  * @example
  * ```typescript
- * import { defineWorkspace, createClient } from '@epicenter/hq';
+ * import { defineSchema, createClient } from '@epicenter/hq';
  * import { persistence } from '@epicenter/hq/extensions/persistence';
  * import { join } from 'node:path';
  *
- * const definition = defineWorkspace({
- *   id: 'blog',
+ * const schema = defineSchema({
  *   tables: { ... },
  *   kv: {},
  * });
@@ -39,8 +38,8 @@ export type PersistenceConfig = {
  * const projectDir = '/my/project';
  * const epicenterDir = join(projectDir, '.epicenter');
  *
- * const client = createClient(definition.id, { epoch })
- *   .withSchema(definition)
+ * const client = createClient('blog', { epoch })
+ *   .withSchema(schema)
  *   .withExtensions({
  *     persistence: (ctx) => persistence(ctx, {
  *       filePath: join(epicenterDir, 'persistence', `${ctx.id}.yjs`),

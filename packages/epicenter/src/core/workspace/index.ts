@@ -13,16 +13,13 @@ export {
 	isKvDefinition,
 	isTableDefinition,
 	normalizeIcon,
-	normalizeKv,
 } from './normalize';
 
 export type {
 	ClientBuilder,
-	NormalizedKv,
 	Workspace,
 	WorkspaceClient,
 	WorkspaceDefinition,
-	WorkspaceInput,
 	WorkspaceSchema,
 } from './workspace';
-export { createClient, defineWorkspace } from './workspace';
+export { createClient, defineSchema } from './workspace';

@@ -48,21 +48,20 @@
  * ## Implementation details
  *
  * The actual workspace creation logic lives in {@link ./workspace.ts | workspace.ts}:
- * - {@link defineWorkspace} - Creates a WorkspaceSchema (pure normalization)
+ * - {@link defineSchema} - Type inference helper for workspace schemas (pass-through)
  * - {@link createClient} - Creates a runtime client builder (sync)
  * - {@link WorkspaceClient} - The full client type with `whenSynced`
  *
  * This module simply:
- * 1. Re-exports `defineWorkspace` (it's now pure, no wrapping needed)
+ * 1. Re-exports `defineSchema` (pure pass-through for type inference)
  * 2. Wraps `createClient` so `.withExtensions()` returns a Promise
  * 3. Returns the client without the `whenSynced` property
  *
  * @example Basic usage
  * ```typescript
- * import { defineWorkspace, createClient, id, text, table } from '@epicenter/hq/node';
+ * import { defineSchema, createClient, id, text, table } from '@epicenter/hq/node';
  *
- * const schema = defineWorkspace({
- *   id: 'epicenter.blog',
+ * const schema = defineSchema({
  *   tables: {
  *     posts: table({ name: 'Posts', fields: { id: id(), title: text() } }),
  *   },
@@ -70,7 +69,7 @@
  * });
  *
  * // Async - awaits initialization internally
- * const client = await createClient(schema.id, { epoch: 0 })
+ * const client = await createClient('blog', { epoch: 0 })
  *   .withSchema(schema)
  *   .withExtensions({ persistence });
  *
@@ -81,15 +80,15 @@
  *
  * @example Migration script
  * ```typescript
- * import { defineWorkspace, createClient } from '@epicenter/hq/node';
+ * import { defineSchema, createClient } from '@epicenter/hq/node';
  *
  * async function migrate() {
- *   const schema = defineWorkspace({ id: 'blog', tables: {...}, kv: {} });
+ *   const schema = defineSchema({ tables: {...}, kv: {} });
  *
- *   const oldClient = await createClient(schema.id, { epoch: 1 })
+ *   const oldClient = await createClient('blog', { epoch: 1 })
  *     .withSchema(schema)
  *     .withExtensions({});
- *   const newClient = await createClient(schema.id, { epoch: 2 })
+ *   const newClient = await createClient('blog', { epoch: 2 })
  *     .withSchema(schema)
  *     .withExtensions({});
  *
@@ -101,6 +100,8 @@
  *   await newClient.destroy();
  * }
  * ```
+ *
+ * @see {@link defineSchema} - Type inference helper for schema definitions
  *
  * @see {@link ./workspace.ts} - The sync implementation that powers this wrapper
  * @see {@link ../lifecycle.ts} - The Lifecycle protocol (`whenSynced`, `destroy`)
@@ -220,9 +221,9 @@ export type ClientBuilder<
 	 *
 	 * @example
 	 * ```typescript
-	 * const schema = defineWorkspace({ id: 'blog', tables: {...}, kv: {} });
+	 * const schema = defineSchema({ tables: {...}, kv: {} });
 	 *
-	 * const client = await createClient(schema.id, { epoch })
+	 * const client = await createClient('blog', { epoch })
 	 *   .withSchema(schema)
 	 *   .withExtensions({
 	 *     persistence: (ctx) => persistence(ctx, { filePath }),
@@ -247,19 +248,19 @@ export type ClientBuilder<
 	 * @example
 	 * ```typescript
 	 * // With extensions
-	 * const schema = defineWorkspace({ id: 'blog', tables: {...}, kv: {} });
+	 * const schema = defineSchema({ tables: {...}, kv: {} });
 	 *
-	 * const client = await createClient(schema.id, { epoch })
+	 * const client = await createClient('blog', { epoch })
 	 *   .withSchema(schema)
 	 *   .withExtensions({
 	 *     persistence: (ctx) => persistence(ctx, { filePath }),
 	 *     sqlite: (ctx) => sqlite(ctx, { dbPath }),
 	 *   });
 	 *
-	 * client.tables.recordings.upsert({ ... });
+	 * client.tables.posts.upsert({ ... });
 	 *
 	 * // Without extensions
-	 * const client = await createClient(schema.id, { epoch })
+	 * const client = await createClient('blog', { epoch })
 	 *   .withSchema(schema)
 	 *   .withExtensions({});
 	 * ```
@@ -316,13 +317,12 @@ export type ClientBuilder<
  * For apps like Whispering where schema is defined in code:
  *
  * ```typescript
- * const schema = defineWorkspace({
- *   id: 'epicenter.whispering',
+ * const schema = defineSchema({
  *   tables: { recordings: table({ name: 'Recordings', fields: { id: id(), title: text() } }) },
  *   kv: {},
  * });
  *
- * const client = await createClient(schema.id, { epoch })
+ * const client = await createClient('epicenter.whispering', { epoch })
  *   .withSchema(schema)
  *   .withExtensions({
  *     persistence: (ctx) => persistence(ctx, { filePath }),
@@ -331,6 +331,9 @@ export type ClientBuilder<
  * // Ready to use immediately (no whenSynced needed)
  * client.tables.recordings.upsert({ ... });
  * ```
+ *
+ * Note: Workspace identity (name, icon, description) is separate from schema
+ * and should be managed via Head Doc.
  *
  * ## Path 2: Dynamic Schema (Y.Doc-Defined)
  *
@@ -348,7 +351,8 @@ export type ClientBuilder<
  * Pass an empty object to `.withExtensions()`:
  *
  * ```typescript
- * const client = await createClient(schema.id, { epoch })
+ * const schema = defineSchema({ tables: {...}, kv: {} });
+ * const client = await createClient('blog', { epoch })
  *   .withSchema(schema)
  *   .withExtensions({});
  * ```
@@ -420,22 +424,26 @@ function createAsyncClientBuilder<
  * These are the building blocks for table definitions:
  *
  * ```typescript
- * import { defineWorkspace, createClient, id, text, boolean, date } from '@epicenter/hq/node';
+ * import { defineSchema, createClient, id, text, boolean, date, table } from '@epicenter/hq/node';
  *
- * const definition = defineWorkspace({
- *   id: 'epicenter.blog',
+ * const schema = defineSchema({
  *   tables: {
- *     posts: {
- *       id: id(),           // Primary key (always required)
- *       title: text(),      // NOT NULL text
- *       published: boolean({ default: false }),
- *       createdAt: date(),  // Temporal-aware date with timezone
- *     },
+ *     posts: table({
+ *       name: 'Posts',
+ *       fields: {
+ *         id: id(),           // Primary key (always required)
+ *         title: text(),      // NOT NULL text
+ *         published: boolean({ default: false }),
+ *         createdAt: date(),  // Temporal-aware date with timezone
+ *       },
+ *     }),
  *   },
  *   kv: {},
  * });
  *
- * const client = await createClient(definition);
+ * const client = await createClient('epicenter.blog', { epoch: 0 })
+ *   .withSchema(schema)
+ *   .withExtensions({ persistence });
  * ```
  *
  * @see {@link ../schema/fields/factories.ts} - Field factory implementations
@@ -467,16 +475,12 @@ export {
  *
  * @see {@link ./workspace.ts} - Where these types are defined
  */
-export type {
-	NormalizedKv,
-	WorkspaceDefinition,
-	WorkspaceInput,
-	WorkspaceSchema,
-} from './workspace';
+export type { WorkspaceDefinition, WorkspaceSchema } from './workspace';
+
 /**
- * Re-export defineWorkspace from workspace.ts.
+ * Re-export defineSchema from workspace.ts.
  *
- * Since `defineWorkspace` now returns a pure `WorkspaceDefinition`
- * (no `.create()` method), no wrapping is needed for Node.js.
+ * `defineSchema` is a pure pass-through for type inference. It performs no
+ * normalization or transformation.
  */
-export { defineWorkspace } from './workspace';
+export { defineSchema } from './workspace';

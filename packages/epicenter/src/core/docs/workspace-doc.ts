@@ -122,7 +122,7 @@ export function getWorkspaceDocMaps(ydoc: Y.Doc) {
  * Use HeadDoc.setMeta() to set workspace identity.
  *
  * @param schemaMap - The Y.Map('schema') to write to
- * @param workspaceSchema - The schema to merge (tables and kv from defineWorkspace)
+ * @param workspaceSchema - The schema to merge (tables and kv from defineSchema or inline)
  */
 export function mergeSchemaIntoYDoc<
 	TTableDefinitionMap extends TableDefinitionMap,

@@ -62,20 +62,19 @@ export type SqliteConfig = {
  *
  * @example
  * ```typescript
- * import { defineWorkspace, createClient } from '@epicenter/hq';
+ * import { defineSchema, createClient, id, text, table } from '@epicenter/hq';
  * import { join } from 'node:path';
  *
- * const definition = defineWorkspace({
- *   id: 'blog',
- *   tables: { posts: { id: id(), title: text() } },
+ * const schema = defineSchema({
+ *   tables: { posts: table({ name: 'Posts', fields: { id: id(), title: text() } }) },
  *   kv: {},
  * });
  *
  * const projectDir = '/my/project';
  * const epicenterDir = join(projectDir, '.epicenter');
  *
- * const client = createClient(definition.id, { epoch })
- *   .withSchema(definition)
+ * const client = createClient('blog', { epoch })
+ *   .withSchema(schema)
  *   .withExtensions({
  *     sqlite: (ctx) => sqlite(ctx, {
  *       dbPath: join(epicenterDir, 'sqlite', `${ctx.id}.db`),

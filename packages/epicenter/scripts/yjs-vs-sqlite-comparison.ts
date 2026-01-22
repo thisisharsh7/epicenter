@@ -15,7 +15,7 @@ import { join } from 'node:path';
 import { persistence } from '../src/extensions/persistence/desktop';
 import {
 	createClient,
-	defineWorkspace,
+	defineSchema,
 	generateId,
 	id,
 	integer,
@@ -160,9 +160,7 @@ console.log('');
 console.log('--- YJS Test ---');
 const yjsStart = performance.now();
 
-const emailSchema = defineWorkspace({
-	id: 'emails-compare',
-	kv: {},
+const emailSchema = defineSchema({
 	tables: {
 		emails: table({
 			name: 'Emails',
@@ -180,9 +178,10 @@ const emailSchema = defineWorkspace({
 			},
 		}),
 	},
+	kv: {},
 });
 
-await using client = await createClient(emailSchema.id)
+await using client = await createClient('emails-compare')
 	.withSchema(emailSchema)
 	.withExtensions({
 		persistence: (ctx) =>
