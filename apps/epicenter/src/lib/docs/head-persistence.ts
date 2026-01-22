@@ -107,18 +107,14 @@ export function headPersistence(
 	const saveJson = async () => {
 		const { jsonPath } = await pathsPromise;
 		try {
-			// Get raw Y.Doc JSON
-			const raw = ydoc.toJSON() as {
-				meta?: Record<string, unknown>;
-				epochs?: Record<string, number>;
-			};
+			// Access maps directly instead of deprecated ydoc.toJSON()
+			const metaMap = ydoc.getMap('meta');
+			const epochsMap = ydoc.getMap<number>('epochs');
 
 			// Flatten: spread meta contents to top level, keep epochs as-is
-			const { meta, epochs, ...rest } = raw;
 			const flattened = {
-				...rest,
-				...(meta ?? {}),
-				epochs: epochs ?? {},
+				...(metaMap.toJSON() as Record<string, unknown>),
+				epochs: epochsMap.toJSON(),
 			};
 
 			const content = JSON.stringify(flattened, null, '\t');

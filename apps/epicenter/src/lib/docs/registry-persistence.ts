@@ -86,7 +86,11 @@ export function registryPersistence(
 	const saveJson = async () => {
 		const { jsonPath } = await pathsPromise;
 		try {
-			const json = ydoc.toJSON();
+			// Access the workspaces map directly instead of deprecated ydoc.toJSON()
+			const workspacesMap = ydoc.getMap<true>('workspaces');
+			const json = {
+				workspaces: workspacesMap.toJSON(),
+			};
 			const content = JSON.stringify(json, null, '\t');
 			await writeFile(jsonPath, new TextEncoder().encode(content));
 		} catch (error) {
