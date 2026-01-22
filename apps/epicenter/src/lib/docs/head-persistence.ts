@@ -4,9 +4,9 @@ import { mkdir, readFile, writeFile } from '@tauri-apps/plugin-fs';
 import * as Y from 'yjs';
 
 /**
- * Configuration options for Tauri persistence.
+ * Configuration options for head persistence.
  */
-export type TauriPersistenceConfig = {
+export type HeadPersistenceConfig = {
 	/**
 	 * Debounce delay in milliseconds before writing the JSON mirror to disk.
 	 * The binary .yjs file is always saved immediately on every update.
@@ -17,74 +17,71 @@ export type TauriPersistenceConfig = {
 };
 
 /**
- * Persist a Y.Doc to disk with both binary and JSON formats.
+ * Persist the head Y.Doc to disk with both binary and JSON formats.
  *
- * This is the standard persistence provider for Tauri apps. It creates two files:
+ * This is the persistence provider for head documents. It creates two files:
  *
- * 1. **Binary (.yjs)**: The source of truth for Y.Doc state
+ * 1. **Binary (head.yjs)**: The source of truth for Y.Doc state
  *    - Saved immediately on every Y.Doc update
  *    - Loaded on startup to restore state
  *    - Compact binary format for efficient sync
  *
- * 2. **JSON (.json)**: A human-readable mirror for debugging
+ * 2. **JSON (head.json)**: A human-readable mirror for debugging
  *    - Debounced writes (default 500ms) to avoid disk thrashing
  *    - One-way mirror only (changes to JSON are NOT loaded back)
- *    - Uses `ydoc.toJSON()` to serialize all shared types
+ *    - **Flattens `meta` map to top-level keys** for cleaner output
  *    - Pretty-printed with tabs for readability
  *
- * Path segments are joined using Tauri's path APIs, ensuring correct separators
- * on all platforms (Windows backslashes, Unix forward slashes).
+ * **JSON Output Format**:
+ * ```json
+ * {
+ *   "name": "My Workspace",
+ *   "icon": null,
+ *   "description": "...",
+ *   "epochs": {
+ *     "client123": 0,
+ *     "client456": 1
+ *   }
+ * }
+ * ```
  *
- * @param ydoc - The Y.Doc to persist
- * @param pathSegments - Path segments relative to appLocalDataDir (WITHOUT file extension)
+ * Note: The `meta` map contents (name, icon, description) are flattened to
+ * top-level keys, while `epochs` remains as-is.
+ *
+ * @param ydoc - The Y.Doc to persist (uses ydoc.guid as workspace ID)
  * @param config - Optional configuration
  * @returns Provider exports with `whenSynced` promise and `destroy` cleanup
  *
  * @example
  * ```typescript
- * // Creates both registry.yjs and registry.json
- * const persistence = tauriPersistence(ydoc, ['registry']);
- * await persistence.whenSynced;
- *
- * // For nested paths: creates workspaces/abc/head.yjs and head.json
- * const headPersistence = tauriPersistence(ydoc, ['workspaces', workspaceId, 'head']);
- * ```
- *
- * @example
- * ```typescript
- * // In a provider factory
- * import { createRegistryDoc } from '$lib/docs/core/registry-doc';
- *
- * const registry = createRegistryDoc({
+ * const baseHead = createHeadDoc({
+ *   workspaceId,
  *   providers: {
- *     persistence: ({ ydoc }) => tauriPersistence(ydoc, ['registry']),
+ *     persistence: ({ ydoc }) => headPersistence(ydoc),
  *   },
  * });
  * ```
  */
-export function tauriPersistence(
+export function headPersistence(
 	ydoc: Y.Doc,
-	pathSegments: string[],
-	config: TauriPersistenceConfig = {},
+	config: HeadPersistenceConfig = {},
 ): ProviderExports {
 	const { jsonDebounceMs = 500 } = config;
 
-	// For logging - join segments with '/' for human-readable output
-	const logPath = pathSegments.join('/');
+	// The Y.Doc guid is the workspace ID (set by createHeadDoc)
+	const workspaceId = ydoc.guid;
 
 	// Resolve paths once, cache the promise
 	const pathsPromise = (async () => {
 		const baseDir = await appLocalDataDir();
-		const basePath = await join(baseDir, ...pathSegments);
-		return {
-			baseDir,
-			binaryPath: `${basePath}.yjs`,
-			jsonPath: `${basePath}.json`,
-		};
+		const workspaceDir = await join(baseDir, 'workspaces', workspaceId);
+		const binaryPath = await join(workspaceDir, 'head.yjs');
+		const jsonPath = await join(workspaceDir, 'head.json');
+		return { workspaceDir, binaryPath, jsonPath };
 	})();
 
 	// =========================================================================
-	// Binary Persistence (.yjs) - Immediate saves, source of truth
+	// Binary Persistence (head.yjs) - Immediate saves, source of truth
 	// =========================================================================
 
 	const saveBinary = async () => {
@@ -93,12 +90,15 @@ export function tauriPersistence(
 			const state = Y.encodeStateAsUpdate(ydoc);
 			await writeFile(binaryPath, state);
 		} catch (error) {
-			console.error(`[Persistence] Failed to save ${logPath}.yjs:`, error);
+			console.error(
+				`[HeadPersistence] Failed to save head.yjs for ${workspaceId}:`,
+				error,
+			);
 		}
 	};
 
 	// =========================================================================
-	// JSON Mirror (.json) - Debounced saves, human-readable
+	// JSON Mirror (head.json) - Debounced saves, human-readable, flattened meta
 	// =========================================================================
 
 	let jsonDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -107,11 +107,27 @@ export function tauriPersistence(
 	const saveJson = async () => {
 		const { jsonPath } = await pathsPromise;
 		try {
-			const json = ydoc.toJSON();
-			const content = JSON.stringify(json, null, '\t');
+			// Get raw Y.Doc JSON
+			const raw = ydoc.toJSON() as {
+				meta?: Record<string, unknown>;
+				epochs?: Record<string, number>;
+			};
+
+			// Flatten: spread meta contents to top level, keep epochs as-is
+			const { meta, epochs, ...rest } = raw;
+			const flattened = {
+				...rest,
+				...(meta ?? {}),
+				epochs: epochs ?? {},
+			};
+
+			const content = JSON.stringify(flattened, null, '\t');
 			await writeFile(jsonPath, new TextEncoder().encode(content));
 		} catch (error) {
-			console.error(`[Persistence] Failed to save ${logPath}.json:`, error);
+			console.error(
+				`[HeadPersistence] Failed to save head.json for ${workspaceId}:`,
+				error,
+			);
 		}
 	};
 
@@ -145,11 +161,10 @@ export function tauriPersistence(
 
 	return defineExports({
 		whenSynced: (async () => {
-			const { binaryPath, jsonPath } = await pathsPromise;
+			const { workspaceDir, binaryPath } = await pathsPromise;
 
 			// Ensure parent directory exists
-			const parentDir = await dirname(binaryPath);
-			await mkdir(parentDir, { recursive: true }).catch(() => {
+			await mkdir(workspaceDir, { recursive: true }).catch(() => {
 				// Directory might already exist - that's fine
 			});
 
@@ -158,11 +173,13 @@ export function tauriPersistence(
 			try {
 				const savedState = await readFile(binaryPath);
 				Y.applyUpdate(ydoc, new Uint8Array(savedState));
-				console.log(`[Persistence] Loaded ${logPath}.yjs`);
+				console.log(`[HeadPersistence] Loaded head.yjs for ${workspaceId}`);
 			} catch {
 				// File doesn't exist yet - that's fine, we'll create it
 				isNewFile = true;
-				console.log(`[Persistence] Creating new ${logPath}.yjs`);
+				console.log(
+					`[HeadPersistence] Creating new head.yjs for ${workspaceId}`,
+				);
 			}
 
 			// Save initial state if new file
@@ -172,7 +189,9 @@ export function tauriPersistence(
 
 			// Always write initial JSON mirror
 			await saveJson();
-			console.log(`[Persistence] Mirroring to ${logPath}.json`);
+			console.log(
+				`[HeadPersistence] Mirroring to head.json for ${workspaceId}`,
+			);
 		})(),
 
 		destroy() {

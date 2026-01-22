@@ -1,7 +1,7 @@
 import { createClient, createHeadDoc } from '@epicenter/hq';
 import type * as Y from 'yjs';
-import { tauriPersistence } from './persistence/tauri-persistence';
-import { tauriWorkspacePersistence } from './persistence/tauri-workspace-persistence';
+import { headPersistence } from './head-persistence';
+import { workspacePersistence } from './workspace-persistence';
 
 /**
  * Create a head doc with persistence for a workspace.
@@ -49,8 +49,7 @@ export function createHead(workspaceId: string) {
 	const baseHead = createHeadDoc({
 		workspaceId,
 		providers: {
-			persistence: ({ ydoc }) =>
-				tauriPersistence(ydoc, ['workspaces', workspaceId, 'head']),
+			persistence: ({ ydoc }) => headPersistence(ydoc),
 		},
 	});
 
@@ -89,7 +88,7 @@ export function createHead(workspaceId: string) {
 			const epoch = baseHead.getEpoch();
 			return createClient(baseHead).withExtensions({
 				persistence: (ctx: { ydoc: Y.Doc }) =>
-					tauriWorkspacePersistence(ctx.ydoc, {
+					workspacePersistence(ctx.ydoc, {
 						workspaceId,
 						epoch,
 					}),

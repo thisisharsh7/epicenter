@@ -1,13 +1,13 @@
 import { createRegistryDoc } from './core/registry-doc';
 import { createHead } from './head';
-import { tauriPersistence } from './persistence/tauri-persistence';
+import { registryPersistence } from './registry-persistence';
 
 /**
  * Create the base registry doc with persistence.
  */
 const baseRegistry = createRegistryDoc({
 	providers: {
-		persistence: ({ ydoc }) => tauriPersistence(ydoc, ['registry']),
+		persistence: ({ ydoc }) => registryPersistence(ydoc),
 	},
 });
 

@@ -13,9 +13,9 @@ import * as Y from 'yjs';
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Configuration for the Tauri workspace persistence extension.
+ * Configuration for the workspace persistence extension.
  */
-export type TauriWorkspacePersistenceConfig = {
+export type WorkspacePersistenceConfig = {
 	/**
 	 * The workspace ID (folder name under workspaces/).
 	 */
@@ -50,16 +50,26 @@ const FILE_NAMES = {
 } as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tauri Workspace Persistence Extension
+// Workspace Persistence Extension
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Unified workspace persistence extension for Tauri apps.
+ * Persist a workspace Y.Doc to disk with multiple outputs.
  *
- * Persists a workspace Y.Doc with multiple outputs:
- * - `workspace.yjs` - Full Y.Doc binary for sync
- * - `schema.json` - Human-readable table/KV schemas (git-friendly)
- * - `kv.json` - Human-readable settings
+ * This is the persistence provider for workspace documents. It creates:
+ *
+ * 1. **Binary (workspace.yjs)**: The source of truth for Y.Doc state
+ *    - Saved immediately on every Y.Doc update
+ *    - Loaded on startup to restore state
+ *
+ * 2. **Schema JSON (schema.json)**: Human-readable table/KV schemas
+ *    - Extracted from Y.Map('schema')
+ *    - Debounced writes (default 500ms)
+ *    - Git-friendly for version control
+ *
+ * 3. **KV JSON (kv.json)**: Human-readable settings
+ *    - Extracted from Y.Map('kv')
+ *    - Debounced writes (default 500ms)
  *
  * **Storage Layout:**
  * ```
@@ -74,28 +84,26 @@ const FILE_NAMES = {
  * Note: Workspace identity (name, icon, description) lives in Head Doc's
  * Y.Map('meta'), not in the Workspace Doc.
  *
- * Note: Unlike the Node.js version, this does NOT include SQLite persistence
- * since Tauri apps use a different approach for database access.
- *
  * @param ydoc - The Y.Doc to persist
  * @param config - Configuration with workspace ID and epoch
  * @returns Provider exports with `whenSynced` promise and `destroy` cleanup
  *
  * @example
  * ```typescript
- * const client = createClient(head)
- *   .withSchema(schema)
- *   .withExtensions({
- *     persistence: (ctx) => tauriWorkspacePersistence(ctx.ydoc, {
- *       workspaceId: head.workspaceId,
- *       epoch: head.getEpoch(),
+ * const client = createClient(definition, {
+ *   epoch,
+ *   capabilities: {
+ *     persistence: (ctx) => workspacePersistence(ctx.ydoc, {
+ *       workspaceId: definition.id,
+ *       epoch,
  *     }),
- *   });
+ *   },
+ * });
  * ```
  */
-export function tauriWorkspacePersistence(
+export function workspacePersistence(
 	ydoc: Y.Doc,
-	config: TauriWorkspacePersistenceConfig,
+	config: WorkspacePersistenceConfig,
 ): ProviderExports {
 	const { workspaceId, epoch, jsonDebounceMs = 500 } = config;
 
@@ -138,7 +146,10 @@ export function tauriWorkspacePersistence(
 			const state = Y.encodeStateAsUpdate(ydoc);
 			await writeFile(workspaceYjsPath, state);
 		} catch (error) {
-			console.error(`[Persistence] Failed to save workspace.yjs:`, error);
+			console.error(
+				`[WorkspacePersistence] Failed to save workspace.yjs:`,
+				error,
+			);
 		}
 	};
 
@@ -157,9 +168,14 @@ export function tauriWorkspacePersistence(
 			const schema = readSchemaFromYDoc(schemaMap);
 			const json = JSON.stringify(schema, null, '\t');
 			await writeFile(schemaJsonPath, new TextEncoder().encode(json));
-			console.log(`[Persistence] Saved schema.json for ${workspaceId}`);
+			console.log(
+				`[WorkspacePersistence] Saved schema.json for ${workspaceId}`,
+			);
 		} catch (error) {
-			console.error(`[Persistence] Failed to save schema.json:`, error);
+			console.error(
+				`[WorkspacePersistence] Failed to save schema.json:`,
+				error,
+			);
 		}
 	};
 
@@ -186,15 +202,12 @@ export function tauriWorkspacePersistence(
 	const saveKvJson = async () => {
 		const { kvJsonPath } = await pathsPromise;
 		try {
-			const kvData: Record<string, unknown> = {};
-			for (const [key, value] of kvMap.entries()) {
-				kvData[key] = value;
-			}
+			const kvData = kvMap.toJSON();
 			const json = JSON.stringify(kvData, null, '\t');
 			await writeFile(kvJsonPath, new TextEncoder().encode(json));
-			console.log(`[Persistence] Saved kv.json for ${workspaceId}`);
+			console.log(`[WorkspacePersistence] Saved kv.json for ${workspaceId}`);
 		} catch (error) {
-			console.error(`[Persistence] Failed to save kv.json:`, error);
+			console.error(`[WorkspacePersistence] Failed to save kv.json:`, error);
 		}
 	};
 
@@ -231,10 +244,12 @@ export function tauriWorkspacePersistence(
 			try {
 				const savedState = await readFile(workspaceYjsPath);
 				Y.applyUpdate(ydoc, new Uint8Array(savedState));
-				console.log(`[Persistence] Loaded ${logPath}/workspace.yjs`);
+				console.log(`[WorkspacePersistence] Loaded ${logPath}/workspace.yjs`);
 			} catch {
 				isNewFile = true;
-				console.log(`[Persistence] Creating new ${logPath}/workspace.yjs`);
+				console.log(
+					`[WorkspacePersistence] Creating new ${logPath}/workspace.yjs`,
+				);
 			}
 
 			// Save initial state if new file

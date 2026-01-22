@@ -4,7 +4,7 @@ import {
 	type WorkspaceSchema,
 } from '@epicenter/hq';
 import type * as Y from 'yjs';
-import { tauriWorkspacePersistence } from './persistence/tauri-workspace-persistence';
+import { workspacePersistence } from './workspace-persistence';
 
 /**
  * Create a workspace client with persistence (static schema mode).
@@ -68,7 +68,7 @@ export function createWorkspaceClient(head: HeadDoc, schema: WorkspaceSchema) {
 		.withSchema(schema)
 		.withExtensions({
 			persistence: (ctx: { ydoc: Y.Doc }) =>
-				tauriWorkspacePersistence(ctx.ydoc, {
+				workspacePersistence(ctx.ydoc, {
 					workspaceId,
 					epoch,
 				}),
