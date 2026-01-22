@@ -65,9 +65,9 @@ import humanizeString from 'humanize-string';
 import * as Y from 'yjs';
 import {
 	getWorkspaceDocMaps,
-	mergeDefinitionIntoYDoc,
-	readDefinitionFromYDoc,
-	type WorkspaceDefinitionMap,
+	mergeSchemaIntoYDoc,
+	readSchemaFromYDoc,
+	type WorkspaceSchemaMap,
 } from '../docs/workspace-doc';
 import type { ExtensionFactoryMap, InferExtensionExports } from '../extension';
 import { createKv, type Kv } from '../kv/core';
@@ -393,19 +393,21 @@ export type WorkspaceClient<
 	/** The underlying YJS document. */
 	ydoc: Y.Doc;
 	/**
-	 * Read the current definition from the Y.Doc.
+	 * Read the current schema from the Y.Doc.
 	 *
-	 * Returns the workspace definition including name, icon, tables, and kv schemas.
+	 * Returns the workspace schema including tables and kv definitions.
 	 * This is a live read from the CRDT state, so it reflects real-time changes.
+	 *
+	 * Note: Workspace identity (name, icon, description) is NOT included here.
+	 * Use HeadDoc.getMeta() to read workspace identity.
 	 *
 	 * @example
 	 * ```typescript
-	 * const definition = client.getDefinition();
-	 * console.log(definition.name);  // "My Blog"
-	 * console.log(definition.tables.posts);  // { name: 'Posts', fields: {...} }
+	 * const schema = client.getSchema();
+	 * console.log(schema.tables.posts);  // { name: 'Posts', fields: {...} }
 	 * ```
 	 */
-	getDefinition(): WorkspaceDefinitionMap;
+	getSchema(): WorkspaceSchemaMap;
 	/**
 	 * Resolves when all extensions are initialized and ready.
 	 *
@@ -684,9 +686,7 @@ function createClientBuilder<
 	tables: TTableDefinitionMap;
 	kv: TKvDefinitionMap;
 	onSync:
-		| ((
-				definitionMap: ReturnType<typeof getWorkspaceDocMaps>['definition'],
-		  ) => void)
+		| ((schemaMap: ReturnType<typeof getWorkspaceDocMaps>['schema']) => void)
 		| undefined;
 	fallbackName: string | undefined;
 }): ClientBuilder<TTableDefinitionMap, TKvDefinitionMap> {
@@ -702,8 +702,8 @@ function createClientBuilder<
 				epoch: config.epoch,
 				tables: definition.tables,
 				kv: definition.kv,
-				onSync: (definitionMap) => {
-					mergeDefinitionIntoYDoc(definitionMap, definition);
+				onSync: (schemaMap) => {
+					mergeSchemaIntoYDoc(schemaMap, definition);
 				},
 				fallbackName: definition.name,
 			});
@@ -761,13 +761,11 @@ function createClientCore<
 	extensionFactories: TExtensionFactories;
 	tables: TTableDefinitionMap;
 	kv: TKvDefinitionMap;
-	/** Called after persistence loads. Static schema uses this to merge definition. */
+	/** Called after persistence loads. Static schema uses this to merge schema. */
 	onSync:
-		| ((
-				definitionMap: ReturnType<typeof getWorkspaceDocMaps>['definition'],
-		  ) => void)
+		| ((schemaMap: ReturnType<typeof getWorkspaceDocMaps>['schema']) => void)
 		| undefined;
-	/** Fallback name if Y.Doc doesn't have one yet. */
+	/** Fallback name if Y.Doc doesn't have one yet (temporary, for migration). */
 	fallbackName: string | undefined;
 }): WorkspaceClient<
 	TTableDefinitionMap,
@@ -779,12 +777,13 @@ function createClientCore<
 	const docId = `${id}-${epoch}` as const;
 	const ydoc = new Y.Doc({ guid: docId, gc: false });
 
-	// Get the definition Y.Map for storing schema metadata
-	const { definition: definitionMap } = getWorkspaceDocMaps(ydoc);
+	// Get the schema Y.Map for storing table/kv definitions
+	// Note: Workspace identity (name, icon) now lives in Head Doc, not here
+	const { schema: schemaMap } = getWorkspaceDocMaps(ydoc);
 
-	// NOTE: We do NOT call mergeDefinitionIntoYDoc() here!
+	// NOTE: We do NOT call mergeSchemaIntoYDoc() here!
 	// It must happen AFTER persistence loads (inside whenSynced) so that
-	// code-defined values are "last writer" and override stale disk values.
+	// code-defined schema is "last writer" and overrides stale disk values.
 	// See: specs/20260119T231252-resilient-client-architecture.md
 
 	// Create table and kv helpers bound to the Y.Doc
@@ -814,7 +813,7 @@ function createClientCore<
 	//
 	// ORDER OF OPERATIONS (critical for correctness):
 	// 1. Wait for all extensions' whenSynced (e.g., persistence finishes loading disk state)
-	// 2. THEN run onSync callback (static schema merges definition here)
+	// 2. THEN run onSync callback (static schema merges schema here)
 	// 3. Resolve whenSynced
 	//
 	// See: specs/20260119T231252-resilient-client-architecture.md
@@ -822,9 +821,9 @@ function createClientCore<
 		Object.values(extensions).map((e) => (e as Lifecycle).whenSynced),
 	).then(() => {
 		// After persistence has loaded disk state, run the sync callback
-		// Static schema: merges definition (code is "last writer")
+		// Static schema: merges schema (code is "last writer")
 		// Dynamic schema: no-op (schema comes from Y.Doc)
-		onSync?.(definitionMap);
+		onSync?.(schemaMap);
 	});
 
 	const destroy = async () => {
@@ -838,17 +837,19 @@ function createClientCore<
 
 	return {
 		id,
-		// Name is a live getter from Y.Map('definition')
-		// Falls back to provided fallbackName if not yet synced
+		// Name fallback for when Head Doc hasn't been loaded yet
+		// In the new architecture, name should come from HeadDoc.getMeta().name
+		// This is a temporary fallback during migration
 		get name() {
-			return (definitionMap.get('name') as string) ?? fallbackName ?? '';
+			// Try legacy location first (for migration), then fallback
+			return (schemaMap.get('name') as string) ?? fallbackName ?? '';
 		},
 		ydoc,
 		tables,
 		kv,
 		extensions,
-		getDefinition() {
-			return readDefinitionFromYDoc(definitionMap);
+		getSchema() {
+			return readSchemaFromYDoc(schemaMap);
 		},
 		whenSynced,
 		destroy,
@@ -860,11 +861,16 @@ function createClientCore<
 // Y.Doc Structure: Three Top-Level Maps
 // ─────────────────────────────────────────────────────────────────────────────
 //
-// Each workspace Y.Doc has three top-level Y.Maps:
-//
-// Y.Map('definition') - Schema metadata (rarely changes)
+// HEAD DOC (per workspace, all epochs)
+// Y.Map('meta') - Workspace identity
 //   └── name: string
 //   └── icon: IconDefinition | null
+//   └── description: string
+// Y.Map('epochs') - Epoch tracking
+//   └── [clientId]: number
+//
+// WORKSPACE DOC (per epoch)
+// Y.Map('schema') - Table/KV definitions (rarely changes)
 //   └── tables: Y.Map<tableName, { name, icon, description, fields }>
 //   └── kv: Y.Map<keyName, { name, icon, description, field }>
 //
@@ -877,6 +883,7 @@ function createClientCore<
 // This enables:
 // - Independent observation (no observeDeep needed)
 // - Different persistence strategies per map
-// - Collaborative schema editing via Y.Map('definition')
+// - Collaborative schema editing via Y.Map('schema')
+// - Workspace identity (name/icon) shared across all epochs
 //
-// See specs/20260119T150426-workspace-storage-architecture.md for details.
+// See specs/20260121T231500-doc-architecture-v2.md for details.

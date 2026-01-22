@@ -5,9 +5,10 @@ import { tauriWorkspacePersistence } from './persistence/tauri-workspace-persist
 /**
  * Create a workspace client with persistence (static schema mode).
  *
- * **Use this for creating NEW workspaces** where you have a known definition
- * to seed into the Y.Doc. The definition is merged into Y.Map('definition')
- * after persistence loads.
+ * **Use this for creating NEW workspaces** where you have a known schema
+ * to seed into the Y.Doc. The schema is merged into Y.Map('schema')
+ * after persistence loads. Workspace identity (name, icon) should be
+ * set separately via Head Doc's setMeta().
  *
  * **For loading EXISTING workspaces**, use the fluent API instead:
  * ```typescript
@@ -27,11 +28,14 @@ import { tauriWorkspacePersistence } from './persistence/tauri-workspace-persist
  * ```
  * {appLocalDataDir}/workspaces/{workspaceId}/{epoch}/
  * ├── workspace.yjs      # Full Y.Doc binary (sync source of truth)
- * ├── definition.json    # Schema from Y.Map('definition')
+ * ├── schema.json        # Table/KV schemas from Y.Map('schema')
  * └── kv.json            # Settings from Y.Map('kv')
  * ```
  *
- * @param definition - The workspace definition (id, name, tables, kv) to seed
+ * Note: Workspace identity (name, icon, description) lives in Head Doc's
+ * Y.Map('meta'), not in the Workspace Doc.
+ *
+ * @param definition - The workspace definition (id, tables, kv) to seed
  * @param epoch - The epoch number (usually 0 for new workspaces)
  * @returns A workspace client with persistence pre-configured
  *
@@ -39,12 +43,16 @@ import { tauriWorkspacePersistence } from './persistence/tauri-workspace-persist
  * ```typescript
  * const definition: WorkspaceDefinition = {
  *   id: 'my-workspace',
- *   name: 'My Workspace',
  *   tables: {},
  *   kv: {},
  * };
  *
  * registry.addWorkspace(definition.id);
+ * // Set identity in Head Doc
+ * const head = registry.head(definition.id);
+ * await head.whenSynced;
+ * head.setMeta({ name: 'My Workspace', icon: null, description: '' });
+ * // Create client with schema
  * const client = createWorkspaceClient(definition, 0);
  * await client.whenSynced;
  * ```

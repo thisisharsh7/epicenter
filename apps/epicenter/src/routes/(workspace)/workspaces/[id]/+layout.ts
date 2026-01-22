@@ -10,8 +10,9 @@ import type { LayoutLoad } from './$types';
  * 2. Create client via fluent chain: registry.head(id).client()
  * 3. Client loads schema from Y.Doc (dynamic schema mode)
  *
- * This eliminates the need to read definition.json from disk.
- * The schema lives in Y.Map('definition') inside the Y.Doc itself.
+ * This eliminates the need to read schema.json from disk.
+ * The schema lives in Y.Map('schema') inside the Y.Doc itself.
+ * Workspace identity (name, icon) comes from Head Doc's Y.Map('meta').
  */
 export const load: LayoutLoad = async ({ params }) => {
 	const workspaceId = params.id;
@@ -31,11 +32,13 @@ export const load: LayoutLoad = async ({ params }) => {
 	console.log(`[Layout] Workspace epoch: ${epoch}`);
 
 	// Step 3: Create client via fluent API (dynamic schema mode)
-	// Schema comes from Y.Doc, not from definition.json file
+	// Schema comes from Y.Doc, not from schema.json file
 	const client = head.client();
 	await client.whenSynced;
 
-	console.log(`[Layout] Loaded workspace: ${client.name} (${client.id})`);
+	// Get workspace name from Head Doc's meta (not from client)
+	const meta = head.getMeta();
+	console.log(`[Layout] Loaded workspace: ${meta.name} (${client.id})`);
 
 	return {
 		/** The live workspace client for CRUD operations. */

@@ -46,8 +46,6 @@ export {
 } from './core/actions';
 // Y.Doc wrappers for collaborative workspace architecture
 export type {
-	// Workspace doc structure types
-	DefinitionMap,
 	HeadDoc,
 	InferProviderExports,
 	KvMap,
@@ -56,16 +54,17 @@ export type {
 	ProviderFactory,
 	ProviderFactoryMap,
 	RowMap,
+	SchemaMap,
 	TableMap,
 	TablesMap,
-	WorkspaceDefinitionMap,
+	WorkspaceMeta,
+	WorkspaceSchemaMap,
 } from './core/docs';
 export {
 	createHeadDoc,
 	getWorkspaceDocMaps,
-	mergeDefinitionIntoYDoc,
-	readDefinitionFromYDoc,
-	// Workspace doc helpers
+	mergeSchemaIntoYDoc,
+	readSchemaFromYDoc,
 	WORKSPACE_DOC_MAPS,
 } from './core/docs';
 export type { ExtensionError } from './core/errors';

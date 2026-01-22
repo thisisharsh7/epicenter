@@ -67,12 +67,18 @@ A single Y.Doc per workspace seems simpler, but creates problems:
 │  ID: {workspaceId}                                               │
 │  Scope: Shared (syncs with all workspace collaborators)          │
 │                                                                  │
+│  Y.Map('meta')                                                   │
+│    ├── name: string         // "My Workspace"                    │
+│    ├── icon: IconDefinition | null                               │
+│    └── description: string                                       │
+│                                                                  │
 │  Y.Map('epochs')                                                 │
 │    └── {clientId}: number   // Per-client epoch proposals        │
 │                                                                  │
-│  getEpoch() → max(all values)                                    │
+│  getMeta() → { name, icon, description }                         │
+│  getEpoch() → max(all epoch values)                              │
 │                                                                  │
-│  Purpose: "What's the current data epoch?"                       │
+│  Purpose: "What is this workspace? What's the current epoch?"    │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               │ Read epoch, compute Workspace Doc ID
@@ -82,19 +88,19 @@ A single Y.Doc per workspace seems simpler, but creates problems:
 │  ID: {workspaceId}-{epoch}                                       │
 │  Scope: Shared (syncs with all workspace collaborators)          │
 │                                                                  │
-│  Y.Map('meta')                                                   │
-│    ├── name: "My Workspace"                                      │
-│    └── slug: "my-workspace"                                      │
-│                                                                  │
 │  Y.Map('schema')                                                 │
-│    ├── tables: Y.Map<tableName, {                                │
+│    ├── tables: { [tableName]: {                                  │
 │    │     name: string,                                           │
 │    │     icon: IconDefinition | null,                            │
-│    │     cover: CoverDefinition | null,                          │
 │    │     description: string,                                    │
-│    │     fields: Y.Map<fieldName, FieldSchema>                   │
-│    │   }>                                                        │
-│    └── kv: Y.Map<keyName, FieldSchema>                           │
+│    │     fields: { [fieldName]: FieldSchema }                    │
+│    │   }}                                                        │
+│    └── kv: { [keyName]: {                                        │
+│          name: string,                                           │
+│          icon: IconDefinition | null,                            │
+│          description: string,                                    │
+│          field: FieldSchema                                      │
+│        }}                                                        │
 │                                                                  │
 │  Y.Map('tables')                                                 │
 │    └── {tableName}: Y.Map<rowId, Y.Map<fieldName, value>>        │
@@ -102,7 +108,7 @@ A single Y.Doc per workspace seems simpler, but creates problems:
 │  Y.Map('kv')                                                     │
 │    └── {keyName}: value                                          │
 │                                                                  │
-│  Purpose: "All the actual workspace data"                        │
+│  Purpose: "Schema + data for this epoch"                         │
 └─────────────────────────────────────────────────────────────────┘
 ```
 

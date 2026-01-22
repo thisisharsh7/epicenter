@@ -13,8 +13,8 @@ Epicenter uses a three-document architecture for storing and retrieving workspac
 │   │   REGISTRY   │ ──▶  │   HEAD DOC   │ ──▶  │    WORKSPACE DOC     │     │
 │   │              │      │              │      │                      │     │
 │   │  "Which      │      │  "What       │      │  "Schema + Data"     │     │
-│   │   workspaces │      │   epoch?"    │      │                      │     │
-│   │   exist?"    │      │              │      │                      │     │
+│   │   workspaces │      │   epoch? +   │      │                      │     │
+│   │   exist?"    │      │   Identity"  │      │                      │     │
 │   └──────────────┘      └──────────────┘      └──────────────────────┘     │
 │         │                     │                        │                   │
 │         ▼                     ▼                        ▼                   │
@@ -31,19 +31,19 @@ Epicenter uses a three-document architecture for storing and retrieving workspac
 ├── registry.json                   # Human-readable snapshot
 └── workspaces/
     └── {workspace-id}/
-        ├── head.yjs                # Current epoch pointer
+        ├── head.yjs                # Current epoch + workspace identity (name, icon, description)
         ├── head.json               # Human-readable snapshot
         │
         ├── 0/                      # Epoch 0
         │   ├── workspace.yjs       # Full Y.Doc (sync source of truth)
-        │   ├── definition.json     # Schema (from Y.Map('definition'))
+        │   ├── schema.json         # Table/KV schemas (from Y.Map('schema'))
         │   ├── kv.json             # Settings (from Y.Map('kv'))
         │   └── snapshots/          # Revision history (future)
         │       └── {unix-ms}.ysnap
         │
         └── 1/                      # Epoch 1 (after migration)
             ├── workspace.yjs
-            ├── definition.json
+            ├── schema.json
             ├── kv.json
             └── snapshots/
                 └── ...
@@ -58,7 +58,27 @@ The `id` is a **locally-scoped identifier**, not a GUID:
 - **Local/Relay**: `epicenter.whispering`, `epicenter.crm`
 - **Y-Sweet (with auth)**: Server combines user ID with local ID for global uniqueness
 
-## Y.Doc Structure (Three Top-Level Maps)
+## Y.Doc Structures
+
+### Head Doc (per workspace, all epochs)
+
+The Head Doc stores workspace identity and epoch tracking:
+
+```typescript
+// Y.Doc guid: "{workspaceId}"
+
+// Workspace identity (survives epoch resets)
+Y.Map('meta')
+  └── name: string              // Workspace display name
+  └── icon: IconDefinition | null
+  └── description: string
+
+// Epoch tracking (vector clock for consistency)
+Y.Map('epochs')
+  └── [clientId]: number        // Each client's epoch value
+```
+
+### Workspace Doc (per epoch)
 
 Each workspace Y.Doc has three top-level Y.Maps:
 
@@ -66,9 +86,7 @@ Each workspace Y.Doc has three top-level Y.Maps:
 // Y.Doc guid: "{workspaceId}-{epoch}"
 
 // Schema (rarely changes)
-Y.Map('definition')
-  └── name: string              // Workspace display name
-  └── icon: IconDefinition | null
+Y.Map('schema')
   └── tables: {                 // Table SCHEMAS (not data)
         [tableName]: {
           name: string,
@@ -95,29 +113,37 @@ Y.Map('tables')
   └── [tableName]: Y.Map<rowId, Y.Map<fieldName, value>>
 ```
 
-### Why Three Top-Level Maps?
+### Why This Structure?
 
-| Map          | Content         | Change Frequency | Persistence Target |
-| ------------ | --------------- | ---------------- | ------------------ |
-| `definition` | Schema metadata | Rare             | `definition.json`  |
-| `kv`         | Settings values | Occasional       | `kv.json`          |
-| `tables`     | Row data        | Frequent         | `tables.sqlite`    |
+**Head Doc separates identity from epoch-specific data:**
+
+- Workspace name/icon survives epoch resets (e.g., restore from snapshot)
+- Renaming a workspace doesn't require touching any epoch data
+- Identity is "above" the epoch timeline
+
+**Workspace Doc has three top-level maps:**
+
+| Map      | Content          | Change Frequency | Persistence Target |
+| -------- | ---------------- | ---------------- | ------------------ |
+| `schema` | Table/KV schemas | Rare             | `schema.json`      |
+| `kv`     | Settings values  | Occasional       | `kv.json`          |
+| `tables` | Row data         | Frequent         | `tables.sqlite`    |
 
 **Benefits:**
 
 - 1:1 mapping between Y.Doc maps and files
 - Independent observation (no `observeDeep` needed)
 - Each map can have different persistence strategies
-- Clean conceptual separation: schema vs settings vs data
-- **Collaborative schema editing** via Y.Map('definition')
+- Clean conceptual separation: identity vs schema vs settings vs data
+- **Collaborative schema editing** via Y.Map('schema')
 
 ## Document Types
 
-| Doc Type      | Purpose                            | Storage Path                                              | Helper                                     |
-| ------------- | ---------------------------------- | --------------------------------------------------------- | ------------------------------------------ |
-| **Registry**  | Tracks which workspace GUIDs exist | `{appLocalDataDir}/registry.yjs`                          | `registry` (module singleton)              |
-| **Head Doc**  | Stores current epoch per workspace | `{appLocalDataDir}/workspaces/{id}/head.yjs`              | `createHead(workspaceId)`                  |
-| **Workspace** | Schema + Data for a workspace      | `{appLocalDataDir}/workspaces/{id}/{epoch}/workspace.yjs` | `createWorkspaceClient(definition, epoch)` |
+| Doc Type      | Purpose                             | Storage Path                                              | Helper                                 |
+| ------------- | ----------------------------------- | --------------------------------------------------------- | -------------------------------------- |
+| **Registry**  | Tracks which workspace GUIDs exist  | `{appLocalDataDir}/registry.yjs`                          | `registry` (module singleton)          |
+| **Head Doc**  | Workspace identity + current epoch  | `{appLocalDataDir}/workspaces/{id}/head.yjs`              | `createHead(workspaceId)`              |
+| **Workspace** | Schema + Data for a workspace epoch | `{appLocalDataDir}/workspaces/{id}/{epoch}/workspace.yjs` | `createWorkspaceClient(schema, epoch)` |
 
 ## Helper Functions
 
@@ -146,7 +172,13 @@ import { createHead } from '$lib/docs/head';
 
 const head = createHead(workspaceId);
 await head.whenSynced;
+
+// Epoch tracking
 const epoch = head.getEpoch();
+
+// Workspace identity (name, icon, description)
+const meta = head.getMeta();
+head.setMeta({ name: 'My Workspace', icon: null, description: '' });
 ```
 
 ### Workspace Doc (Factory Function)
@@ -154,14 +186,11 @@ const epoch = head.getEpoch();
 ```typescript
 import { createWorkspaceClient } from '$lib/docs/workspace';
 
-const client = createWorkspaceClient(definition, epoch);
+const client = createWorkspaceClient(schema, epoch);
 await client.whenSynced;
 
 // Use the client
 client.tables.myTable.upsert({ ... });
-
-// Name is a LIVE getter from Y.Map('definition')
-console.log(client.name); // "My Workspace" (from CRDT)
 ```
 
 ## Typical Flow
@@ -180,8 +209,8 @@ const head = createHead(workspaceId);
 await head.whenSynced;
 const epoch = head.getEpoch();
 
-// 3. Create workspace client with definition + epoch
-const client = createWorkspaceClient(definition, epoch);
+// 3. Create workspace client with schema + epoch
+const client = createWorkspaceClient(schema, epoch);
 await client.whenSynced;
 ```
 
@@ -191,12 +220,13 @@ Creating a new workspace:
 // 1. Add to registry
 registry.addWorkspace(guid);
 
-// 2. Initialize head doc (epoch starts at 0)
+// 2. Initialize head doc (epoch starts at 0) and set identity
 const head = createHead(guid);
 await head.whenSynced;
+head.setMeta({ name: 'My Workspace', icon: null, description: '' });
 
 // 3. Create workspace at epoch 0
-const client = createWorkspaceClient(definition, 0);
+const client = createWorkspaceClient(schema, 0);
 await client.whenSynced;
 ```
 
@@ -298,7 +328,7 @@ $lib/docs/
 ├── head.ts                         # Factory for head docs (epoch tracking)
 ├── reactive-head.svelte.ts         # Svelte 5 reactive wrapper for head
 ├── workspace.ts                    # Factory for workspace clients
-├── read-definition.ts              # Utility to load definition.json from disk
+├── read-schema.ts                  # Utility to load schema.json from disk
 └── persistence/                    # Persistence providers (co-located)
     ├── tauri-persistence.ts        # Binary + JSON persistence for simple docs
     └── tauri-workspace-persistence.ts  # Workspace-specific persistence with extraction
@@ -337,28 +367,28 @@ Specialized persistence for workspace Y.Docs that extracts structured data:
 // workspace.ts uses tauriWorkspacePersistence
 persistence: (ctx) =>
 	tauriWorkspacePersistence(ctx.ydoc, {
-		workspaceId: definition.id,
+		workspaceId: schema.id,
 		epoch,
 	});
 ```
 
-| Output            | Source                | Purpose                             |
-| ----------------- | --------------------- | ----------------------------------- |
-| `workspace.yjs`   | Full Y.Doc            | CRDT sync, source of truth          |
-| `definition.json` | `Y.Map('definition')` | Git tracking, human-editable schema |
-| `kv.json`         | `Y.Map('kv')`         | User-editable settings, debugging   |
+| Output          | Source            | Purpose                             |
+| --------------- | ----------------- | ----------------------------------- |
+| `workspace.yjs` | Full Y.Doc        | CRDT sync, source of truth          |
+| `schema.json`   | `Y.Map('schema')` | Git tracking, human-editable schema |
+| `kv.json`       | `Y.Map('kv')`     | User-editable settings, debugging   |
 
 Internally:
 
 1. Saves `workspace.yjs` on every Y.Doc update (immediate)
-2. Debounces `definition.json` writes when `Y.Map('definition')` changes
+2. Debounces `schema.json` writes when `Y.Map('schema')` changes
 3. Debounces `kv.json` writes when `Y.Map('kv')` changes
 
 ### Why Two Providers?
 
-| Provider                    | Use Case                     | Outputs                                |
-| --------------------------- | ---------------------------- | -------------------------------------- |
-| `tauriPersistence`          | Simple docs (registry, head) | `{name}.yjs` + `{name}.json`           |
-| `tauriWorkspacePersistence` | Workspace docs with schema   | `.yjs` + `definition.json` + `kv.json` |
+| Provider                    | Use Case                     | Outputs                            |
+| --------------------------- | ---------------------------- | ---------------------------------- |
+| `tauriPersistence`          | Simple docs (registry, head) | `{name}.yjs` + `{name}.json`       |
+| `tauriWorkspacePersistence` | Workspace docs with schema   | `.yjs` + `schema.json` + `kv.json` |
 
-The workspace provider extracts **specific Y.Maps** into separate JSON files (definition, kv), while the simple provider mirrors the **entire Y.Doc** as JSON.
+The workspace provider extracts **specific Y.Maps** into separate JSON files (schema, kv), while the simple provider mirrors the **entire Y.Doc** as JSON.

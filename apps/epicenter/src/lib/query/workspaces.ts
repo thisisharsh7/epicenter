@@ -34,28 +34,35 @@ export const workspaces = {
 	/**
 	 * List all workspaces from the registry with their names.
 	 *
-	 * Uses fluent API to load definition from Y.Doc.
-	 * Falls back to ID if definition can't be loaded.
+	 * Uses Head Doc meta for identity (name, icon) and Workspace Doc for schema.
+	 * Falls back to ID if workspace can't be loaded.
 	 */
 	listWorkspaces: defineQuery({
 		queryKey: workspaceKeys.list(),
 		queryFn: async () => {
 			const guids = registry.getWorkspaceIds();
 
-			// Load definitions in parallel via fluent API
+			// Load workspaces in parallel
 			const workspaces = await Promise.all(
 				guids.map(async (id) => {
 					try {
-						const client = registry.head(id).client();
+						// Get identity from Head Doc
+						const head = registry.head(id);
+						await head.whenSynced;
+						const meta = head.getMeta();
+
+						// Get schema from Workspace Doc
+						const client = head.client();
 						await client.whenSynced;
-						const definition = client.getDefinition();
+						const schema = client.getSchema();
 						await client.destroy();
+						await head.destroy();
 
 						return {
 							id,
-							name: definition.name || id,
-							tables: definition.tables,
-							kv: definition.kv,
+							name: meta.name || id,
+							tables: schema.tables,
+							kv: schema.kv,
 						};
 					} catch {
 						// Workspace exists in registry but can't be loaded
@@ -76,7 +83,7 @@ export const workspaces = {
 	/**
 	 * Get a single workspace by ID.
 	 *
-	 * Uses fluent API to read definition from Y.Doc.
+	 * Uses Head Doc meta for identity and Workspace Doc for schema.
 	 */
 	getWorkspace: (workspaceId: string) =>
 		defineQuery({
@@ -89,17 +96,22 @@ export const workspaces = {
 					});
 				}
 
-				// Use fluent API to get definition from Y.Doc
-				const client = registry.head(workspaceId).client();
-				await client.whenSynced;
-				const definition = client.getDefinition();
-				await client.destroy();
+				// Get identity from Head Doc
+				const head = registry.head(workspaceId);
+				await head.whenSynced;
+				const meta = head.getMeta();
 
-				// Add id to match WorkspaceDefinition type
-				// Note: WorkspaceDefinitionMap from Y.Doc has looser types than WorkspaceDefinition
+				// Get schema from Workspace Doc
+				const client = head.client();
+				await client.whenSynced;
+				const schema = client.getSchema();
+				await client.destroy();
+				await head.destroy();
+
 				return Ok({
 					id: workspaceId,
-					...definition,
+					name: meta.name || workspaceId,
+					...schema,
 				} as unknown as WorkspaceDefinition);
 			},
 		}),
@@ -109,12 +121,12 @@ export const workspaces = {
 	 *
 	 * Flow:
 	 * 1. Add workspace ID to registry
-	 * 2. Initialize head doc via fluent API (epoch starts at 0)
+	 * 2. Initialize head doc and set meta (name, icon, description)
 	 * 3. Create workspace client with definition (static schema mode)
-	 * 4. Persistence writes definition.json to epoch folder
+	 * 4. Persistence writes schema.json to epoch folder
 	 *
 	 * Uses `createWorkspaceClient` (static schema mode) because we're seeding
-	 * a new workspace with a known definition.
+	 * a new workspace with a known schema.
 	 *
 	 * If a template is provided, the tables and kv from the template are used
 	 * instead of starting with empty collections.
@@ -138,18 +150,20 @@ export const workspaces = {
 			// Add to registry (persisted automatically via registryPersistence)
 			registry.addWorkspace(input.id);
 
-			// Initialize head doc via fluent API (epoch starts at 0)
+			// Initialize head doc and set workspace identity in meta map
 			const head = registry.head(input.id);
 			await head.whenSynced;
+			head.setMeta({ name: input.name, icon: null, description: '' });
 
 			// Create workspace client with static definition - this will:
-			// 1. Merge definition into Y.Map('definition')
-			// 2. Persist to {epoch}/definition.json via unified persistence
+			// 1. Merge schema into Y.Map('schema')
+			// 2. Persist to {epoch}/schema.json via unified persistence
 			const client = createWorkspaceClient(definition, 0);
 
 			// Wait for persistence to finish saving initial state to disk
 			await client.whenSynced;
 			await client.destroy();
+			await head.destroy();
 
 			console.log(`[createWorkspace] Created workspace:`, {
 				id: input.id,
@@ -166,8 +180,8 @@ export const workspaces = {
 	/**
 	 * Update a workspace's name.
 	 *
-	 * Uses fluent API to update the name in Y.Map('definition').
-	 * Persistence automatically writes to definition.json.
+	 * Uses Head Doc's meta map to update workspace identity.
+	 * Persistence automatically writes to head.yjs.
 	 *
 	 * Note: The workspace ID cannot be changed after creation.
 	 */
@@ -181,20 +195,20 @@ export const workspaces = {
 				});
 			}
 
-			// Use fluent API to update the name directly in Y.Doc
-			const client = registry.head(input.workspaceId).client();
+			// Use Head Doc to update the workspace name
+			// Workspace identity (name, icon, description) lives in the Head Doc's meta map
+			const head = registry.head(input.workspaceId);
+			await head.whenSynced;
+			head.setMeta({ name: input.name });
+
+			// Get the workspace schema (tables, kv) from workspace client
+			const client = head.client();
 			await client.whenSynced;
-
-			// Update the name in Y.Map('definition')
-			// The client.name setter writes to the Y.Doc
-			const { definition: definitionMap } = await import('@epicenter/hq').then(
-				(m) => m.getWorkspaceDocMaps(client.ydoc),
-			);
-			definitionMap.set('name', input.name);
-
-			// Get the updated definition
-			const definition = client.getDefinition();
+			const schema = client.getSchema();
 			await client.destroy();
+
+			// Clean up head doc (it's been modified, changes auto-persist)
+			await head.destroy();
 
 			console.log(`[updateWorkspace] Updated workspace:`, {
 				id: input.workspaceId,
@@ -207,10 +221,10 @@ export const workspaces = {
 				queryKey: workspaceKeys.detail(input.workspaceId),
 			});
 
-			// Note: WorkspaceDefinitionMap from Y.Doc has looser types than WorkspaceDefinition
 			return Ok({
 				id: input.workspaceId,
-				...definition,
+				name: input.name,
+				...schema,
 			} as unknown as WorkspaceDefinition);
 		},
 	}),

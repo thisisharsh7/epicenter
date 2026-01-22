@@ -1,4 +1,4 @@
-export { createHeadDoc, type HeadDoc } from './head-doc';
+export { createHeadDoc, type HeadDoc, type WorkspaceMeta } from './head-doc';
 export {
 	defineExports,
 	type InferProviderExports,
@@ -9,15 +9,15 @@ export {
 	type ProviderFactoryMap,
 } from './provider-types';
 export {
-	type DefinitionMap,
 	getWorkspaceDocMaps,
 	type IconDefinition,
 	type KvMap,
-	mergeDefinitionIntoYDoc,
+	mergeSchemaIntoYDoc,
 	type RowMap,
-	readDefinitionFromYDoc,
+	readSchemaFromYDoc,
+	type SchemaMap,
 	type TableMap,
 	type TablesMap,
 	WORKSPACE_DOC_MAPS,
-	type WorkspaceDefinitionMap,
+	type WorkspaceSchemaMap,
 } from './workspace-doc';
