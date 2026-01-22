@@ -223,15 +223,6 @@ function createFieldsHelper(
 			fieldsMap.observe(handler);
 			return () => fieldsMap.unobserve(handler);
 		},
-
-		/**
-		 * Direct access to the underlying Y.Map for fields.
-		 *
-		 * **Escape hatch for advanced use cases.**
-		 */
-		get raw(): FieldsMap {
-			return getOrCreateFieldsMap();
-		},
 	};
 }
 
@@ -325,13 +316,6 @@ function createTableSchemaHelper(
 		 * Table metadata operations (name, icon, description).
 		 */
 		metadata: createMetadataHelper(tableSchemaMap),
-
-		/**
-		 * Direct access to this table's schema Y.Map.
-		 *
-		 * **Escape hatch for advanced use cases.**
-		 */
-		raw: tableSchemaMap,
 	};
 }
 
@@ -361,7 +345,6 @@ export type TablesSchemaHelper = {
 	observe(
 		callback: (changes: SchemaChange<StoredTableSchema>[]) => void,
 	): () => void;
-	raw: TablesSchemaMap;
 };
 
 function createTablesSchemaHelper(schemaMap: SchemaMap): TablesSchemaHelper {
@@ -636,16 +619,6 @@ function createTablesSchemaHelper(schemaMap: SchemaMap): TablesSchemaHelper {
 		},
 	});
 
-	// Define the 'raw' getter separately to avoid eager evaluation
-	// (Object.assign evaluates getters immediately, which would create the tables Y.Map)
-	Object.defineProperty(result, 'raw', {
-		get(): TablesSchemaMap {
-			return getOrCreateTablesMap();
-		},
-		enumerable: true,
-		configurable: true,
-	});
-
 	return result as TablesSchemaHelper;
 }
 
@@ -844,15 +817,6 @@ function createKvSchemaHelper(schemaMap: SchemaMap) {
 			kvMap.observe(handler);
 			return () => kvMap.unobserve(handler);
 		},
-
-		/**
-		 * Direct access to the underlying Y.Map for KV schema.
-		 *
-		 * **Escape hatch for advanced use cases.**
-		 */
-		get raw(): KvSchemaMap {
-			return getOrCreateKvMap();
-		},
 	};
 }
 
@@ -975,13 +939,6 @@ export function createSchema(schemaMap: SchemaMap) {
 		 * KV schema operations.
 		 */
 		kv: createKvSchemaHelper(schemaMap),
-
-		/**
-		 * Direct access to the underlying schema Y.Map.
-		 *
-		 * **Escape hatch for advanced use cases.**
-		 */
-		raw: schemaMap,
 	};
 }
 

@@ -145,18 +145,13 @@ export type TablesFunction<TTableDefinitionMap extends TableDefinitionMap> = {
 	drop(name: string): boolean;
 
 	// ════════════════════════════════════════════════════════════════════
-	// METADATA & ESCAPE HATCHES
+	// METADATA
 	// ════════════════════════════════════════════════════════════════════
 
 	/**
 	 * The raw table definitions passed to createTables.
 	 */
 	definitions: TTableDefinitionMap;
-
-	/**
-	 * Direct access to the underlying Y.Map storing all tables.
-	 */
-	raw: TablesMap;
 
 	// ════════════════════════════════════════════════════════════════════
 	// UTILITIES
@@ -460,22 +455,6 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 		 * ```
 		 */
 		definitions: tableDefinitions,
-
-		/**
-		 * Direct access to the underlying Y.Map storing all tables.
-		 *
-		 * **Escape hatch for advanced use cases.** Bypasses all validation
-		 * and type safety.
-		 *
-		 * @example
-		 * ```typescript
-		 * ydoc.transact(() => {
-		 *   const rawTable = tables.raw.get('posts')
-		 *   // Direct Y.Map manipulation...
-		 * })
-		 * ```
-		 */
-		raw: ytables,
 
 		// ════════════════════════════════════════════════════════════════════
 		// UTILITIES

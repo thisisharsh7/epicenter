@@ -126,16 +126,6 @@ describe('createSchema', () => {
 			expect(keys).toContain('posts');
 			expect(keys).toContain('users');
 		});
-
-		test('raw provides direct access to TablesSchemaMap', () => {
-			const ydoc = new Y.Doc();
-			const schemaMap = ydoc.getMap('schema');
-			const schema = createSchema(schemaMap);
-
-			schema.tables.set('posts', { name: 'Posts', fields: { id: id() } });
-
-			expect(schema.tables.raw.has('posts')).toBe(true);
-		});
 	});
 
 	describe('schema.tables().fields', () => {
@@ -312,19 +302,6 @@ describe('createSchema', () => {
 			expect(deleted).toBe(true);
 			expect(schema.kv.has('theme')).toBe(false);
 		});
-
-		test('raw provides direct access to KvSchemaMap', () => {
-			const ydoc = new Y.Doc();
-			const schemaMap = ydoc.getMap('schema');
-			const schema = createSchema(schemaMap);
-
-			schema.kv.set('theme', {
-				name: 'Theme',
-				field: select({ options: ['light', 'dark'] }),
-			});
-
-			expect(schema.kv.raw.has('theme')).toBe(true);
-		});
 	});
 
 	describe('schema.merge()', () => {
@@ -349,16 +326,6 @@ describe('createSchema', () => {
 			expect(schema.tables.has('posts')).toBe(true);
 			expect(schema.tables.has('users')).toBe(true);
 			expect(schema.kv.has('theme')).toBe(true);
-		});
-	});
-
-	describe('schema.raw', () => {
-		test('provides direct access to SchemaMap', () => {
-			const ydoc = new Y.Doc();
-			const schemaMap = ydoc.getMap('schema');
-			const schema = createSchema(schemaMap);
-
-			expect(schema.raw).toBe(schemaMap);
 		});
 	});
 

@@ -69,18 +69,13 @@ export type KvFunction<TKvDefinitionMap extends KvDefinitionMap> = {
 	clear(): void;
 
 	// ════════════════════════════════════════════════════════════════════
-	// METADATA & ESCAPE HATCHES
+	// METADATA
 	// ════════════════════════════════════════════════════════════════════
 
 	/**
 	 * The raw KV definitions passed to createKv.
 	 */
 	definitions: TKvDefinitionMap;
-
-	/**
-	 * Direct access to the underlying Y.Map storing all KV values.
-	 */
-	raw: KvMap;
 
 	// ════════════════════════════════════════════════════════════════════
 	// UTILITIES
@@ -290,34 +285,6 @@ export function createKv<TKvDefinitionMap extends KvDefinitionMap>(
 		 * ```
 		 */
 		definitions,
-
-		/**
-		 * Direct access to the underlying Y.Map storing all KV values.
-		 *
-		 * **Escape hatch for advanced use cases.** Using `raw` bypasses all
-		 * validation and type safety. Prefer the typed KV helpers for
-		 * normal operations.
-		 *
-		 * Use cases for `raw`:
-		 * - Bulk operations in a single `ydoc.transact()` for performance
-		 * - Custom observation patterns with `observe` / `observeDeep`
-		 * - Direct iteration over all KV entries
-		 * - Interop with external YJS tools
-		 *
-		 * @example
-		 * ```typescript
-		 * // Direct iteration
-		 * for (const [key, value] of kv.raw.entries()) {
-		 *   console.log(key, value);
-		 * }
-		 *
-		 * // Custom observation
-		 * kv.raw.observe((event) => {
-		 *   // Raw YJS map events...
-		 * });
-		 * ```
-		 */
-		raw: ykvMap,
 
 		// ════════════════════════════════════════════════════════════════════
 		// UTILITIES
