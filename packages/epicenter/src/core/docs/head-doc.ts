@@ -115,11 +115,10 @@ export type WorkspaceMeta = {
  */
 export function createHeadDoc<T extends ProviderFactoryMap>(options: {
 	workspaceId: string;
-	ydoc?: Y.Doc;
 	providers: T;
 }) {
 	const { workspaceId, providers: providerFactories } = options;
-	const ydoc = options.ydoc ?? new Y.Doc({ guid: workspaceId });
+	const ydoc = new Y.Doc({ guid: workspaceId });
 	const epochsMap = ydoc.getMap<number>('epochs');
 	const metaMap = ydoc.getMap<string | IconDefinition | null>('meta');
 
