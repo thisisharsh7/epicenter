@@ -1,9 +1,11 @@
 import * as Y from 'yjs';
+import { createKv, type Kv } from '../kv/core';
 import type {
 	KvDefinitionMap,
 	KvValue,
 	TableDefinitionMap,
 } from '../schema/fields/types';
+import { createTables, type Tables } from '../tables/create-tables';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Y.Doc Top-Level Map Names
@@ -101,7 +103,7 @@ export type SchemaMap = Y.Map<unknown>;
  *
  * Each workspace epoch has one Workspace Y.Doc containing schema definitions
  * and data (tables + kv values). This wrapper provides typed accessors for
- * the three top-level Y.Maps.
+ * the three top-level Y.Maps, plus typed table and kv helpers.
  *
  * Y.Doc ID: `{workspaceId}:{epoch}`
  *
@@ -118,7 +120,12 @@ export type SchemaMap = Y.Map<unknown>;
  * const workspaceDoc = createWorkspaceDoc({
  *   workspaceId: 'abc123',
  *   epoch: 0,
+ *   tableDefinitions: { posts: table({ name: 'Posts', fields: { id: id(), title: text() } }) },
+ *   kvDefinitions: {},
  * });
+ *
+ * // Use typed table helpers directly
+ * workspaceDoc.tables.posts.upsert({ id: '1', title: 'Hello' });
  *
  * // Access schema
  * const schema = workspaceDoc.getSchema();
@@ -137,11 +144,16 @@ export type SchemaMap = Y.Map<unknown>;
  * const tablesMap = workspaceDoc.getTablesMap();
  * ```
  */
-export function createWorkspaceDoc(options: {
+export function createWorkspaceDoc<
+	TTableDefinitionMap extends TableDefinitionMap,
+	TKvDefinitionMap extends KvDefinitionMap,
+>(options: {
 	workspaceId: string;
 	epoch: number;
+	tableDefinitions: TTableDefinitionMap;
+	kvDefinitions: TKvDefinitionMap;
 }) {
-	const { workspaceId, epoch } = options;
+	const { workspaceId, epoch, tableDefinitions, kvDefinitions } = options;
 	const docId = `${workspaceId}:${epoch}`;
 	// gc: false is required for revision history snapshots to work
 	const ydoc = new Y.Doc({ guid: docId, gc: false });
@@ -150,6 +162,11 @@ export function createWorkspaceDoc(options: {
 	const schemaMap = ydoc.getMap(WORKSPACE_DOC_MAPS.SCHEMA) as SchemaMap;
 	const kvMap = ydoc.getMap(WORKSPACE_DOC_MAPS.KV) as KvMap;
 	const tablesMap = ydoc.getMap(WORKSPACE_DOC_MAPS.TABLES) as TablesMap;
+
+	// Create table and kv helpers bound to the Y.Doc
+	// These just bind to Y.Maps - actual data comes from persistence
+	const tables = createTables(ydoc, tableDefinitions);
+	const kv = createKv(ydoc, kvDefinitions);
 
 	return {
 		/** The underlying Y.Doc instance. */
@@ -160,6 +177,12 @@ export function createWorkspaceDoc(options: {
 
 		/** The epoch number for this workspace doc. */
 		epoch,
+
+		/** Typed table helpers for CRUD operations. */
+		tables,
+
+		/** Key-value store for simple values. */
+		kv,
 
 		/**
 		 * Get the schema Y.Map for low-level operations.
@@ -316,5 +339,43 @@ export function createWorkspaceDoc(options: {
 	};
 }
 
-/** Workspace Y.Doc wrapper type - inferred from factory function. */
-export type WorkspaceDoc = ReturnType<typeof createWorkspaceDoc>;
+/**
+ * Workspace Y.Doc wrapper type with typed tables and kv.
+ *
+ * Use the generic parameters to get proper typing for table/kv access:
+ *
+ * @example
+ * ```typescript
+ * type MyWorkspaceDoc = WorkspaceDoc<typeof myTableDefs, typeof myKvDefs>;
+ * ```
+ */
+export type WorkspaceDoc<
+	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
+	TKvDefinitionMap extends KvDefinitionMap = KvDefinitionMap,
+> = {
+	/** The underlying Y.Doc instance. */
+	ydoc: Y.Doc;
+	/** The workspace ID (without epoch suffix). */
+	workspaceId: string;
+	/** The epoch number for this workspace doc. */
+	epoch: number;
+	/** Typed table helpers for CRUD operations. */
+	tables: Tables<TTableDefinitionMap>;
+	/** Key-value store for simple values. */
+	kv: Kv<TKvDefinitionMap>;
+	/** Get the schema Y.Map for low-level operations. */
+	getSchemaMap(): SchemaMap;
+	/** Get the KV Y.Map for low-level operations. */
+	getKvMap(): KvMap;
+	/** Get the tables Y.Map for low-level operations. */
+	getTablesMap(): TablesMap;
+	/** Read the current schema from the Y.Doc as a plain object. */
+	getSchema(): WorkspaceSchemaMap;
+	/** Merge table/KV schema into the Y.Doc. */
+	mergeSchema<
+		TMergeTables extends TableDefinitionMap,
+		TMergeKv extends KvDefinitionMap,
+	>(schema: { tables: TMergeTables; kv: TMergeKv }): void;
+	/** Observe schema changes. */
+	observeSchema(callback: (schema: WorkspaceSchemaMap) => void): () => void;
+};

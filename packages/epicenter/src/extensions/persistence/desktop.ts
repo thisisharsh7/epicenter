@@ -51,9 +51,10 @@ export const persistence = <
 	TTableDefinitionMap extends TableDefinitionMap,
 	TKvDefinitionMap extends KvDefinitionMap,
 >(
-	{ ydoc }: ExtensionContext<TTableDefinitionMap, TKvDefinitionMap>,
+	{ workspaceDoc }: ExtensionContext<TTableDefinitionMap, TKvDefinitionMap>,
 	{ filePath }: PersistenceConfig,
 ) => {
+	const { ydoc } = workspaceDoc;
 	// Track async initialization via whenSynced
 	const whenSynced = (async () => {
 		await mkdir(path.dirname(filePath), { recursive: true });

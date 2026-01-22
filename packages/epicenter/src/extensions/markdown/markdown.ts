@@ -277,7 +277,8 @@ export const markdown = async <
 	context: ExtensionContext<TTableDefinitionMap, TKvDefinitionMap>,
 	config: MarkdownExtensionConfig<TTableDefinitionMap>,
 ) => {
-	const { id, tables } = context;
+	const { workspaceDoc } = context;
+	const { workspaceId: id, tables, ydoc } = workspaceDoc;
 	const {
 		directory,
 		logsDir,
@@ -1430,7 +1431,7 @@ export const markdown = async <
 							),
 					);
 
-					context.ydoc.transact(() => {
+					ydoc.transact(() => {
 						allTableData.forEach(
 							({
 								table,

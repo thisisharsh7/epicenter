@@ -75,14 +75,14 @@ import {
 	type WorkspaceSchemaMap,
 } from '../docs/workspace-doc';
 import type { ExtensionFactoryMap, InferExtensionExports } from '../extension';
-import { createKv, type Kv } from '../kv/core';
+import type { Kv } from '../kv/core';
 import { defineExports, type Lifecycle } from '../lifecycle';
 
 import type {
 	KvDefinitionMap,
 	TableDefinitionMap,
 } from '../schema/fields/types';
-import { createTables, type Tables } from '../tables/create-tables';
+import type { Tables } from '../tables/create-tables';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public API: Types
@@ -590,7 +590,11 @@ function createClientBuilder<
 	epoch: number;
 	tables: TTableDefinitionMap;
 	kv: TKvDefinitionMap;
-	onSync: ((workspaceDoc: WorkspaceDoc) => void) | undefined;
+	onSync:
+		| ((
+				workspaceDoc: WorkspaceDoc<TTableDefinitionMap, TKvDefinitionMap>,
+		  ) => void)
+		| undefined;
 }): ClientBuilder<TTableDefinitionMap, TKvDefinitionMap> {
 	return {
 		withSchema<
@@ -662,25 +666,29 @@ function createClientCore<
 	tables: TTableDefinitionMap;
 	kv: TKvDefinitionMap;
 	/** Called after persistence loads. Static schema uses this to merge schema. */
-	onSync: ((workspaceDoc: WorkspaceDoc) => void) | undefined;
+	onSync:
+		| ((
+				workspaceDoc: WorkspaceDoc<TTableDefinitionMap, TKvDefinitionMap>,
+		  ) => void)
+		| undefined;
 }): WorkspaceClient<
 	TTableDefinitionMap,
 	TKvDefinitionMap,
 	InferExtensionExports<TExtensionFactories>
 > {
-	// Create Workspace Doc wrapper (handles Y.Doc creation and map access)
-	const workspaceDoc = createWorkspaceDoc({ workspaceId: id, epoch });
-	const { ydoc } = workspaceDoc;
+	// Create Workspace Doc wrapper (handles Y.Doc creation, map access, and table/kv helpers)
+	const workspaceDoc = createWorkspaceDoc({
+		workspaceId: id,
+		epoch,
+		tableDefinitions,
+		kvDefinitions,
+	});
+	const { ydoc, tables, kv } = workspaceDoc;
 
 	// NOTE: We do NOT call mergeSchema() here!
 	// It must happen AFTER persistence loads (inside whenSynced) so that
 	// code-defined schema is "last writer" and overrides stale disk values.
 	// See: specs/20260119T231252-resilient-client-architecture.md
-
-	// Create table and kv helpers bound to the Y.Doc
-	// These can be created immediately - they just bind to Y.Maps
-	const tables = createTables(ydoc, tableDefinitions);
-	const kv = createKv(ydoc, kvDefinitions);
 
 	// Initialize extensions synchronously — async work is in their whenSynced
 	const extensions = {} as InferExtensionExports<TExtensionFactories>;
@@ -689,12 +697,8 @@ function createClientCore<
 	)) {
 		// Factory is sync; normalize exports at boundary
 		const result = extensionFactory({
-			id,
-			extensionId,
 			workspaceDoc,
-			ydoc,
-			tables,
-			kv,
+			extensionId,
 		});
 		const exports = defineExports(result as Record<string, unknown>);
 		(extensions as Record<string, unknown>)[extensionId] = exports;

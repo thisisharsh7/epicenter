@@ -10,18 +10,15 @@
  *   (Head Doc, Registry Doc). Receive minimal context: `{ ydoc }`.
  *
  * - **Extensions** (workspace-level): Plugins that extend workspaces with features
- *   like SQLite queries, Markdown sync, revision history. Receive rich context:
- *   `{ id, extensionId, ydoc, tables, kv }`.
+ *   like SQLite queries, Markdown sync, revision history. Receive context:
+ *   `{ workspaceDoc, extensionId }`.
  *
  * Use `defineExports()` to wrap your extension's return value for lifecycle normalization.
  */
 
-import type * as Y from 'yjs';
 import type { WorkspaceDoc } from './docs/workspace-doc';
-import type { Kv } from './kv/core';
 import type { Lifecycle } from './lifecycle';
 import type { KvDefinitionMap, TableDefinitionMap } from './schema';
-import type { Tables } from './tables/create-tables';
 
 // Re-export lifecycle utilities for extension authors
 export { defineExports, type Lifecycle } from './lifecycle';
@@ -30,14 +27,26 @@ export { defineExports, type Lifecycle } from './lifecycle';
  * Context provided to each extension function.
  *
  * An extension is a function that attaches behavior to a workspace.
- * The context gives access to the workspace's core primitives, and
- * the extension decides what to use based on its purpose.
+ * The context provides access to the workspace doc (which contains everything)
+ * and the extension's own ID for namespacing.
+ *
+ * ## Accessing Workspace Data
+ *
+ * All workspace data is accessed through `workspaceDoc`:
+ * - `workspaceDoc.ydoc` - The underlying Y.Doc
+ * - `workspaceDoc.tables` - Typed table helpers
+ * - `workspaceDoc.kv` - Key-value store helpers
+ * - `workspaceDoc.workspaceId` - The workspace identifier
+ * - `workspaceDoc.epoch` - The current epoch number
+ * - `workspaceDoc.getSchema()` - Read schema as plain object
+ * - `workspaceDoc.getSchemaMap()` - Raw Y.Map for schema
  *
  * ## Common Patterns
  *
  * ### 1. Persist the entire YDoc (storage extension)
  * ```typescript
- * const persistence: ExtensionFactory = ({ ydoc }, config) => {
+ * const persistence: ExtensionFactory = ({ workspaceDoc }, config) => {
+ *   const { ydoc } = workspaceDoc;
  *   const saved = loadFromDisk(config.path);
  *   Y.applyUpdate(ydoc, saved);
  *   ydoc.on('update', () => {
@@ -49,7 +58,8 @@ export { defineExports, type Lifecycle } from './lifecycle';
  *
  * ### 2. Sync tables to external store (materializer extension)
  * ```typescript
- * const sqlite: ExtensionFactory = ({ tables }, config) => {
+ * const sqlite: ExtensionFactory = ({ workspaceDoc }, config) => {
+ *   const { tables } = workspaceDoc;
  *   const db = new Database(config.dbPath);
  *   for (const table of tables.$all()) {
  *     table.observeChanges((changes) => {
@@ -70,7 +80,8 @@ export { defineExports, type Lifecycle } from './lifecycle';
  *
  * ### 3. Real-time sync (sync extension)
  * ```typescript
- * const websocketSync: ExtensionFactory = ({ ydoc }) => {
+ * const websocketSync: ExtensionFactory = ({ workspaceDoc }) => {
+ *   const { ydoc } = workspaceDoc;
  *   const ws = new WebsocketProvider(url, ydoc.guid, ydoc);
  *   return defineExports({
  *     whenSynced: new Promise(r => ws.on('sync', r)),
@@ -81,8 +92,8 @@ export { defineExports, type Lifecycle } from './lifecycle';
  *
  * ### 4. Do nothing with data (pure side-effect extension)
  * ```typescript
- * const logger: ExtensionFactory = ({ id }) => {
- *   console.log(`Workspace ${id} initialized`);
+ * const logger: ExtensionFactory = ({ workspaceDoc }) => {
+ *   console.log(`Workspace ${workspaceDoc.workspaceId} initialized`);
  *   return defineExports();
  * };
  * ```
@@ -109,51 +120,26 @@ export type ExtensionContext<
 	TKvDefinitionMap extends KvDefinitionMap,
 > = {
 	/**
-	 * Human-readable workspace identifier for URLs, paths, and sync.
-	 * Format: lowercase alphanumeric with dots and hyphens (e.g., "my-notes", "epicenter.whispering").
+	 * The Workspace Doc wrapper providing typed access to everything.
+	 *
+	 * Contains:
+	 * - `ydoc` - The underlying Y.Doc
+	 * - `tables` - Typed table helpers
+	 * - `kv` - Key-value store helpers
+	 * - `workspaceId` - The workspace identifier
+	 * - `epoch` - The current epoch number
+	 * - `getSchema()` - Read schema as plain object
+	 * - `getSchemaMap()`, `getKvMap()`, `getTablesMap()` - Raw Y.Maps
+	 * - `mergeSchema()` - Merge schema into Y.Doc
+	 * - `observeSchema()` - React to schema changes
 	 */
-	id: string;
+	workspaceDoc: WorkspaceDoc<TTableDefinitionMap, TKvDefinitionMap>;
 
 	/**
-	 * This extension's key from `.create({ extensions: { key: ... } })`.
+	 * This extension's key from `.withExtensions({ key: ... })`.
 	 * Useful for namespacing storage paths or logging.
 	 */
 	extensionId: string;
-
-	/**
-	 * The Workspace Doc wrapper providing typed access to Y.Maps.
-	 *
-	 * Use this for:
-	 * - Schema access: `workspaceDoc.getSchema()`, `workspaceDoc.getSchemaMap()`
-	 * - KV map access: `workspaceDoc.getKvMap()`
-	 * - Tables map access: `workspaceDoc.getTablesMap()`
-	 * - Observation: `workspaceDoc.observeSchema()`
-	 *
-	 * The raw `ydoc` is also available for doc-level operations.
-	 */
-	workspaceDoc: WorkspaceDoc;
-
-	/**
-	 * The underlying YJS document.
-	 * Use for doc-level operations: persistence, sync, undo/redo.
-	 *
-	 * For accessing the top-level Y.Maps (schema, kv, tables), prefer
-	 * using `workspaceDoc` methods instead.
-	 */
-	ydoc: Y.Doc;
-
-	/**
-	 * Typed table helpers.
-	 * Use `tables.$all()` to iterate over all tables, or access specific tables
-	 * like `tables.posts.observeChanges()` for reactive updates.
-	 */
-	tables: Tables<TTableDefinitionMap>;
-
-	/**
-	 * Typed KV helpers.
-	 * Use for simple key-value storage within the workspace.
-	 */
-	kv: Kv<TKvDefinitionMap>;
 };
 
 /**

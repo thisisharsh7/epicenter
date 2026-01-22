@@ -102,8 +102,9 @@ export const persistence = (<
 	TTableDefinitionMap extends TableDefinitionMap,
 	TKvDefinitionMap extends KvDefinitionMap,
 >({
-	ydoc,
+	workspaceDoc,
 }: ExtensionContext<TTableDefinitionMap, TKvDefinitionMap>) => {
+	const { ydoc } = workspaceDoc;
 	// y-indexeddb handles both loading and saving automatically
 	// Uses the YDoc's guid as the IndexedDB database name
 	const persistence = new IndexeddbPersistence(ydoc.guid, ydoc);
