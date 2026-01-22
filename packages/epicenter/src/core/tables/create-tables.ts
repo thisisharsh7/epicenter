@@ -3,8 +3,10 @@ import type * as Y from 'yjs';
 import type { TableDefinitionMap } from '../schema';
 import {
 	createTableHelpers,
+	createUntypedTableHelper,
 	type TableHelper,
 	type TablesMap,
+	type UntypedTableHelper,
 } from './table-helper';
 
 /**
@@ -57,6 +59,7 @@ export type {
 	TableMap,
 	TableRowChange,
 	TablesMap,
+	UntypedTableHelper,
 	ValidRowResult,
 } from './table-helper';
 
@@ -133,124 +136,197 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 	const tableHelpers = createTableHelpers({ ydoc, tableDefinitions });
 	const ytables: TablesMap = ydoc.getMap('tables');
 
+	// Cache for dynamically-created table helpers (tables not in schema)
+	const dynamicTableHelpers = new Map<string, UntypedTableHelper>();
+
+	/**
+	 * Get or create an untyped table helper for a dynamic table.
+	 */
+	const getOrCreateDynamicHelper = (name: string): UntypedTableHelper => {
+		let helper = dynamicTableHelpers.get(name);
+		if (!helper) {
+			helper = createUntypedTableHelper({ ydoc, tableName: name, ytables });
+			dynamicTableHelpers.set(name, helper);
+		}
+		return helper;
+	};
+
+	const definedTableNames = Object.keys(tableDefinitions) as Array<
+		keyof TTableDefinitionMap & string
+	>;
+
+	// We need to define the table function separately due to overloads
+	function tableAccessor<K extends keyof TTableDefinitionMap & string>(
+		name: K,
+	): TableHelper<TTableDefinitionMap[K]['fields']>;
+	function tableAccessor(name: string): UntypedTableHelper;
+	function tableAccessor(
+		name: string,
+	):
+		| TableHelper<TTableDefinitionMap[keyof TTableDefinitionMap]['fields']>
+		| UntypedTableHelper {
+		// Check if it's a defined table first
+		if (name in tableHelpers) {
+			return tableHelpers[name as keyof typeof tableHelpers];
+		}
+		// Otherwise return/create a dynamic helper
+		return getOrCreateDynamicHelper(name);
+	}
+
 	return {
 		...tableHelpers,
 
-		/**
-		 * Direct access to the underlying Y.Map storing all tables.
-		 *
-		 * **Escape hatch for advanced use cases.** Using `$raw` bypasses all
-		 * validation and type safety. Prefer the typed table helpers for
-		 * normal operations.
-		 *
-		 * Use cases for `$raw`:
-		 * - Bulk operations in a single `ydoc.transact()` for performance
-		 * - Custom observation patterns with `observeDeep`
-		 * - Interop with external YJS tools
-		 * - Non-standard data modeling (nested Y.Maps, Y.Arrays)
-		 *
-		 * @example
-		 * ```typescript
-		 * // Bulk operation in single transaction
-		 * ydoc.transact(() => {
-		 *   const rawPostsTable = tables.$raw.get('posts');
-		 *   // Direct Y.Map manipulation...
-		 * });
-		 *
-		 * // Custom deep observation
-		 * tables.$raw.observeDeep((events) => {
-		 *   // Fine-grained YJS events across all tables...
-		 * });
-		 * ```
-		 */
-		$raw: ytables,
+		// ════════════════════════════════════════════════════════════════════
+		// DYNAMIC ACCESS
+		// ════════════════════════════════════════════════════════════════════
 
 		/**
-		 * The raw table definitions passed to createTables.
+		 * Get a table helper by name. Creates the table if it doesn't exist.
 		 *
-		 * Provides direct access to the `TableDefinitionMap` without going through
-		 * table helpers. Useful when you need the complete definition including
-		 * metadata (name, icon, description) or the raw `fields` schema.
+		 * This is the universal accessor for tables:
+		 * - For defined tables (in schema): returns fully-typed TableHelper
+		 * - For undefined tables (dynamic): returns UntypedTableHelper with unknown rows
 		 *
-		 * Primary use case: passing to converters like `convertTableDefinitionsToDrizzle`
-		 * that need the full definition rather than individual table helpers.
+		 * The underlying Y.Map is created lazily on first write operation.
 		 *
 		 * @example
 		 * ```typescript
-		 * // In an extension, convert to Drizzle tables
-		 * const drizzleTables = convertTableDefinitionsToDrizzle(tables.$definitions);
+		 * // Defined table - fully typed
+		 * tables.table('posts').getAll()  // { id, title }[]
 		 *
-		 * // Access table metadata
-		 * const postsDefinition = tables.$definitions.posts;
-		 * console.log(postsDefinition.name);        // "Posts"
-		 * console.log(postsDefinition.description); // "Blog posts and articles"
-		 * console.log(postsDefinition.fields);      // { id: {...}, title: {...}, ... }
+		 * // Dynamic table - untyped
+		 * tables.table('custom').getAll()  // unknown[]
+		 * tables.table('custom').upsert({ id: '1', anything: 'goes' })
+		 *
+		 * // With variable
+		 * const name = 'posts' as const
+		 * tables.table(name).getAll()  // Still typed!
 		 * ```
 		 */
-		$definitions: tableDefinitions,
+		table: tableAccessor,
 
 		/**
-		 * Get all table helpers as an array.
+		 * Check if a table exists in YJS storage (without creating it).
 		 *
-		 * Useful for providers and indexes that need to iterate over all tables.
-		 * Returns only the table helpers, excluding utility methods like `clearAll`.
+		 * Use this when you need to check existence before performing operations,
+		 * without triggering table creation.
 		 *
 		 * @example
 		 * ```typescript
-		 * for (const table of tables.$all()) {
-		 *   console.log(table.name, table.count());
+		 * if (tables.has('custom')) {
+		 *   // Table exists, safe to read
+		 *   const rows = tables.table('custom').getAll()
 		 * }
-		 *
-		 * const tableWithConfigs = tables.$all().map(table => ({
-		 *   table,
-		 *   config: configs[table.name],
-		 * }));
 		 * ```
 		 */
-		$all() {
+		has(name: string): boolean {
+			return ytables.has(name);
+		},
+
+		// ════════════════════════════════════════════════════════════════════
+		// ITERATION - ALL TABLES
+		// ════════════════════════════════════════════════════════════════════
+
+		/**
+		 * Get all table helpers that exist in YJS (defined + undefined).
+		 *
+		 * Returns helpers for every table that has been created in YJS storage,
+		 * including both schema-defined tables and dynamically-created tables.
+		 *
+		 * @example
+		 * ```typescript
+		 * for (const helper of tables.all()) {
+		 *   console.log(helper.name, helper.count())
+		 * }
+		 * ```
+		 */
+		all(): UntypedTableHelper[] {
+			const helpers: UntypedTableHelper[] = [];
+			for (const name of ytables.keys()) {
+				if (name in tableHelpers) {
+					helpers.push(
+						tableHelpers[
+							name as keyof typeof tableHelpers
+						] as UntypedTableHelper,
+					);
+				} else {
+					helpers.push(getOrCreateDynamicHelper(name));
+				}
+			}
+			return helpers;
+		},
+
+		/**
+		 * Get all table names that exist in YJS storage.
+		 *
+		 * Returns names of every table that has been created, including both
+		 * schema-defined tables and dynamically-created tables.
+		 *
+		 * @example
+		 * ```typescript
+		 * tables.names()  // ['posts', 'users', 'custom_123', ...]
+		 * ```
+		 */
+		names(): string[] {
+			return Array.from(ytables.keys());
+		},
+
+		// ════════════════════════════════════════════════════════════════════
+		// ITERATION - DEFINED TABLES ONLY
+		// ════════════════════════════════════════════════════════════════════
+
+		/**
+		 * Get table helpers for only schema-defined tables.
+		 *
+		 * Returns only tables that were declared in the schema definition,
+		 * with full type information preserved.
+		 *
+		 * @example
+		 * ```typescript
+		 * for (const helper of tables.defined()) {
+		 *   console.log(helper.name)  // 'posts' | 'users'
+		 * }
+		 * ```
+		 */
+		defined() {
 			return Object.values(tableHelpers) as TableHelper<
 				TTableDefinitionMap[keyof TTableDefinitionMap]['fields']
 			>[];
 		},
 
 		/**
-		 * Zip tables with a configs object, returning type-safe paired entries.
+		 * Get names of only schema-defined tables.
 		 *
-		 * Replaces the error-prone `tables.$all().map()` pattern:
-		 *
+		 * @example
 		 * ```typescript
-		 * // BEFORE: Requires @ts-expect-error at every usage
-		 * const tableWithConfigs = tables.$all().map(table => ({
-		 *   table,
-		 *   tableConfig: configs[table.name],
-		 * }));
-		 * for (const { table, tableConfig } of tableWithConfigs) {
-		 *   // @ts-expect-error - TypeScript can't correlate table and config
-		 *   tableConfig.serialize({ row, table });
-		 * }
-		 *
-		 * // AFTER: Type-safe, rename 'paired' at destructure site
-		 * for (const { table, paired: tableConfig } of tables.$zip(configs)) {
-		 *   tableConfig.serialize({ row, table }); // Just works!
-		 * }
+		 * tables.definedNames()  // ['posts', 'users']
 		 * ```
+		 */
+		definedNames(): (keyof TTableDefinitionMap & string)[] {
+			return [...definedTableNames];
+		},
+
+		/**
+		 * Zip defined tables with a configs object, returning type-safe paired entries.
 		 *
 		 * This solves TypeScript's "correlated record types" limitation where
 		 * union types are evaluated independently during iteration.
 		 *
+		 * @example
+		 * ```typescript
+		 * for (const { name, table, paired: config } of tables.zip(configs)) {
+		 *   config.serialize({ row, table })  // Fully typed!
+		 * }
+		 * ```
+		 *
 		 * @see https://github.com/microsoft/TypeScript/issues/35101
-		 * @see docs/articles/encapsulating-type-assertions.md
 		 */
-		$zip<
+		zip<
 			TConfigs extends {
 				[K in keyof TTableDefinitionMap & string]: unknown;
 			},
 		>(configs: TConfigs) {
-			const names = Object.keys(tableDefinitions) as Array<
-				keyof TTableDefinitionMap & string
-			>;
-
-			return names.map((name) => ({
+			return definedTableNames.map((name) => ({
 				name,
 				table: tableHelpers[name],
 				paired: configs[name],
@@ -265,15 +341,126 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 			>;
 		},
 
+		// ════════════════════════════════════════════════════════════════════
+		// METADATA & ESCAPE HATCHES
+		// ════════════════════════════════════════════════════════════════════
+
 		/**
-		 * Clear all tables in the workspace
+		 * The raw table definitions passed to createTables.
+		 *
+		 * Provides access to the schema definition including metadata
+		 * (name, icon, description) and field schemas.
+		 *
+		 * @example
+		 * ```typescript
+		 * tables.definitions.posts.fields  // { id: {...}, title: {...} }
+		 * ```
+		 */
+		definitions: tableDefinitions,
+
+		/**
+		 * Direct access to the underlying Y.Map storing all tables.
+		 *
+		 * **Escape hatch for advanced use cases.** Bypasses all validation
+		 * and type safety.
+		 *
+		 * @example
+		 * ```typescript
+		 * ydoc.transact(() => {
+		 *   const rawTable = tables.raw.get('posts')
+		 *   // Direct Y.Map manipulation...
+		 * })
+		 * ```
+		 */
+		raw: ytables,
+
+		// ════════════════════════════════════════════════════════════════════
+		// BULK OPERATIONS
+		// ════════════════════════════════════════════════════════════════════
+
+		/**
+		 * Clear all rows in defined tables.
+		 *
+		 * Only clears tables that are in the schema definition.
+		 * Does not affect dynamically-created tables.
 		 */
 		clearAll(): void {
 			ydoc.transact(() => {
-				for (const tableName of Object.keys(tableDefinitions)) {
+				for (const tableName of definedTableNames) {
 					tableHelpers[tableName as keyof typeof tableHelpers].clear();
 				}
 			});
+		},
+
+		/**
+		 * Delete a table entirely from YJS storage.
+		 *
+		 * Removes the table and all its rows. Use with caution.
+		 *
+		 * @returns true if the table existed and was deleted, false otherwise
+		 *
+		 * @example
+		 * ```typescript
+		 * tables.drop('temporary_data')  // true if deleted
+		 * ```
+		 */
+		drop(name: string): boolean {
+			if (!ytables.has(name)) {
+				return false;
+			}
+			ytables.delete(name);
+			dynamicTableHelpers.delete(name);
+			return true;
+		},
+
+		// ════════════════════════════════════════════════════════════════════
+		// DEPRECATED - Keep for backward compatibility
+		// ════════════════════════════════════════════════════════════════════
+
+		/**
+		 * @deprecated Use `tables.raw` instead
+		 */
+		get $raw() {
+			return ytables;
+		},
+
+		/**
+		 * @deprecated Use `tables.definitions` instead
+		 */
+		get $definitions() {
+			return tableDefinitions;
+		},
+
+		/**
+		 * @deprecated Use `tables.defined()` instead
+		 */
+		$all() {
+			return Object.values(tableHelpers) as TableHelper<
+				TTableDefinitionMap[keyof TTableDefinitionMap]['fields']
+			>[];
+		},
+
+		/**
+		 * @deprecated Use `tables.zip()` instead
+		 */
+		$zip<
+			TConfigs extends {
+				[K in keyof TTableDefinitionMap & string]: unknown;
+			},
+		>(configs: TConfigs) {
+			return definedTableNames.map((name) => ({
+				name,
+				table: tableHelpers[name],
+				paired: configs[name],
+			})) as Array<
+				{
+					[K in keyof TTableDefinitionMap & string]: {
+						name: K;
+						table: TableHelper<TTableDefinitionMap[K]['fields']>;
+						paired: TConfigs[K];
+					};
+				}[keyof TTableDefinitionMap & string]
+			>;
 		},
 	};
 }

@@ -1,0 +1,956 @@
+import * as Y from 'yjs';
+import type { SchemaMap, WorkspaceSchemaMap } from '../docs/workspace-doc';
+import type {
+	FieldSchema,
+	FieldSchemaMap,
+	IconDefinition,
+	KvFieldSchema,
+} from '../schema';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Y.Map storing table schemas, keyed by table name. */
+export type TablesSchemaMap = Y.Map<Y.Map<unknown>>;
+
+/** Y.Map storing KV schemas, keyed by key name. */
+export type KvSchemaMap = Y.Map<Y.Map<unknown>>;
+
+/** Y.Map storing fields for a single table, keyed by field name. */
+export type FieldsMap = Y.Map<FieldSchema>;
+
+/**
+ * Input type for setting a table schema.
+ * Allows optional metadata fields (icon, description) that will default.
+ */
+export type TableSchemaInput = {
+	name: string;
+	icon?: IconDefinition | null;
+	description?: string;
+	fields: FieldSchemaMap;
+};
+
+/**
+ * Input type for setting a KV schema.
+ * Allows optional metadata fields (icon, description) that will default.
+ */
+export type KvSchemaInput = {
+	name: string;
+	icon?: IconDefinition | null;
+	description?: string;
+	field: KvFieldSchema;
+};
+
+/** Change event for schema observation. */
+export type SchemaChange<T> =
+	| { action: 'add'; key: string; value: T }
+	| { action: 'update'; key: string; oldValue: T; newValue: T }
+	| { action: 'delete'; key: string; oldValue: T };
+
+/** Table metadata (name, icon, description). */
+export type TableMetadata = {
+	name: string;
+	icon: IconDefinition | null;
+	description: string;
+};
+
+/** Stored table schema in Y.Map format. */
+export type StoredTableSchema = {
+	name: string;
+	icon: IconDefinition | null;
+	description: string;
+	fields: Record<string, FieldSchema>;
+};
+
+/** Stored KV schema in Y.Map format. */
+export type StoredKvSchema = {
+	name: string;
+	icon: IconDefinition | null;
+	description: string;
+	field: FieldSchema;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper: Fields sub-helper for a single table
+// ─────────────────────────────────────────────────────────────────────────────
+
+function createFieldsHelper(
+	tableSchemaMap: Y.Map<unknown>,
+	_tableName: string,
+) {
+	const getFieldsMap = (): FieldsMap | null => {
+		return (tableSchemaMap.get('fields') as FieldsMap) ?? null;
+	};
+
+	const getOrCreateFieldsMap = (): FieldsMap => {
+		let fieldsMap = tableSchemaMap.get('fields') as FieldsMap | undefined;
+		if (!fieldsMap) {
+			fieldsMap = new Y.Map() as FieldsMap;
+			tableSchemaMap.set('fields', fieldsMap);
+		}
+		return fieldsMap;
+	};
+
+	return {
+		/**
+		 * Get a field schema by name.
+		 *
+		 * @example
+		 * ```typescript
+		 * const titleSchema = schema.tables.posts.fields.get('title');
+		 * if (titleSchema) {
+		 *   console.log(titleSchema.type); // 'text'
+		 * }
+		 * ```
+		 */
+		get(fieldName: string): FieldSchema | undefined {
+			return getFieldsMap()?.get(fieldName);
+		},
+
+		/**
+		 * Get all field schemas for this table.
+		 *
+		 * @example
+		 * ```typescript
+		 * const fields = schema.tables.posts.fields.getAll();
+		 * for (const [name, schema] of Object.entries(fields)) {
+		 *   console.log(name, schema.type);
+		 * }
+		 * ```
+		 */
+		getAll(): Record<string, FieldSchema> {
+			const fieldsMap = getFieldsMap();
+			if (!fieldsMap) return {};
+			return fieldsMap.toJSON() as Record<string, FieldSchema>;
+		},
+
+		/**
+		 * Set (add or update) a field schema.
+		 *
+		 * @example
+		 * ```typescript
+		 * // Add a new field
+		 * schema.tables.posts.fields.set('dueDate', date({ nullable: true }));
+		 *
+		 * // Update an existing field
+		 * schema.tables.posts.fields.set('title', text({ default: 'Untitled' }));
+		 * ```
+		 */
+		set(fieldName: string, fieldSchema: FieldSchema): void {
+			getOrCreateFieldsMap().set(fieldName, fieldSchema);
+		},
+
+		/**
+		 * Delete a field from the table schema.
+		 *
+		 * Note: This only removes the schema definition. Existing data in the
+		 * table is not affected (the column data remains, just becomes untyped).
+		 *
+		 * @example
+		 * ```typescript
+		 * schema.tables.posts.fields.delete('dueDate');
+		 * ```
+		 */
+		delete(fieldName: string): boolean {
+			const fieldsMap = getFieldsMap();
+			if (!fieldsMap || !fieldsMap.has(fieldName)) return false;
+			fieldsMap.delete(fieldName);
+			return true;
+		},
+
+		/**
+		 * Check if a field exists in the table schema.
+		 */
+		has(fieldName: string): boolean {
+			return getFieldsMap()?.has(fieldName) ?? false;
+		},
+
+		/**
+		 * Get all field names.
+		 */
+		keys(): string[] {
+			const fieldsMap = getFieldsMap();
+			if (!fieldsMap) return [];
+			return Array.from(fieldsMap.keys());
+		},
+
+		/**
+		 * Observe changes to fields in this table.
+		 *
+		 * @example
+		 * ```typescript
+		 * schema.tables.posts.fields.observe((changes) => {
+		 *   for (const change of changes) {
+		 *     if (change.action === 'add') {
+		 *       console.log(`Field added: ${change.key}`);
+		 *     }
+		 *   }
+		 * });
+		 * ```
+		 */
+		observe(
+			callback: (changes: SchemaChange<FieldSchema>[]) => void,
+		): () => void {
+			const handler = (event: Y.YMapEvent<FieldSchema>) => {
+				const changes: SchemaChange<FieldSchema>[] = [];
+				event.changes.keys.forEach((change, key) => {
+					if (change.action === 'add') {
+						const value = event.target.get(key);
+						if (value) changes.push({ action: 'add', key, value });
+					} else if (change.action === 'update') {
+						const newValue = event.target.get(key);
+						if (newValue) {
+							changes.push({
+								action: 'update',
+								key,
+								oldValue: change.oldValue as FieldSchema,
+								newValue,
+							});
+						}
+					} else if (change.action === 'delete') {
+						changes.push({
+							action: 'delete',
+							key,
+							oldValue: change.oldValue as FieldSchema,
+						});
+					}
+				});
+				if (changes.length > 0) callback(changes);
+			};
+
+			const fieldsMap = getOrCreateFieldsMap();
+			fieldsMap.observe(handler);
+			return () => fieldsMap.unobserve(handler);
+		},
+
+		/**
+		 * Direct access to the underlying Y.Map for fields.
+		 *
+		 * **Escape hatch for advanced use cases.**
+		 */
+		get $raw(): FieldsMap {
+			return getOrCreateFieldsMap();
+		},
+	};
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper: Metadata sub-helper for a single table
+// ─────────────────────────────────────────────────────────────────────────────
+
+function createMetadataHelper(tableSchemaMap: Y.Map<unknown>) {
+	return {
+		/**
+		 * Get table metadata (name, icon, description).
+		 *
+		 * @example
+		 * ```typescript
+		 * const meta = schema.tables.posts.metadata.get();
+		 * console.log(meta.name); // 'Posts'
+		 * ```
+		 */
+		get(): TableMetadata {
+			return {
+				name: (tableSchemaMap.get('name') as string) ?? '',
+				icon: (tableSchemaMap.get('icon') as IconDefinition | null) ?? null,
+				description: (tableSchemaMap.get('description') as string) ?? '',
+			};
+		},
+
+		/**
+		 * Set table metadata. Only provided fields are updated.
+		 *
+		 * @example
+		 * ```typescript
+		 * schema.tables.posts.metadata.set({ name: 'Blog Posts' });
+		 * schema.tables.posts.metadata.set({ icon: { type: 'emoji', value: '📝' } });
+		 * ```
+		 */
+		set(metadata: Partial<TableMetadata>): void {
+			if (metadata.name !== undefined) {
+				tableSchemaMap.set('name', metadata.name);
+			}
+			if (metadata.icon !== undefined) {
+				tableSchemaMap.set('icon', metadata.icon);
+			}
+			if (metadata.description !== undefined) {
+				tableSchemaMap.set('description', metadata.description);
+			}
+		},
+
+		/**
+		 * Observe changes to table metadata.
+		 */
+		observe(callback: (metadata: TableMetadata) => void): () => void {
+			const handler = () => {
+				callback(this.get());
+			};
+			tableSchemaMap.observe(handler);
+			return () => tableSchemaMap.unobserve(handler);
+		},
+	};
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper: Per-table schema helper
+// ─────────────────────────────────────────────────────────────────────────────
+
+function createTableSchemaHelper(
+	tableSchemaMap: Y.Map<unknown>,
+	tableName: string,
+) {
+	return {
+		/**
+		 * Get the full table definition.
+		 */
+		get(): StoredTableSchema {
+			return {
+				name: (tableSchemaMap.get('name') as string) ?? '',
+				icon: (tableSchemaMap.get('icon') as IconDefinition | null) ?? null,
+				description: (tableSchemaMap.get('description') as string) ?? '',
+				fields:
+					((
+						tableSchemaMap.get('fields') as Y.Map<FieldSchema>
+					)?.toJSON() as Record<string, FieldSchema>) ?? {},
+			};
+		},
+
+		/**
+		 * Field schema operations for this table.
+		 */
+		fields: createFieldsHelper(tableSchemaMap, tableName),
+
+		/**
+		 * Table metadata operations (name, icon, description).
+		 */
+		metadata: createMetadataHelper(tableSchemaMap),
+
+		/**
+		 * Direct access to this table's schema Y.Map.
+		 *
+		 * **Escape hatch for advanced use cases.**
+		 */
+		$raw: tableSchemaMap,
+	};
+}
+
+export type TableSchemaHelper = ReturnType<typeof createTableSchemaHelper>;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper: Tables schema collection helper
+// ─────────────────────────────────────────────────────────────────────────────
+
+function createTablesSchemaHelper(schemaMap: SchemaMap) {
+	const getTablesMap = (): TablesSchemaMap | null => {
+		return (schemaMap.get('tables') as TablesSchemaMap) ?? null;
+	};
+
+	const getOrCreateTablesMap = (): TablesSchemaMap => {
+		let tablesMap = schemaMap.get('tables') as TablesSchemaMap | undefined;
+		if (!tablesMap) {
+			tablesMap = new Y.Map() as TablesSchemaMap;
+			schemaMap.set('tables', tablesMap);
+		}
+		return tablesMap;
+	};
+
+	// Cache for per-table helpers (created lazily)
+	const tableHelperCache = new Map<string, TableSchemaHelper>();
+
+	const getTableHelper = (tableName: string): TableSchemaHelper | undefined => {
+		const tablesMap = getTablesMap();
+		if (!tablesMap) return undefined;
+
+		const tableSchemaMap = tablesMap.get(tableName);
+		if (!tableSchemaMap) return undefined;
+
+		// Check cache first
+		let helper = tableHelperCache.get(tableName);
+		if (!helper) {
+			helper = createTableSchemaHelper(tableSchemaMap, tableName);
+			tableHelperCache.set(tableName, helper);
+		}
+		return helper;
+	};
+
+	return {
+		/**
+		 * Get a table's schema by name.
+		 *
+		 * @example
+		 * ```typescript
+		 * const postsSchema = schema.tables.get('posts');
+		 * ```
+		 */
+		get(tableName: string): StoredTableSchema | undefined {
+			const tablesMap = getTablesMap();
+			if (!tablesMap) return undefined;
+
+			const tableSchemaMap = tablesMap.get(tableName);
+			if (!tableSchemaMap) return undefined;
+
+			return {
+				name: (tableSchemaMap.get('name') as string) ?? '',
+				icon: (tableSchemaMap.get('icon') as IconDefinition | null) ?? null,
+				description: (tableSchemaMap.get('description') as string) ?? '',
+				fields:
+					((
+						tableSchemaMap.get('fields') as Y.Map<FieldSchema>
+					)?.toJSON() as Record<string, FieldSchema>) ?? {},
+			};
+		},
+
+		/**
+		 * Get all table schemas.
+		 *
+		 * @example
+		 * ```typescript
+		 * const allTables = schema.tables.getAll();
+		 * for (const [name, schema] of Object.entries(allTables)) {
+		 *   console.log(name, schema.fields);
+		 * }
+		 * ```
+		 */
+		getAll(): Record<string, StoredTableSchema> {
+			const tablesMap = getTablesMap();
+			if (!tablesMap) return {};
+
+			const result: Record<string, StoredTableSchema> = {};
+			for (const [tableName, tableSchemaMap] of tablesMap.entries()) {
+				result[tableName] = {
+					name: (tableSchemaMap.get('name') as string) ?? '',
+					icon: (tableSchemaMap.get('icon') as IconDefinition | null) ?? null,
+					description: (tableSchemaMap.get('description') as string) ?? '',
+					fields:
+						((
+							tableSchemaMap.get('fields') as Y.Map<FieldSchema>
+						)?.toJSON() as Record<string, FieldSchema>) ?? {},
+				};
+			}
+			return result;
+		},
+
+		/**
+		 * Set (add or update) a table schema.
+		 *
+		 * Icon and description are optional and will default to null and '' respectively.
+		 *
+		 * @example
+		 * ```typescript
+		 * schema.tables.set('tasks', {
+		 *   name: 'Tasks',
+		 *   icon: { type: 'emoji', value: '✅' },
+		 *   description: 'Project tasks',
+		 *   fields: { id: id(), title: text() },
+		 * });
+		 *
+		 * // Minimal form (icon and description optional)
+		 * schema.tables.set('posts', {
+		 *   name: 'Posts',
+		 *   fields: { id: id(), title: text() },
+		 * });
+		 * ```
+		 */
+		set(tableName: string, definition: TableSchemaInput): void {
+			const tablesMap = getOrCreateTablesMap();
+
+			let tableSchemaMap = tablesMap.get(tableName);
+			if (!tableSchemaMap) {
+				tableSchemaMap = new Y.Map();
+				tablesMap.set(tableName, tableSchemaMap);
+			}
+
+			tableSchemaMap.set('name', definition.name);
+			tableSchemaMap.set('icon', definition.icon ?? null);
+			tableSchemaMap.set('description', definition.description ?? '');
+
+			// Set fields
+			let fieldsMap = tableSchemaMap.get('fields') as FieldsMap | undefined;
+			if (!fieldsMap) {
+				fieldsMap = new Y.Map() as FieldsMap;
+				tableSchemaMap.set('fields', fieldsMap);
+			}
+
+			for (const [fieldName, fieldSchema] of Object.entries(
+				definition.fields,
+			)) {
+				fieldsMap.set(fieldName, fieldSchema as FieldSchema);
+			}
+
+			// Clear cache entry so it gets recreated with new map
+			tableHelperCache.delete(tableName);
+		},
+
+		/**
+		 * Delete a table schema.
+		 *
+		 * Note: This only removes the schema definition. Existing data in the
+		 * table is not affected.
+		 */
+		delete(tableName: string): boolean {
+			const tablesMap = getTablesMap();
+			if (!tablesMap || !tablesMap.has(tableName)) return false;
+			tablesMap.delete(tableName);
+			tableHelperCache.delete(tableName);
+			return true;
+		},
+
+		/**
+		 * Check if a table schema exists.
+		 */
+		has(tableName: string): boolean {
+			return getTablesMap()?.has(tableName) ?? false;
+		},
+
+		/**
+		 * Get all table names.
+		 */
+		keys(): string[] {
+			const tablesMap = getTablesMap();
+			if (!tablesMap) return [];
+			return Array.from(tablesMap.keys());
+		},
+
+		/**
+		 * Observe changes to table schemas (add/delete tables).
+		 *
+		 * @example
+		 * ```typescript
+		 * schema.tables.observe((changes) => {
+		 *   for (const change of changes) {
+		 *     if (change.action === 'add') {
+		 *       console.log(`Table added: ${change.key}`);
+		 *     }
+		 *   }
+		 * });
+		 * ```
+		 */
+		observe(
+			callback: (changes: SchemaChange<StoredTableSchema>[]) => void,
+		): () => void {
+			const handler = (event: Y.YMapEvent<Y.Map<unknown>>) => {
+				const changes: SchemaChange<StoredTableSchema>[] = [];
+				event.changes.keys.forEach((change, key) => {
+					if (change.action === 'add') {
+						const tableSchemaMap = event.target.get(key);
+						if (tableSchemaMap) {
+							changes.push({
+								action: 'add',
+								key,
+								value: {
+									name: (tableSchemaMap.get('name') as string) ?? '',
+									icon:
+										(tableSchemaMap.get('icon') as IconDefinition | null) ??
+										null,
+									description:
+										(tableSchemaMap.get('description') as string) ?? '',
+									fields:
+										((
+											tableSchemaMap.get('fields') as Y.Map<FieldSchema>
+										)?.toJSON() as Record<string, FieldSchema>) ?? {},
+								},
+							});
+						}
+					} else if (change.action === 'delete') {
+						// For delete, we need to reconstruct from oldValue
+						// oldValue is the Y.Map that was deleted
+						const oldMap = change.oldValue as Y.Map<unknown> | undefined;
+						changes.push({
+							action: 'delete',
+							key,
+							oldValue: oldMap
+								? {
+										name: (oldMap.get('name') as string) ?? '',
+										icon: (oldMap.get('icon') as IconDefinition | null) ?? null,
+										description: (oldMap.get('description') as string) ?? '',
+										fields:
+											((
+												oldMap.get('fields') as Y.Map<FieldSchema>
+											)?.toJSON() as Record<string, FieldSchema>) ?? {},
+									}
+								: {
+										name: '',
+										icon: null,
+										description: '',
+										fields: {},
+									},
+						});
+					}
+				});
+				if (changes.length > 0) callback(changes);
+			};
+
+			const tablesMap = getOrCreateTablesMap();
+			tablesMap.observe(handler);
+			return () => tablesMap.unobserve(handler);
+		},
+
+		/**
+		 * Direct access to the underlying Y.Map for tables schema.
+		 *
+		 * **Escape hatch for advanced use cases.**
+		 */
+		get $raw(): TablesSchemaMap {
+			return getOrCreateTablesMap();
+		},
+
+		/**
+		 * Get a per-table schema helper for granular operations.
+		 *
+		 * Returns undefined if the table doesn't exist.
+		 *
+		 * @example
+		 * ```typescript
+		 * const postsHelper = schema.tables.table('posts');
+		 * if (postsHelper) {
+		 *   postsHelper.fields.set('dueDate', date());
+		 *   postsHelper.metadata.set({ name: 'Blog Posts' });
+		 * }
+		 * ```
+		 */
+		table(tableName: string): TableSchemaHelper | undefined {
+			return getTableHelper(tableName);
+		},
+	};
+}
+
+export type TablesSchemaHelper = ReturnType<typeof createTablesSchemaHelper>;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper: KV schema collection helper
+// ─────────────────────────────────────────────────────────────────────────────
+
+function createKvSchemaHelper(schemaMap: SchemaMap) {
+	const getKvMap = (): KvSchemaMap | null => {
+		return (schemaMap.get('kv') as KvSchemaMap) ?? null;
+	};
+
+	const getOrCreateKvMap = (): KvSchemaMap => {
+		let kvMap = schemaMap.get('kv') as KvSchemaMap | undefined;
+		if (!kvMap) {
+			kvMap = new Y.Map() as KvSchemaMap;
+			schemaMap.set('kv', kvMap);
+		}
+		return kvMap;
+	};
+
+	return {
+		/**
+		 * Get a KV key's schema by name.
+		 *
+		 * @example
+		 * ```typescript
+		 * const themeSchema = schema.kv.get('theme');
+		 * ```
+		 */
+		get(keyName: string): StoredKvSchema | undefined {
+			const kvMap = getKvMap();
+			if (!kvMap) return undefined;
+
+			const kvEntryMap = kvMap.get(keyName);
+			if (!kvEntryMap) return undefined;
+
+			return {
+				name: (kvEntryMap.get('name') as string) ?? '',
+				icon: (kvEntryMap.get('icon') as IconDefinition | null) ?? null,
+				description: (kvEntryMap.get('description') as string) ?? '',
+				field: kvEntryMap.get('field') as FieldSchema,
+			};
+		},
+
+		/**
+		 * Get all KV schemas.
+		 *
+		 * @example
+		 * ```typescript
+		 * const allKv = schema.kv.getAll();
+		 * for (const [name, def] of Object.entries(allKv)) {
+		 *   console.log(name, def.field.type);
+		 * }
+		 * ```
+		 */
+		getAll(): Record<string, StoredKvSchema> {
+			const kvMap = getKvMap();
+			if (!kvMap) return {};
+
+			const result: Record<string, StoredKvSchema> = {};
+			for (const [keyName, kvEntryMap] of kvMap.entries()) {
+				result[keyName] = {
+					name: (kvEntryMap.get('name') as string) ?? '',
+					icon: (kvEntryMap.get('icon') as IconDefinition | null) ?? null,
+					description: (kvEntryMap.get('description') as string) ?? '',
+					field: kvEntryMap.get('field') as FieldSchema,
+				};
+			}
+			return result;
+		},
+
+		/**
+		 * Set (add or update) a KV schema.
+		 *
+		 * Icon and description are optional and will default to null and '' respectively.
+		 *
+		 * @example
+		 * ```typescript
+		 * schema.kv.set('theme', {
+		 *   name: 'Theme',
+		 *   icon: { type: 'emoji', value: '🎨' },
+		 *   description: 'Application color theme',
+		 *   field: select({ options: ['light', 'dark'], default: 'light' }),
+		 * });
+		 *
+		 * // Minimal form (icon and description optional)
+		 * schema.kv.set('count', {
+		 *   name: 'Count',
+		 *   field: integer({ default: 0 }),
+		 * });
+		 * ```
+		 */
+		set(keyName: string, definition: KvSchemaInput): void {
+			const kvMap = getOrCreateKvMap();
+
+			let kvEntryMap = kvMap.get(keyName);
+			if (!kvEntryMap) {
+				kvEntryMap = new Y.Map();
+				kvMap.set(keyName, kvEntryMap);
+			}
+
+			kvEntryMap.set('name', definition.name);
+			kvEntryMap.set('icon', definition.icon ?? null);
+			kvEntryMap.set('description', definition.description ?? '');
+			kvEntryMap.set('field', definition.field);
+		},
+
+		/**
+		 * Delete a KV schema.
+		 *
+		 * Note: This only removes the schema definition. The actual value
+		 * stored in KV is not affected.
+		 */
+		delete(keyName: string): boolean {
+			const kvMap = getKvMap();
+			if (!kvMap || !kvMap.has(keyName)) return false;
+			kvMap.delete(keyName);
+			return true;
+		},
+
+		/**
+		 * Check if a KV schema exists.
+		 */
+		has(keyName: string): boolean {
+			return getKvMap()?.has(keyName) ?? false;
+		},
+
+		/**
+		 * Get all KV key names.
+		 */
+		keys(): string[] {
+			const kvMap = getKvMap();
+			if (!kvMap) return [];
+			return Array.from(kvMap.keys());
+		},
+
+		/**
+		 * Observe changes to KV schemas.
+		 *
+		 * @example
+		 * ```typescript
+		 * schema.kv.observe((changes) => {
+		 *   for (const change of changes) {
+		 *     console.log(`KV ${change.key}: ${change.action}`);
+		 *   }
+		 * });
+		 * ```
+		 */
+		observe(
+			callback: (changes: SchemaChange<StoredKvSchema>[]) => void,
+		): () => void {
+			const handler = (event: Y.YMapEvent<Y.Map<unknown>>) => {
+				const changes: SchemaChange<StoredKvSchema>[] = [];
+				event.changes.keys.forEach((change, key) => {
+					if (change.action === 'add') {
+						const kvEntryMap = event.target.get(key);
+						if (kvEntryMap) {
+							changes.push({
+								action: 'add',
+								key,
+								value: {
+									name: (kvEntryMap.get('name') as string) ?? '',
+									icon:
+										(kvEntryMap.get('icon') as IconDefinition | null) ?? null,
+									description: (kvEntryMap.get('description') as string) ?? '',
+									field: kvEntryMap.get('field') as FieldSchema,
+								},
+							});
+						}
+					} else if (change.action === 'delete') {
+						const oldMap = change.oldValue as Y.Map<unknown> | undefined;
+						changes.push({
+							action: 'delete',
+							key,
+							oldValue: oldMap
+								? {
+										name: (oldMap.get('name') as string) ?? '',
+										icon: (oldMap.get('icon') as IconDefinition | null) ?? null,
+										description: (oldMap.get('description') as string) ?? '',
+										field: oldMap.get('field') as FieldSchema,
+									}
+								: {
+										name: '',
+										icon: null,
+										description: '',
+										field: {} as FieldSchema,
+									},
+						});
+					}
+				});
+				if (changes.length > 0) callback(changes);
+			};
+
+			const kvMap = getOrCreateKvMap();
+			kvMap.observe(handler);
+			return () => kvMap.unobserve(handler);
+		},
+
+		/**
+		 * Direct access to the underlying Y.Map for KV schema.
+		 *
+		 * **Escape hatch for advanced use cases.**
+		 */
+		get $raw(): KvSchemaMap {
+			return getOrCreateKvMap();
+		},
+	};
+}
+
+export type KvSchemaHelper = ReturnType<typeof createKvSchemaHelper>;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main: Schema helper
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Create a schema helper for managing workspace schema.
+ *
+ * The schema helper provides typed CRUD operations for table and KV schemas,
+ * with granular field-level operations for Notion-like dynamic schema editing.
+ *
+ * @param schemaMap - The Y.Map storing the workspace schema
+ *
+ * @example
+ * ```typescript
+ * const schema = createSchema(schemaMap);
+ *
+ * // Add a new table
+ * schema.tables.set('tasks', {
+ *   name: 'Tasks',
+ *   fields: { id: id(), title: text() },
+ * });
+ *
+ * // Add a column to existing table
+ * schema.tables.table('tasks')?.fields.set('dueDate', date());
+ *
+ * // Update table metadata
+ * schema.tables.table('tasks')?.metadata.set({ name: 'My Tasks' });
+ *
+ * // Add a KV setting
+ * schema.kv.set('theme', {
+ *   name: 'Theme',
+ *   field: select({ options: ['light', 'dark'] }),
+ * });
+ * ```
+ */
+export function createSchema(schemaMap: SchemaMap) {
+	return {
+		/**
+		 * Get the entire schema as a snapshot (plain object).
+		 *
+		 * @example
+		 * ```typescript
+		 * const snapshot = schema.get();
+		 * console.log(snapshot.tables, snapshot.kv);
+		 * ```
+		 */
+		get(): WorkspaceSchemaMap {
+			return schemaMap.toJSON() as WorkspaceSchemaMap;
+		},
+
+		/**
+		 * Merge schema definitions into the workspace.
+		 *
+		 * This is a bulk operation that adds/updates multiple tables and KV keys.
+		 * Existing definitions not in the merge payload are preserved.
+		 *
+		 * @example
+		 * ```typescript
+		 * schema.merge({
+		 *   tables: {
+		 *     posts: table({ name: 'Posts', fields: { id: id(), title: text() } }),
+		 *     users: table({ name: 'Users', fields: { id: id(), name: text() } }),
+		 *   },
+		 *   kv: {
+		 *     theme: { name: 'Theme', field: select({ options: ['light', 'dark'] }) },
+		 *   },
+		 * });
+		 * ```
+		 */
+		merge(schema: {
+			tables?: Record<string, TableSchemaInput>;
+			kv?: Record<string, KvSchemaInput>;
+		}): void {
+			if (schema.tables) {
+				for (const [tableName, tableDefinition] of Object.entries(
+					schema.tables,
+				)) {
+					this.tables.set(tableName, tableDefinition);
+				}
+			}
+
+			if (schema.kv) {
+				for (const [keyName, kvDefinition] of Object.entries(schema.kv)) {
+					this.kv.set(keyName, kvDefinition);
+				}
+			}
+		},
+
+		/**
+		 * Observe any schema changes (tables or KV).
+		 *
+		 * Uses observeDeep to catch all nested changes.
+		 *
+		 * @example
+		 * ```typescript
+		 * schema.observe((snapshot) => {
+		 *   console.log('Schema changed:', snapshot);
+		 * });
+		 * ```
+		 */
+		observe(callback: (schema: WorkspaceSchemaMap) => void): () => void {
+			const handler = () => {
+				callback(this.get());
+			};
+			schemaMap.observeDeep(handler);
+			return () => schemaMap.unobserveDeep(handler);
+		},
+
+		/**
+		 * Table schema operations.
+		 */
+		tables: createTablesSchemaHelper(schemaMap),
+
+		/**
+		 * KV schema operations.
+		 */
+		kv: createKvSchemaHelper(schemaMap),
+
+		/**
+		 * Direct access to the underlying schema Y.Map.
+		 *
+		 * **Escape hatch for advanced use cases.**
+		 */
+		$raw: schemaMap,
+	};
+}
+
+export type Schema = ReturnType<typeof createSchema>;

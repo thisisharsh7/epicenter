@@ -6,6 +6,7 @@ import type {
 	KvValue,
 	TableDefinitionMap,
 } from '../schema/fields/types';
+import { createSchema, type Schema } from '../schema-helper';
 import { createTables, type Tables } from '../tables/create-tables';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -178,20 +179,56 @@ export type ExtensionContext<
 	tables: Tables<TTableDefinitionMap>;
 	/** Key-value store for simple values. */
 	kv: Kv<TKvDefinitionMap>;
-	/** The schema Y.Map for low-level operations. Stable reference. */
+	/**
+	 * Schema helper for managing table and KV schemas.
+	 *
+	 * Provides typed CRUD operations for dynamic schema editing (Notion-like UIs).
+	 *
+	 * @example
+	 * ```typescript
+	 * // Add a column to a table
+	 * schema.tables.table('posts')?.fields.set('dueDate', date());
+	 *
+	 * // Update table metadata
+	 * schema.tables.table('posts')?.metadata.set({ name: 'Blog Posts' });
+	 *
+	 * // Add a KV setting
+	 * schema.kv.set('theme', { name: 'Theme', field: select({ options: ['light', 'dark'] }) });
+	 * ```
+	 */
+	schema: Schema;
+	/**
+	 * The schema Y.Map for low-level operations. Stable reference.
+	 * @deprecated Use `schema.$raw` instead.
+	 */
 	schemaMap: SchemaMap;
-	/** The KV Y.Map for low-level operations. Stable reference. */
+	/**
+	 * The KV Y.Map for low-level operations. Stable reference.
+	 * @deprecated Use `kv.$raw` instead.
+	 */
 	kvMap: KvMap;
-	/** The tables Y.Map for low-level operations. Stable reference. */
+	/**
+	 * The tables Y.Map for low-level operations. Stable reference.
+	 * @deprecated Use `tables.$raw` instead.
+	 */
 	tablesMap: TablesMap;
-	/** Read the current schema from the Y.Doc as a plain object (snapshot). */
+	/**
+	 * Read the current schema from the Y.Doc as a plain object (snapshot).
+	 * @deprecated Use `schema.get()` instead.
+	 */
 	getSchema(): WorkspaceSchemaMap;
-	/** Merge table/KV schema into the Y.Doc. */
+	/**
+	 * Merge table/KV schema into the Y.Doc.
+	 * @deprecated Use `schema.merge()` instead.
+	 */
 	mergeSchema<
 		TMergeTables extends TableDefinitionMap,
 		TMergeKv extends KvDefinitionMap,
 	>(schema: { tables: TMergeTables; kv: TMergeKv }): void;
-	/** Observe schema changes. */
+	/**
+	 * Observe schema changes.
+	 * @deprecated Use `schema.observe()` instead.
+	 */
 	observeSchema(callback: (schema: WorkspaceSchemaMap) => void): () => void;
 	/** This extension's key from `.withExtensions({ key: ... })`. */
 	extensionId: string;
@@ -292,6 +329,7 @@ export function createWorkspaceDoc<
 	// These just bind to Y.Maps - actual data comes from persistence
 	const tables = createTables(ydoc, tableDefinitions);
 	const kv = createKv(ydoc, kvDefinitions);
+	const schema = createSchema(schemaMap);
 
 	const getSchema = (): WorkspaceSchemaMap => {
 		return schemaMap.toJSON() as WorkspaceSchemaMap;
@@ -385,6 +423,8 @@ export function createWorkspaceDoc<
 			epoch,
 			tables,
 			kv,
+			schema,
+			// Deprecated - kept for backward compatibility
 			schemaMap,
 			kvMap,
 			tablesMap,
@@ -442,7 +482,9 @@ export function createWorkspaceDoc<
 		epoch,
 		tables,
 		kv,
+		schema,
 		extensions,
+		// Deprecated - kept for backward compatibility
 		schemaMap,
 		kvMap,
 		tablesMap,
@@ -495,22 +537,42 @@ export type WorkspaceDoc<
 	tables: Tables<TTableDefinitionMap>;
 	/** Key-value store for simple values. */
 	kv: Kv<TKvDefinitionMap>;
+	/** Schema helper for managing table and KV schemas. */
+	schema: Schema;
 	/** Extension exports keyed by extension ID. */
 	extensions: TExtensions;
-	/** The schema Y.Map for low-level operations. Stable reference. */
+	/**
+	 * The schema Y.Map for low-level operations. Stable reference.
+	 * @deprecated Use `schema.$raw` instead.
+	 */
 	schemaMap: SchemaMap;
-	/** The KV Y.Map for low-level operations. Stable reference. */
+	/**
+	 * The KV Y.Map for low-level operations. Stable reference.
+	 * @deprecated Use `kv.$raw` instead.
+	 */
 	kvMap: KvMap;
-	/** The tables Y.Map for low-level operations. Stable reference. */
+	/**
+	 * The tables Y.Map for low-level operations. Stable reference.
+	 * @deprecated Use `tables.$raw` instead.
+	 */
 	tablesMap: TablesMap;
-	/** Read the current schema from the Y.Doc as a plain object (snapshot). */
+	/**
+	 * Read the current schema from the Y.Doc as a plain object (snapshot).
+	 * @deprecated Use `schema.get()` instead.
+	 */
 	getSchema(): WorkspaceSchemaMap;
-	/** Merge table/KV schema into the Y.Doc. */
+	/**
+	 * Merge table/KV schema into the Y.Doc.
+	 * @deprecated Use `schema.merge()` instead.
+	 */
 	mergeSchema<
 		TMergeTables extends TableDefinitionMap,
 		TMergeKv extends KvDefinitionMap,
 	>(schema: { tables: TMergeTables; kv: TMergeKv }): void;
-	/** Observe schema changes. */
+	/**
+	 * Observe schema changes.
+	 * @deprecated Use `schema.observe()` instead.
+	 */
 	observeSchema(callback: (schema: WorkspaceSchemaMap) => void): () => void;
 	/** Promise that resolves when all extensions have synced. */
 	whenSynced: Promise<void>;

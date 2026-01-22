@@ -1,0 +1,16 @@
+export {
+	createSchema,
+	type FieldsMap,
+	type KvSchemaHelper,
+	type KvSchemaInput,
+	type KvSchemaMap,
+	type Schema,
+	type SchemaChange,
+	type StoredKvSchema,
+	type StoredTableSchema,
+	type TableMetadata,
+	type TableSchemaHelper,
+	type TableSchemaInput,
+	type TablesSchemaHelper,
+	type TablesSchemaMap,
+} from './schema-helper';
