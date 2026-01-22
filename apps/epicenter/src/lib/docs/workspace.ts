@@ -7,25 +7,35 @@ import type * as Y from 'yjs';
 import { workspacePersistence } from './workspace-persistence';
 
 /**
- * Create a workspace client with persistence (static schema mode).
+ * Create a workspace client with persistence.
  *
- * **Use this for creating NEW workspaces** where you have a known schema
- * to seed into the Y.Doc. The schema is merged into Y.Map('schema')
- * after persistence loads. Workspace identity (name, icon) should be
- * set separately via Head Doc's setMeta().
+ * Supports two modes:
  *
- * **For loading EXISTING workspaces**, use the fluent API instead:
+ * ## Dynamic Schema Mode (Loading Existing Workspaces)
+ *
+ * When called without a schema, the client loads the schema from the Y.Doc.
+ * Use this for loading existing workspaces where the schema is already persisted.
+ *
  * ```typescript
- * const client = registry.head(workspaceId).client();
+ * const head = createHead(workspaceId);
+ * await head.whenSynced;
+ * const client = createWorkspaceClient(head);
  * await client.whenSynced;
  * ```
  *
- * ## Static vs Dynamic Schema Mode
+ * ## Static Schema Mode (Creating New Workspaces)
  *
- * | Mode | Function | Use Case |
- * |------|----------|----------|
- * | Static | `createWorkspaceClient(head, schema)` | Creating new workspaces |
- * | Dynamic | `registry.head(id).client()` | Loading existing workspaces |
+ * When called with a schema, the schema is merged into Y.Map('schema').
+ * Use this for creating new workspaces with a known schema.
+ *
+ * ```typescript
+ * const schema: WorkspaceSchema = { tables: {}, kv: {} };
+ * const head = createHead(workspaceId);
+ * await head.whenSynced;
+ * head.setMeta({ name: 'My Workspace', icon: null, description: '' });
+ * const client = createWorkspaceClient(head, schema);
+ * await client.whenSynced;
+ * ```
  *
  * ## Storage Layout
  *
@@ -40,37 +50,23 @@ import { workspacePersistence } from './workspace-persistence';
  * Y.Map('meta'), not in the Workspace Doc.
  *
  * @param head - The HeadDoc containing workspace identity and current epoch
- * @param schema - The workspace schema (tables, kv) to seed
+ * @param schema - Optional workspace schema (tables, kv) to seed. If omitted, schema loads from Y.Doc.
  * @returns A workspace client with persistence pre-configured
- *
- * @example Creating a new workspace
- * ```typescript
- * const schema: WorkspaceSchema = {
- *   tables: {},
- *   kv: {},
- * };
- *
- * registry.addWorkspace(workspaceId);
- * // Set identity in Head Doc
- * const head = registry.head(workspaceId);
- * await head.whenSynced;
- * head.setMeta({ name: 'My Workspace', icon: null, description: '' });
- * // Create client with schema (head provides workspaceId and epoch)
- * const client = createWorkspaceClient(head, schema);
- * await client.whenSynced;
- * ```
  */
-export function createWorkspaceClient(head: HeadDoc, schema: WorkspaceSchema) {
+export function createWorkspaceClient(head: HeadDoc, schema?: WorkspaceSchema) {
 	const workspaceId = head.workspaceId;
 	const epoch = head.getEpoch();
 
-	return createClient(head)
-		.withSchema(schema)
-		.withExtensions({
-			persistence: (ctx: { ydoc: Y.Doc }) =>
-				workspacePersistence(ctx.ydoc, {
-					workspaceId,
-					epoch,
-				}),
-		});
+	const builder = createClient(head);
+
+	// If schema provided, use static schema mode; otherwise dynamic schema mode
+	const configuredBuilder = schema ? builder.withSchema(schema) : builder;
+
+	return configuredBuilder.withExtensions({
+		persistence: (ctx) =>
+			workspacePersistence(ctx.ydoc, {
+				workspaceId,
+				epoch,
+			}),
+	});
 }

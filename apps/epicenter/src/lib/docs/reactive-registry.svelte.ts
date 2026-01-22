@@ -1,10 +1,10 @@
 import { createSubscriber } from 'svelte/reactivity';
-import type { RegistryDoc } from './core/registry-doc';
+import type { Registry } from './registry';
 
 /**
- * Wrap a RegistryDoc with Svelte 5 reactivity.
+ * Wrap a Registry with Svelte 5 reactivity.
  *
- * All methods and properties pass through to the underlying RegistryDoc.
+ * All methods and properties pass through to the underlying Registry.
  * The only addition: `workspaceIds` and `count` become reactive getters that
  * automatically update when the underlying Y.Doc changes.
  *
@@ -14,27 +14,21 @@ import type { RegistryDoc } from './core/registry-doc';
  *
  * @example
  * ```typescript
- * import { createRegistryDoc } from '$lib/docs/core/registry-doc';
- * import { reactiveRegistryDoc } from '$lib/docs/reactive-registry.svelte';
+ * import { registry } from '$lib/docs/registry';
+ * import { reactiveRegistry } from '$lib/docs/reactive-registry.svelte';
  *
- * const registry = reactiveRegistryDoc(
- *   createRegistryDoc({
- *     providers: { persistence: ({ ydoc }) => tauriPersistence(ydoc, ['registry']) },
- *   })
- * );
+ * const reactive = reactiveRegistry(registry);
  *
  * // In Svelte component - automatically reactive
  * $effect(() => {
- *   console.log('Workspaces:', registry.workspaceIds);
+ *   console.log('Workspaces:', reactive.workspaceIds);
  * });
  *
  * // Mutations work as expected
- * registry.addWorkspace('new-workspace');  // Triggers the $effect above
+ * reactive.addWorkspace('new-workspace');  // Triggers the $effect above
  * ```
  */
-export function reactiveRegistryDoc<T extends RegistryDoc<any>>(
-	registryDoc: T,
-) {
+export function reactiveRegistry(registryDoc: Registry) {
 	// Shadow state for reactive values
 	let workspaceIds = $state(registryDoc.getWorkspaceIds());
 	let count = $state(registryDoc.count());
@@ -66,7 +60,5 @@ export function reactiveRegistryDoc<T extends RegistryDoc<any>>(
 	};
 }
 
-/** Reactive RegistryDoc wrapper type - inferred from factory function. */
-export type ReactiveRegistryDoc<T extends RegistryDoc<any>> = ReturnType<
-	typeof reactiveRegistryDoc<T>
->;
+/** Reactive Registry wrapper type - inferred from factory function. */
+export type ReactiveRegistry = ReturnType<typeof reactiveRegistry>;

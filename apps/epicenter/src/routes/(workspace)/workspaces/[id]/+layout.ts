@@ -1,14 +1,16 @@
 import { error } from '@sveltejs/kit';
+import { createHead } from '$lib/docs/head';
 import { registry } from '$lib/docs/registry';
+import { createWorkspaceClient } from '$lib/docs/workspace';
 import type { LayoutLoad } from './$types';
 
 /**
- * Load a workspace lazily by ID using the fluent API.
+ * Load a workspace lazily by ID.
  *
  * Flow:
  * 1. Verify workspace exists in registry
- * 2. Create client via fluent chain: registry.head(id).client()
- * 3. Client loads schema from Y.Doc (dynamic schema mode)
+ * 2. Create head doc via createHead(workspaceId)
+ * 3. Create client via createWorkspaceClient(head)
  *
  * This eliminates the need to read schema.json from disk.
  * The schema lives in Y.Map('schema') inside the Y.Doc itself.
@@ -25,15 +27,15 @@ export const load: LayoutLoad = async ({ params }) => {
 		error(404, { message: `Workspace "${workspaceId}" not found` });
 	}
 
-	// Step 2: Get head doc via fluent API (validates workspace exists)
-	const head = registry.head(workspaceId);
+	// Step 2: Get head doc (validates workspace exists)
+	const head = createHead(workspaceId);
 	await head.whenSynced;
 	const epoch = head.getEpoch();
 	console.log(`[Layout] Workspace epoch: ${epoch}`);
 
-	// Step 3: Create client via fluent API (dynamic schema mode)
+	// Step 3: Create client (dynamic schema mode)
 	// Schema comes from Y.Doc, not from schema.json file
-	const client = head.client();
+	const client = createWorkspaceClient(head);
 	await client.whenSynced;
 
 	// Get workspace name from Head Doc's meta (not from client)

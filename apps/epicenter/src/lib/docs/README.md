@@ -139,11 +139,11 @@ Y.Map('tables')
 
 ## Document Types
 
-| Doc Type      | Purpose                             | Storage Path                                              | Helper                                 |
-| ------------- | ----------------------------------- | --------------------------------------------------------- | -------------------------------------- |
-| **Registry**  | Tracks which workspace GUIDs exist  | `{appLocalDataDir}/registry.yjs`                          | `registry` (module singleton)          |
-| **Head Doc**  | Workspace identity + current epoch  | `{appLocalDataDir}/workspaces/{id}/head.yjs`              | `createHead(workspaceId)`              |
-| **Workspace** | Schema + Data for a workspace epoch | `{appLocalDataDir}/workspaces/{id}/{epoch}/workspace.yjs` | `createWorkspaceClient(schema, head)` |
+| Doc Type      | Purpose                             | Storage Path                                              | Helper                                            |
+| ------------- | ----------------------------------- | --------------------------------------------------------- | ------------------------------------------------- |
+| **Registry**  | Tracks which workspace GUIDs exist  | `{appLocalDataDir}/registry.yjs`                          | `registry` (module singleton)                     |
+| **Head Doc**  | Workspace identity + current epoch  | `{appLocalDataDir}/workspaces/{id}/head.yjs`              | `createHead(workspaceId)`                         |
+| **Workspace** | Schema + Data for a workspace epoch | `{appLocalDataDir}/workspaces/{id}/{epoch}/workspace.yjs` | `createWorkspaceClient(head)` or `(head, schema)` |
 
 ## Helper Functions
 
@@ -183,9 +183,17 @@ head.setMeta({ name: 'My Workspace', icon: null, description: '' });
 ### Workspace Doc (Factory Function)
 
 ```typescript
+import { createHead } from '$lib/docs/head';
 import { createWorkspaceClient } from '$lib/docs/workspace';
 
-const client = createWorkspaceClient(schema, head);
+// Dynamic schema mode (loading existing workspace)
+const head = createHead(workspaceId);
+await head.whenSynced;
+const client = createWorkspaceClient(head);
+await client.whenSynced;
+
+// Static schema mode (creating new workspace)
+const client = createWorkspaceClient(head, schema);
 await client.whenSynced;
 
 // Use the client
@@ -197,24 +205,32 @@ client.tables.myTable.upsert({ ... });
 Loading an existing workspace:
 
 ```typescript
+import { createHead } from '$lib/docs/head';
+import { registry } from '$lib/docs/registry';
+import { createWorkspaceClient } from '$lib/docs/workspace';
+
 // 1. Check registry for workspace existence
 await registry.whenSynced;
 if (!registry.hasWorkspace(workspaceId)) {
 	throw new Error('Workspace not found');
 }
 
-// 2. Get epoch from head doc
+// 2. Get head doc (contains epoch + identity)
 const head = createHead(workspaceId);
 await head.whenSynced;
 
-// 3. Create workspace client with schema + epoch
-const client = createWorkspaceClient(schema, head);
+// 3. Create workspace client (dynamic schema mode - loads schema from Y.Doc)
+const client = createWorkspaceClient(head);
 await client.whenSynced;
 ```
 
 Creating a new workspace:
 
 ```typescript
+import { createHead } from '$lib/docs/head';
+import { registry } from '$lib/docs/registry';
+import { createWorkspaceClient } from '$lib/docs/workspace';
+
 // 1. Add to registry
 registry.addWorkspace(guid);
 
@@ -223,8 +239,8 @@ const head = createHead(guid);
 await head.whenSynced;
 head.setMeta({ name: 'My Workspace', icon: null, description: '' });
 
-// 3. Create workspace client (head provides epoch)
-const client = createWorkspaceClient(schema, head);
+// 3. Create workspace client (static schema mode - seeds schema into Y.Doc)
+const client = createWorkspaceClient(head, schema);
 await client.whenSynced;
 ```
 
@@ -319,9 +335,7 @@ async function cleanupOldEpochs(keepLast: number = 3) {
 ```
 $lib/docs/
 ├── README.md                       # This file
-├── core/                           # Low-level Y.Doc wrappers (app-specific)
-│   └── registry-doc.ts             # createRegistryDoc (Y.Doc wrapper for workspace list)
-├── registry.ts                     # Module singleton with fluent API + Tauri persistence
+├── registry.ts                     # Module singleton + Tauri persistence
 ├── reactive-registry.svelte.ts     # Svelte 5 reactive wrapper for registry
 ├── head.ts                         # Factory for head docs (epoch tracking)
 ├── reactive-head.svelte.ts         # Svelte 5 reactive wrapper for head
@@ -333,8 +347,8 @@ $lib/docs/
 ```
 
 **Note**: `createHeadDoc` is imported from `@epicenter/hq` (shared infrastructure for epoch tracking).
-`createRegistryDoc` is local to this app since the registry concept is specific to Epicenter's
-multi-workspace browser UI. Other apps (like Whispering) know their workspace ID upfront.
+The registry is app-specific since Epicenter's multi-workspace browser UI needs to track which
+workspaces exist. Other apps (like Whispering) know their workspace ID upfront.
 
 ## Persistence Strategy
 

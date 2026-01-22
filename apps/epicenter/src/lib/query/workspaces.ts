@@ -3,6 +3,7 @@ import { appLocalDataDir, join } from '@tauri-apps/api/path';
 import { revealItemInDir } from '@tauri-apps/plugin-opener';
 import { createTaggedError } from 'wellcrafted/error';
 import { Ok } from 'wellcrafted/result';
+import { createHead } from '$lib/docs/head';
 import { registry } from '$lib/docs/registry';
 import { createWorkspaceClient } from '$lib/docs/workspace';
 import type { WorkspaceTemplate } from '$lib/templates';
@@ -47,12 +48,12 @@ export const workspaces = {
 				guids.map(async (id) => {
 					try {
 						// Get identity from Head Doc
-						const head = registry.head(id);
+						const head = createHead(id);
 						await head.whenSynced;
 						const meta = head.getMeta();
 
 						// Get schema from Workspace Doc
-						const client = head.client();
+						const client = createWorkspaceClient(head);
 						await client.whenSynced;
 						const schema = client.getSchema();
 						await client.destroy();
@@ -97,12 +98,12 @@ export const workspaces = {
 				}
 
 				// Get identity from Head Doc
-				const head = registry.head(workspaceId);
+				const head = createHead(workspaceId);
 				await head.whenSynced;
 				const meta = head.getMeta();
 
 				// Get schema from Workspace Doc
-				const client = head.client();
+				const client = createWorkspaceClient(head);
 				await client.whenSynced;
 				const schema = client.getSchema();
 				await client.destroy();
@@ -148,7 +149,7 @@ export const workspaces = {
 			registry.addWorkspace(input.id);
 
 			// Initialize head doc and set workspace identity in meta map
-			const head = registry.head(input.id);
+			const head = createHead(input.id);
 			await head.whenSynced;
 			head.setMeta({ name: input.name, icon: null, description: '' });
 
@@ -194,12 +195,12 @@ export const workspaces = {
 
 			// Use Head Doc to update the workspace name
 			// Workspace identity (name, icon, description) lives in the Head Doc's meta map
-			const head = registry.head(input.workspaceId);
+			const head = createHead(input.workspaceId);
 			await head.whenSynced;
 			head.setMeta({ name: input.name });
 
 			// Get the workspace schema (tables, kv) from workspace client
-			const client = head.client();
+			const client = createWorkspaceClient(head);
 			await client.whenSynced;
 			const schema = client.getSchema();
 			await client.destroy();

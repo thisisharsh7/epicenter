@@ -1,18 +1,179 @@
-import { createRegistryDoc } from './core/registry-doc';
-import { createHead } from './head';
+import type {
+	InferProviderExports,
+	Lifecycle,
+	ProviderFactoryMap,
+} from '@epicenter/hq';
+import * as Y from 'yjs';
 import { registryPersistence } from './registry-persistence';
 
-/**
- * Create the base registry doc with persistence.
- */
-const baseRegistry = createRegistryDoc({
-	providers: {
-		persistence: ({ ydoc }) => registryPersistence(ydoc),
-	},
-});
+// ─────────────────────────────────────────────────────────────────────────────
+// Registry Doc
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Registry doc with persistence and fluent API (singleton).
+ * The registry ID used as the Y.Doc GUID.
+ *
+ * This is a constant because there's only one registry per app instance.
+ * The registry tracks which workspaces exist for this user.
+ */
+const REGISTRY_ID = 'registry';
+
+/**
+ * Create a Registry Y.Doc wrapper for managing a user's workspace list.
+ *
+ * Each user has one Registry Y.Doc that syncs only across their own devices.
+ * It stores a set of workspace IDs (not the workspace data itself).
+ *
+ * Structure:
+ * ```
+ * Y.Map('workspaces')
+ *   └── {workspaceId}: true
+ * ```
+ *
+ * @example
+ * ```typescript
+ * const registry = createRegistry({
+ *   providers: {
+ *     persistence: ({ ydoc }) => registryPersistence(ydoc),
+ *   },
+ * });
+ *
+ * // Await sync before reading (persistence loads from disk)
+ * await registry.whenSynced;
+ *
+ * // Add workspace to registry
+ * registry.addWorkspace('abc123xyz789012');
+ *
+ * // Get all workspace IDs
+ * const workspaceIds = registry.getWorkspaceIds();
+ *
+ * // Check if workspace exists
+ * const exists = registry.hasWorkspace('abc123xyz789012');
+ *
+ * // Remove workspace from registry
+ * registry.removeWorkspace('abc123xyz789012');
+ *
+ * // Observe changes
+ * const unsubscribe = registry.observe((event) => {
+ *   console.log('Added:', event.added);
+ *   console.log('Removed:', event.removed);
+ * });
+ * ```
+ */
+function createRegistry<T extends ProviderFactoryMap>(config: {
+	providers: T;
+}) {
+	const ydoc = new Y.Doc({ guid: REGISTRY_ID });
+	const workspacesMap = ydoc.getMap<true>('workspaces');
+
+	// Initialize providers synchronously — async work is in their whenSynced
+	const providers = {} as InferProviderExports<T>;
+	for (const [id, factory] of Object.entries(config.providers)) {
+		(providers as Record<string, unknown>)[id] = factory({ ydoc });
+	}
+
+	// Aggregate all provider whenSynced promises
+	const whenSynced = Promise.all(
+		Object.values(providers).map((p) => (p as Lifecycle).whenSynced),
+	).then(() => {});
+
+	return {
+		/** The underlying Y.Doc instance. */
+		ydoc,
+
+		/** The registry ID (Y.Doc guid). */
+		registryId: REGISTRY_ID,
+
+		/** Provider exports. */
+		providers,
+
+		/** Resolves when all providers are synced. */
+		whenSynced,
+
+		/**
+		 * Add a workspace to the registry.
+		 *
+		 * This marks that the user has access to this workspace.
+		 * The workspace data itself lives in separate Head and Workspace Y.Docs.
+		 */
+		addWorkspace(workspaceId: string) {
+			workspacesMap.set(workspaceId, true);
+		},
+
+		/**
+		 * Remove a workspace from the registry.
+		 *
+		 * This removes the user's local reference to the workspace.
+		 * It does NOT delete the workspace data (that requires auth server action).
+		 */
+		removeWorkspace(workspaceId: string) {
+			workspacesMap.delete(workspaceId);
+		},
+
+		/** Check if a workspace is in the registry. */
+		hasWorkspace(workspaceId: string) {
+			return workspacesMap.has(workspaceId);
+		},
+
+		/** Get all workspace IDs in the registry. */
+		getWorkspaceIds() {
+			return Array.from(workspacesMap.keys());
+		},
+
+		/** Get the count of workspaces in the registry. */
+		count() {
+			return workspacesMap.size;
+		},
+
+		/**
+		 * Observe changes to the workspace registry.
+		 *
+		 * Fires when workspaces are added or removed.
+		 *
+		 * @returns Unsubscribe function
+		 */
+		observe(callback: (event: { added: string[]; removed: string[] }) => void) {
+			const handler = (
+				event: Y.YMapEvent<true>,
+				_transaction: Y.Transaction,
+			) => {
+				const added: string[] = [];
+				const removed: string[] = [];
+
+				event.changes.keys.forEach((change, key) => {
+					if (change.action === 'add') {
+						added.push(key);
+					} else if (change.action === 'delete') {
+						removed.push(key);
+					}
+				});
+
+				if (added.length > 0 || removed.length > 0) {
+					callback({ added, removed });
+				}
+			};
+
+			workspacesMap.observe(handler);
+			return () => workspacesMap.unobserve(handler);
+		},
+
+		/**
+		 * Destroy providers and the underlying Y.Doc.
+		 *
+		 * Cleans up all provider resources before destroying the Y.Doc.
+		 * Uses `allSettled` so one provider's destroy failure doesn't block others.
+		 */
+		async destroy() {
+			await Promise.allSettled(
+				Object.values(providers).map((p) => (p as Lifecycle).destroy()),
+			);
+			ydoc.destroy();
+		},
+	};
+}
+
+/**
+ * Registry singleton with Tauri persistence.
  *
  * The registry tracks which workspace GUIDs exist for this user,
  * persisted to `{appLocalDataDir}/registry.yjs` with a JSON mirror
@@ -23,16 +184,6 @@ const baseRegistry = createRegistryDoc({
  * - Async work tracked via `.whenSynced`
  * - UI awaits in root +layout.svelte render gate
  *
- * ## Fluent API
- *
- * The registry provides a fluent chain that mirrors the Y.Doc hierarchy:
- *
- * ```typescript
- * // Fluent chain: Registry → Head → Client
- * const client = registry.head(workspaceId).client();
- * await client.whenSynced;
- * ```
- *
  * @example
  * ```typescript
  * import { registry } from '$lib/docs/registry';
@@ -40,11 +191,6 @@ const baseRegistry = createRegistryDoc({
  * // Sync access works immediately
  * registry.addWorkspace('abc123');
  * registry.getWorkspaceIds();
- *
- * // Fluent API for loading workspaces
- * const head = registry.head('abc123');
- * await head.whenSynced;
- * const epoch = head.getEpoch();
  *
  * // Await in UI render gate
  * {#await registry.whenSynced}
@@ -54,41 +200,10 @@ const baseRegistry = createRegistryDoc({
  * {/await}
  * ```
  */
-export const registry = {
-	// Spread all base registry properties and methods
-	...baseRegistry,
-
-	/**
-	 * Get a HeadDoc for the given workspace (fluent API).
-	 *
-	 * This is the bridge from Registry (Y.Doc #1) to Head Doc (Y.Doc #2).
-	 * The Head Doc tracks the current epoch for a workspace.
-	 *
-	 * @param workspaceId - The workspace ID to get the head for
-	 * @returns A HeadDoc with persistence attached
-	 * @throws Error if workspace doesn't exist in registry
-	 *
-	 * @example
-	 * ```typescript
-	 * // Fluent chain
-	 * const head = registry.head('my-workspace');
-	 * await head.whenSynced;
-	 * const epoch = head.getEpoch();
-	 *
-	 * // Continue to client
-	 * const client = head.client();
-	 * await client.whenSynced;
-	 * ```
-	 */
-	head(workspaceId: string) {
-		// Validate workspace exists in registry
-		if (!baseRegistry.hasWorkspace(workspaceId)) {
-			throw new Error(
-				`Workspace "${workspaceId}" not found in registry. ` +
-					`Available workspaces: ${baseRegistry.getWorkspaceIds().join(', ') || '(none)'}`,
-			);
-		}
-
-		return createHead(workspaceId);
+export const registry = createRegistry({
+	providers: {
+		persistence: ({ ydoc }) => registryPersistence(ydoc),
 	},
-};
+});
+
+export type Registry = typeof registry;

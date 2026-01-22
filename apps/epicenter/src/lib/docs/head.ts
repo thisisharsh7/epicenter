@@ -1,7 +1,5 @@
-import { createClient, createHeadDoc } from '@epicenter/hq';
-import type * as Y from 'yjs';
+import { createHeadDoc } from '@epicenter/hq';
 import { headPersistence } from './head-persistence';
-import { workspacePersistence } from './workspace-persistence';
 
 /**
  * Create a head doc with persistence for a workspace.
@@ -15,84 +13,30 @@ import { workspacePersistence } from './workspace-persistence';
  * - Async work tracked via `.whenSynced`
  * - UI awaits in workspace +layout.svelte render gate
  *
- * ## Fluent API
- *
- * The head doc provides a fluent chain to create workspace clients:
- *
+ * @example
  * ```typescript
- * // Dynamic schema mode (Epicenter app)
- * const client = registry.head(workspaceId).client();
+ * import { createHead } from '$lib/docs/head';
+ * import { createWorkspaceClient } from '$lib/docs/workspace';
+ *
+ * // In route +layout.ts
+ * const head = createHead('abc123xyz789012');
+ * await head.whenSynced;
+ *
+ * // Create workspace client (dynamic schema mode)
+ * const client = createWorkspaceClient(head);
  * await client.whenSynced;
  *
  * // Time travel (view historical epoch)
- * const head = registry.head(workspaceId);
  * head.setOwnEpoch(2);
- * const client = head.client();
- * await client.whenSynced;
- * ```
- *
- * @example
- * ```typescript
- * // In route +layout.ts
- * const head = createHead('abc123xyz789012');
- * return { head };
- *
- * // In route +layout.svelte
- * {#await data.head.whenSynced}
- *   <Loading />
- * {:then}
- *   {@render children()}
- * {/await}
+ * const oldClient = createWorkspaceClient(head);
+ * await oldClient.whenSynced;
  * ```
  */
 export function createHead(workspaceId: string) {
-	const baseHead = createHeadDoc({
+	return createHeadDoc({
 		workspaceId,
 		providers: {
 			persistence: ({ ydoc }) => headPersistence(ydoc),
 		},
 	});
-
-	return {
-		// Spread all base head properties and methods
-		...baseHead,
-
-		/**
-		 * Create a WorkspaceClient for this workspace (fluent API).
-		 *
-		 * This is the bridge from Head Doc (Y.Doc #2) to Workspace Client (Y.Doc #3).
-		 * The client's Y.Doc GUID is `{workspaceId}:{epoch}`.
-		 *
-		 * Uses dynamic schema mode: the schema comes from the Y.Doc, not from code.
-		 * For static schema apps (like Whispering), use `createClient()` directly.
-		 *
-		 * The epoch is read from the head doc via `getEpoch()`. To time travel,
-		 * call `setOwnEpoch(n)` before calling `client()`.
-		 *
-		 * @returns A WorkspaceClient with persistence pre-configured
-		 *
-		 * @example
-		 * ```typescript
-		 * // Fluent chain from registry
-		 * const client = registry.head('my-workspace').client();
-		 * await client.whenSynced;
-		 *
-		 * // Time travel to old epoch
-		 * const head = registry.head('my-workspace');
-		 * head.setOwnEpoch(2);
-		 * const oldClient = head.client();
-		 * await oldClient.whenSynced;
-		 * ```
-		 */
-		client() {
-			const epoch = baseHead.getEpoch();
-			return createClient(baseHead).withExtensions({
-				persistence: (ctx: { ydoc: Y.Doc }) =>
-					workspacePersistence(ctx.ydoc, {
-						workspaceId,
-						epoch,
-					}),
-			});
-		},
-	};
 }
