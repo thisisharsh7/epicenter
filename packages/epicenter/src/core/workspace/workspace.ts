@@ -472,16 +472,15 @@ export function createClient(
 		epoch: head.getEpoch(),
 		tables: {} as TableDefinitionMap,
 		kv: {} as KvDefinitionMap,
-		schemaToMerge: undefined,
 	});
 }
 
 /**
  * Internal: Create a ClientBuilder from builder config.
  *
- * The `schemaToMerge` parameter captures the schema for static schema mode.
- * When `withExtensions` is called, it passes a closure that merges the schema
- * after all extensions sync.
+ * The builder accumulates `tables` and `kv` definitions through `.withSchema()`.
+ * When `.withExtensions()` is called, these are passed to `createWorkspaceDoc()`
+ * which handles both creating typed helpers AND merging schema after sync.
  */
 function createClientBuilder<
 	TTableDefinitionMap extends TableDefinitionMap,
@@ -491,10 +490,6 @@ function createClientBuilder<
 	epoch: number;
 	tables: TTableDefinitionMap;
 	kv: TKvDefinitionMap;
-	/** Schema to merge after persistence loads (static schema mode) */
-	schemaToMerge:
-		| WorkspaceSchema<TTableDefinitionMap, TKvDefinitionMap>
-		| undefined;
 }): ClientBuilder<TTableDefinitionMap, TKvDefinitionMap> {
 	return {
 		withSchema<
@@ -508,7 +503,6 @@ function createClientBuilder<
 				epoch: config.epoch,
 				tables: schema.tables,
 				kv: schema.kv,
-				schemaToMerge: schema,
 			});
 		},
 
@@ -524,31 +518,16 @@ function createClientBuilder<
 			TKvDefinitionMap,
 			InferExtensionExports<TExtensionFactories>
 		> {
-			// Capture schema for use in onSync closure
-			const schemaToMerge = config.schemaToMerge;
-
-			// Create the workspace doc with all configuration
-			// Use a variable to break the circular reference
-			let workspaceDocRef: WorkspaceDoc<
-				TTableDefinitionMap,
-				TKvDefinitionMap,
-				InferExtensionExports<TExtensionFactories>
-			>;
-
-			workspaceDocRef = createWorkspaceDoc({
+			// createWorkspaceDoc handles both:
+			// 1. Creating typed table/kv helpers from definitions
+			// 2. Merging schema into Y.Doc after extensions sync
+			return createWorkspaceDoc({
 				workspaceId: config.id,
 				epoch: config.epoch,
-				tableDefinitions: config.tables,
-				kvDefinitions: config.kv,
+				tables: config.tables,
+				kv: config.kv,
 				extensionFactories: extensions,
-				// Static schema: merge after persistence loads
-				// Dynamic schema: no-op
-				onSync: schemaToMerge
-					? () => workspaceDocRef.mergeSchema(schemaToMerge)
-					: undefined,
 			});
-
-			return workspaceDocRef;
 		},
 	};
 }

@@ -219,20 +219,29 @@ export type ExtensionContext<
  * Y.Map('tables')  - Row data by table name (changes frequently)
  * ```
  *
+ * ## Schema Merging
+ *
+ * After all extensions sync (e.g., persistence loads from disk), the provided
+ * `tables` and `kv` definitions are automatically merged into the Y.Doc's schema map.
+ * This ensures code-defined schema is the "last writer" over persisted state.
+ *
+ * For dynamic schema mode (no code-defined schema), pass empty objects `{}` for
+ * both `tables` and `kv`.
+ *
  * @example
  * ```typescript
  * const workspace = createWorkspaceDoc({
  *   workspaceId: 'blog',
  *   epoch: 0,
- *   tableDefinitions: { posts: table({ name: 'Posts', fields: { id: id(), title: text() } }) },
- *   kvDefinitions: {},
+ *   tables: { posts: table({ name: 'Posts', fields: { id: id(), title: text() } }) },
+ *   kv: {},
  *   extensionFactories: {
  *     persistence: ({ ydoc }) => persistence({ ydoc }, { filePath: './data.yjs' }),
  *     sqlite: ({ workspaceId, tables }) => sqlite({ workspaceId, tables }, { dbPath: './data.db' }),
  *   },
  * });
  *
- * // Wait for extensions to sync
+ * // Wait for extensions to sync (schema is merged automatically)
  * await workspace.whenSynced;
  *
  * // Use typed table helpers
@@ -255,18 +264,15 @@ export function createWorkspaceDoc<
 >({
 	workspaceId,
 	epoch,
-	tableDefinitions,
-	kvDefinitions,
+	tables: tableDefinitions,
+	kv: kvDefinitions,
 	extensionFactories,
-	onSync,
 }: {
 	workspaceId: string;
 	epoch: number;
-	tableDefinitions: TTableDefinitionMap;
-	kvDefinitions: TKvDefinitionMap;
+	tables: TTableDefinitionMap;
+	kv: TKvDefinitionMap;
 	extensionFactories: TExtensionFactories;
-	/** Called after all extensions sync. Static schema uses this to merge schema. */
-	onSync?: () => void;
 }): WorkspaceDoc<
 	TTableDefinitionMap,
 	TKvDefinitionMap,
@@ -403,17 +409,22 @@ export function createWorkspaceDoc<
 	//
 	// ORDER OF OPERATIONS (critical for correctness):
 	// 1. Wait for all extensions' whenSynced (e.g., persistence finishes loading disk state)
-	// 2. THEN run onSync callback (static schema merges schema here)
+	// 2. THEN merge schema (code-defined schema is "last writer")
 	// 3. Resolve whenSynced
 	//
 	// See: specs/20260119T231252-resilient-client-architecture.md
 	const whenSynced = Promise.all(
 		Object.values(extensions).map((e) => (e as Lifecycle).whenSynced),
 	).then(() => {
-		// After persistence has loaded disk state, run the sync callback
-		// Static schema: merges schema (code is "last writer")
-		// Dynamic schema: no-op (schema comes from Y.Doc)
-		onSync?.();
+		// After persistence has loaded disk state, merge the code-defined schema.
+		// This ensures code is "last writer" over any persisted schema.
+		// For dynamic schema mode (empty tables/kv), this is a no-op.
+		const hasSchema =
+			Object.keys(tableDefinitions).length > 0 ||
+			Object.keys(kvDefinitions).length > 0;
+		if (hasSchema) {
+			mergeSchema({ tables: tableDefinitions, kv: kvDefinitions });
+		}
 	});
 
 	const destroy = async () => {
