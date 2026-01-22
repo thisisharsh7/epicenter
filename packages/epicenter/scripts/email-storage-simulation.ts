@@ -18,6 +18,7 @@ import { join } from 'node:path';
 import { persistence } from '../src/extensions/persistence/desktop';
 import {
 	createClient,
+	createHeadDoc,
 	defineSchema,
 	generateId,
 	id,
@@ -208,7 +209,8 @@ const emailSchema = defineSchema({
 // Create the client
 console.log('Creating client...');
 const totalStart = performance.now();
-await using client = await createClient('emails')
+const head = createHeadDoc({ workspaceId: 'emails', providers: {} });
+await using client = await createClient(head)
 	.withSchema(emailSchema)
 	.withExtensions({
 		persistence: (ctx) =>

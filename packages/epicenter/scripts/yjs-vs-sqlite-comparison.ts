@@ -15,6 +15,7 @@ import { join } from 'node:path';
 import { persistence } from '../src/extensions/persistence/desktop';
 import {
 	createClient,
+	createHeadDoc,
 	defineSchema,
 	generateId,
 	id,
@@ -181,7 +182,8 @@ const emailSchema = defineSchema({
 	kv: {},
 });
 
-await using client = await createClient('emails-compare')
+const head = createHeadDoc({ workspaceId: 'emails-compare', providers: {} });
+await using client = await createClient(head)
 	.withSchema(emailSchema)
 	.withExtensions({
 		persistence: (ctx) =>

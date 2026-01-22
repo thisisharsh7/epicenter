@@ -25,7 +25,9 @@ import { tauriWorkspacePersistence } from './persistence/tauri-workspace-persist
  * await client.whenSynced;
  *
  * // Time travel (view historical epoch)
- * const client = registry.head(workspaceId).client({ epoch: 2 });
+ * const head = registry.head(workspaceId);
+ * head.setOwnEpoch(2);
+ * const client = head.client();
  * await client.whenSynced;
  * ```
  *
@@ -60,13 +62,14 @@ export function createHead(workspaceId: string) {
 		 * Create a WorkspaceClient for this workspace (fluent API).
 		 *
 		 * This is the bridge from Head Doc (Y.Doc #2) to Workspace Client (Y.Doc #3).
-		 * The client's Y.Doc GUID is `{workspaceId}-{epoch}`.
+		 * The client's Y.Doc GUID is `{workspaceId}:{epoch}`.
 		 *
 		 * Uses dynamic schema mode: the schema comes from the Y.Doc, not from code.
 		 * For static schema apps (like Whispering), use `createClient()` directly.
 		 *
-		 * @param options - Optional configuration
-		 * @param options.epoch - Override epoch (default: head.getEpoch())
+		 * The epoch is read from the head doc via `getEpoch()`. To time travel,
+		 * call `setOwnEpoch(n)` before calling `client()`.
+		 *
 		 * @returns A WorkspaceClient with persistence pre-configured
 		 *
 		 * @example
@@ -76,12 +79,15 @@ export function createHead(workspaceId: string) {
 		 * await client.whenSynced;
 		 *
 		 * // Time travel to old epoch
-		 * const oldClient = registry.head('my-workspace').client({ epoch: 2 });
+		 * const head = registry.head('my-workspace');
+		 * head.setOwnEpoch(2);
+		 * const oldClient = head.client();
 		 * await oldClient.whenSynced;
 		 * ```
 		 */
-		client({ epoch = baseHead.getEpoch() }: { epoch?: number } = {}) {
-			return createClient(workspaceId, { epoch }).withExtensions({
+		client() {
+			const epoch = baseHead.getEpoch();
+			return createClient(baseHead).withExtensions({
 				persistence: (ctx: { ydoc: Y.Doc }) =>
 					tauriWorkspacePersistence(ctx.ydoc, {
 						workspaceId,

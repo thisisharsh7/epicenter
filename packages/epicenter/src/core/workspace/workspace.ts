@@ -13,9 +13,9 @@
  * ┌─────────────────────────────────────────────────────────────────────────────┐
  * │  Builder Pattern Initialization                                             │
  * │                                                                             │
- * │   createClient(workspaceId, { epoch? })                                     │
- * │                     │                                                       │
- * │                     ▼                                                       │
+ * │   createClient(head)                                                        │
+ * │         │                                                                   │
+ * │         ▼                                                                   │
  * │         ┌───────────┴───────────┐                                           │
  * │         │                       │                                           │
  * │         ▼                       ▼                                           │
@@ -39,8 +39,11 @@
  * - UI frameworks use `whenSynced` as a render gate
  *
  * ```typescript
+ * // Create head doc first (manages epoch)
+ * const head = createHeadDoc({ workspaceId: 'blog', providers: {} });
+ *
  * // Sync construction - returns immediately
- * const client = createClient('blog', { epoch })
+ * const client = createClient(head)
  *   .withSchema({ tables: {...}, kv: {} })
  *   .withExtensions({ persistence });
  *
@@ -65,6 +68,7 @@
  */
 
 import * as Y from 'yjs';
+import type { HeadDoc } from '../docs/head-doc';
 import {
 	getWorkspaceDocMaps,
 	mergeSchemaIntoYDoc,
@@ -93,7 +97,8 @@ import { createTables, type Tables } from '../tables/create-tables';
  *
  * @example
  * ```typescript
- * const client = createClient('blog', { epoch })
+ * const head = createHeadDoc({ workspaceId: 'blog', providers: {} });
+ * const client = createClient(head)
  *   .withSchema({
  *     tables: { posts: table({ name: 'Posts', fields: { id: id(), title: text() } }) },
  *     kv: {},
@@ -121,7 +126,7 @@ export type WorkspaceSchema<
  * ## Two Paths
  *
  * ```
- *                     createClient(workspaceId, { epoch? })
+ *                          createClient(head)
  *                               │
  *                               ▼
  *               ┌───────────────┴───────────────┐
@@ -144,7 +149,8 @@ export type WorkspaceSchema<
  * For apps like Whispering where schema is defined in code:
  *
  * ```typescript
- * const client = createClient('whispering', { epoch })
+ * const head = createHeadDoc({ workspaceId: 'whispering', providers: {} });
+ * const client = createClient(head)
  *   .withSchema({ tables: {...}, kv: {} })
  *   .withExtensions({
  *     persistence: (ctx) => persistence(ctx, { filePath }),
@@ -156,7 +162,8 @@ export type WorkspaceSchema<
  * For the Epicenter app where schema lives in the Y.Doc:
  *
  * ```typescript
- * const client = createClient('my-workspace')
+ * const head = createHeadDoc({ workspaceId: 'my-workspace', providers: {} });
+ * const client = createClient(head)
  *   .withExtensions({
  *     persistence: (ctx) => persistence(ctx, { filePath }),
  *     //            ^^^ ctx: ExtensionContext<TableDefinitionMap, KvDefinitionMap> (generic)
@@ -168,7 +175,8 @@ export type WorkspaceSchema<
  * Pass an empty object to `.withExtensions()`:
  *
  * ```typescript
- * const client = createClient('blog', { epoch })
+ * const head = createHeadDoc({ workspaceId: 'blog', providers: {} });
+ * const client = createClient(head)
  *   .withSchema({ tables: {...}, kv: {} })
  *   .withExtensions({});
  * ```
@@ -188,7 +196,8 @@ export type ClientBuilder<
 	 *
 	 * @example
 	 * ```typescript
-	 * const client = createClient('blog', { epoch })
+	 * const head = createHeadDoc({ workspaceId: 'blog', providers: {} });
+	 * const client = createClient(head)
 	 *   .withSchema({ tables: {...}, kv: {} })
 	 *   .withExtensions({
 	 *     persistence: (ctx) => persistence(ctx, { filePath }),
@@ -213,7 +222,8 @@ export type ClientBuilder<
 	 * @example
 	 * ```typescript
 	 * // With extensions
-	 * const client = createClient('whispering', { epoch })
+	 * const head = createHeadDoc({ workspaceId: 'whispering', providers: {} });
+	 * const client = createClient(head)
 	 *   .withSchema({ tables: {...}, kv: {} })
 	 *   .withExtensions({
 	 *     persistence: (ctx) => persistence(ctx, { filePath }),
@@ -224,7 +234,8 @@ export type ClientBuilder<
 	 * client.tables.recordings.upsert({ ... });
 	 *
 	 * // Without extensions
-	 * const client = createClient('blog', { epoch })
+	 * const head = createHeadDoc({ workspaceId: 'blog', providers: {} });
+	 * const client = createClient(head)
 	 *   .withSchema({ tables: {...}, kv: {} })
 	 *   .withExtensions({});
 	 * ```
@@ -268,12 +279,12 @@ export type ClientBuilder<
  *   kv: {},
  * });
  *
- * const client = createClient('epicenter.blog', { epoch })
+ * const head = createHeadDoc({ workspaceId: 'epicenter.blog', providers: {} });
+ * const client = createClient(head)
  *   .withSchema(schema)
  *   .withExtensions({ persistence });
  *
- * // Identity comes from Head Doc, not the client
- * const head = createHead('epicenter.blog');
+ * // Identity comes from Head Doc
  * console.log(head.getMeta().name);  // "My Blog"
  * ```
  */
@@ -329,7 +340,7 @@ export type WorkspaceDefinition<
  *
  * // New API
  * const schema = defineSchema({ tables, kv });
- * const client = createClient(id, { epoch }).withSchema(schema).withExtensions({});
+ * const client = createClient(head).withSchema(schema).withExtensions({});
  * ```
  */
 export type Workspace<
@@ -375,7 +386,8 @@ export type Workspace<
  * Supports `await using` for automatic cleanup:
  * ```typescript
  * {
- *   await using client = createClient('blog', { epoch })
+ *   const head = createHeadDoc({ workspaceId: 'blog', providers: {} });
+ *   await using client = createClient(head)
  *     .withSchema({ tables: {...}, kv: {} })
  *     .withExtensions({});
  *   client.tables.posts.upsert({ id: '1', title: 'Hello' });
@@ -461,7 +473,8 @@ export type WorkspaceClient<
  *   kv: {},
  * });
  *
- * const client = createClient('blog', { epoch })
+ * const head = createHeadDoc({ workspaceId: 'blog', providers: {} });
+ * const client = createClient(head)
  *   .withSchema(schema)
  *   .withExtensions({ persistence });
  * ```
@@ -489,7 +502,7 @@ export function defineSchema<
  * ## Two Paths
  *
  * ```
- *                     createClient(workspaceId, { epoch? })
+ *                          createClient(head)
  *                               │
  *                               ▼
  *               ┌───────────────┴───────────────┐
@@ -512,7 +525,8 @@ export function defineSchema<
  * For apps like Whispering where schema is defined in code:
  *
  * ```typescript
- * const client = createClient('whispering', { epoch })
+ * const head = createHeadDoc({ workspaceId: 'whispering', providers: {} });
+ * const client = createClient(head)
  *   .withSchema({
  *     tables: { recordings: table({ name: 'Recordings', fields: { id: id(), title: text() } }) },
  *     kv: {},
@@ -530,10 +544,11 @@ export function defineSchema<
  * For the Epicenter app where schema lives in the Y.Doc:
  *
  * ```typescript
- * const client = createClient('my-workspace', { epoch: 2 })
+ * const head = createHeadDoc({ workspaceId: 'my-workspace', providers: {} });
+ * head.setOwnEpoch(2); // Time travel to epoch 2
+ * const client = createClient(head)
  *   .withExtensions({
  *     persistence: (ctx) => persistence(ctx, { filePath }),
- *     //            ^^^ ctx: ExtensionContext<TableDefinitionMap, KvDefinitionMap> (generic)
  *   });
  *
  * await client.whenSynced;
@@ -545,24 +560,20 @@ export function defineSchema<
  * Pass an empty object to `.withExtensions()`:
  *
  * ```typescript
- * const client = createClient('blog', { epoch })
+ * const head = createHeadDoc({ workspaceId: 'blog', providers: {} });
+ * const client = createClient(head)
  *   .withSchema({ tables: {...}, kv: {} })
  *   .withExtensions({});
  * ```
  *
- * @param workspaceId - The workspace identifier (e.g., "epicenter.whispering")
- * @param options - Optional configuration
- * @param options.epoch - Workspace Doc version (defaults to 0)
+ * @param head - The HeadDoc containing workspace identity and current epoch
  */
 export function createClient(
-	workspaceId: string,
-	options: { epoch?: number } = {},
+	head: HeadDoc,
 ): ClientBuilder<TableDefinitionMap, KvDefinitionMap> {
-	const epoch = options.epoch ?? 0;
-
 	return createClientBuilder({
-		id: workspaceId,
-		epoch,
+		id: head.workspaceId,
+		epoch: head.getEpoch(),
 		tables: {} as TableDefinitionMap,
 		kv: {} as KvDefinitionMap,
 		onSync: undefined,

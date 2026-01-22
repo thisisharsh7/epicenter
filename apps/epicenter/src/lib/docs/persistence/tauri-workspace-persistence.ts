@@ -83,15 +83,14 @@ const FILE_NAMES = {
  *
  * @example
  * ```typescript
- * const client = createClient(definition, {
- *   epoch,
- *   capabilities: {
+ * const client = createClient(head)
+ *   .withSchema(schema)
+ *   .withExtensions({
  *     persistence: (ctx) => tauriWorkspacePersistence(ctx.ydoc, {
- *       workspaceId: definition.id,
- *       epoch,
+ *       workspaceId: head.workspaceId,
+ *       epoch: head.getEpoch(),
  *     }),
- *   },
- * });
+ *   });
  * ```
  */
 export function tauriWorkspacePersistence(

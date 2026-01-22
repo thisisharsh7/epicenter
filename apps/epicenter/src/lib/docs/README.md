@@ -143,7 +143,7 @@ Y.Map('tables')
 | ------------- | ----------------------------------- | --------------------------------------------------------- | -------------------------------------- |
 | **Registry**  | Tracks which workspace GUIDs exist  | `{appLocalDataDir}/registry.yjs`                          | `registry` (module singleton)          |
 | **Head Doc**  | Workspace identity + current epoch  | `{appLocalDataDir}/workspaces/{id}/head.yjs`              | `createHead(workspaceId)`              |
-| **Workspace** | Schema + Data for a workspace epoch | `{appLocalDataDir}/workspaces/{id}/{epoch}/workspace.yjs` | `createWorkspaceClient(schema, epoch)` |
+| **Workspace** | Schema + Data for a workspace epoch | `{appLocalDataDir}/workspaces/{id}/{epoch}/workspace.yjs` | `createWorkspaceClient(schema, head)` |
 
 ## Helper Functions
 
@@ -174,7 +174,6 @@ const head = createHead(workspaceId);
 await head.whenSynced;
 
 // Epoch tracking
-const epoch = head.getEpoch();
 
 // Workspace identity (name, icon, description)
 const meta = head.getMeta();
@@ -186,7 +185,7 @@ head.setMeta({ name: 'My Workspace', icon: null, description: '' });
 ```typescript
 import { createWorkspaceClient } from '$lib/docs/workspace';
 
-const client = createWorkspaceClient(schema, epoch);
+const client = createWorkspaceClient(schema, head);
 await client.whenSynced;
 
 // Use the client
@@ -207,10 +206,9 @@ if (!registry.hasWorkspace(workspaceId)) {
 // 2. Get epoch from head doc
 const head = createHead(workspaceId);
 await head.whenSynced;
-const epoch = head.getEpoch();
 
 // 3. Create workspace client with schema + epoch
-const client = createWorkspaceClient(schema, epoch);
+const client = createWorkspaceClient(schema, head);
 await client.whenSynced;
 ```
 
@@ -225,8 +223,8 @@ const head = createHead(guid);
 await head.whenSynced;
 head.setMeta({ name: 'My Workspace', icon: null, description: '' });
 
-// 3. Create workspace at epoch 0
-const client = createWorkspaceClient(schema, 0);
+// 3. Create workspace client (head provides epoch)
+const client = createWorkspaceClient(schema, head);
 await client.whenSynced;
 ```
 

@@ -21,7 +21,7 @@
  * ┌─────────────────────────────────────────────────────────────────────┐
  * │  @epicenter/hq (browser)                                            │
  * │                                                                     │
- * │    createClient(id, opts).withSchema(schema).withExtensions({})     │
+ * │    createClient(head).withSchema(schema).withExtensions({})         │
  * │         │                              │                            │
  * │         │                              └── UI awaits client.whenSynced
  * │         │                                                           │
@@ -32,7 +32,7 @@
  * ┌─────────────────────────────────────────────────────────────────────┐
  * │  @epicenter/hq/node (this module)                                   │
  * │                                                                     │
- * │    createClient(id, opts).withSchema(schema).withExtensions({})     │
+ * │    createClient(head).withSchema(schema).withExtensions({})         │
  * │         │                              │                            │
  * │         │                              └── Promise<WorkspaceClient>
  * │         │                                   whenSynced already resolved
@@ -59,7 +59,7 @@
  *
  * @example Basic usage
  * ```typescript
- * import { defineSchema, createClient, id, text, table } from '@epicenter/hq/node';
+ * import { defineSchema, createClient, createHeadDoc, id, text, table } from '@epicenter/hq/node';
  *
  * const schema = defineSchema({
  *   tables: {
@@ -68,8 +68,11 @@
  *   kv: {},
  * });
  *
+ * // Create head doc first
+ * const head = createHeadDoc({ workspaceId: 'blog', providers: {} });
+ *
  * // Async - awaits initialization internally
- * const client = await createClient('blog', { epoch: 0 })
+ * const client = await createClient(head)
  *   .withSchema(schema)
  *   .withExtensions({ persistence });
  *
@@ -80,15 +83,21 @@
  *
  * @example Migration script
  * ```typescript
- * import { defineSchema, createClient } from '@epicenter/hq/node';
+ * import { defineSchema, createClient, createHeadDoc } from '@epicenter/hq/node';
  *
  * async function migrate() {
  *   const schema = defineSchema({ tables: {...}, kv: {} });
  *
- *   const oldClient = await createClient('blog', { epoch: 1 })
+ *   // Create separate head docs for each epoch
+ *   const oldHead = createHeadDoc({ workspaceId: 'blog', providers: {} });
+ *   oldHead.setOwnEpoch(1);
+ *   const oldClient = await createClient(oldHead)
  *     .withSchema(schema)
  *     .withExtensions({});
- *   const newClient = await createClient('blog', { epoch: 2 })
+ *
+ *   const newHead = createHeadDoc({ workspaceId: 'blog', providers: {} });
+ *   newHead.setOwnEpoch(2);
+ *   const newClient = await createClient(newHead)
  *     .withSchema(schema)
  *     .withExtensions({});
  *
@@ -110,6 +119,7 @@
  * @module
  */
 
+import type { HeadDoc } from '../docs/head-doc';
 import type { ExtensionFactoryMap, InferExtensionExports } from '../extension';
 import type { Lifecycle } from '../lifecycle';
 import type { KvDefinitionMap, TableDefinitionMap } from '../schema';
@@ -186,7 +196,7 @@ export type WorkspaceClient<
  * ## Two Paths
  *
  * ```
- *                     createClient(workspaceId, { epoch? })
+ *                          createClient(head)
  *                               │
  *                               ▼
  *               ┌───────────────┴───────────────┐
@@ -222,8 +232,9 @@ export type ClientBuilder<
 	 * @example
 	 * ```typescript
 	 * const schema = defineSchema({ tables: {...}, kv: {} });
+	 * const head = createHeadDoc({ workspaceId: 'blog', providers: {} });
 	 *
-	 * const client = await createClient('blog', { epoch })
+	 * const client = await createClient(head)
 	 *   .withSchema(schema)
 	 *   .withExtensions({
 	 *     persistence: (ctx) => persistence(ctx, { filePath }),
@@ -249,8 +260,9 @@ export type ClientBuilder<
 	 * ```typescript
 	 * // With extensions
 	 * const schema = defineSchema({ tables: {...}, kv: {} });
+	 * const head = createHeadDoc({ workspaceId: 'blog', providers: {} });
 	 *
-	 * const client = await createClient('blog', { epoch })
+	 * const client = await createClient(head)
 	 *   .withSchema(schema)
 	 *   .withExtensions({
 	 *     persistence: (ctx) => persistence(ctx, { filePath }),
@@ -260,7 +272,8 @@ export type ClientBuilder<
 	 * client.tables.posts.upsert({ ... });
 	 *
 	 * // Without extensions
-	 * const client = await createClient('blog', { epoch })
+	 * const head = createHeadDoc({ workspaceId: 'blog', providers: {} });
+	 * const client = await createClient(head)
 	 *   .withSchema(schema)
 	 *   .withExtensions({});
 	 * ```
@@ -294,7 +307,7 @@ export type ClientBuilder<
  * ## Two Paths
  *
  * ```
- *                     createClient(workspaceId, { epoch? })
+ *                          createClient(head)
  *                               │
  *                               ▼
  *               ┌───────────────┴───────────────┐
@@ -322,7 +335,8 @@ export type ClientBuilder<
  *   kv: {},
  * });
  *
- * const client = await createClient('epicenter.whispering', { epoch })
+ * const head = createHeadDoc({ workspaceId: 'epicenter.whispering', providers: {} });
+ * const client = await createClient(head)
  *   .withSchema(schema)
  *   .withExtensions({
  *     persistence: (ctx) => persistence(ctx, { filePath }),
@@ -340,7 +354,9 @@ export type ClientBuilder<
  * For the Epicenter app where schema lives in the Y.Doc:
  *
  * ```typescript
- * const client = await createClient('my-workspace', { epoch: 2 })
+ * const head = createHeadDoc({ workspaceId: 'my-workspace', providers: {} });
+ * head.setOwnEpoch(2); // Time travel to epoch 2
+ * const client = await createClient(head)
  *   .withExtensions({
  *     persistence: (ctx) => persistence(ctx, { filePath }),
  *   });
@@ -352,21 +368,19 @@ export type ClientBuilder<
  *
  * ```typescript
  * const schema = defineSchema({ tables: {...}, kv: {} });
- * const client = await createClient('blog', { epoch })
+ * const head = createHeadDoc({ workspaceId: 'blog', providers: {} });
+ * const client = await createClient(head)
  *   .withSchema(schema)
  *   .withExtensions({});
  * ```
  *
- * @param workspaceId - The workspace identifier (e.g., "epicenter.whispering")
- * @param options - Optional configuration
- * @param options.epoch - Workspace Doc version (defaults to 0)
+ * @param head - The HeadDoc containing workspace identity and current epoch
  */
 export function createClient(
-	workspaceId: string,
-	options: { epoch?: number } = {},
+	head: HeadDoc,
 ): ClientBuilder<TableDefinitionMap, KvDefinitionMap> {
 	// Get the sync builder from workspace.ts
-	const syncBuilder = createClientSync(workspaceId, { epoch: options.epoch });
+	const syncBuilder = createClientSync(head);
 
 	// Return async builder that wraps the sync builder
 	return createAsyncClientBuilder(syncBuilder);
@@ -424,7 +438,7 @@ function createAsyncClientBuilder<
  * These are the building blocks for table definitions:
  *
  * ```typescript
- * import { defineSchema, createClient, id, text, boolean, date, table } from '@epicenter/hq/node';
+ * import { defineSchema, createClient, createHeadDoc, id, text, boolean, date, table } from '@epicenter/hq/node';
  *
  * const schema = defineSchema({
  *   tables: {
@@ -441,7 +455,8 @@ function createAsyncClientBuilder<
  *   kv: {},
  * });
  *
- * const client = await createClient('epicenter.blog', { epoch: 0 })
+ * const head = createHeadDoc({ workspaceId: 'epicenter.blog', providers: {} });
+ * const client = await createClient(head)
  *   .withSchema(schema)
  *   .withExtensions({ persistence });
  * ```

@@ -155,7 +155,7 @@ export const workspaces = {
 			// Create workspace client with schema - this will:
 			// 1. Merge schema into Y.Map('schema')
 			// 2. Persist to {epoch}/schema.json via unified persistence
-			const client = createWorkspaceClient(schema, input.id, 0);
+			const client = createWorkspaceClient(head, schema);
 
 			// Wait for persistence to finish saving initial state to disk
 			await client.whenSynced;
