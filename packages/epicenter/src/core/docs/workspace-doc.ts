@@ -197,39 +197,6 @@ export type ExtensionContext<
 	 * ```
 	 */
 	schema: Schema;
-	/**
-	 * The schema Y.Map for low-level operations. Stable reference.
-	 * @deprecated Use `schema.$raw` instead.
-	 */
-	schemaMap: SchemaMap;
-	/**
-	 * The KV Y.Map for low-level operations. Stable reference.
-	 * @deprecated Use `kv.$raw` instead.
-	 */
-	kvMap: KvMap;
-	/**
-	 * The tables Y.Map for low-level operations. Stable reference.
-	 * @deprecated Use `tables.$raw` instead.
-	 */
-	tablesMap: TablesMap;
-	/**
-	 * Read the current schema from the Y.Doc as a plain object (snapshot).
-	 * @deprecated Use `schema.get()` instead.
-	 */
-	getSchema(): WorkspaceSchemaMap;
-	/**
-	 * Merge table/KV schema into the Y.Doc.
-	 * @deprecated Use `schema.merge()` instead.
-	 */
-	mergeSchema<
-		TMergeTables extends TableDefinitionMap,
-		TMergeKv extends KvDefinitionMap,
-	>(schema: { tables: TMergeTables; kv: TMergeKv }): void;
-	/**
-	 * Observe schema changes.
-	 * @deprecated Use `schema.observe()` instead.
-	 */
-	observeSchema(callback: (schema: WorkspaceSchemaMap) => void): () => void;
 	/** This extension's key from `.withExtensions({ key: ... })`. */
 	extensionId: string;
 };
@@ -319,21 +286,14 @@ export function createWorkspaceDoc<
 	// gc: false is required for revision history snapshots to work
 	const ydoc = new Y.Doc({ guid: docId, gc: false });
 
-	// Get maps once, keep in closure. Y.Doc.getMap() returns the same reference
-	// on repeated calls, but we cache them to avoid repeated string lookups.
+	// Get schemaMap for internal use (mergeSchema needs it)
 	const schemaMap = ydoc.getMap(WORKSPACE_DOC_MAPS.SCHEMA) as SchemaMap;
-	const kvMap = ydoc.getMap(WORKSPACE_DOC_MAPS.KV) as KvMap;
-	const tablesMap = ydoc.getMap(WORKSPACE_DOC_MAPS.TABLES) as TablesMap;
 
 	// Create table and kv helpers bound to the Y.Doc
 	// These just bind to Y.Maps - actual data comes from persistence
 	const tables = createTables(ydoc, tableDefinitions);
 	const kv = createKv(ydoc, kvDefinitions);
 	const schema = createSchema(schemaMap);
-
-	const getSchema = (): WorkspaceSchemaMap => {
-		return schemaMap.toJSON() as WorkspaceSchemaMap;
-	};
 
 	const mergeSchema = <
 		TMergeTables extends TableDefinitionMap,
@@ -399,14 +359,6 @@ export function createWorkspaceDoc<
 		}
 	};
 
-	const observeSchema = (callback: (schema: WorkspaceSchemaMap) => void) => {
-		const handler = () => {
-			callback(getSchema());
-		};
-		schemaMap.observeDeep(handler);
-		return () => schemaMap.unobserveDeep(handler);
-	};
-
 	// ─────────────────────────────────────────────────────────────────────────
 	// Extension Initialization
 	// ─────────────────────────────────────────────────────────────────────────
@@ -424,13 +376,6 @@ export function createWorkspaceDoc<
 			tables,
 			kv,
 			schema,
-			// Deprecated - kept for backward compatibility
-			schemaMap,
-			kvMap,
-			tablesMap,
-			getSchema,
-			mergeSchema,
-			observeSchema,
 			extensionId,
 		};
 
@@ -484,13 +429,6 @@ export function createWorkspaceDoc<
 		kv,
 		schema,
 		extensions,
-		// Deprecated - kept for backward compatibility
-		schemaMap,
-		kvMap,
-		tablesMap,
-		getSchema,
-		mergeSchema,
-		observeSchema,
 		whenSynced,
 		destroy,
 		[Symbol.asyncDispose]: destroy,
@@ -541,39 +479,6 @@ export type WorkspaceDoc<
 	schema: Schema;
 	/** Extension exports keyed by extension ID. */
 	extensions: TExtensions;
-	/**
-	 * The schema Y.Map for low-level operations. Stable reference.
-	 * @deprecated Use `schema.$raw` instead.
-	 */
-	schemaMap: SchemaMap;
-	/**
-	 * The KV Y.Map for low-level operations. Stable reference.
-	 * @deprecated Use `kv.$raw` instead.
-	 */
-	kvMap: KvMap;
-	/**
-	 * The tables Y.Map for low-level operations. Stable reference.
-	 * @deprecated Use `tables.$raw` instead.
-	 */
-	tablesMap: TablesMap;
-	/**
-	 * Read the current schema from the Y.Doc as a plain object (snapshot).
-	 * @deprecated Use `schema.get()` instead.
-	 */
-	getSchema(): WorkspaceSchemaMap;
-	/**
-	 * Merge table/KV schema into the Y.Doc.
-	 * @deprecated Use `schema.merge()` instead.
-	 */
-	mergeSchema<
-		TMergeTables extends TableDefinitionMap,
-		TMergeKv extends KvDefinitionMap,
-	>(schema: { tables: TMergeTables; kv: TMergeKv }): void;
-	/**
-	 * Observe schema changes.
-	 * @deprecated Use `schema.observe()` instead.
-	 */
-	observeSchema(callback: (schema: WorkspaceSchemaMap) => void): () => void;
 	/** Promise that resolves when all extensions have synced. */
 	whenSynced: Promise<void>;
 	/** Clean up all extensions and release Y.Doc resources. */
