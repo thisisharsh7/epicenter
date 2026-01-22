@@ -480,9 +480,9 @@ describe('Cell-Level CRDT Merging', () => {
 
 		// Set up observer on doc2 BEFORE any sync
 		const addedIds: string[] = [];
-		tables2('posts').observeChanges((changes) => {
-			for (const [id, change] of changes) {
-				if (change.action === 'add') {
+		tables2('posts').observe((changes) => {
+			for (const [id, action] of changes) {
+				if (action === 'add') {
 					addedIds.push(id);
 				}
 			}
@@ -519,9 +519,9 @@ describe('Cell-Level CRDT Merging', () => {
 
 		// Set up observer on doc2
 		const updatedIds: string[] = [];
-		tables2('posts').observeChanges((changes) => {
-			for (const [id, change] of changes) {
-				if (change.action === 'update') {
+		tables2('posts').observe((changes) => {
+			for (const [id, action] of changes) {
+				if (action === 'update') {
 					updatedIds.push(id);
 				}
 			}
@@ -555,9 +555,9 @@ describe('Cell-Level CRDT Merging', () => {
 
 		// Set up observer on doc2
 		const deletedIds: string[] = [];
-		tables2('posts').observeChanges((changes) => {
-			for (const [id, change] of changes) {
-				if (change.action === 'delete') {
+		tables2('posts').observe((changes) => {
+			for (const [id, action] of changes) {
+				if (action === 'delete') {
 					deletedIds.push(id);
 				}
 			}
@@ -747,9 +747,9 @@ describe('Cell-Level CRDT Merging', () => {
 		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
 
 		const changes: Array<{ action: string; id: string }> = [];
-		tables2('posts').observeChanges((changeMap) => {
-			for (const [id, change] of changeMap) {
-				changes.push({ action: change.action, id });
+		tables2('posts').observe((changeMap) => {
+			for (const [id, action] of changeMap) {
+				changes.push({ action, id });
 			}
 		});
 
@@ -791,9 +791,9 @@ describe('Cell-Level CRDT Merging', () => {
 		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
 
 		const changes: Array<{ action: string; id: string }> = [];
-		tables2('posts').observeChanges((changeMap) => {
-			for (const [id, change] of changeMap) {
-				changes.push({ action: change.action, id });
+		tables2('posts').observe((changeMap) => {
+			for (const [id, action] of changeMap) {
+				changes.push({ action, id });
 			}
 		});
 
@@ -827,9 +827,9 @@ describe('Cell-Level CRDT Merging', () => {
 		]);
 
 		const changes: Array<{ action: string; id: string }> = [];
-		tables('posts').observeChanges((changeMap) => {
-			for (const [rowId, change] of changeMap) {
-				changes.push({ action: change.action, id: rowId });
+		tables('posts').observe((changeMap) => {
+			for (const [rowId, action] of changeMap) {
+				changes.push({ action, id: rowId });
 			}
 		});
 
@@ -866,14 +866,17 @@ describe('Cell-Level CRDT Merging', () => {
 		tables('posts').upsert({ id: 'post-1', title: 'Original' });
 
 		const changes: Array<{ action: string; id: string; title?: string }> = [];
-		tables('posts').observeChanges((changeMap) => {
-			for (const [rowId, change] of changeMap) {
+		tables('posts').observe((changeMap) => {
+			for (const [rowId, action] of changeMap) {
 				const entry: { action: string; id: string; title?: string } = {
-					action: change.action,
+					action,
 					id: rowId,
 				};
-				if (change.action !== 'delete' && change.result.status === 'valid') {
-					entry.title = change.result.row.title;
+				if (action !== 'delete') {
+					const result = tables('posts').get(rowId);
+					if (result.status === 'valid') {
+						entry.title = result.row.title;
+					}
 				}
 				changes.push(entry);
 			}
@@ -913,9 +916,9 @@ describe('Cell-Level CRDT Merging', () => {
 		});
 
 		const changes: Array<{ action: string; id: string }> = [];
-		tables('posts').observeChanges((changeMap) => {
-			for (const [rowId, change] of changeMap) {
-				changes.push({ action: change.action, id: rowId });
+		tables('posts').observe((changeMap) => {
+			for (const [rowId, action] of changeMap) {
+				changes.push({ action, id: rowId });
 			}
 		});
 

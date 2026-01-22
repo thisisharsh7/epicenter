@@ -158,10 +158,13 @@ describe('YjsDoc Type Inference', () => {
 			read: boolean;
 		}> = [];
 
-		const unsubscribe = doc('notifications').observeChanges((changes) => {
-			for (const [_id, change] of changes) {
-				if (change.action === 'add' && change.result.status === 'valid') {
-					addedNotifications.push(change.result.row);
+		const unsubscribe = doc('notifications').observe((changes) => {
+			for (const [id, action] of changes) {
+				if (action === 'add') {
+					const result = doc('notifications').get(id);
+					if (result.status === 'valid') {
+						addedNotifications.push(result.row);
+					}
 				}
 			}
 		});

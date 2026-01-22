@@ -526,7 +526,7 @@ describe('KV Helpers', () => {
 			});
 
 			const values: string[] = [];
-			kv('theme').observeChanges((change) => {
+			kv('theme').observe((change) => {
 				if (change.action !== 'delete') {
 					values.push(change.newValue);
 				}
@@ -549,14 +549,14 @@ describe('KV Helpers', () => {
 			});
 
 			const themeValues: string[] = [];
-			kv('theme').observeChanges((change) => {
+			kv('theme').observe((change) => {
 				if (change.action !== 'delete') {
 					themeValues.push(change.newValue);
 				}
 			});
 
 			const countValues: number[] = [];
-			kv('count').observeChanges((change) => {
+			kv('count').observe((change) => {
 				if (change.action !== 'delete') {
 					countValues.push(change.newValue);
 				}
@@ -577,7 +577,7 @@ describe('KV Helpers', () => {
 			});
 
 			const values: number[] = [];
-			const unsubscribe = kv('count').observeChanges((change) => {
+			const unsubscribe = kv('count').observe((change) => {
 				if (change.action !== 'delete') {
 					values.push(change.newValue);
 				}
@@ -598,7 +598,7 @@ describe('KV Helpers', () => {
 			});
 
 			let callCount = 0;
-			kv('notes').observeChanges(() => {
+			kv('notes').observe(() => {
 				callCount++;
 			});
 
@@ -613,7 +613,7 @@ describe('KV Helpers', () => {
 			});
 
 			let callCount = 0;
-			kv('tags').observeChanges(() => {
+			kv('tags').observe(() => {
 				callCount++;
 			});
 
@@ -650,7 +650,7 @@ describe('KV Helpers', () => {
 			});
 
 			const values: string[] = [];
-			kv('theme').observeChanges((change) => {
+			kv('theme').observe((change) => {
 				if (change.action !== 'delete') {
 					values.push(change.newValue);
 				}
@@ -902,7 +902,7 @@ describe('KV Helpers', () => {
 			});
 
 			let receivedValue: unknown = null;
-			kv('count').observeChanges((change) => {
+			kv('count').observe((change) => {
 				if (change.action !== 'delete') {
 					receivedValue = change.newValue;
 				}

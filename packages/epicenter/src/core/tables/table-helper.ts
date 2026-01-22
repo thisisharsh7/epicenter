@@ -120,20 +120,17 @@ export type DeleteManyResult =
 	| { status: 'none_deleted'; notFoundLocally: string[] };
 
 /**
- * Change event for a single row during table observation.
+ * Action that occurred on a row.
  *
- * **Why no `id` field?** The row ID is the key in `Map<string, TableRowChange>`,
- * so including it here would be redundant. Access it via the Map iteration:
- * `for (const [rowId, change] of changes) { ... }`
- *
- * **Why does `delete` have no `result`?** When a row is deleted, the data is
- * already gone from the Y.Doc by the time the observer fires. We only know
- * that a row with that ID was removed.
+ * The observer only tells you WHAT changed (IDs) and HOW (action).
+ * To get the actual row data, call table.get(id).
  */
-export type TableRowChange<TRow> =
-	| { action: 'add'; result: RowResult<TRow> }
-	| { action: 'update'; result: RowResult<TRow> }
-	| { action: 'delete' };
+export type RowAction = 'add' | 'update' | 'delete';
+
+/**
+ * Map of row IDs to the action that occurred.
+ */
+export type RowChanges = Map<string, RowAction>;
 
 /**
  * Creates a type-safe collection of table helpers for all tables in a schema.
@@ -285,7 +282,7 @@ function createTableHelper<TFieldSchemaMap extends FieldSchemaMap>({
 	 * Validate a reconstructed row against the table schema.
 	 *
 	 * Centralizes validation logic used by get(), getAll(), getAllInvalid(),
-	 * and observeChanges(). Returns a discriminated union so callers can
+	 * and observe(). Returns a discriminated union so callers can
 	 * handle valid and invalid rows uniformly.
 	 */
 	const validateRow = (
@@ -535,11 +532,8 @@ function createTableHelper<TFieldSchemaMap extends FieldSchemaMap>({
 		 *
 		 * @returns Unsubscribe function that fully detaches all observers
 		 */
-		observeChanges(
-			callback: (
-				changes: Map<string, TableRowChange<TRow>>,
-				transaction: Y.Transaction,
-			) => void,
+		observe(
+			callback: (changes: RowChanges, transaction: Y.Transaction) => void,
 		): () => void {
 			/**
 			 * Maps rowId → unsubscribe function for that row's cell-level observer.
@@ -562,7 +556,7 @@ function createTableHelper<TFieldSchemaMap extends FieldSchemaMap>({
 			 * and are delivered once via afterTransaction hook. This is O(1) per change
 			 * and ensures bulk operations fire a single callback.
 			 */
-			let pendingChanges = new Map<string, TableRowChange<TRow>>();
+			let pendingChanges: RowChanges = new Map();
 			let pendingTransaction: Y.Transaction | null = null;
 
 			const afterTransactionHandler = () => {
@@ -582,43 +576,23 @@ function createTableHelper<TFieldSchemaMap extends FieldSchemaMap>({
 
 			const queueChange = (
 				rowId: string,
-				change: TableRowChange<TRow>,
+				action: RowAction,
 				transaction: Y.Transaction,
 			) => {
 				pendingTransaction = transaction;
-				pendingChanges.set(rowId, change);
-			};
-
-			const localValidateRow = (
-				rowId: string,
-				row: Record<string, unknown>,
-			): RowResult<TRow> => {
-				if (rowValidator.Check(row)) {
-					return { status: 'valid', row: row as TRow };
-				}
-				return {
-					status: 'invalid',
-					id: rowId,
-					tableName,
-					errors: rowValidator.Errors(row),
-					row,
-				};
+				pendingChanges.set(rowId, action);
 			};
 
 			/**
 			 * Attach a cell-level observer to a row. Returns unsubscribe function.
-			 * On each cell change, reconstructs the full row and validates it.
 			 */
 			const observeRow = (rowId: string, rowMap: RowMap) => {
 				const handler = (event: Y.YMapEvent<unknown>) => {
-					const currentRow = reconstructRow(rowMap);
-					const result = localValidateRow(rowId, currentRow);
-
 					if (pendingAdds.has(rowId)) {
 						pendingAdds.delete(rowId);
-						queueChange(rowId, { action: 'add', result }, event.transaction);
+						queueChange(rowId, 'add', event.transaction);
 					} else {
-						queueChange(rowId, { action: 'update', result }, event.transaction);
+						queueChange(rowId, 'update', event.transaction);
 					}
 				};
 
@@ -637,10 +611,7 @@ function createTableHelper<TFieldSchemaMap extends FieldSchemaMap>({
 			) => {
 				rowObservers.get(rowId)?.();
 				rowObservers.set(rowId, observeRow(rowId, newRowMap));
-
-				const currentRow = reconstructRow(newRowMap);
-				const result = localValidateRow(rowId, currentRow);
-				queueChange(rowId, { action: 'update', result }, transaction);
+				queueChange(rowId, 'update', transaction);
 			};
 
 			const tableObserver = (event: Y.YMapEvent<RowMap>) => {
@@ -653,13 +624,7 @@ function createTableHelper<TFieldSchemaMap extends FieldSchemaMap>({
 							rowObservers.set(rowId, observeRow(rowId, rowMap));
 
 							if (rowMap.size > 0) {
-								const currentRow = reconstructRow(rowMap);
-								const result = localValidateRow(rowId, currentRow);
-								queueChange(
-									rowId,
-									{ action: 'add', result },
-									event.transaction,
-								);
+								queueChange(rowId, 'add', event.transaction);
 							} else {
 								pendingAdds.add(rowId);
 							}
@@ -673,7 +638,7 @@ function createTableHelper<TFieldSchemaMap extends FieldSchemaMap>({
 						rowObservers.get(rowId)?.();
 						rowObservers.delete(rowId);
 						pendingAdds.delete(rowId);
-						queueChange(rowId, { action: 'delete' }, event.transaction);
+						queueChange(rowId, 'delete', event.transaction);
 					}
 				});
 			};
@@ -699,9 +664,7 @@ function createTableHelper<TFieldSchemaMap extends FieldSchemaMap>({
 				for (const [rowId, rowMap] of map.entries()) {
 					rowObservers.set(rowId, observeRow(rowId, rowMap));
 					if (fireAddForExisting && transaction) {
-						const currentRow = reconstructRow(rowMap);
-						const result = localValidateRow(rowId, currentRow);
-						queueChange(rowId, { action: 'add', result }, transaction);
+						queueChange(rowId, 'add', transaction);
 					}
 				}
 
@@ -727,7 +690,7 @@ function createTableHelper<TFieldSchemaMap extends FieldSchemaMap>({
 						const newTableMap = ytables.get(tableName);
 						if (newTableMap && newTableMap !== tableMap) {
 							for (const rowId of rowObservers.keys()) {
-								queueChange(rowId, { action: 'delete' }, event.transaction);
+								queueChange(rowId, 'delete', event.transaction);
 							}
 							teardownTableObservers();
 							tableMap = newTableMap;
@@ -735,7 +698,7 @@ function createTableHelper<TFieldSchemaMap extends FieldSchemaMap>({
 						}
 					} else if (change.action === 'delete') {
 						for (const rowId of rowObservers.keys()) {
-							queueChange(rowId, { action: 'delete' }, event.transaction);
+							queueChange(rowId, 'delete', event.transaction);
 						}
 						teardownTableObservers();
 						tableMap = null;
@@ -795,14 +758,8 @@ export type UntypedTableHelper = {
 	find(
 		predicate: (row: { id: string } & Record<string, unknown>) => boolean,
 	): ({ id: string } & Record<string, unknown>) | null;
-	observeChanges(
-		callback: (
-			changes: Map<
-				string,
-				TableRowChange<{ id: string } & Record<string, unknown>>
-			>,
-			transaction: Y.Transaction,
-		) => void,
+	observe(
+		callback: (changes: RowChanges, transaction: Y.Transaction) => void,
 	): () => void;
 	inferRow: { id: string } & Record<string, unknown>;
 };
@@ -1042,11 +999,8 @@ export function createUntypedTableHelper({
 			return null;
 		},
 
-		observeChanges(
-			callback: (
-				changes: Map<string, TableRowChange<TRow>>,
-				transaction: Y.Transaction,
-			) => void,
+		observe(
+			callback: (changes: RowChanges, transaction: Y.Transaction) => void,
 		): () => void {
 			const rowObservers = new Map<string, () => void>();
 			const pendingAdds = new Set<string>();
@@ -1054,7 +1008,7 @@ export function createUntypedTableHelper({
 			let tableMap = getExistingTableMap();
 			let tableUnobserve: (() => void) | null = null;
 
-			let pendingChanges = new Map<string, TableRowChange<TRow>>();
+			let pendingChanges: RowChanges = new Map();
 			let pendingTransaction: Y.Transaction | null = null;
 
 			const afterTransactionHandler = () => {
@@ -1074,23 +1028,20 @@ export function createUntypedTableHelper({
 
 			const queueChange = (
 				rowId: string,
-				change: TableRowChange<TRow>,
+				action: RowAction,
 				transaction: Y.Transaction,
 			) => {
 				pendingTransaction = transaction;
-				pendingChanges.set(rowId, change);
+				pendingChanges.set(rowId, action);
 			};
 
 			const observeRow = (rowId: string, rowMap: RowMap) => {
 				const handler = (event: Y.YMapEvent<unknown>) => {
-					const currentRow = reconstructRow(rowMap) as TRow;
-					const result: RowResult<TRow> = { status: 'valid', row: currentRow };
-
 					if (pendingAdds.has(rowId)) {
 						pendingAdds.delete(rowId);
-						queueChange(rowId, { action: 'add', result }, event.transaction);
+						queueChange(rowId, 'add', event.transaction);
 					} else {
-						queueChange(rowId, { action: 'update', result }, event.transaction);
+						queueChange(rowId, 'update', event.transaction);
 					}
 				};
 
@@ -1105,10 +1056,7 @@ export function createUntypedTableHelper({
 			) => {
 				rowObservers.get(rowId)?.();
 				rowObservers.set(rowId, observeRow(rowId, newRowMap));
-
-				const currentRow = reconstructRow(newRowMap) as TRow;
-				const result: RowResult<TRow> = { status: 'valid', row: currentRow };
-				queueChange(rowId, { action: 'update', result }, transaction);
+				queueChange(rowId, 'update', transaction);
 			};
 
 			const tableObserver = (event: Y.YMapEvent<RowMap>) => {
@@ -1121,16 +1069,7 @@ export function createUntypedTableHelper({
 							rowObservers.set(rowId, observeRow(rowId, rowMap));
 
 							if (rowMap.size > 0) {
-								const currentRow = reconstructRow(rowMap) as TRow;
-								const result: RowResult<TRow> = {
-									status: 'valid',
-									row: currentRow,
-								};
-								queueChange(
-									rowId,
-									{ action: 'add', result },
-									event.transaction,
-								);
+								queueChange(rowId, 'add', event.transaction);
 							} else {
 								pendingAdds.add(rowId);
 							}
@@ -1144,7 +1083,7 @@ export function createUntypedTableHelper({
 						rowObservers.get(rowId)?.();
 						rowObservers.delete(rowId);
 						pendingAdds.delete(rowId);
-						queueChange(rowId, { action: 'delete' }, event.transaction);
+						queueChange(rowId, 'delete', event.transaction);
 					}
 				});
 			};
@@ -1165,12 +1104,7 @@ export function createUntypedTableHelper({
 				for (const [rowId, rowMap] of map.entries()) {
 					rowObservers.set(rowId, observeRow(rowId, rowMap));
 					if (fireAddForExisting && transaction) {
-						const currentRow = reconstructRow(rowMap) as TRow;
-						const result: RowResult<TRow> = {
-							status: 'valid',
-							row: currentRow,
-						};
-						queueChange(rowId, { action: 'add', result }, transaction);
+						queueChange(rowId, 'add', transaction);
 					}
 				}
 
@@ -1196,7 +1130,7 @@ export function createUntypedTableHelper({
 						const newTableMap = ytables.get(tableName);
 						if (newTableMap && newTableMap !== tableMap) {
 							for (const rowId of rowObservers.keys()) {
-								queueChange(rowId, { action: 'delete' }, event.transaction);
+								queueChange(rowId, 'delete', event.transaction);
 							}
 							teardownTableObservers();
 							tableMap = newTableMap;
@@ -1204,7 +1138,7 @@ export function createUntypedTableHelper({
 						}
 					} else if (change.action === 'delete') {
 						for (const rowId of rowObservers.keys()) {
-							queueChange(rowId, { action: 'delete' }, event.transaction);
+							queueChange(rowId, 'delete', event.transaction);
 						}
 						teardownTableObservers();
 						tableMap = null;

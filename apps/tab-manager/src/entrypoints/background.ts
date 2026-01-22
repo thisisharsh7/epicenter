@@ -651,16 +651,26 @@ export default defineBackground(() => {
 	// Only process changes for THIS device - other devices manage themselves
 	// ─────────────────────────────────────────────────────────────────────────
 
-	client.tables('tabs').observeChanges((changes, transaction) => {
-		for (const [id, change] of changes) {
-			if (change.action === 'add') {
+	client.tables('tabs').observe((changes, transaction) => {
+		for (const [id, action] of changes) {
+			if (action === 'add') {
 				void (async () => {
 					await initPromise;
+
+					// Fetch the row data
+					const result = client.tables('tabs').get(id);
+					if (result.status !== 'valid') {
+						console.log(
+							'[Background] tabs.onAdd SKIPPED: row not found or invalid',
+						);
+						return;
+					}
+					const row = result.row;
 
 					console.log('[Background] tabs.onAdd fired:', {
 						origin: transaction.origin,
 						isRemote: transaction.origin !== null,
-						row: change.newValue,
+						row,
 					});
 
 					if (transaction.origin === null) {
@@ -670,7 +680,6 @@ export default defineBackground(() => {
 						return;
 					}
 
-					const row = change.newValue;
 					const deviceId = await deviceIdPromise;
 
 					if (row.device_id !== deviceId) {
@@ -734,7 +743,7 @@ export default defineBackground(() => {
 					});
 					syncCoordination.yDocChangeCount--;
 				})();
-			} else if (change.action === 'delete') {
+			} else if (action === 'delete') {
 				void (async () => {
 					await initPromise;
 
@@ -785,17 +794,22 @@ export default defineBackground(() => {
 		}
 	});
 
-	client.tables('windows').observeChanges((changes, transaction) => {
-		for (const [id, change] of changes) {
-			if (change.action === 'add') {
+	client.tables('windows').observe((changes, transaction) => {
+		for (const [id, action] of changes) {
+			if (action === 'add') {
 				void (async () => {
 					await initPromise;
 
 					if (transaction.origin === null) return;
 
+					// Fetch the row data
+					const result = client.tables('windows').get(id);
+					if (result.status !== 'valid') return;
+					const row = result.row;
+
 					const deviceId = await deviceIdPromise;
 
-					if (change.newValue.device_id !== deviceId) return;
+					if (row.device_id !== deviceId) return;
 
 					syncCoordination.yDocChangeCount++;
 					await tryAsync({
@@ -808,7 +822,7 @@ export default defineBackground(() => {
 						},
 						catch: (error) => {
 							console.log(
-								`[Background] Failed to create window from ${change.newValue.id}:`,
+								`[Background] Failed to create window from ${row.id}:`,
 								error,
 							);
 							return Ok(undefined);
@@ -816,7 +830,7 @@ export default defineBackground(() => {
 					});
 					syncCoordination.yDocChangeCount--;
 				})();
-			} else if (change.action === 'delete') {
+			} else if (action === 'delete') {
 				void (async () => {
 					await initPromise;
 
@@ -844,9 +858,9 @@ export default defineBackground(() => {
 	});
 
 	if (browser.tabGroups) {
-		client.tables('tab_groups').observeChanges((changes, transaction) => {
-			for (const [id, change] of changes) {
-				if (change.action === 'delete') {
+		client.tables('tab_groups').observe((changes, transaction) => {
+			for (const [id, action] of changes) {
+				if (action === 'delete') {
 					void (async () => {
 						await initPromise;
 

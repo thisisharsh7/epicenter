@@ -216,9 +216,9 @@ describe('createTables', () => {
 			});
 
 			const addedRows: string[] = [];
-			tables('posts').observeChanges((changes) => {
-				for (const [id, change] of changes) {
-					if (change.action === 'add') {
+			tables('posts').observe((changes) => {
+				for (const [id, action] of changes) {
+					if (action === 'add') {
 						addedRows.push(id);
 					}
 				}
@@ -259,13 +259,16 @@ describe('createTables', () => {
 			});
 
 			const updates: Array<{ id: string; title: string }> = [];
-			tables('posts').observeChanges((changes) => {
-				for (const [id, change] of changes) {
-					if (change.action === 'update' && change.result.status === 'valid') {
-						updates.push({
-							id,
-							title: change.result.row.title,
-						});
+			tables('posts').observe((changes) => {
+				for (const [id, action] of changes) {
+					if (action === 'update') {
+						const result = tables('posts').get(id);
+						if (result.status === 'valid') {
+							updates.push({
+								id,
+								title: result.row.title,
+							});
+						}
 					}
 				}
 			});
@@ -294,9 +297,9 @@ describe('createTables', () => {
 			tables('posts').upsert({ id: 'post-2', title: 'Second' });
 
 			const deletedIds: string[] = [];
-			tables('posts').observeChanges((changes) => {
-				for (const [id, change] of changes) {
-					if (change.action === 'delete') {
+			tables('posts').observe((changes) => {
+				for (const [id, action] of changes) {
+					if (action === 'delete') {
 						deletedIds.push(id);
 					}
 				}
@@ -322,10 +325,13 @@ describe('createTables', () => {
 
 			const receivedRows: Array<{ id: string; title: string }> = [];
 
-			tables('posts').observeChanges((changes) => {
-				for (const [id, change] of changes) {
-					if (change.action === 'add' && change.result.status === 'valid') {
-						receivedRows.push({ id, title: change.result.row.title });
+			tables('posts').observe((changes) => {
+				for (const [id, action] of changes) {
+					if (action === 'add') {
+						const result = tables('posts').get(id);
+						if (result.status === 'valid') {
+							receivedRows.push({ id, title: result.row.title });
+						}
 					}
 				}
 			});
@@ -356,10 +362,10 @@ describe('createTables', () => {
 			});
 
 			let receivedResult: unknown = null;
-			tables('posts').observeChanges((changes) => {
-				for (const [_id, change] of changes) {
-					if (change.action === 'add') {
-						receivedResult = change.result;
+			tables('posts').observe((changes) => {
+				for (const [id, action] of changes) {
+					if (action === 'add') {
+						receivedResult = tables('posts').get(id);
 					}
 				}
 			});
@@ -398,9 +404,9 @@ describe('createTables', () => {
 			});
 
 			const addedIds: string[] = [];
-			const unsubscribe = tables('posts').observeChanges((changes) => {
-				for (const [id, change] of changes) {
-					if (change.action === 'add') {
+			const unsubscribe = tables('posts').observe((changes) => {
+				for (const [id, action] of changes) {
+					if (action === 'add') {
 						addedIds.push(id);
 					}
 				}
@@ -429,11 +435,11 @@ describe('createTables', () => {
 			let callbackCount = 0;
 			const allChanges: Map<string, string>[] = [];
 
-			tables('posts').observeChanges((changes) => {
+			tables('posts').observe((changes) => {
 				callbackCount++;
 				const changeMap = new Map<string, string>();
-				for (const [id, change] of changes) {
-					changeMap.set(id, change.action);
+				for (const [id, action] of changes) {
+					changeMap.set(id, action);
 				}
 				allChanges.push(changeMap);
 			});
@@ -473,11 +479,11 @@ describe('createTables', () => {
 			let callbackCount = 0;
 			const allChanges: Map<string, string>[] = [];
 
-			tables('posts').observeChanges((changes) => {
+			tables('posts').observe((changes) => {
 				callbackCount++;
 				const changeMap = new Map<string, string>();
-				for (const [id, change] of changes) {
-					changeMap.set(id, change.action);
+				for (const [id, action] of changes) {
+					changeMap.set(id, action);
 				}
 				allChanges.push(changeMap);
 			});
@@ -511,11 +517,11 @@ describe('createTables', () => {
 			let callbackCount = 0;
 			let lastChanges: Map<string, string> = new Map();
 
-			tables('posts').observeChanges((changes) => {
+			tables('posts').observe((changes) => {
 				callbackCount++;
 				lastChanges = new Map();
-				for (const [id, change] of changes) {
-					lastChanges.set(id, change.action);
+				for (const [id, action] of changes) {
+					lastChanges.set(id, action);
 				}
 			});
 
@@ -552,11 +558,11 @@ describe('createTables', () => {
 			let callbackCount = 0;
 			let lastChanges: Map<string, string> = new Map();
 
-			tables('posts').observeChanges((changes) => {
+			tables('posts').observe((changes) => {
 				callbackCount++;
 				lastChanges = new Map();
-				for (const [id, change] of changes) {
-					lastChanges.set(id, change.action);
+				for (const [id, action] of changes) {
+					lastChanges.set(id, action);
 				}
 			});
 
@@ -596,19 +602,18 @@ describe('createTables', () => {
 			};
 			let lastChange: ChangeRecord | null = null;
 
-			tables('posts').observeChanges((changes) => {
+			tables('posts').observe((changes) => {
 				callbackCount++;
-				const change = changes.get('post-1');
-				if (
-					change &&
-					change.action === 'update' &&
-					change.result.status === 'valid'
-				) {
-					lastChange = {
-						action: change.action,
-						title: change.result.row.title,
-						view_count: change.result.row.view_count,
-					};
+				const action = changes.get('post-1');
+				if (action === 'update') {
+					const result = tables('posts').get('post-1');
+					if (result.status === 'valid') {
+						lastChange = {
+							action,
+							title: result.row.title,
+							view_count: result.row.view_count,
+						};
+					}
 				}
 			});
 
@@ -647,9 +652,9 @@ describe('createTables', () => {
 			});
 
 			const changes: Array<{ action: string; id: string }> = [];
-			tables('posts').observeChanges((changeMap) => {
-				for (const [rowId, change] of changeMap) {
-					changes.push({ action: change.action, id: rowId });
+			tables('posts').observe((changeMap) => {
+				for (const [rowId, action] of changeMap) {
+					changes.push({ action, id: rowId });
 				}
 			});
 
@@ -690,7 +695,7 @@ describe('createTables', () => {
 			});
 
 			const postsChanges: string[] = [];
-			tables('posts').observeChanges((changes) => {
+			tables('posts').observe((changes) => {
 				for (const [rowId] of changes) {
 					postsChanges.push(rowId);
 				}
@@ -723,7 +728,7 @@ describe('createTables', () => {
 
 			let callbackCalled = false;
 
-			tables('posts').observeChanges(() => {
+			tables('posts').observe(() => {
 				callbackCalled = true;
 			});
 
@@ -751,13 +756,13 @@ describe('createTables', () => {
 			const subscriber1Changes: string[] = [];
 			const subscriber2Changes: string[] = [];
 
-			const unsub1 = tables('posts').observeChanges((changes) => {
+			const unsub1 = tables('posts').observe((changes) => {
 				for (const [rowId] of changes) {
 					subscriber1Changes.push(rowId);
 				}
 			});
 
-			const unsub2 = tables('posts').observeChanges((changes) => {
+			const unsub2 = tables('posts').observe((changes) => {
 				for (const [rowId] of changes) {
 					subscriber2Changes.push(rowId);
 				}
