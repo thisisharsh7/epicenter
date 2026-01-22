@@ -16,19 +16,20 @@
 		"@epicenter/hq": "workspace:*",
 		"@epicenter/ui": "workspace:*",
 		"@sindresorhus/slugify": "^3.0.0",
-		"yjs": "^13.6.27",
 		"@tanstack/svelte-query": "catalog:",
 		"@tanstack/svelte-table": "catalog:",
 		"@tauri-apps/api": "^2.9.0",
 		"@tauri-apps/plugin-fs": "^2.4.1",
 		"@tauri-apps/plugin-opener": "^2.3.1",
+		"@tauri-apps/plugin-sql": "~2",
 		"arktype": "catalog:",
 		"bits-ui": "catalog:",
 		"mode-watcher": "catalog:",
 		"nanoid": "catalog:",
 		"svelte-sonner": "catalog:",
 		"tailwind-variants": "catalog:",
-		"wellcrafted": "catalog:"
+		"wellcrafted": "catalog:",
+		"yjs": "^13.6.27"
 	},
 	"devDependencies": {
 		"@epicenter/config": "workspace:*",
