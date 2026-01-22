@@ -1,8 +1,7 @@
 import {
 	defineExports,
-	getWorkspaceDocMaps,
 	type ProviderExports,
-	readSchemaFromYDoc,
+	type WorkspaceDoc,
 } from '@epicenter/hq';
 import { appLocalDataDir, dirname, join } from '@tauri-apps/api/path';
 import { mkdir, readFile, writeFile } from '@tauri-apps/plugin-fs';
@@ -16,17 +15,6 @@ import * as Y from 'yjs';
  * Configuration for the workspace persistence extension.
  */
 export type WorkspacePersistenceConfig = {
-	/**
-	 * The workspace ID (folder name under workspaces/).
-	 */
-	workspaceId: string;
-
-	/**
-	 * The epoch number for this workspace.
-	 * Determines the subfolder for all persistence files.
-	 */
-	epoch: number;
-
 	/**
 	 * Debounce interval in milliseconds for JSON file writes.
 	 * @default 500
@@ -84,34 +72,32 @@ const FILE_NAMES = {
  * Note: Workspace identity (name, icon, description) lives in Head Doc's
  * Y.Map('meta'), not in the Workspace Doc.
  *
- * @param ydoc - The Y.Doc to persist
- * @param config - Configuration with workspace ID and epoch
+ * @param workspaceDoc - The WorkspaceDoc wrapper containing ydoc, workspaceId, and epoch
+ * @param config - Optional configuration for debounce timing
  * @returns Provider exports with `whenSynced` promise and `destroy` cleanup
  *
  * @example
  * ```typescript
- * const client = createClient(definition, {
- *   epoch,
- *   capabilities: {
- *     persistence: (ctx) => workspacePersistence(ctx.ydoc, {
- *       workspaceId: definition.id,
- *       epoch,
- *     }),
- *   },
- * });
+ * const client = createClient(head)
+ *   .withSchema(schema)
+ *   .withExtensions({
+ *     persistence: (ctx) => workspacePersistence(ctx.workspaceDoc),
+ *   });
  * ```
  */
 export function workspacePersistence(
-	ydoc: Y.Doc,
-	config: WorkspacePersistenceConfig,
+	workspaceDoc: WorkspaceDoc,
+	config: WorkspacePersistenceConfig = {},
 ): ProviderExports {
-	const { workspaceId, epoch, jsonDebounceMs = 500 } = config;
+	const { ydoc, workspaceId, epoch } = workspaceDoc;
+	const { jsonDebounceMs = 500 } = config;
 
 	// For logging
 	const logPath = `workspaces/${workspaceId}/${epoch}`;
 
-	// Get the top-level Y.Maps
-	const { schema: schemaMap, kv: kvMap } = getWorkspaceDocMaps(ydoc);
+	// Get the top-level Y.Maps from the workspace doc wrapper
+	const schemaMap = workspaceDoc.getSchemaMap();
+	const kvMap = workspaceDoc.getKvMap();
 
 	// Resolve paths once, cache the promise
 	const pathsPromise = (async () => {
@@ -165,7 +151,7 @@ export function workspacePersistence(
 	const saveSchemaJson = async () => {
 		const { schemaJsonPath } = await pathsPromise;
 		try {
-			const schema = readSchemaFromYDoc(schemaMap);
+			const schema = workspaceDoc.getSchema();
 			const json = JSON.stringify(schema, null, '\t');
 			await writeFile(schemaJsonPath, new TextEncoder().encode(json));
 			console.log(

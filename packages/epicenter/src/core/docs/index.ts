@@ -9,7 +9,7 @@ export {
 	type ProviderFactoryMap,
 } from './provider-types';
 export {
-	getWorkspaceDocMaps,
+	createWorkspaceDoc,
 	type IconDefinition,
 	type KvMap,
 	mergeSchemaIntoYDoc,
@@ -19,5 +19,6 @@ export {
 	type TableMap,
 	type TablesMap,
 	WORKSPACE_DOC_MAPS,
+	type WorkspaceDoc,
 	type WorkspaceSchemaMap,
 } from './workspace-doc';

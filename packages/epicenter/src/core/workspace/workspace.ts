@@ -67,12 +67,11 @@
  * @module
  */
 
-import * as Y from 'yjs';
+import type * as Y from 'yjs';
 import type { HeadDoc } from '../docs/head-doc';
 import {
-	getWorkspaceDocMaps,
-	mergeSchemaIntoYDoc,
-	readSchemaFromYDoc,
+	createWorkspaceDoc,
+	type WorkspaceDoc,
 	type WorkspaceSchemaMap,
 } from '../docs/workspace-doc';
 import type { ExtensionFactoryMap, InferExtensionExports } from '../extension';
@@ -591,9 +590,7 @@ function createClientBuilder<
 	epoch: number;
 	tables: TTableDefinitionMap;
 	kv: TKvDefinitionMap;
-	onSync:
-		| ((schemaMap: ReturnType<typeof getWorkspaceDocMaps>['schema']) => void)
-		| undefined;
+	onSync: ((workspaceDoc: WorkspaceDoc) => void) | undefined;
 }): ClientBuilder<TTableDefinitionMap, TKvDefinitionMap> {
 	return {
 		withSchema<
@@ -607,8 +604,8 @@ function createClientBuilder<
 				epoch: config.epoch,
 				tables: schema.tables,
 				kv: schema.kv,
-				onSync: (schemaMap) => {
-					mergeSchemaIntoYDoc(schemaMap, schema);
+				onSync: (workspaceDoc) => {
+					workspaceDoc.mergeSchema(schema);
 				},
 			});
 		},
@@ -665,24 +662,17 @@ function createClientCore<
 	tables: TTableDefinitionMap;
 	kv: TKvDefinitionMap;
 	/** Called after persistence loads. Static schema uses this to merge schema. */
-	onSync:
-		| ((schemaMap: ReturnType<typeof getWorkspaceDocMaps>['schema']) => void)
-		| undefined;
+	onSync: ((workspaceDoc: WorkspaceDoc) => void) | undefined;
 }): WorkspaceClient<
 	TTableDefinitionMap,
 	TKvDefinitionMap,
 	InferExtensionExports<TExtensionFactories>
 > {
-	// Create Workspace Y.Doc with deterministic GUID
-	// gc: false is required for revision history snapshots to work
-	const docId = `${id}:${epoch}` as const;
-	const ydoc = new Y.Doc({ guid: docId, gc: false });
+	// Create Workspace Doc wrapper (handles Y.Doc creation and map access)
+	const workspaceDoc = createWorkspaceDoc({ workspaceId: id, epoch });
+	const { ydoc } = workspaceDoc;
 
-	// Get the schema Y.Map for storing table/kv definitions
-	// Note: Workspace identity (name, icon) now lives in Head Doc, not here
-	const { schema: schemaMap } = getWorkspaceDocMaps(ydoc);
-
-	// NOTE: We do NOT call mergeSchemaIntoYDoc() here!
+	// NOTE: We do NOT call mergeSchema() here!
 	// It must happen AFTER persistence loads (inside whenSynced) so that
 	// code-defined schema is "last writer" and overrides stale disk values.
 	// See: specs/20260119T231252-resilient-client-architecture.md
@@ -701,6 +691,7 @@ function createClientCore<
 		const result = extensionFactory({
 			id,
 			extensionId,
+			workspaceDoc,
 			ydoc,
 			tables,
 			kv,
@@ -724,7 +715,7 @@ function createClientCore<
 		// After persistence has loaded disk state, run the sync callback
 		// Static schema: merges schema (code is "last writer")
 		// Dynamic schema: no-op (schema comes from Y.Doc)
-		onSync?.(schemaMap);
+		onSync?.(workspaceDoc);
 	});
 
 	const destroy = async () => {
@@ -743,7 +734,7 @@ function createClientCore<
 		kv,
 		extensions,
 		getSchema() {
-			return readSchemaFromYDoc(schemaMap);
+			return workspaceDoc.getSchema();
 		},
 		whenSynced,
 		destroy,

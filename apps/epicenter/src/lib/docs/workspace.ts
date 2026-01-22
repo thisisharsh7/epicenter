@@ -3,7 +3,6 @@ import {
 	type HeadDoc,
 	type WorkspaceSchema,
 } from '@epicenter/hq';
-import type * as Y from 'yjs';
 import { workspacePersistence } from './workspace-persistence';
 
 /**
@@ -54,19 +53,12 @@ import { workspacePersistence } from './workspace-persistence';
  * @returns A workspace client with persistence pre-configured
  */
 export function createWorkspaceClient(head: HeadDoc, schema?: WorkspaceSchema) {
-	const workspaceId = head.workspaceId;
-	const epoch = head.getEpoch();
-
 	const builder = createClient(head);
 
 	// If schema provided, use static schema mode; otherwise dynamic schema mode
 	const configuredBuilder = schema ? builder.withSchema(schema) : builder;
 
 	return configuredBuilder.withExtensions({
-		persistence: (ctx) =>
-			workspacePersistence(ctx.ydoc, {
-				workspaceId,
-				epoch,
-			}),
+		persistence: (ctx) => workspacePersistence(ctx.workspaceDoc),
 	});
 }

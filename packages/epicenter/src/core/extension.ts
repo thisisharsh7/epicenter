@@ -17,6 +17,7 @@
  */
 
 import type * as Y from 'yjs';
+import type { WorkspaceDoc } from './docs/workspace-doc';
 import type { Kv } from './kv/core';
 import type { Lifecycle } from './lifecycle';
 import type { KvDefinitionMap, TableDefinitionMap } from './schema';
@@ -120,8 +121,24 @@ export type ExtensionContext<
 	extensionId: string;
 
 	/**
+	 * The Workspace Doc wrapper providing typed access to Y.Maps.
+	 *
+	 * Use this for:
+	 * - Schema access: `workspaceDoc.getSchema()`, `workspaceDoc.getSchemaMap()`
+	 * - KV map access: `workspaceDoc.getKvMap()`
+	 * - Tables map access: `workspaceDoc.getTablesMap()`
+	 * - Observation: `workspaceDoc.observeSchema()`
+	 *
+	 * The raw `ydoc` is also available for doc-level operations.
+	 */
+	workspaceDoc: WorkspaceDoc;
+
+	/**
 	 * The underlying YJS document.
 	 * Use for doc-level operations: persistence, sync, undo/redo.
+	 *
+	 * For accessing the top-level Y.Maps (schema, kv, tables), prefer
+	 * using `workspaceDoc` methods instead.
 	 */
 	ydoc: Y.Doc;
 

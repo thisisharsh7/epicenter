@@ -93,24 +93,179 @@ export type KvMap = Y.Map<KvValue>;
 export type SchemaMap = Y.Map<unknown>;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Workspace Doc Helpers
+// Workspace Doc Wrapper
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Get the three top-level Y.Maps from a workspace Y.Doc.
+ * Create a Workspace Y.Doc wrapper for managing workspace data.
  *
- * These are lazily created on first access (YJS behavior).
+ * Each workspace epoch has one Workspace Y.Doc containing schema definitions
+ * and data (tables + kv values). This wrapper provides typed accessors for
+ * the three top-level Y.Maps.
  *
- * @param ydoc - The workspace Y.Doc
- * @returns Object with schema, kv, and tables maps
+ * Y.Doc ID: `{workspaceId}:{epoch}`
+ *
+ * ## Structure
+ *
+ * ```
+ * Y.Map('schema')  - Table/KV definitions (rarely changes)
+ * Y.Map('kv')      - Settings values (changes occasionally)
+ * Y.Map('tables')  - Row data by table name (changes frequently)
+ * ```
+ *
+ * @example
+ * ```typescript
+ * const workspaceDoc = createWorkspaceDoc({
+ *   workspaceId: 'abc123',
+ *   epoch: 0,
+ * });
+ *
+ * // Access schema
+ * const schema = workspaceDoc.getSchema();
+ *
+ * // Merge code-defined schema into Y.Doc
+ * workspaceDoc.mergeSchema({ tables: {...}, kv: {} });
+ *
+ * // Observe schema changes
+ * const unsubscribe = workspaceDoc.observeSchema((schema) => {
+ *   console.log('Schema changed:', schema);
+ * });
+ *
+ * // Get raw maps for low-level operations
+ * const schemaMap = workspaceDoc.getSchemaMap();
+ * const kvMap = workspaceDoc.getKvMap();
+ * const tablesMap = workspaceDoc.getTablesMap();
+ * ```
  */
-export function getWorkspaceDocMaps(ydoc: Y.Doc) {
+export function createWorkspaceDoc(options: {
+	workspaceId: string;
+	epoch: number;
+}) {
+	const { workspaceId, epoch } = options;
+	const docId = `${workspaceId}:${epoch}`;
+	// gc: false is required for revision history snapshots to work
+	const ydoc = new Y.Doc({ guid: docId, gc: false });
+
+	// Get maps once, keep in closure
+	const schemaMap = ydoc.getMap(WORKSPACE_DOC_MAPS.SCHEMA) as SchemaMap;
+	const kvMap = ydoc.getMap(WORKSPACE_DOC_MAPS.KV) as KvMap;
+	const tablesMap = ydoc.getMap(WORKSPACE_DOC_MAPS.TABLES) as TablesMap;
+
 	return {
-		schema: ydoc.getMap(WORKSPACE_DOC_MAPS.SCHEMA) as SchemaMap,
-		kv: ydoc.getMap(WORKSPACE_DOC_MAPS.KV) as KvMap,
-		tables: ydoc.getMap(WORKSPACE_DOC_MAPS.TABLES) as TablesMap,
+		/** The underlying Y.Doc instance. */
+		ydoc,
+
+		/** The workspace ID (without epoch suffix). */
+		workspaceId,
+
+		/** The epoch number for this workspace doc. */
+		epoch,
+
+		/**
+		 * Get the schema Y.Map for low-level operations.
+		 *
+		 * Prefer `getSchema()` for reading and `mergeSchema()` for writing
+		 * unless you need direct Y.Map access for observation or custom logic.
+		 */
+		getSchemaMap() {
+			return schemaMap;
+		},
+
+		/**
+		 * Get the KV Y.Map for low-level operations.
+		 *
+		 * This contains the actual KV values, not the KV schema definitions.
+		 */
+		getKvMap() {
+			return kvMap;
+		},
+
+		/**
+		 * Get the tables Y.Map for low-level operations.
+		 *
+		 * Structure: `Y.Map<tableName, Y.Map<rowId, Y.Map<fieldName, value>>>`
+		 */
+		getTablesMap() {
+			return tablesMap;
+		},
+
+		/**
+		 * Read the current schema from the Y.Doc as a plain object.
+		 *
+		 * Returns table and KV schema definitions (NOT workspace identity).
+		 * Use HeadDoc.getMeta() for workspace identity.
+		 *
+		 * @example
+		 * ```typescript
+		 * const schema = workspaceDoc.getSchema();
+		 * console.log(schema.tables.posts);  // { name: 'Posts', fields: {...} }
+		 * ```
+		 */
+		getSchema(): WorkspaceSchemaMap {
+			return readSchemaFromYDoc(schemaMap);
+		},
+
+		/**
+		 * Merge table/KV schema into the Y.Doc.
+		 *
+		 * Uses CRDT merge semantics so concurrent edits merge correctly.
+		 * Call this after persistence loads to ensure code-defined schema
+		 * is "last writer" and overrides stale disk values.
+		 *
+		 * @param schema - The schema to merge (tables and kv)
+		 *
+		 * @example
+		 * ```typescript
+		 * workspaceDoc.mergeSchema({
+		 *   tables: { posts: table({ name: 'Posts', fields: { id: id(), title: text() } }) },
+		 *   kv: {},
+		 * });
+		 * ```
+		 */
+		mergeSchema<
+			TTableDefinitionMap extends TableDefinitionMap,
+			TKvDefinitionMap extends KvDefinitionMap,
+		>(schema: { tables: TTableDefinitionMap; kv: TKvDefinitionMap }) {
+			mergeSchemaIntoYDoc(schemaMap, schema);
+		},
+
+		/**
+		 * Observe schema changes.
+		 *
+		 * Fires when any part of the schema (tables or kv definitions) changes.
+		 * Useful for UI that needs to react to collaborative schema edits.
+		 *
+		 * @param callback - Function called with the new schema when it changes
+		 * @returns Unsubscribe function
+		 *
+		 * @example
+		 * ```typescript
+		 * const unsubscribe = workspaceDoc.observeSchema((schema) => {
+		 *   console.log('Schema updated:', schema.tables);
+		 *   // Re-render table list, etc.
+		 * });
+		 *
+		 * // Later: stop observing
+		 * unsubscribe();
+		 * ```
+		 */
+		observeSchema(callback: (schema: WorkspaceSchemaMap) => void) {
+			const handler = () => {
+				callback(readSchemaFromYDoc(schemaMap));
+			};
+
+			schemaMap.observeDeep(handler);
+			return () => schemaMap.unobserveDeep(handler);
+		},
 	};
 }
+
+/** Workspace Y.Doc wrapper type - inferred from factory function. */
+export type WorkspaceDoc = ReturnType<typeof createWorkspaceDoc>;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Schema Helpers
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Merge table/KV schema into the Y.Map('schema').

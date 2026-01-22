@@ -57,12 +57,13 @@ export type {
 	SchemaMap,
 	TableMap,
 	TablesMap,
+	WorkspaceDoc,
 	WorkspaceMeta,
 	WorkspaceSchemaMap,
 } from './core/docs';
 export {
 	createHeadDoc,
-	getWorkspaceDocMaps,
+	createWorkspaceDoc,
 	mergeSchemaIntoYDoc,
 	readSchemaFromYDoc,
 	WORKSPACE_DOC_MAPS,
