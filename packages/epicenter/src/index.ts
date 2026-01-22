@@ -53,10 +53,7 @@ export type {
 	ProviderExports,
 	ProviderFactory,
 	ProviderFactoryMap,
-	RowMap,
 	SchemaMap,
-	TableMap,
-	TablesMap,
 	WorkspaceDoc,
 	WorkspaceMeta,
 	WorkspaceSchemaMap,
@@ -64,8 +61,6 @@ export type {
 export {
 	createHeadDoc,
 	createWorkspaceDoc,
-	mergeSchemaIntoYDoc,
-	readSchemaFromYDoc,
 	WORKSPACE_DOC_MAPS,
 } from './core/docs';
 export type { ExtensionError } from './core/errors';
