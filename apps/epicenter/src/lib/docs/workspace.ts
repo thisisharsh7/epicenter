@@ -59,6 +59,6 @@ export function createWorkspaceClient(head: HeadDoc, schema?: WorkspaceSchema) {
 	const configuredBuilder = schema ? builder.withSchema(schema) : builder;
 
 	return configuredBuilder.withExtensions({
-		persistence: (ctx) => workspacePersistence(ctx.workspaceDoc),
+		persistence: (ctx) => workspacePersistence(ctx),
 	});
 }

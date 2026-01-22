@@ -1,7 +1,8 @@
+import type { KvDefinitionMap, TableDefinitionMap } from '@epicenter/hq';
 import {
 	defineExports,
+	type ExtensionContext,
 	type ProviderExports,
-	type WorkspaceDoc,
 } from '@epicenter/hq';
 import { appLocalDataDir, dirname, join } from '@tauri-apps/api/path';
 import { mkdir, readFile, writeFile } from '@tauri-apps/plugin-fs';
@@ -72,7 +73,7 @@ const FILE_NAMES = {
  * Note: Workspace identity (name, icon, description) lives in Head Doc's
  * Y.Map('meta'), not in the Workspace Doc.
  *
- * @param workspaceDoc - The WorkspaceDoc wrapper containing ydoc, workspaceId, and epoch
+ * @param ctx - The extension context
  * @param config - Optional configuration for debounce timing
  * @returns Provider exports with `whenSynced` promise and `destroy` cleanup
  *
@@ -81,14 +82,18 @@ const FILE_NAMES = {
  * const client = createClient(head)
  *   .withSchema(schema)
  *   .withExtensions({
- *     persistence: (ctx) => workspacePersistence(ctx.workspaceDoc),
+ *     persistence: (ctx) => workspacePersistence(ctx),
  *   });
  * ```
  */
-export function workspacePersistence(
-	workspaceDoc: WorkspaceDoc,
+export function workspacePersistence<
+	TTableDefinitionMap extends TableDefinitionMap,
+	TKvDefinitionMap extends KvDefinitionMap,
+>(
+	ctx: ExtensionContext<TTableDefinitionMap, TKvDefinitionMap>,
 	config: WorkspacePersistenceConfig = {},
 ): ProviderExports {
+	const { workspaceDoc } = ctx;
 	const { ydoc, workspaceId, epoch } = workspaceDoc;
 	const { jsonDebounceMs = 500 } = config;
 
