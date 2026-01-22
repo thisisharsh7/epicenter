@@ -2,7 +2,7 @@ import {
 	defineExports,
 	getWorkspaceDocMaps,
 	type ProviderExports,
-	readDefinitionFromYDoc,
+	readSchemaFromYDoc,
 } from '@epicenter/hq';
 import { appLocalDataDir, dirname, join } from '@tauri-apps/api/path';
 import { mkdir, readFile, writeFile } from '@tauri-apps/plugin-fs';
@@ -41,8 +41,8 @@ export type TauriWorkspacePersistenceConfig = {
 const FILE_NAMES = {
 	/** Full Y.Doc binary - sync source of truth */
 	WORKSPACE_YJS: 'workspace.yjs',
-	/** Schema metadata from Y.Map('definition') */
-	DEFINITION_JSON: 'definition.json',
+	/** Schema metadata from Y.Map('schema') */
+	SCHEMA_JSON: 'schema.json',
 	/** Settings values from Y.Map('kv') */
 	KV_JSON: 'kv.json',
 	/** Snapshots directory */
@@ -101,7 +101,7 @@ export function tauriWorkspacePersistence(
 	const logPath = `workspaces/${workspaceId}/${epoch}`;
 
 	// Get the top-level Y.Maps
-	const { definition: definitionMap, kv: kvMap } = getWorkspaceDocMaps(ydoc);
+	const { schema: schemaMap, kv: kvMap } = getWorkspaceDocMaps(ydoc);
 
 	// Resolve paths once, cache the promise
 	const pathsPromise = (async () => {
@@ -113,14 +113,14 @@ export function tauriWorkspacePersistence(
 			epoch.toString(),
 		);
 		const workspaceYjsPath = await join(epochDir, FILE_NAMES.WORKSPACE_YJS);
-		const definitionJsonPath = await join(epochDir, FILE_NAMES.DEFINITION_JSON);
+		const schemaJsonPath = await join(epochDir, FILE_NAMES.SCHEMA_JSON);
 		const kvJsonPath = await join(epochDir, FILE_NAMES.KV_JSON);
 		const snapshotsDir = await join(epochDir, FILE_NAMES.SNAPSHOTS_DIR);
 
 		return {
 			epochDir,
 			workspaceYjsPath,
-			definitionJsonPath,
+			schemaJsonPath,
 			kvJsonPath,
 			snapshotsDir,
 		};
@@ -144,36 +144,36 @@ export function tauriWorkspacePersistence(
 	ydoc.on('update', saveYDoc);
 
 	// =========================================================================
-	// 2. Definition JSON Persistence (definition.json)
+	// 2. Schema JSON Persistence (schema.json)
 	// =========================================================================
 
-	let definitionDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+	let schemaDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-	const saveDefinitionJson = async () => {
-		const { definitionJsonPath } = await pathsPromise;
+	const saveSchemaJson = async () => {
+		const { schemaJsonPath } = await pathsPromise;
 		try {
-			const definition = readDefinitionFromYDoc(definitionMap);
-			const json = JSON.stringify(definition, null, '\t');
-			await writeFile(definitionJsonPath, new TextEncoder().encode(json));
-			console.log(`[Persistence] Saved definition.json for ${workspaceId}`);
+			const schema = readSchemaFromYDoc(schemaMap);
+			const json = JSON.stringify(schema, null, '\t');
+			await writeFile(schemaJsonPath, new TextEncoder().encode(json));
+			console.log(`[Persistence] Saved schema.json for ${workspaceId}`);
 		} catch (error) {
-			console.error(`[Persistence] Failed to save definition.json:`, error);
+			console.error(`[Persistence] Failed to save schema.json:`, error);
 		}
 	};
 
-	const scheduleDefinitionSave = () => {
-		if (definitionDebounceTimer) clearTimeout(definitionDebounceTimer);
-		definitionDebounceTimer = setTimeout(async () => {
-			definitionDebounceTimer = null;
-			await saveDefinitionJson();
+	const scheduleSchemaSave = () => {
+		if (schemaDebounceTimer) clearTimeout(schemaDebounceTimer);
+		schemaDebounceTimer = setTimeout(async () => {
+			schemaDebounceTimer = null;
+			await saveSchemaJson();
 		}, jsonDebounceMs);
 	};
 
-	// Observe definition map changes
-	const definitionObserverHandler = () => {
-		scheduleDefinitionSave();
+	// Observe schema map changes
+	const schemaObserverHandler = () => {
+		scheduleSchemaSave();
 	};
-	definitionMap.observeDeep(definitionObserverHandler);
+	schemaMap.observeDeep(schemaObserverHandler);
 
 	// =========================================================================
 	// 3. KV JSON Persistence (kv.json)
@@ -241,15 +241,15 @@ export function tauriWorkspacePersistence(
 			}
 
 			// Initial JSON saves
-			await saveDefinitionJson();
+			await saveSchemaJson();
 			await saveKvJson();
 		})(),
 
 		destroy() {
 			// Clear debounce timers
-			if (definitionDebounceTimer) {
-				clearTimeout(definitionDebounceTimer);
-				definitionDebounceTimer = null;
+			if (schemaDebounceTimer) {
+				clearTimeout(schemaDebounceTimer);
+				schemaDebounceTimer = null;
 			}
 			if (kvDebounceTimer) {
 				clearTimeout(kvDebounceTimer);
@@ -260,7 +260,7 @@ export function tauriWorkspacePersistence(
 			ydoc.off('update', saveYDoc);
 
 			// Remove map observers
-			definitionMap.unobserveDeep(definitionObserverHandler);
+			schemaMap.unobserveDeep(schemaObserverHandler);
 			kvMap.unobserve(kvObserverHandler);
 		},
 	});
