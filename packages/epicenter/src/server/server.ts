@@ -135,7 +135,7 @@ function createServerInternal(
 			console.log('Available Workspaces:\n');
 			for (const [workspaceId, client] of Object.entries(workspaces)) {
 				console.log(`  ${workspaceId}`);
-				for (const table of client.tables.$all()) {
+				for (const table of client.tables.defined()) {
 					console.log(`    tables/${table.name}`);
 				}
 				console.log(`    sync (WebSocket)`);

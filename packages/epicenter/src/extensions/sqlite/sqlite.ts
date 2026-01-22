@@ -100,7 +100,7 @@ export const sqlite = async <
 ) => {
 	const { dbPath, logsDir, debounceMs = DEFAULT_DEBOUNCE_MS } = config;
 
-	const drizzleTables = convertTableDefinitionsToDrizzle(tables.$definitions);
+	const drizzleTables = convertTableDefinitionsToDrizzle(tables.definitions);
 
 	await mkdir(path.dirname(dbPath), { recursive: true });
 	await mkdir(logsDir, { recursive: true });
@@ -172,7 +172,7 @@ export const sqlite = async <
 		await recreateTables();
 
 		// Insert all valid rows from YJS into SQLite
-		for (const { table, paired: drizzleTable } of tables.$zip(drizzleTables)) {
+		for (const { table, paired: drizzleTable } of tables.zip(drizzleTables)) {
 			const rows = table.getAllValid();
 
 			if (rows.length > 0) {
@@ -212,7 +212,7 @@ export const sqlite = async <
 	// =========================================================================
 	const unsubscribers: Array<() => void> = [];
 
-	for (const { table } of tables.$zip(drizzleTables)) {
+	for (const { table } of tables.zip(drizzleTables)) {
 		const unsub = table.observeChanges((changes) => {
 			if (isPushingFromSqlite) return;
 
@@ -238,7 +238,7 @@ export const sqlite = async <
 	await recreateTables();
 
 	// Insert all valid rows from YJS into SQLite
-	for (const { table, paired: drizzleTable } of tables.$zip(drizzleTables)) {
+	for (const { table, paired: drizzleTable } of tables.zip(drizzleTables)) {
 		const rows = table.getAllValid();
 
 		if (rows.length > 0) {
@@ -293,7 +293,7 @@ export const sqlite = async <
 					isPushingFromSqlite = true;
 					tables.clearAll();
 
-					for (const { table, paired: drizzleTable } of tables.$zip(
+					for (const { table, paired: drizzleTable } of tables.zip(
 						drizzleTables,
 					)) {
 						const rows = await sqliteDb.select().from(drizzleTable);

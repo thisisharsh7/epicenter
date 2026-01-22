@@ -56,13 +56,13 @@ export type TableDefinitionsToDrizzle<
  * This is the main entry point for converting a TableDefinitionMap
  * into Drizzle table definitions for database operations.
  *
- * @param definitions - The table definitions (from `tables.$definitions`)
+ * @param definitions - The table definitions (from `tables.definitions`)
  * @returns A record mapping table names to their Drizzle SQLiteTable representations
  *
  * @example
  * ```typescript
- * // In an extension, use tables.$definitions directly
- * const drizzleTables = convertTableDefinitionsToDrizzle(tables.$definitions);
+ * // In an extension, use tables.definitions directly
+ * const drizzleTables = convertTableDefinitionsToDrizzle(tables.definitions);
  *
  * // Use with Drizzle queries
  * const allUsers = await db.select().from(drizzleTables.users);

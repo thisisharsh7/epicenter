@@ -754,14 +754,14 @@ function createTableHelper<TFieldSchemaMap extends FieldSchemaMap>({
 		/**
 		 * Direct access to the underlying Y.Map for this table.
 		 *
-		 * **Escape hatch for advanced use cases.** Using `$raw` bypasses all
+		 * **Escape hatch for advanced use cases.** Using `raw` bypasses all
 		 * validation and type safety. Prefer the typed helper methods for
 		 * normal operations.
 		 *
 		 * Returns the TableMap (Y.Map<RowMap>) for this table. Creates the
 		 * Y.Map if it doesn't exist yet.
 		 *
-		 * Use cases for `$raw`:
+		 * Use cases for `raw`:
 		 * - Bulk operations in a single `ydoc.transact()` for performance
 		 * - Custom observation patterns with `observe` / `observeDeep`
 		 * - Direct iteration over row Y.Maps
@@ -770,17 +770,17 @@ function createTableHelper<TFieldSchemaMap extends FieldSchemaMap>({
 		 * @example
 		 * ```typescript
 		 * // Direct iteration over raw row maps
-		 * for (const [rowId, rowMap] of tables.posts.$raw.entries()) {
+		 * for (const [rowId, rowMap] of tables.posts.raw.entries()) {
 		 *   console.log(rowId, rowMap.toJSON());
 		 * }
 		 *
 		 * // Custom observation
-		 * tables.posts.$raw.observe((event) => {
+		 * tables.posts.raw.observe((event) => {
 		 *   // Raw YJS map events...
 		 * });
 		 * ```
 		 */
-		get $raw(): TableMap {
+		get raw(): TableMap {
 			return getOrCreateTableMap();
 		},
 
@@ -791,3 +791,465 @@ function createTableHelper<TFieldSchemaMap extends FieldSchemaMap>({
 export type TableHelper<TFieldSchemaMap extends FieldSchemaMap> = ReturnType<
 	typeof createTableHelper<TFieldSchemaMap>
 >;
+
+/**
+ * A table helper for dynamically-created tables without a schema definition.
+ * No validation is performed; all rows are treated as `Record<string, unknown> & { id: string }`.
+ */
+export type UntypedTableHelper = {
+	name: string;
+	schema: FieldSchemaMap;
+	update(partialRow: { id: string } & Record<string, unknown>): UpdateResult;
+	upsert(rowData: { id: string } & Record<string, unknown>): void;
+	upsertMany(rows: ({ id: string } & Record<string, unknown>)[]): void;
+	updateMany(
+		rows: ({ id: string } & Record<string, unknown>)[],
+	): UpdateManyResult;
+	get(id: string): GetResult<{ id: string } & Record<string, unknown>>;
+	getAll(): RowResult<{ id: string } & Record<string, unknown>>[];
+	getAllValid(): ({ id: string } & Record<string, unknown>)[];
+	getAllInvalid(): InvalidRowResult[];
+	has(id: string): boolean;
+	delete(id: string): DeleteResult;
+	deleteMany(ids: string[]): DeleteManyResult;
+	clear(): void;
+	count(): number;
+	filter(
+		predicate: (row: { id: string } & Record<string, unknown>) => boolean,
+	): ({ id: string } & Record<string, unknown>)[];
+	find(
+		predicate: (row: { id: string } & Record<string, unknown>) => boolean,
+	): ({ id: string } & Record<string, unknown>) | null;
+	observeChanges(
+		callback: (
+			changes: Map<
+				string,
+				TableRowChange<{ id: string } & Record<string, unknown>>
+			>,
+			transaction: Y.Transaction,
+		) => void,
+	): () => void;
+	raw: TableMap;
+	$inferRow: { id: string } & Record<string, unknown>;
+};
+
+/**
+ * Creates a table helper for a dynamic/undefined table (no schema validation).
+ *
+ * Used by `tables.table(name)` when accessing a table that isn't in the
+ * schema definition. All rows are typed as `{ id: string } & Record<string, unknown>`
+ * and no validation is performed.
+ */
+export function createUntypedTableHelper({
+	ydoc,
+	tableName,
+	ytables,
+}: {
+	ydoc: Y.Doc;
+	tableName: string;
+	ytables: TablesMap;
+}): UntypedTableHelper {
+	type TRow = { id: string } & Record<string, unknown>;
+
+	const getExistingTableMap = (): TableMap | null => {
+		return ytables.get(tableName) ?? null;
+	};
+
+	const getOrCreateTableMap = (): TableMap => {
+		let tableMap = ytables.get(tableName);
+		if (!tableMap) {
+			tableMap = new Y.Map() as TableMap;
+			ytables.set(tableName, tableMap);
+		}
+		return tableMap;
+	};
+
+	const getOrCreateRow = (rowId: string): RowMap => {
+		const tableMap = getOrCreateTableMap();
+		let rowMap = tableMap.get(rowId);
+		if (!rowMap) {
+			rowMap = new Y.Map() as RowMap;
+			tableMap.set(rowId, rowMap);
+		}
+		return rowMap;
+	};
+
+	const getRow = (rowId: string): RowMap | null => {
+		const tableMap = getExistingTableMap();
+		if (!tableMap) return null;
+		return tableMap.get(rowId) ?? null;
+	};
+
+	const reconstructRow = (rowMap: RowMap): Record<string, unknown> => {
+		const row: Record<string, unknown> = {};
+		for (const [key, value] of rowMap.entries()) {
+			row[key] = value;
+		}
+		return row;
+	};
+
+	return {
+		name: tableName,
+		schema: {} as FieldSchemaMap,
+
+		update(partialRow: TRow): UpdateResult {
+			const rowMap = getRow(partialRow.id);
+			if (!rowMap) return { status: 'not_found_locally' };
+
+			ydoc.transact(() => {
+				for (const [key, value] of Object.entries(partialRow)) {
+					rowMap.set(key, value);
+				}
+			});
+
+			return { status: 'applied' };
+		},
+
+		upsert(rowData: TRow): void {
+			const rowMap = getOrCreateRow(rowData.id);
+			ydoc.transact(() => {
+				for (const [key, value] of Object.entries(rowData)) {
+					rowMap.set(key, value);
+				}
+			});
+		},
+
+		upsertMany(rows: TRow[]): void {
+			ydoc.transact(() => {
+				for (const rowData of rows) {
+					const rowMap = getOrCreateRow(rowData.id);
+					for (const [key, value] of Object.entries(rowData)) {
+						rowMap.set(key, value);
+					}
+				}
+			});
+		},
+
+		updateMany(rows: TRow[]): UpdateManyResult {
+			const applied: string[] = [];
+			const notFoundLocally: string[] = [];
+
+			ydoc.transact(() => {
+				for (const partialRow of rows) {
+					const rowMap = getRow(partialRow.id);
+					if (!rowMap) {
+						notFoundLocally.push(partialRow.id);
+						continue;
+					}
+					for (const [key, value] of Object.entries(partialRow)) {
+						rowMap.set(key, value);
+					}
+					applied.push(partialRow.id);
+				}
+			});
+
+			if (notFoundLocally.length === 0)
+				return { status: 'all_applied', applied };
+			if (applied.length === 0)
+				return { status: 'none_applied', notFoundLocally };
+			return { status: 'partially_applied', applied, notFoundLocally };
+		},
+
+		get(id: string): GetResult<TRow> {
+			const rowMap = getRow(id);
+			if (!rowMap) return { status: 'not_found', id };
+			const row = reconstructRow(rowMap);
+			return { status: 'valid', row: row as TRow };
+		},
+
+		getAll(): RowResult<TRow>[] {
+			const tableMap = getExistingTableMap();
+			if (!tableMap) return [];
+
+			const results: RowResult<TRow>[] = [];
+			for (const [_id, rowMap] of tableMap.entries()) {
+				const row = reconstructRow(rowMap);
+				results.push({ status: 'valid', row: row as TRow });
+			}
+			return results;
+		},
+
+		getAllValid(): TRow[] {
+			const tableMap = getExistingTableMap();
+			if (!tableMap) return [];
+
+			const result: TRow[] = [];
+			for (const [_id, rowMap] of tableMap.entries()) {
+				result.push(reconstructRow(rowMap) as TRow);
+			}
+			return result;
+		},
+
+		getAllInvalid(): InvalidRowResult[] {
+			return [];
+		},
+
+		has(id: string): boolean {
+			const tableMap = getExistingTableMap();
+			return tableMap?.has(id) ?? false;
+		},
+
+		delete(id: string): DeleteResult {
+			const tableMap = getExistingTableMap();
+			if (!tableMap || !tableMap.has(id))
+				return { status: 'not_found_locally' };
+
+			tableMap.delete(id);
+			return { status: 'deleted' };
+		},
+
+		deleteMany(ids: string[]): DeleteManyResult {
+			const tableMap = getExistingTableMap();
+			if (!tableMap) {
+				return { status: 'none_deleted', notFoundLocally: ids };
+			}
+
+			const deleted: string[] = [];
+			const notFoundLocally: string[] = [];
+
+			ydoc.transact(() => {
+				for (const id of ids) {
+					if (tableMap.has(id)) {
+						tableMap.delete(id);
+						deleted.push(id);
+					} else {
+						notFoundLocally.push(id);
+					}
+				}
+			});
+
+			if (notFoundLocally.length === 0)
+				return { status: 'all_deleted', deleted };
+			if (deleted.length === 0)
+				return { status: 'none_deleted', notFoundLocally };
+			return { status: 'partially_deleted', deleted, notFoundLocally };
+		},
+
+		clear(): void {
+			const tableMap = getExistingTableMap();
+			if (!tableMap) return;
+
+			ydoc.transact(() => {
+				for (const id of tableMap.keys()) {
+					tableMap.delete(id);
+				}
+			});
+		},
+
+		count(): number {
+			const tableMap = getExistingTableMap();
+			return tableMap?.size ?? 0;
+		},
+
+		filter(predicate: (row: TRow) => boolean): TRow[] {
+			const tableMap = getExistingTableMap();
+			if (!tableMap) return [];
+
+			const result: TRow[] = [];
+			for (const [_id, rowMap] of tableMap.entries()) {
+				const row = reconstructRow(rowMap) as TRow;
+				if (predicate(row)) {
+					result.push(row);
+				}
+			}
+			return result;
+		},
+
+		find(predicate: (row: TRow) => boolean): TRow | null {
+			const tableMap = getExistingTableMap();
+			if (!tableMap) return null;
+
+			for (const [_id, rowMap] of tableMap.entries()) {
+				const row = reconstructRow(rowMap) as TRow;
+				if (predicate(row)) {
+					return row;
+				}
+			}
+			return null;
+		},
+
+		observeChanges(
+			callback: (
+				changes: Map<string, TableRowChange<TRow>>,
+				transaction: Y.Transaction,
+			) => void,
+		): () => void {
+			const rowObservers = new Map<string, () => void>();
+			const pendingAdds = new Set<string>();
+
+			let tableMap = getExistingTableMap();
+			let tableUnobserve: (() => void) | null = null;
+
+			let pendingChanges = new Map<string, TableRowChange<TRow>>();
+			let pendingTransaction: Y.Transaction | null = null;
+
+			const afterTransactionHandler = () => {
+				if (pendingChanges.size > 0 && pendingTransaction) {
+					const changesToDeliver = pendingChanges;
+					const transactionToDeliver = pendingTransaction;
+					pendingChanges = new Map();
+					pendingTransaction = null;
+					callback(changesToDeliver, transactionToDeliver);
+				} else {
+					pendingChanges = new Map();
+					pendingTransaction = null;
+				}
+			};
+
+			ydoc.on('afterTransaction', afterTransactionHandler);
+
+			const queueChange = (
+				rowId: string,
+				change: TableRowChange<TRow>,
+				transaction: Y.Transaction,
+			) => {
+				pendingTransaction = transaction;
+				pendingChanges.set(rowId, change);
+			};
+
+			const observeRow = (rowId: string, rowMap: RowMap) => {
+				const handler = (event: Y.YMapEvent<unknown>) => {
+					const currentRow = reconstructRow(rowMap) as TRow;
+					const result: RowResult<TRow> = { status: 'valid', row: currentRow };
+
+					if (pendingAdds.has(rowId)) {
+						pendingAdds.delete(rowId);
+						queueChange(rowId, { action: 'add', result }, event.transaction);
+					} else {
+						queueChange(rowId, { action: 'update', result }, event.transaction);
+					}
+				};
+
+				rowMap.observe(handler);
+				return () => rowMap.unobserve(handler);
+			};
+
+			const rebindRowObserver = (
+				rowId: string,
+				newRowMap: RowMap,
+				transaction: Y.Transaction,
+			) => {
+				rowObservers.get(rowId)?.();
+				rowObservers.set(rowId, observeRow(rowId, newRowMap));
+
+				const currentRow = reconstructRow(newRowMap) as TRow;
+				const result: RowResult<TRow> = { status: 'valid', row: currentRow };
+				queueChange(rowId, { action: 'update', result }, transaction);
+			};
+
+			const tableObserver = (event: Y.YMapEvent<RowMap>) => {
+				const currentTableMap = event.target;
+
+				event.changes.keys.forEach((change, rowId) => {
+					if (change.action === 'add') {
+						const rowMap = currentTableMap.get(rowId);
+						if (rowMap) {
+							rowObservers.set(rowId, observeRow(rowId, rowMap));
+
+							if (rowMap.size > 0) {
+								const currentRow = reconstructRow(rowMap) as TRow;
+								const result: RowResult<TRow> = {
+									status: 'valid',
+									row: currentRow,
+								};
+								queueChange(
+									rowId,
+									{ action: 'add', result },
+									event.transaction,
+								);
+							} else {
+								pendingAdds.add(rowId);
+							}
+						}
+					} else if (change.action === 'update') {
+						const newRowMap = currentTableMap.get(rowId);
+						if (newRowMap) {
+							rebindRowObserver(rowId, newRowMap, event.transaction);
+						}
+					} else if (change.action === 'delete') {
+						rowObservers.get(rowId)?.();
+						rowObservers.delete(rowId);
+						pendingAdds.delete(rowId);
+						queueChange(rowId, { action: 'delete' }, event.transaction);
+					}
+				});
+			};
+
+			const teardownTableObservers = () => {
+				tableUnobserve?.();
+				tableUnobserve = null;
+				for (const unsubscribe of rowObservers.values()) unsubscribe();
+				rowObservers.clear();
+				pendingAdds.clear();
+			};
+
+			const setupTableObserver = (
+				map: TableMap,
+				fireAddForExisting: boolean,
+				transaction?: Y.Transaction,
+			) => {
+				for (const [rowId, rowMap] of map.entries()) {
+					rowObservers.set(rowId, observeRow(rowId, rowMap));
+					if (fireAddForExisting && transaction) {
+						const currentRow = reconstructRow(rowMap) as TRow;
+						const result: RowResult<TRow> = {
+							status: 'valid',
+							row: currentRow,
+						};
+						queueChange(rowId, { action: 'add', result }, transaction);
+					}
+				}
+
+				map.observe(tableObserver);
+				tableUnobserve = () => map.unobserve(tableObserver);
+			};
+
+			if (tableMap) {
+				setupTableObserver(tableMap, false);
+			}
+
+			const ytablesObserver = (event: Y.YMapEvent<TableMap>) => {
+				event.changes.keys.forEach((change, key) => {
+					if (key !== tableName) return;
+
+					if (change.action === 'add') {
+						const newTableMap = ytables.get(tableName);
+						if (newTableMap && !tableMap) {
+							tableMap = newTableMap;
+							setupTableObserver(newTableMap, true, event.transaction);
+						}
+					} else if (change.action === 'update') {
+						const newTableMap = ytables.get(tableName);
+						if (newTableMap && newTableMap !== tableMap) {
+							for (const rowId of rowObservers.keys()) {
+								queueChange(rowId, { action: 'delete' }, event.transaction);
+							}
+							teardownTableObservers();
+							tableMap = newTableMap;
+							setupTableObserver(newTableMap, true, event.transaction);
+						}
+					} else if (change.action === 'delete') {
+						for (const rowId of rowObservers.keys()) {
+							queueChange(rowId, { action: 'delete' }, event.transaction);
+						}
+						teardownTableObservers();
+						tableMap = null;
+					}
+				});
+			};
+			ytables.observe(ytablesObserver);
+
+			return () => {
+				ydoc.off('afterTransaction', afterTransactionHandler);
+				ytables.unobserve(ytablesObserver);
+				teardownTableObservers();
+			};
+		},
+
+		get raw(): TableMap {
+			return getOrCreateTableMap();
+		},
+
+		$inferRow: null as unknown as TRow,
+	};
+}

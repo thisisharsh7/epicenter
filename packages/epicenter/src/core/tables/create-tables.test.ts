@@ -763,8 +763,8 @@ describe('createTables', () => {
 		});
 	});
 
-	describe('$raw escape hatch', () => {
-		test('tables.$raw provides direct access to the root TablesMap', () => {
+	describe('raw escape hatch', () => {
+		test('tables.raw provides direct access to the root TablesMap', () => {
 			const ydoc = new Y.Doc({ guid: 'test-workspace' });
 			const tables = createTables(ydoc, {
 				posts: table({
@@ -777,15 +777,15 @@ describe('createTables', () => {
 				}),
 			});
 
-			// $raw should be the same Y.Map as ydoc.getMap('tables')
-			expect(tables.$raw).toBe(ydoc.getMap('tables'));
+			// raw should be the same Y.Map as ydoc.getMap('tables')
+			expect(tables.raw).toBe(ydoc.getMap('tables'));
 
 			// After upserting, the raw map should have the table
 			tables.posts.upsert({ id: '1', title: 'Hello' });
-			expect(tables.$raw.has('posts')).toBe(true);
+			expect(tables.raw.has('posts')).toBe(true);
 		});
 
-		test('table.$raw provides direct access to the TableMap for that table', () => {
+		test('table.raw provides direct access to the TableMap for that table', () => {
 			const ydoc = new Y.Doc({ guid: 'test-workspace' });
 			const tables = createTables(ydoc, {
 				posts: table({
@@ -802,7 +802,7 @@ describe('createTables', () => {
 			tables.posts.upsert({ id: '1', title: 'Hello' });
 
 			// Access raw TableMap
-			const rawPostsTable = tables.posts.$raw;
+			const rawPostsTable = tables.posts.raw;
 			expect(rawPostsTable.has('1')).toBe(true);
 
 			// Raw row map should have the cell values
@@ -810,7 +810,7 @@ describe('createTables', () => {
 			expect(rawRow?.get('title')).toBe('Hello');
 		});
 
-		test('mutations via $raw are reflected in helpers', () => {
+		test('mutations via raw are reflected in helpers', () => {
 			const ydoc = new Y.Doc({ guid: 'test-workspace' });
 			const tables = createTables(ydoc, {
 				posts: table({
@@ -826,8 +826,8 @@ describe('createTables', () => {
 			// Insert via helper first
 			tables.posts.upsert({ id: '1', title: 'Original' });
 
-			// Mutate via $raw
-			const rawRow = tables.posts.$raw.get('1');
+			// Mutate via raw
+			const rawRow = tables.posts.raw.get('1');
 			rawRow?.set('title', 'Modified via raw');
 
 			// Should be reflected in helper
@@ -835,6 +835,354 @@ describe('createTables', () => {
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.row.title).toBe('Modified via raw');
+			}
+		});
+	});
+
+	describe('dynamic table access', () => {
+		test('table() returns typed helper for defined tables', () => {
+			const ydoc = new Y.Doc({ guid: 'test-workspace' });
+			const tables = createTables(ydoc, {
+				posts: table({
+					name: 'Posts',
+					description: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
+				}),
+			});
+
+			// Access via table() should work the same as direct access
+			tables.table('posts').upsert({ id: '1', title: 'Hello' });
+			const result = tables.table('posts').get('1');
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.row.title).toBe('Hello');
+			}
+
+			// Same as direct access
+			expect(tables.table('posts').count()).toBe(tables.posts.count());
+		});
+
+		test('table() returns untyped helper for undefined tables', () => {
+			const ydoc = new Y.Doc({ guid: 'test-workspace' });
+			const tables = createTables(ydoc, {
+				posts: table({
+					name: 'Posts',
+					description: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
+				}),
+			});
+
+			// Access a table not in schema
+			const customTable = tables.table('custom_data');
+			customTable.upsert({ id: '1', foo: 'bar', count: 42 });
+
+			const result = customTable.get('1');
+			expect(result.status).toBe('valid');
+			if (result.status === 'valid') {
+				expect(result.row.foo).toBe('bar');
+				expect(result.row.count).toBe(42);
+			}
+		});
+
+		test('table() creates the same helper instance on repeated calls', () => {
+			const ydoc = new Y.Doc({ guid: 'test-workspace' });
+			const tables = createTables(ydoc, {
+				posts: table({
+					name: 'Posts',
+					description: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
+				}),
+			});
+
+			// Defined table
+			expect(tables.table('posts')).toBe(tables.table('posts'));
+
+			// Dynamic table (should cache the helper)
+			const helper1 = tables.table('dynamic');
+			const helper2 = tables.table('dynamic');
+			expect(helper1).toBe(helper2);
+		});
+
+		test('has() checks existence without creating table', () => {
+			const ydoc = new Y.Doc({ guid: 'test-workspace' });
+			const tables = createTables(ydoc, {
+				posts: table({
+					name: 'Posts',
+					description: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
+				}),
+			});
+
+			// Initially no tables exist in YJS
+			expect(tables.has('posts')).toBe(false);
+			expect(tables.has('custom')).toBe(false);
+
+			// After upsert, table exists
+			tables.posts.upsert({ id: '1', title: 'Hello' });
+			expect(tables.has('posts')).toBe(true);
+			expect(tables.has('custom')).toBe(false);
+
+			// After dynamic upsert
+			tables.table('custom').upsert({ id: '1', data: 'test' });
+			expect(tables.has('custom')).toBe(true);
+		});
+	});
+
+	describe('iteration methods', () => {
+		test('all() returns helpers for all tables in YJS', () => {
+			const ydoc = new Y.Doc({ guid: 'test-workspace' });
+			const tables = createTables(ydoc, {
+				posts: table({
+					name: 'Posts',
+					description: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
+				}),
+				users: table({
+					name: 'Users',
+					description: '',
+					fields: {
+						id: id(),
+						name: text(),
+					},
+				}),
+			});
+
+			// Initially empty
+			expect(tables.all()).toHaveLength(0);
+
+			// After creating some data
+			tables.posts.upsert({ id: '1', title: 'Hello' });
+			tables.table('custom').upsert({ id: '1', foo: 'bar' });
+
+			const allHelpers = tables.all();
+			expect(allHelpers).toHaveLength(2);
+
+			const names = allHelpers.map((h) => h.name).sort();
+			expect(names).toEqual(['custom', 'posts']);
+		});
+
+		test('names() returns all table names in YJS', () => {
+			const ydoc = new Y.Doc({ guid: 'test-workspace' });
+			const tables = createTables(ydoc, {
+				posts: table({
+					name: 'Posts',
+					description: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
+				}),
+			});
+
+			expect(tables.names()).toHaveLength(0);
+
+			tables.posts.upsert({ id: '1', title: 'Hello' });
+			tables.table('custom').upsert({ id: '1', data: 'test' });
+
+			const names = tables.names().sort();
+			expect(names).toEqual(['custom', 'posts']);
+		});
+
+		test('defined() returns only schema-defined table helpers', () => {
+			const ydoc = new Y.Doc({ guid: 'test-workspace' });
+			const tables = createTables(ydoc, {
+				posts: table({
+					name: 'Posts',
+					description: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
+				}),
+				users: table({
+					name: 'Users',
+					description: '',
+					fields: {
+						id: id(),
+						name: text(),
+					},
+				}),
+			});
+
+			const definedHelpers = tables.defined();
+			expect(definedHelpers).toHaveLength(2);
+
+			const names = definedHelpers.map((h) => h.name).sort();
+			expect(names).toEqual(['posts', 'users']);
+
+			// Adding dynamic tables doesn't affect defined()
+			tables.table('custom').upsert({ id: '1', data: 'test' });
+			expect(tables.defined()).toHaveLength(2);
+		});
+
+		test('definedNames() returns only schema-defined table names', () => {
+			const ydoc = new Y.Doc({ guid: 'test-workspace' });
+			const tables = createTables(ydoc, {
+				posts: table({
+					name: 'Posts',
+					description: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
+				}),
+				users: table({
+					name: 'Users',
+					description: '',
+					fields: {
+						id: id(),
+						name: text(),
+					},
+				}),
+			});
+
+			const names = tables.definedNames().sort();
+			expect(names).toEqual(['posts', 'users']);
+		});
+	});
+
+	describe('drop()', () => {
+		test('drop() removes a table from YJS', () => {
+			const ydoc = new Y.Doc({ guid: 'test-workspace' });
+			const tables = createTables(ydoc, {
+				posts: table({
+					name: 'Posts',
+					description: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
+				}),
+			});
+
+			tables.posts.upsert({ id: '1', title: 'Hello' });
+			expect(tables.has('posts')).toBe(true);
+
+			const result = tables.drop('posts');
+			expect(result).toBe(true);
+			expect(tables.has('posts')).toBe(false);
+		});
+
+		test('drop() returns false for non-existent table', () => {
+			const ydoc = new Y.Doc({ guid: 'test-workspace' });
+			const tables = createTables(ydoc, {
+				posts: table({
+					name: 'Posts',
+					description: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
+				}),
+			});
+
+			const result = tables.drop('nonexistent');
+			expect(result).toBe(false);
+		});
+
+		test('drop() works for dynamic tables', () => {
+			const ydoc = new Y.Doc({ guid: 'test-workspace' });
+			const tables = createTables(ydoc, {
+				posts: table({
+					name: 'Posts',
+					description: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
+				}),
+			});
+
+			tables.table('custom').upsert({ id: '1', data: 'test' });
+			expect(tables.has('custom')).toBe(true);
+
+			tables.drop('custom');
+			expect(tables.has('custom')).toBe(false);
+		});
+	});
+
+	describe('new property names (non-$ prefixed)', () => {
+		test('definitions property provides schema definitions', () => {
+			const ydoc = new Y.Doc({ guid: 'test-workspace' });
+			const tables = createTables(ydoc, {
+				posts: table({
+					name: 'Posts',
+					description: 'Blog posts',
+					fields: {
+						id: id(),
+						title: text(),
+					},
+				}),
+			});
+
+			expect(tables.definitions.posts.name).toBe('Posts');
+			expect(tables.definitions.posts.description).toBe('Blog posts');
+			expect(tables.definitions.posts.fields.id).toBeDefined();
+		});
+
+		test('raw property provides direct YJS access', () => {
+			const ydoc = new Y.Doc({ guid: 'test-workspace' });
+			const tables = createTables(ydoc, {
+				posts: table({
+					name: 'Posts',
+					description: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
+				}),
+			});
+
+			expect(tables.raw).toBe(ydoc.getMap('tables'));
+		});
+
+		test('zip() pairs tables with configs', () => {
+			const ydoc = new Y.Doc({ guid: 'test-workspace' });
+			const tables = createTables(ydoc, {
+				posts: table({
+					name: 'Posts',
+					description: '',
+					fields: {
+						id: id(),
+						title: text(),
+					},
+				}),
+				users: table({
+					name: 'Users',
+					description: '',
+					fields: {
+						id: id(),
+						name: text(),
+					},
+				}),
+			});
+
+			const configs = {
+				posts: { label: 'Blog Posts' },
+				users: { label: 'User Accounts' },
+			};
+
+			const zipped = tables.zip(configs);
+			expect(zipped).toHaveLength(2);
+
+			for (const { name, table: helper, paired } of zipped) {
+				expect(helper.name).toBe(name);
+				expect(paired.label).toBeDefined();
 			}
 		});
 	});

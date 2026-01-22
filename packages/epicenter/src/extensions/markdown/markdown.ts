@@ -346,12 +346,12 @@ export const markdown = async <
 	 *
 	 * We resolve these to a flat internal structure for efficient runtime access.
 	 * The result mirrors the tables structure key-for-key, enabling type-safe
-	 * iteration via tables.$zip(resolvedConfigs).
+	 * iteration via tables.zip(resolvedConfigs).
 	 */
 	// Cast is correct: Object.fromEntries loses key specificity (returns { [k: string]: V }),
-	// but we know keys are exactly keyof TTableDefinitionMap since we iterate tables.$all().
+	// but we know keys are exactly keyof TTableDefinitionMap since we iterate tables.defined().
 	const resolvedConfigs = Object.fromEntries(
-		tables.$all().map((table) => {
+		tables.defined().map((table) => {
 			const userConfig = userTableConfigs[table.name] ?? {};
 
 			// Resolve serializer: user-provided or default
@@ -391,7 +391,7 @@ export const markdown = async <
 	const registerYJSObservers = () => {
 		const unsubscribers: Array<() => void> = [];
 
-		for (const { table, paired: tableConfig } of tables.$zip(resolvedConfigs)) {
+		for (const { table, paired: tableConfig } of tables.zip(resolvedConfigs)) {
 			// Initialize tracking map for this table
 			if (!tracking[table.name]) {
 				tracking[table.name] = {};
@@ -535,7 +535,7 @@ export const markdown = async <
 	const registerFileWatchers = () => {
 		const watchers: FSWatcher[] = [];
 
-		for (const { table, paired: tableConfig } of tables.$zip(resolvedConfigs)) {
+		for (const { table, paired: tableConfig } of tables.zip(resolvedConfigs)) {
 			// Ensure table directory exists
 			const { error: mkdirError } = trySync({
 				try: () => {
@@ -857,7 +857,7 @@ export const markdown = async <
 
 		diagnostics.clear();
 
-		for (const { table, paired: tableConfig } of tables.$zip(resolvedConfigs)) {
+		for (const { table, paired: tableConfig } of tables.zip(resolvedConfigs)) {
 			const filePaths = await listMarkdownFiles(tableConfig.directory);
 
 			await Promise.all(
@@ -1006,7 +1006,7 @@ export const markdown = async <
 	 *
 	 * Cost: O(n × serialize) where n = row count. ~1ms per 100 rows.
 	 */
-	for (const { table, paired: tableConfig } of tables.$zip(resolvedConfigs)) {
+	for (const { table, paired: tableConfig } of tables.zip(resolvedConfigs)) {
 		// Initialize tracking map for this table
 		if (!tracking[table.name]) {
 			tracking[table.name] = {};
@@ -1040,7 +1040,7 @@ export const markdown = async <
 	 *
 	 * Cost: O(n) where n = file count. ~10ms per 100 files (mostly I/O).
 	 */
-	for (const { table, paired: tableConfig } of tables.$zip(resolvedConfigs)) {
+	for (const { table, paired: tableConfig } of tables.zip(resolvedConfigs)) {
 		const filePaths = await listMarkdownFiles(tableConfig.directory);
 
 		for (const filePath of filePaths) {
@@ -1120,7 +1120,7 @@ export const markdown = async <
 
 					await Promise.all(
 						tables
-							.$zip(resolvedConfigs)
+							.zip(resolvedConfigs)
 							.map(async ({ table, paired: tableConfig }) => {
 								const tableTracking = tracking[table.name];
 								const filePaths = await listMarkdownFiles(
@@ -1294,7 +1294,7 @@ export const markdown = async <
 
 					const allTableData = await Promise.all(
 						tables
-							.$zip(resolvedConfigs)
+							.zip(resolvedConfigs)
 							.map(
 								async ({
 									table,

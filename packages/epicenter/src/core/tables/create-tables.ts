@@ -412,56 +412,6 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 			dynamicTableHelpers.delete(name);
 			return true;
 		},
-
-		// ════════════════════════════════════════════════════════════════════
-		// DEPRECATED - Keep for backward compatibility
-		// ════════════════════════════════════════════════════════════════════
-
-		/**
-		 * @deprecated Use `tables.raw` instead
-		 */
-		get $raw() {
-			return ytables;
-		},
-
-		/**
-		 * @deprecated Use `tables.definitions` instead
-		 */
-		get $definitions() {
-			return tableDefinitions;
-		},
-
-		/**
-		 * @deprecated Use `tables.defined()` instead
-		 */
-		$all() {
-			return Object.values(tableHelpers) as TableHelper<
-				TTableDefinitionMap[keyof TTableDefinitionMap]['fields']
-			>[];
-		},
-
-		/**
-		 * @deprecated Use `tables.zip()` instead
-		 */
-		$zip<
-			TConfigs extends {
-				[K in keyof TTableDefinitionMap & string]: unknown;
-			},
-		>(configs: TConfigs) {
-			return definedTableNames.map((name) => ({
-				name,
-				table: tableHelpers[name],
-				paired: configs[name],
-			})) as Array<
-				{
-					[K in keyof TTableDefinitionMap & string]: {
-						name: K;
-						table: TableHelper<TTableDefinitionMap[K]['fields']>;
-						paired: TConfigs[K];
-					};
-				}[keyof TTableDefinitionMap & string]
-			>;
-		},
 	};
 }
 
