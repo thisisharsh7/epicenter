@@ -55,7 +55,7 @@ export const workspaces = {
 						// Get schema from Workspace Doc
 						const client = createWorkspaceClient(head);
 						await client.whenSynced;
-						const schema = client.getSchema();
+						const schema = client.schema.get();
 						await client.destroy();
 						await head.destroy();
 
@@ -105,7 +105,7 @@ export const workspaces = {
 				// Get schema from Workspace Doc
 				const client = createWorkspaceClient(head);
 				await client.whenSynced;
-				const schema = client.getSchema();
+				const schema = client.schema.get();
 				await client.destroy();
 				await head.destroy();
 
@@ -202,7 +202,7 @@ export const workspaces = {
 			// Get the workspace schema (tables, kv) from workspace client
 			const client = createWorkspaceClient(head);
 			await client.whenSynced;
-			const schema = client.getSchema();
+			const schema = client.schema.get();
 			await client.destroy();
 
 			// Clean up head doc (it's been modified, changes auto-persist)

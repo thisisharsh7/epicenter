@@ -155,7 +155,7 @@ export function workspacePersistence<
 	const saveSchemaJson = async () => {
 		const { schemaJsonPath } = await pathsPromise;
 		try {
-			const schema = workspaceDoc.getSchema();
+			const schema = workspaceDoc.schema.get();
 			const json = JSON.stringify(schema, null, '\t');
 			await writeFile(schemaJsonPath, new TextEncoder().encode(json));
 			console.log(
