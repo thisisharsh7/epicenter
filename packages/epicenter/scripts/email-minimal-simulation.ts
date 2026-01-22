@@ -76,7 +76,7 @@ console.log('='.repeat(70));
 console.log('');
 
 // Minimal email schema
-const emailDefinition = defineWorkspace({
+const emailSchema = defineWorkspace({
 	id: 'emails-minimal',
 	kv: {},
 	tables: {
@@ -96,8 +96,8 @@ const emailDefinition = defineWorkspace({
 
 console.log('Creating client...');
 const totalStart = performance.now();
-await using client = await createClient(emailDefinition.id)
-	.withDefinition(emailDefinition)
+await using client = await createClient(emailSchema.id)
+	.withSchema(emailSchema)
 	.withExtensions({
 		persistence: (ctx) =>
 			persistence(ctx, {

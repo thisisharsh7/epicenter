@@ -1,4 +1,4 @@
-import type { WorkspaceDefinition } from '@epicenter/hq';
+import type { WorkspaceSchema } from '@epicenter/hq';
 import { appLocalDataDir, join } from '@tauri-apps/api/path';
 import { revealItemInDir } from '@tauri-apps/plugin-opener';
 import { createTaggedError } from 'wellcrafted/error';
@@ -138,11 +138,8 @@ export const workspaces = {
 			id: string;
 			template: WorkspaceTemplate | null;
 		}) => {
-			// Create definition using the user-provided ID directly
-			// If a template is provided, use its tables and kv
-			const definition: WorkspaceDefinition = {
-				id: input.id,
-				name: input.name,
+			// Create schema using template if provided
+			const schema: WorkspaceSchema = {
 				tables: input.template?.tables ?? {},
 				kv: input.template?.kv ?? {},
 			};
@@ -155,10 +152,10 @@ export const workspaces = {
 			await head.whenSynced;
 			head.setMeta({ name: input.name, icon: null, description: '' });
 
-			// Create workspace client with static definition - this will:
+			// Create workspace client with schema - this will:
 			// 1. Merge schema into Y.Map('schema')
 			// 2. Persist to {epoch}/schema.json via unified persistence
-			const client = createWorkspaceClient(definition, 0);
+			const client = createWorkspaceClient(schema, input.id, 0);
 
 			// Wait for persistence to finish saving initial state to disk
 			await client.whenSynced;
@@ -167,13 +164,13 @@ export const workspaces = {
 
 			console.log(`[createWorkspace] Created workspace:`, {
 				id: input.id,
-				name: definition.name,
+				name: input.name,
 			});
 
 			// Invalidate list query
 			queryClient.invalidateQueries({ queryKey: workspaceKeys.list() });
 
-			return Ok(definition);
+			return Ok({ id: input.id, name: input.name, ...schema });
 		},
 	}),
 

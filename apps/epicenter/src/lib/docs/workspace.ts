@@ -1,4 +1,4 @@
-import { createClient, type WorkspaceDefinition } from '@epicenter/hq';
+import { createClient, type WorkspaceSchema } from '@epicenter/hq';
 import type * as Y from 'yjs';
 import { tauriWorkspacePersistence } from './persistence/tauri-workspace-persistence';
 
@@ -20,7 +20,7 @@ import { tauriWorkspacePersistence } from './persistence/tauri-workspace-persist
  *
  * | Mode | Function | Use Case |
  * |------|----------|----------|
- * | Static | `createWorkspaceClient(definition, epoch)` | Creating new workspaces |
+ * | Static | `createWorkspaceClient(schema, workspaceId, epoch)` | Creating new workspaces |
  * | Dynamic | `registry.head(id).client()` | Loading existing workspaces |
  *
  * ## Storage Layout
@@ -35,38 +35,40 @@ import { tauriWorkspacePersistence } from './persistence/tauri-workspace-persist
  * Note: Workspace identity (name, icon, description) lives in Head Doc's
  * Y.Map('meta'), not in the Workspace Doc.
  *
- * @param definition - The workspace definition (id, tables, kv) to seed
+ * @param schema - The workspace schema (tables, kv) to seed
+ * @param workspaceId - The workspace identifier
  * @param epoch - The epoch number (usually 0 for new workspaces)
  * @returns A workspace client with persistence pre-configured
  *
  * @example Creating a new workspace
  * ```typescript
- * const definition: WorkspaceDefinition = {
- *   id: 'my-workspace',
+ * const schema: WorkspaceSchema = {
  *   tables: {},
  *   kv: {},
  * };
+ * const workspaceId = 'my-workspace';
  *
- * registry.addWorkspace(definition.id);
+ * registry.addWorkspace(workspaceId);
  * // Set identity in Head Doc
- * const head = registry.head(definition.id);
+ * const head = registry.head(workspaceId);
  * await head.whenSynced;
  * head.setMeta({ name: 'My Workspace', icon: null, description: '' });
  * // Create client with schema
- * const client = createWorkspaceClient(definition, 0);
+ * const client = createWorkspaceClient(schema, workspaceId, 0);
  * await client.whenSynced;
  * ```
  */
 export function createWorkspaceClient(
-	definition: WorkspaceDefinition,
+	schema: WorkspaceSchema,
+	workspaceId: string,
 	epoch: number,
 ) {
-	return createClient(definition.id, { epoch })
-		.withDefinition(definition)
+	return createClient(workspaceId, { epoch })
+		.withSchema(schema)
 		.withExtensions({
 			persistence: (ctx: { ydoc: Y.Doc }) =>
 				tauriWorkspacePersistence(ctx.ydoc, {
-					workspaceId: definition.id,
+					workspaceId,
 					epoch,
 				}),
 		});

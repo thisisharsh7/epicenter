@@ -145,8 +145,8 @@ export type WebsocketSyncConfig = {
  *   kv: {},
  * });
  *
- * const client = createClient(definition.id)
- *   .withDefinition(definition)
+ * const client = createClient(definition.id, { epoch })
+ *   .withSchema(definition)
  *   .withExtensions({
  *     sync: websocketSync({ url: 'ws://localhost:3913/sync' }),
  *   });
@@ -164,14 +164,14 @@ export type WebsocketSyncConfig = {
  * } as const;
  *
  * // Phone browser connects to ALL available sync nodes
- * const definition = defineWorkspace({
+ * const schema = defineWorkspace({
  *   id: 'blog',
  *   tables: { ... },
  *   kv: {},
  * });
  *
- * const client = createClient(definition.id)
- *   .withDefinition(definition)
+ * const client = createClient(schema.id, { epoch })
+ *   .withSchema(schema)
  *   .withExtensions({
  *     // Create an extension for each sync node
  *     syncDesktop: websocketSync({ url: SYNC_NODES.desktop }),
@@ -190,14 +190,14 @@ export type WebsocketSyncConfig = {
  *   cloud: 'wss://sync.myapp.com/sync',
  * } as const;
  *
- * const definition = defineWorkspace({
+ * const schema = defineWorkspace({
  *   id: 'blog',
  *   tables: { ... },
  *   kv: {},
  * });
  *
- * const client = createClient(definition.id)
- *   .withDefinition(definition)
+ * const client = createClient(schema.id, { epoch })
+ *   .withSchema(schema)
  *   .withExtensions({
  *     // Server acts as both:
  *     // 1. A sync server (via createSyncPlugin in server.ts)

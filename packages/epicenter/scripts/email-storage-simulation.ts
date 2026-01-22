@@ -184,7 +184,7 @@ console.log('='.repeat(70));
 console.log('');
 
 // Define the email workspace
-const emailDefinition = defineWorkspace({
+const emailSchema = defineWorkspace({
 	id: 'emails',
 	kv: {},
 	tables: {
@@ -209,8 +209,8 @@ const emailDefinition = defineWorkspace({
 // Create the client
 console.log('Creating client...');
 const totalStart = performance.now();
-await using client = await createClient(emailDefinition.id)
-	.withDefinition(emailDefinition)
+await using client = await createClient(emailSchema.id)
+	.withSchema(emailSchema)
 	.withExtensions({
 		persistence: (ctx) =>
 			persistence(ctx, {

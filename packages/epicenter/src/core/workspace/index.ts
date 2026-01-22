@@ -23,5 +23,6 @@ export type {
 	WorkspaceClient,
 	WorkspaceDefinition,
 	WorkspaceInput,
+	WorkspaceSchema,
 } from './workspace';
 export { createClient, defineWorkspace } from './workspace';

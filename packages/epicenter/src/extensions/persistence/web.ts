@@ -42,19 +42,19 @@ import type { KvDefinitionMap, TableDefinitionMap } from '../../core/schema';
  *   kv: {},
  * });
  *
- * const client = createClient(definition.id)
- *   .withDefinition(definition)
+ * const client = createClient(definition.id, { epoch })
+ *   .withSchema(definition)
  *   .withExtensions({ persistence });
  * ```
  *
  * @example In a Svelte/React component
  * ```typescript
- * import { definition } from './workspace-config';
+ * import { schema } from './workspace-config';
  * import { createClient } from '@epicenter/hq';
  *
  * // Inside component setup/onMount:
- * const client = createClient(definition.id)
- *   .withDefinition(definition)
+ * const client = createClient(schema.id, { epoch })
+ *   .withSchema(schema)
  *   .withExtensions({ persistence });
  *
  * // Data persists across page refreshes!
@@ -64,24 +64,24 @@ import type { KvDefinitionMap, TableDefinitionMap } from '../../core/schema';
  * @example Multi-workspace setup
  * ```typescript
  * // Each workspace gets its own IndexedDB database
- * const blogDefinition = defineWorkspace({
+ * const blogSchema = defineWorkspace({
  *   id: 'blog',  // → IndexedDB database named 'blog'
  *   tables: { ... },
  *   kv: {},
  * });
  *
- * const notesDefinition = defineWorkspace({
+ * const notesSchema = defineWorkspace({
  *   id: 'notes',  // → IndexedDB database named 'notes'
  *   tables: { ... },
  *   kv: {},
  * });
  *
- * const blogClient = createClient(blogDefinition.id)
- *   .withDefinition(blogDefinition)
+ * const blogClient = createClient(blogSchema.id, { epoch })
+ *   .withSchema(blogSchema)
  *   .withExtensions({ persistence });
  *
- * const notesClient = createClient(notesDefinition.id)
- *   .withDefinition(notesDefinition)
+ * const notesClient = createClient(notesSchema.id, { epoch })
+ *   .withSchema(notesSchema)
  *   .withExtensions({ persistence });
  *
  * // Workspaces are isolated, each with separate IndexedDB storage

@@ -21,7 +21,7 @@
  * ┌─────────────────────────────────────────────────────────────────────┐
  * │  @epicenter/hq (browser)                                            │
  * │                                                                     │
- * │    createClient(def, opts)  →  WorkspaceClient { whenSynced, ... }  │
+ * │    createClient(id, opts).withSchema(schema).withExtensions({})     │
  * │         │                              │                            │
  * │         │                              └── UI awaits client.whenSynced
  * │         │                                                           │
@@ -32,13 +32,14 @@
  * ┌─────────────────────────────────────────────────────────────────────┐
  * │  @epicenter/hq/node (this module)                                   │
  * │                                                                     │
- * │    createClient(def, opts)  →  Promise<WorkspaceClient>             │
+ * │    createClient(id, opts).withSchema(schema).withExtensions({})     │
  * │         │                              │                            │
- * │         │                              └── whenSynced already resolved
+ * │         │                              └── Promise<WorkspaceClient>
+ * │         │                                   whenSynced already resolved
  * │         │                                   (property omitted)      │
  * │         │                                                           │
  * │    Internally:                                                      │
- * │      const syncClient = createClientSync(def, opts);                │
+ * │      const syncClient = createClientSync(...).withExtensions({});   │
  * │      await syncClient.whenSynced;                                   │
  * │      return { ...syncClient, whenSynced: undefined };               │
  * └─────────────────────────────────────────────────────────────────────┘
@@ -47,31 +48,31 @@
  * ## Implementation details
  *
  * The actual workspace creation logic lives in {@link ./workspace.ts | workspace.ts}:
- * - {@link defineWorkspace} - Creates a WorkspaceDefinition (pure normalization)
- * - {@link createClient} - Creates a runtime client (sync)
+ * - {@link defineWorkspace} - Creates a WorkspaceSchema (pure normalization)
+ * - {@link createClient} - Creates a runtime client builder (sync)
  * - {@link WorkspaceClient} - The full client type with `whenSynced`
  *
  * This module simply:
  * 1. Re-exports `defineWorkspace` (it's now pure, no wrapping needed)
- * 2. Wraps `createClient` to await `whenSynced` internally
+ * 2. Wraps `createClient` so `.withExtensions()` returns a Promise
  * 3. Returns the client without the `whenSynced` property
  *
  * @example Basic usage
  * ```typescript
- * import { defineWorkspace, createClient, id, text } from '@epicenter/hq/node';
+ * import { defineWorkspace, createClient, id, text, table } from '@epicenter/hq/node';
  *
- * const definition = defineWorkspace({
+ * const schema = defineWorkspace({
  *   id: 'epicenter.blog',
  *   tables: {
- *     posts: { id: id(), title: text() },
+ *     posts: table({ name: 'Posts', fields: { id: id(), title: text() } }),
  *   },
  *   kv: {},
  * });
  *
  * // Async - awaits initialization internally
- * const client = await createClient(definition, {
- *   extensions: { sqlite, persistence },
- * });
+ * const client = await createClient(schema.id, { epoch: 0 })
+ *   .withSchema(schema)
+ *   .withExtensions({ persistence });
  *
  * // Ready to use immediately
  * client.tables.posts.upsert({ id: '1', title: 'Hello' });
@@ -83,10 +84,14 @@
  * import { defineWorkspace, createClient } from '@epicenter/hq/node';
  *
  * async function migrate() {
- *   const definition = defineWorkspace({ id: 'blog', tables: {...}, kv: {} });
+ *   const schema = defineWorkspace({ id: 'blog', tables: {...}, kv: {} });
  *
- *   const oldClient = await createClient(definition, { epoch: 1 });
- *   const newClient = await createClient(definition, { epoch: 2 });
+ *   const oldClient = await createClient(schema.id, { epoch: 1 })
+ *     .withSchema(schema)
+ *     .withExtensions({});
+ *   const newClient = await createClient(schema.id, { epoch: 2 })
+ *     .withSchema(schema)
+ *     .withExtensions({});
  *
  *   for (const post of oldClient.tables.posts.getAllValid()) {
  *     newClient.tables.posts.upsert(migratePost(post));
@@ -111,7 +116,7 @@ import {
 	type ClientBuilder as ClientBuilderSync,
 	createClient as createClientSync,
 	type WorkspaceClient as WorkspaceClientSync,
-	type WorkspaceDefinition,
+	type WorkspaceSchema,
 } from './workspace';
 
 /**
@@ -127,7 +132,6 @@ import {
  * ```
  * WorkspaceClient (browser)              WorkspaceClient (node)
  * ├── id: string                         ├── id: string
- * ├── name: string                       ├── name: string
  * ├── tables: Tables<T>                  ├── tables: Tables<T>
  * ├── kv: Kv<K>                          ├── kv: Kv<K>
  * ├── extensions: E                      ├── extensions: E
@@ -136,6 +140,9 @@ import {
  * ├── destroy(): Promise<void>           ├── destroy(): Promise<void>
  * └── [Symbol.asyncDispose]              └── [Symbol.asyncDispose]
  * ```
+ *
+ * Note: Workspace identity (name, icon, description) comes from HeadDoc.getMeta(),
+ * not from the client.
  *
  * ## Why omit `whenSynced`?
  *
@@ -184,7 +191,7 @@ export type WorkspaceClient<
  *               ┌───────────────┴───────────────┐
  *               │                               │
  *               ▼                               ▼
- *      .withDefinition(def)              .withExtensions({})
+ *      .withSchema(schema)               .withExtensions({})
  *               │                               │
  *               │                               │
  *               ▼                               ▼
@@ -206,26 +213,28 @@ export type ClientBuilder<
 	TKvDefinitionMap extends KvDefinitionMap,
 > = {
 	/**
-	 * Attach a workspace definition for static schema mode.
+	 * Attach a workspace schema for static schema mode.
 	 *
-	 * This locks in the table/kv types from the definition, enabling
+	 * This locks in the table/kv types from the schema, enabling
 	 * proper type inference for extensions.
 	 *
 	 * @example
 	 * ```typescript
-	 * const client = await createClient(definition.id)
-	 *   .withDefinition(definition)
+	 * const schema = defineWorkspace({ id: 'blog', tables: {...}, kv: {} });
+	 *
+	 * const client = await createClient(schema.id, { epoch })
+	 *   .withSchema(schema)
 	 *   .withExtensions({
 	 *     persistence: (ctx) => persistence(ctx, { filePath }),
 	 *   });
 	 * ```
 	 */
-	withDefinition<
-		TDefTables extends TableDefinitionMap,
-		TDefKv extends KvDefinitionMap,
+	withSchema<
+		TSchemaTables extends TableDefinitionMap,
+		TSchemaKv extends KvDefinitionMap,
 	>(
-		definition: WorkspaceDefinition<TDefTables, TDefKv>,
-	): ClientBuilder<TDefTables, TDefKv>;
+		schema: WorkspaceSchema<TSchemaTables, TSchemaKv>,
+	): ClientBuilder<TSchemaTables, TSchemaKv>;
 
 	/**
 	 * Attach extensions and create the client.
@@ -238,8 +247,10 @@ export type ClientBuilder<
 	 * @example
 	 * ```typescript
 	 * // With extensions
-	 * const client = await createClient(definition.id)
-	 *   .withDefinition(definition)
+	 * const schema = defineWorkspace({ id: 'blog', tables: {...}, kv: {} });
+	 *
+	 * const client = await createClient(schema.id, { epoch })
+	 *   .withSchema(schema)
 	 *   .withExtensions({
 	 *     persistence: (ctx) => persistence(ctx, { filePath }),
 	 *     sqlite: (ctx) => sqlite(ctx, { dbPath }),
@@ -248,8 +259,8 @@ export type ClientBuilder<
 	 * client.tables.recordings.upsert({ ... });
 	 *
 	 * // Without extensions
-	 * const client = await createClient(definition.id)
-	 *   .withDefinition(definition)
+	 * const client = await createClient(schema.id, { epoch })
+	 *   .withSchema(schema)
 	 *   .withExtensions({});
 	 * ```
 	 */
@@ -276,7 +287,7 @@ export type ClientBuilder<
 /**
  * Create an async client builder for a workspace.
  *
- * Returns a {@link ClientBuilder} for chaining `.withDefinition()` and `.withExtensions()`.
+ * Returns a {@link ClientBuilder} for chaining `.withSchema()` and `.withExtensions()`.
  * The client is only created when you call `.withExtensions()` (the terminal operation).
  *
  * ## Two Paths
@@ -288,7 +299,7 @@ export type ClientBuilder<
  *               ┌───────────────┴───────────────┐
  *               │                               │
  *               ▼                               ▼
- *      .withDefinition(def)              .withExtensions({})
+ *      .withSchema(schema)               .withExtensions({})
  *               │                               │
  *               │                               │
  *               ▼                               ▼
@@ -305,11 +316,16 @@ export type ClientBuilder<
  * For apps like Whispering where schema is defined in code:
  *
  * ```typescript
- * const client = await createClient(definition.id)
- *   .withDefinition(definition)
+ * const schema = defineWorkspace({
+ *   id: 'epicenter.whispering',
+ *   tables: { recordings: table({ name: 'Recordings', fields: { id: id(), title: text() } }) },
+ *   kv: {},
+ * });
+ *
+ * const client = await createClient(schema.id, { epoch })
+ *   .withSchema(schema)
  *   .withExtensions({
  *     persistence: (ctx) => persistence(ctx, { filePath }),
- *     //            ^^^ ctx is properly typed!
  *   });
  *
  * // Ready to use immediately (no whenSynced needed)
@@ -332,8 +348,8 @@ export type ClientBuilder<
  * Pass an empty object to `.withExtensions()`:
  *
  * ```typescript
- * const client = await createClient(definition.id)
- *   .withDefinition(definition)
+ * const client = await createClient(schema.id, { epoch })
+ *   .withSchema(schema)
  *   .withExtensions({});
  * ```
  *
@@ -362,13 +378,13 @@ function createAsyncClientBuilder<
 	syncBuilder: ClientBuilderSync<TTableDefinitionMap, TKvDefinitionMap>,
 ): ClientBuilder<TTableDefinitionMap, TKvDefinitionMap> {
 	return {
-		withDefinition<
-			TDefTables extends TableDefinitionMap,
-			TDefKv extends KvDefinitionMap,
+		withSchema<
+			TSchemaTables extends TableDefinitionMap,
+			TSchemaKv extends KvDefinitionMap,
 		>(
-			definition: WorkspaceDefinition<TDefTables, TDefKv>,
-		): ClientBuilder<TDefTables, TDefKv> {
-			const newSyncBuilder = syncBuilder.withDefinition(definition);
+			schema: WorkspaceSchema<TSchemaTables, TSchemaKv>,
+		): ClientBuilder<TSchemaTables, TSchemaKv> {
+			const newSyncBuilder = syncBuilder.withSchema(schema);
 			return createAsyncClientBuilder(newSyncBuilder);
 		},
 
@@ -455,6 +471,7 @@ export type {
 	NormalizedKv,
 	WorkspaceDefinition,
 	WorkspaceInput,
+	WorkspaceSchema,
 } from './workspace';
 /**
  * Re-export defineWorkspace from workspace.ts.

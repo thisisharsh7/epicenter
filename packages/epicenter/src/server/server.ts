@@ -35,8 +35,8 @@ type AnyWorkspaceClient = WorkspaceClient<any, any, any>;
  *   kv: {},
  * });
  *
- * const client = createClient(definition.id)
- *   .withDefinition(definition)
+ * const client = createClient(definition.id, { epoch })
+ *   .withSchema(definition)
  *   .withExtensions({ ... });
  *
  * const server = createServer(client, { port: 3913 });

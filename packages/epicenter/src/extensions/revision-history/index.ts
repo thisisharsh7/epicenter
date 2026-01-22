@@ -15,8 +15,8 @@
  *   kv: {},
  * });
  *
- * const client = createClient(definition.id)
- *   .withDefinition(definition)
+ * const client = createClient(definition.id, { epoch })
+ *   .withSchema(definition)
  *   .withExtensions({
  *     revisions: (ctx) => localRevisionHistory(ctx, {
  *       directory: './workspaces',

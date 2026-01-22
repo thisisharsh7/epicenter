@@ -74,8 +74,8 @@ export type SqliteConfig = {
  * const projectDir = '/my/project';
  * const epicenterDir = join(projectDir, '.epicenter');
  *
- * const client = createClient(definition.id)
- *   .withDefinition(definition)
+ * const client = createClient(definition.id, { epoch })
+ *   .withSchema(definition)
  *   .withExtensions({
  *     sqlite: (ctx) => sqlite(ctx, {
  *       dbPath: join(epicenterDir, 'sqlite', `${ctx.id}.db`),

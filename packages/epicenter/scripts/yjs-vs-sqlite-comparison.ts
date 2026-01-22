@@ -160,7 +160,7 @@ console.log('');
 console.log('--- YJS Test ---');
 const yjsStart = performance.now();
 
-const emailDefinition = defineWorkspace({
+const emailSchema = defineWorkspace({
 	id: 'emails-compare',
 	kv: {},
 	tables: {
@@ -182,8 +182,8 @@ const emailDefinition = defineWorkspace({
 	},
 });
 
-await using client = await createClient(emailDefinition.id)
-	.withDefinition(emailDefinition)
+await using client = await createClient(emailSchema.id)
+	.withSchema(emailSchema)
 	.withExtensions({
 		persistence: (ctx) =>
 			persistence(ctx, {
