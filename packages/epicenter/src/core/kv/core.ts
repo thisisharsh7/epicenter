@@ -14,7 +14,91 @@ export type KvMap = Y.Map<KvValue>;
 export type { KvHelper } from './kv-helper';
 
 /**
+ * Callable function type for accessing KV entries.
+ *
+ * The kv object is a callable function: `kv('theme')` returns a KvHelper.
+ * It also has properties for utility methods: `kv.has()`, `kv.names()`, etc.
+ *
+ * This pattern eliminates collision risk between user-defined key names and
+ * utility methods, since user names only appear as function arguments.
+ */
+export type KvFunction<TKvDefinitionMap extends KvDefinitionMap> = {
+	// ════════════════════════════════════════════════════════════════════
+	// CALL SIGNATURE
+	// ════════════════════════════════════════════════════════════════════
+
+	/**
+	 * Get a KV helper by key name.
+	 *
+	 * @example
+	 * ```typescript
+	 * kv('theme').set('dark')
+	 * kv('theme').get()  // { status: 'valid', value: 'dark' }
+	 * ```
+	 */
+	<K extends keyof TKvDefinitionMap & string>(
+		name: K,
+	): KvHelper<TKvDefinitionMap[K]['field']>;
+
+	// ════════════════════════════════════════════════════════════════════
+	// EXISTENCE & ENUMERATION
+	// ════════════════════════════════════════════════════════════════════
+
+	/**
+	 * Check if a KV key has a value set in YJS storage.
+	 */
+	has(name: string): boolean;
+
+	/**
+	 * Get all defined KV key names.
+	 */
+	names(): (keyof TKvDefinitionMap & string)[];
+
+	/**
+	 * Get all KV helpers as an array.
+	 */
+	all(): KvHelper<TKvDefinitionMap[keyof TKvDefinitionMap]['field']>[];
+
+	// ════════════════════════════════════════════════════════════════════
+	// BULK OPERATIONS
+	// ════════════════════════════════════════════════════════════════════
+
+	/**
+	 * Clear all KV values, resetting them to their schema defaults.
+	 */
+	clear(): void;
+
+	// ════════════════════════════════════════════════════════════════════
+	// METADATA & ESCAPE HATCHES
+	// ════════════════════════════════════════════════════════════════════
+
+	/**
+	 * The raw KV definitions passed to createKv.
+	 */
+	definitions: TKvDefinitionMap;
+
+	/**
+	 * Direct access to the underlying Y.Map storing all KV values.
+	 */
+	raw: KvMap;
+
+	// ════════════════════════════════════════════════════════════════════
+	// UTILITIES
+	// ════════════════════════════════════════════════════════════════════
+
+	/**
+	 * Serialize all KV values to a plain JSON object.
+	 */
+	toJSON(): {
+		[K in keyof TKvDefinitionMap]: KvValue<TKvDefinitionMap[K]['field']>;
+	};
+};
+
+/**
  * Create a KV (key-value) store from definitions.
+ *
+ * The returned object is a **callable function** that returns KV helpers.
+ * Utility methods are properties on the function itself.
  *
  * Conceptually, a KV store is like a single table row where each key is a column.
  * While tables have multiple rows with IDs, KV stores have one "row" of settings/state.
@@ -41,14 +125,20 @@ export type { KvHelper } from './kv-helper';
  *   }),
  * });
  *
- * settings.theme.set('dark');
- * settings.fontSize.set(16);
+ * // KV entries are accessed by calling the function
+ * settings('theme').set('dark');
+ * settings('fontSize').set(16);
+ *
+ * // With destructuring (unchanged ergonomics)
+ * const theme = settings('theme');
+ * theme.set('dark');
+ * theme.get();
  * ```
  */
 export function createKv<TKvDefinitionMap extends KvDefinitionMap>(
 	ydoc: Y.Doc,
 	definitions: TKvDefinitionMap,
-) {
+): KvFunction<TKvDefinitionMap> {
 	for (const keyName of Object.keys(definitions)) {
 		if (keyName.startsWith('$')) {
 			throw new Error(
@@ -65,11 +155,141 @@ export function createKv<TKvDefinitionMap extends KvDefinitionMap>(
 	const ykvMap = ydoc.getMap<KvValue>('kv');
 	const kvHelpers = createKvHelpers({ ydoc, definitions });
 
-	// Type helper to extract field schema from definition
-	type FieldOf<K extends keyof TKvDefinitionMap> = TKvDefinitionMap[K]['field'];
+	const definedKeyNames = Object.keys(definitions) as Array<
+		keyof TKvDefinitionMap & string
+	>;
 
-	return {
-		...kvHelpers,
+	// ════════════════════════════════════════════════════════════════════
+	// BUILD CALLABLE FUNCTION WITH PROPERTIES
+	// ════════════════════════════════════════════════════════════════════
+
+	/**
+	 * The main accessor function. Call with a key name to get a helper.
+	 */
+	const kvAccessor = <K extends keyof TKvDefinitionMap & string>(
+		name: K,
+	): KvHelper<TKvDefinitionMap[K]['field']> => {
+		return kvHelpers[name];
+	};
+
+	// Use Object.assign for cleaner property attachment
+	return Object.assign(kvAccessor, {
+		// ════════════════════════════════════════════════════════════════════
+		// EXISTENCE & ENUMERATION
+		// ════════════════════════════════════════════════════════════════════
+
+		/**
+		 * Check if a KV key has a value set in YJS storage.
+		 *
+		 * Returns true if a value has been explicitly set (even if it's null).
+		 * Returns false if the key has never been set (will use default).
+		 *
+		 * @example
+		 * ```typescript
+		 * kv.has('theme')  // false (never set, will use default)
+		 * kv('theme').set('dark')
+		 * kv.has('theme')  // true
+		 * ```
+		 */
+		has(name: string): boolean {
+			return ykvMap.has(name);
+		},
+
+		/**
+		 * Get all defined KV key names.
+		 *
+		 * @example
+		 * ```typescript
+		 * kv.names()  // ['theme', 'fontSize', ...]
+		 * ```
+		 */
+		names(): (keyof TKvDefinitionMap & string)[] {
+			return [...definedKeyNames];
+		},
+
+		/**
+		 * Get all KV helpers as an array.
+		 *
+		 * Useful for providers and initializers that need to iterate over all keys.
+		 *
+		 * @example
+		 * ```typescript
+		 * // Log all current values
+		 * for (const helper of kv.all()) {
+		 *   const result = helper.get();
+		 *   if (result.status === 'valid') {
+		 *     console.log(helper.name, result.value);
+		 *   }
+		 * }
+		 *
+		 * // Reset all keys to defaults
+		 * for (const helper of kv.all()) {
+		 *   helper.reset();
+		 * }
+		 * ```
+		 */
+		all(): KvHelper<TKvDefinitionMap[keyof TKvDefinitionMap]['field']>[] {
+			return Object.values(kvHelpers) as KvHelper<
+				TKvDefinitionMap[keyof TKvDefinitionMap]['field']
+			>[];
+		},
+
+		// ════════════════════════════════════════════════════════════════════
+		// BULK OPERATIONS
+		// ════════════════════════════════════════════════════════════════════
+
+		/**
+		 * Clear all KV values, resetting them to their schema defaults.
+		 *
+		 * Deletes all keys from the underlying Y.Map. After clearing,
+		 * `get()` will return defaults (if defined), `null` (if nullable),
+		 * or `not_found` status.
+		 *
+		 * @example
+		 * ```typescript
+		 * kv('theme').set('dark');
+		 * kv('fontSize').set(20);
+		 *
+		 * kv.clear();
+		 *
+		 * kv('theme').get();    // { status: 'valid', value: 'light' } (default)
+		 * kv('fontSize').get(); // { status: 'valid', value: 14 } (default)
+		 * ```
+		 */
+		clear(): void {
+			for (const keyName of Object.keys(definitions)) {
+				ykvMap.delete(keyName);
+			}
+		},
+
+		// ════════════════════════════════════════════════════════════════════
+		// METADATA & ESCAPE HATCHES
+		// ════════════════════════════════════════════════════════════════════
+
+		/**
+		 * The raw KV definitions passed to createKv.
+		 *
+		 * Provides access to the full definition including metadata (name, icon, description)
+		 * and the field schema. Useful for introspection, UI generation, or MCP/OpenAPI export.
+		 *
+		 * @example
+		 * ```typescript
+		 * // Access definition metadata
+		 * console.log(kv.definitions.theme.name);        // 'Theme'
+		 * console.log(kv.definitions.theme.icon);        // { type: 'emoji', value: '🎨' }
+		 * console.log(kv.definitions.theme.description); // 'Application color theme'
+		 *
+		 * // Access the field schema
+		 * console.log(kv.definitions.theme.field.type);    // 'select'
+		 * console.log(kv.definitions.theme.field.options); // ['light', 'dark']
+		 *
+		 * // Iterate over all definitions
+		 * for (const [key, def] of Object.entries(kv.definitions)) {
+		 *   console.log(`${def.name} (${key}): ${def.field.type}`);
+		 * }
+		 * ```
+		 */
+		definitions,
 
 		/**
 		 * Direct access to the underlying Y.Map storing all KV values.
@@ -99,58 +319,9 @@ export function createKv<TKvDefinitionMap extends KvDefinitionMap>(
 		 */
 		raw: ykvMap,
 
-		/**
-		 * The raw KV definitions passed to createKv.
-		 *
-		 * Provides access to the full definition including metadata (name, icon, description)
-		 * and the field schema. Useful for introspection, UI generation, or MCP/OpenAPI export.
-		 *
-		 * @example
-		 * ```typescript
-		 * // Access definition metadata
-		 * console.log(kv.definitions.theme.name);        // 'Theme'
-		 * console.log(kv.definitions.theme.icon);        // { type: 'emoji', value: '🎨' }
-		 * console.log(kv.definitions.theme.description); // 'Application color theme'
-		 *
-		 * // Access the field schema
-		 * console.log(kv.definitions.theme.field.type);    // 'select'
-		 * console.log(kv.definitions.theme.field.options); // ['light', 'dark']
-		 *
-		 * // Iterate over all definitions
-		 * for (const [key, def] of Object.entries(kv.definitions)) {
-		 *   console.log(`${def.name} (${key}): ${def.field.type}`);
-		 * }
-		 * ```
-		 */
-		definitions: definitions,
-
-		/**
-		 * Get all KV helpers as an array.
-		 *
-		 * Useful for providers and initializers that need to iterate over all keys.
-		 * Returns only the KV helpers, excluding utility methods like `clearAll`.
-		 *
-		 * @example
-		 * ```typescript
-		 * // Log all current values
-		 * for (const helper of kv.defined()) {
-		 *   const result = helper.get();
-		 *   if (result.status === 'valid') {
-		 *     console.log(helper.name, result.value);
-		 *   }
-		 * }
-		 *
-		 * // Reset all keys to defaults
-		 * for (const helper of kv.defined()) {
-		 *   helper.reset();
-		 * }
-		 * ```
-		 */
-		defined() {
-			return Object.values(kvHelpers) as KvHelper<
-				FieldOf<keyof TKvDefinitionMap>
-			>[];
-		},
+		// ════════════════════════════════════════════════════════════════════
+		// UTILITIES
+		// ════════════════════════════════════════════════════════════════════
 
 		/**
 		 * Serialize all KV values to a plain JSON object.
@@ -161,8 +332,8 @@ export function createKv<TKvDefinitionMap extends KvDefinitionMap>(
 		 *
 		 * @example
 		 * ```typescript
-		 * kv.theme.set('dark');
-		 * kv.fontSize.set(16);
+		 * kv('theme').set('dark');
+		 * kv('fontSize').set(16);
 		 *
 		 * const json = kv.toJSON();
 		 * // { theme: 'dark', fontSize: 16 }
@@ -171,36 +342,14 @@ export function createKv<TKvDefinitionMap extends KvDefinitionMap>(
 		 * localStorage.setItem('settings', JSON.stringify(kv.toJSON()));
 		 * ```
 		 */
-		toJSON() {
+		toJSON(): {
+			[K in keyof TKvDefinitionMap]: KvValue<TKvDefinitionMap[K]['field']>;
+		} {
 			return ykvMap.toJSON() as {
-				[K in keyof TKvDefinitionMap]: KvValue<FieldOf<K>>;
+				[K in keyof TKvDefinitionMap]: KvValue<TKvDefinitionMap[K]['field']>;
 			};
 		},
-
-		/**
-		 * Clear all KV values, resetting them to their schema defaults.
-		 *
-		 * Deletes all keys from the underlying Y.Map. After clearing,
-		 * `get()` will return defaults (if defined), `null` (if nullable),
-		 * or `not_found` status.
-		 *
-		 * @example
-		 * ```typescript
-		 * kv.theme.set('dark');
-		 * kv.fontSize.set(20);
-		 *
-		 * kv.clearAll();
-		 *
-		 * kv.theme.get();    // { status: 'valid', value: 'light' } (default)
-		 * kv.fontSize.get(); // { status: 'valid', value: 14 } (default)
-		 * ```
-		 */
-		clearAll(): void {
-			for (const keyName of Object.keys(definitions)) {
-				ykvMap.delete(keyName);
-			}
-		},
-	};
+	}) as KvFunction<TKvDefinitionMap>;
 }
 
 /**

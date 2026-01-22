@@ -35,7 +35,7 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		// Test upsert() - accepts plain values (strings for richtext, arrays for tags)
-		doc.posts.upsert({
+		doc('posts').upsert({
 			id: '1',
 			title: 'Test Post',
 			content: 'rtxt_abc123', // richtext stores ID reference
@@ -45,7 +45,7 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		// Test get() - returns GetResult<Row>
-		const result = doc.posts.get('1');
+		const result = doc('posts').get('1');
 		expect(result.status).toBe('valid');
 
 		if (result.status === 'valid') {
@@ -75,13 +75,13 @@ describe('YjsDoc Type Inference', () => {
 			}),
 		});
 
-		doc.products.upsertMany([
+		doc('products').upsertMany([
 			{ id: '1', name: 'Widget', price: 1000, in_stock: true },
 			{ id: '2', name: 'Gadget', price: 2000, in_stock: false },
 		]);
 
 		// getAllValid() returns Row[] directly
-		const products = doc.products.getAllValid();
+		const products = doc('products').getAllValid();
 		// Expected type: Array<{ id: string; name: string; price: number; in_stock: boolean }>
 
 		expect(products).toHaveLength(2);
@@ -100,14 +100,14 @@ describe('YjsDoc Type Inference', () => {
 			}),
 		});
 
-		doc.tasks.upsertMany([
+		doc('tasks').upsertMany([
 			{ id: '1', title: 'Task 1', completed: false, priority: 'high' },
 			{ id: '2', title: 'Task 2', completed: true, priority: 'low' },
 		]);
 
 		// Hover over 'task' parameter to verify inferred type
 		// filter() now returns Row[] directly
-		const incompleteTasks = doc.tasks.filter((task) => !task.completed);
+		const incompleteTasks = doc('tasks').filter((task) => !task.completed);
 		// task type should be: { id: string; title: string; completed: boolean; priority: string }
 
 		expect(incompleteTasks).toHaveLength(1);
@@ -126,14 +126,14 @@ describe('YjsDoc Type Inference', () => {
 			}),
 		});
 
-		doc.items.upsertMany([
+		doc('items').upsertMany([
 			{ id: '1', name: 'Item 1', quantity: 5 },
 			{ id: '2', name: 'Item 2', quantity: 0 },
 		]);
 
 		// Hover over 'item' parameter to verify inferred type
 		// find() now returns Row | null directly
-		const outOfStockItem = doc.items.find((item) => item.quantity === 0);
+		const outOfStockItem = doc('items').find((item) => item.quantity === 0);
 		// item type should be: { id: string; name: string; quantity: number }
 
 		expect(outOfStockItem).not.toBeNull();
@@ -158,7 +158,7 @@ describe('YjsDoc Type Inference', () => {
 			read: boolean;
 		}> = [];
 
-		const unsubscribe = doc.notifications.observeChanges((changes) => {
+		const unsubscribe = doc('notifications').observeChanges((changes) => {
 			for (const [_id, change] of changes) {
 				if (change.action === 'add' && change.result.status === 'valid') {
 					addedNotifications.push(change.result.row);
@@ -166,7 +166,7 @@ describe('YjsDoc Type Inference', () => {
 			}
 		});
 
-		doc.notifications.upsert({
+		doc('notifications').upsert({
 			id: '1',
 			message: 'Test notification',
 			read: false,
@@ -192,14 +192,14 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		// Test with null values
-		doc.articles.upsert({
+		doc('articles').upsert({
 			id: '1',
 			title: 'Article without content',
 			description: null,
 			content: null,
 		});
 
-		const article1Result = doc.articles.get('1');
+		const article1Result = doc('articles').get('1');
 		expect(article1Result.status).toBe('valid');
 		if (article1Result.status === 'valid') {
 			expect(article1Result.row.description).toBeNull();
@@ -207,14 +207,14 @@ describe('YjsDoc Type Inference', () => {
 		}
 
 		// Test with string ID values
-		doc.articles.upsert({
+		doc('articles').upsert({
 			id: '2',
 			title: 'Article with content',
 			description: 'rtxt_desc123',
 			content: 'rtxt_content456',
 		});
 
-		const article2Result = doc.articles.get('2');
+		const article2Result = doc('articles').get('2');
 		expect(article2Result.status).toBe('valid');
 		if (article2Result.status === 'valid') {
 			expect(article2Result.row.description).toBe('rtxt_desc123');
@@ -247,17 +247,17 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		// Test authors table - richtext stores ID reference
-		doc.authors.upsert({
+		doc('authors').upsert({
 			id: 'author-1',
 			name: 'John Doe',
 			bio: 'rtxt_bio123',
 		});
 
-		const authorResult = doc.authors.get('author-1');
+		const authorResult = doc('authors').get('author-1');
 		// Hover to verify type: GetResult<{ id: string; name: string; bio: string | null }>
 
 		// Test books table - tags stores plain array
-		doc.books.upsert({
+		doc('books').upsert({
 			id: 'book-1',
 			author_id: 'author-1',
 			title: 'My Book',
@@ -265,7 +265,7 @@ describe('YjsDoc Type Inference', () => {
 			published: true,
 		});
 
-		const bookResult = doc.books.get('book-1');
+		const bookResult = doc('books').get('book-1');
 		// Hover to verify type: GetResult<{ id: string; author_id: string; title: string; chapters: string[]; published: boolean }>
 
 		expect(authorResult.status).toBe('valid');
@@ -296,9 +296,9 @@ describe('YjsDoc Type Inference', () => {
 			{ id: '2', text: 'Second comment', upvotes: 10 },
 		];
 
-		doc.comments.upsertMany(commentsToAdd);
+		doc('comments').upsertMany(commentsToAdd);
 
-		const comments = doc.comments.getAllValid();
+		const comments = doc('comments').getAllValid();
 		expect(comments).toHaveLength(2);
 	});
 
@@ -317,7 +317,7 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		// Upsert with plain values (richtext stores ID, tags stores array)
-		doc.documents.upsert({
+		doc('documents').upsert({
 			id: 'doc-1',
 			title: 'My Document',
 			body: 'rtxt_body123',
@@ -326,7 +326,7 @@ describe('YjsDoc Type Inference', () => {
 		});
 
 		// Test retrieval
-		const retrievedResult = doc.documents.get('doc-1');
+		const retrievedResult = doc('documents').get('doc-1');
 		expect(retrievedResult.status).toBe('valid');
 
 		if (retrievedResult.status === 'valid') {

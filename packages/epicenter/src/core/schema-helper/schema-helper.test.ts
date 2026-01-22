@@ -127,18 +127,18 @@ describe('createSchema', () => {
 			expect(keys).toContain('users');
 		});
 
-		test('$raw provides direct access to TablesSchemaMap', () => {
+		test('raw provides direct access to TablesSchemaMap', () => {
 			const ydoc = new Y.Doc();
 			const schemaMap = ydoc.getMap('schema');
 			const schema = createSchema(schemaMap);
 
 			schema.tables.set('posts', { name: 'Posts', fields: { id: id() } });
 
-			expect(schema.tables.$raw.has('posts')).toBe(true);
+			expect(schema.tables.raw.has('posts')).toBe(true);
 		});
 	});
 
-	describe('schema.tables.table().fields', () => {
+	describe('schema.tables().fields', () => {
 		test('set() adds a field to the table', () => {
 			const ydoc = new Y.Doc();
 			const schemaMap = ydoc.getMap('schema');
@@ -149,7 +149,7 @@ describe('createSchema', () => {
 				fields: { id: id(), title: text() },
 			});
 
-			const postsHelper = schema.tables.table('posts');
+			const postsHelper = schema.tables('posts');
 			expect(postsHelper).toBeDefined();
 
 			postsHelper!.fields.set('dueDate', date({ nullable: true }));
@@ -169,7 +169,7 @@ describe('createSchema', () => {
 				fields: { id: id(), title: text(), extra: boolean() },
 			});
 
-			const postsHelper = schema.tables.table('posts');
+			const postsHelper = schema.tables('posts');
 			expect(postsHelper!.fields.has('extra')).toBe(true);
 
 			const deleted = postsHelper!.fields.delete('extra');
@@ -187,7 +187,7 @@ describe('createSchema', () => {
 				fields: { id: id(), title: text(), count: integer() },
 			});
 
-			const fields = schema.tables.table('posts')!.fields.getAll();
+			const fields = schema.tables('posts')!.fields.getAll();
 			expect(Object.keys(fields)).toHaveLength(3);
 			expect(fields.id.type).toBe('id');
 			expect(fields.title.type).toBe('text');
@@ -204,13 +204,13 @@ describe('createSchema', () => {
 				fields: { id: id(), title: text() },
 			});
 
-			const keys = schema.tables.table('posts')!.fields.keys();
+			const keys = schema.tables('posts')!.fields.keys();
 			expect(keys).toContain('id');
 			expect(keys).toContain('title');
 		});
 	});
 
-	describe('schema.tables.table().metadata', () => {
+	describe('schema.tables().metadata', () => {
 		test('get() returns table metadata', () => {
 			const ydoc = new Y.Doc();
 			const schemaMap = ydoc.getMap('schema');
@@ -223,7 +223,7 @@ describe('createSchema', () => {
 				fields: { id: id() },
 			});
 
-			const meta = schema.tables.table('posts')!.metadata.get();
+			const meta = schema.tables('posts')!.metadata.get();
 			expect(meta.name).toBe('Posts');
 			expect(meta.icon).toEqual({ type: 'emoji', value: '📝' });
 			expect(meta.description).toBe('Blog posts');
@@ -241,7 +241,7 @@ describe('createSchema', () => {
 				fields: { id: id() },
 			});
 
-			const postsHelper = schema.tables.table('posts')!;
+			const postsHelper = schema.tables('posts')!;
 			postsHelper.metadata.set({ name: 'Blog Posts' });
 
 			const meta = postsHelper.metadata.get();
@@ -313,7 +313,7 @@ describe('createSchema', () => {
 			expect(schema.kv.has('theme')).toBe(false);
 		});
 
-		test('$raw provides direct access to KvSchemaMap', () => {
+		test('raw provides direct access to KvSchemaMap', () => {
 			const ydoc = new Y.Doc();
 			const schemaMap = ydoc.getMap('schema');
 			const schema = createSchema(schemaMap);
@@ -323,7 +323,7 @@ describe('createSchema', () => {
 				field: select({ options: ['light', 'dark'] }),
 			});
 
-			expect(schema.kv.$raw.has('theme')).toBe(true);
+			expect(schema.kv.raw.has('theme')).toBe(true);
 		});
 	});
 
@@ -352,13 +352,13 @@ describe('createSchema', () => {
 		});
 	});
 
-	describe('schema.$raw', () => {
+	describe('schema.raw', () => {
 		test('provides direct access to SchemaMap', () => {
 			const ydoc = new Y.Doc();
 			const schemaMap = ydoc.getMap('schema');
 			const schema = createSchema(schemaMap);
 
-			expect(schema.$raw).toBe(schemaMap);
+			expect(schema.raw).toBe(schemaMap);
 		});
 	});
 
@@ -405,11 +405,11 @@ describe('createSchema', () => {
 			schema.tables.set('posts', { name: 'Posts', fields: { id: id() } });
 
 			const changes: unknown[] = [];
-			const unsub = schema.tables.table('posts')!.fields.observe((c) => {
+			const unsub = schema.tables('posts')!.fields.observe((c) => {
 				changes.push(...c);
 			});
 
-			schema.tables.table('posts')!.fields.set('title', text());
+			schema.tables('posts')!.fields.set('title', text());
 			expect(
 				changes.some((c: any) => c.action === 'add' && c.key === 'title'),
 			).toBe(true);

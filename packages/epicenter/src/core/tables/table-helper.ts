@@ -784,7 +784,15 @@ function createTableHelper<TFieldSchemaMap extends FieldSchemaMap>({
 			return getOrCreateTableMap();
 		},
 
-		$inferRow: null as unknown as TRow,
+		/**
+		 * Type inference helper for the row type.
+		 *
+		 * @example
+		 * ```typescript
+		 * type PostRow = typeof tables('posts').inferRow;
+		 * ```
+		 */
+		inferRow: null as unknown as TRow,
 	};
 }
 
@@ -830,7 +838,7 @@ export type UntypedTableHelper = {
 		) => void,
 	): () => void;
 	raw: TableMap;
-	$inferRow: { id: string } & Record<string, unknown>;
+	inferRow: { id: string } & Record<string, unknown>;
 };
 
 /**
@@ -1250,6 +1258,14 @@ export function createUntypedTableHelper({
 			return getOrCreateTableMap();
 		},
 
-		$inferRow: null as unknown as TRow,
+		/**
+		 * Type inference helper for the row type.
+		 *
+		 * @example
+		 * ```typescript
+		 * type PostRow = typeof tables('posts').inferRow;
+		 * ```
+		 */
+		inferRow: null as unknown as TRow,
 	};
 }

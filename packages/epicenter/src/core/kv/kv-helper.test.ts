@@ -23,8 +23,8 @@ describe('KV Helpers', () => {
 				username: setting({ name: '', field: text() }),
 			});
 
-			kv.username.set('alice');
-			const result = kv.username.get();
+			kv('username').set('alice');
+			const result = kv('username').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe('alice');
@@ -37,7 +37,7 @@ describe('KV Helpers', () => {
 				role: setting({ name: '', field: text({ default: 'user' }) }),
 			});
 
-			const result = kv.role.get();
+			const result = kv('role').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe('user');
@@ -50,7 +50,7 @@ describe('KV Helpers', () => {
 				bio: setting({ name: '', field: text({ nullable: true }) }),
 			});
 
-			const result = kv.bio.get();
+			const result = kv('bio').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe(null);
@@ -63,15 +63,15 @@ describe('KV Helpers', () => {
 				username: setting({ name: '', field: text() }),
 			});
 
-			kv.username.set('alice');
-			let result = kv.username.get();
+			kv('username').set('alice');
+			let result = kv('username').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe('alice');
 			}
 
-			kv.username.set('bob');
-			result = kv.username.get();
+			kv('username').set('bob');
+			result = kv('username').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe('bob');
@@ -84,15 +84,15 @@ describe('KV Helpers', () => {
 				role: setting({ name: '', field: text({ default: 'user' }) }),
 			});
 
-			kv.role.set('admin');
-			let result = kv.role.get();
+			kv('role').set('admin');
+			let result = kv('role').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe('admin');
 			}
 
-			kv.role.reset();
-			result = kv.role.get();
+			kv('role').reset();
+			result = kv('role').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe('user');
@@ -105,8 +105,8 @@ describe('KV Helpers', () => {
 				count: setting({ name: '', field: integer() }),
 			});
 
-			kv.count.set(42);
-			const result = kv.count.get();
+			kv('count').set(42);
+			const result = kv('count').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe(42);
@@ -119,7 +119,7 @@ describe('KV Helpers', () => {
 				count: setting({ name: '', field: integer({ default: 0 }) }),
 			});
 
-			const result = kv.count.get();
+			const result = kv('count').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe(0);
@@ -132,15 +132,15 @@ describe('KV Helpers', () => {
 				count: setting({ name: '', field: integer({ default: 0 }) }),
 			});
 
-			kv.count.set(10);
-			let result = kv.count.get();
+			kv('count').set(10);
+			let result = kv('count').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe(10);
 			}
 
-			kv.count.set(20);
-			result = kv.count.get();
+			kv('count').set(20);
+			result = kv('count').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe(20);
@@ -153,9 +153,9 @@ describe('KV Helpers', () => {
 				count: setting({ name: '', field: integer({ default: 0 }) }),
 			});
 
-			kv.count.set(100);
-			kv.count.reset();
-			const result = kv.count.get();
+			kv('count').set(100);
+			kv('count').reset();
+			const result = kv('count').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe(0);
@@ -168,8 +168,8 @@ describe('KV Helpers', () => {
 				price: setting({ name: '', field: real() }),
 			});
 
-			kv.price.set(19.99);
-			const result = kv.price.get();
+			kv('price').set(19.99);
+			const result = kv('price').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe(19.99);
@@ -182,7 +182,7 @@ describe('KV Helpers', () => {
 				price: setting({ name: '', field: real({ default: 0.0 }) }),
 			});
 
-			const result = kv.price.get();
+			const result = kv('price').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe(0.0);
@@ -195,15 +195,15 @@ describe('KV Helpers', () => {
 				enabled: setting({ name: '', field: boolean() }),
 			});
 
-			kv.enabled.set(true);
-			let result = kv.enabled.get();
+			kv('enabled').set(true);
+			let result = kv('enabled').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe(true);
 			}
 
-			kv.enabled.set(false);
-			result = kv.enabled.get();
+			kv('enabled').set(false);
+			result = kv('enabled').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe(false);
@@ -216,7 +216,7 @@ describe('KV Helpers', () => {
 				enabled: setting({ name: '', field: boolean({ default: false }) }),
 			});
 
-			const result = kv.enabled.get();
+			const result = kv('enabled').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe(false);
@@ -229,9 +229,9 @@ describe('KV Helpers', () => {
 				enabled: setting({ name: '', field: boolean({ default: false }) }),
 			});
 
-			kv.enabled.set(true);
-			kv.enabled.reset();
-			const result = kv.enabled.get();
+			kv('enabled').set(true);
+			kv('enabled').reset();
+			const result = kv('enabled').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe(false);
@@ -247,8 +247,8 @@ describe('KV Helpers', () => {
 				}),
 			});
 
-			kv.theme.set('dark');
-			const result = kv.theme.get();
+			kv('theme').set('dark');
+			const result = kv('theme').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe('dark');
@@ -264,7 +264,7 @@ describe('KV Helpers', () => {
 				}),
 			});
 
-			const result = kv.theme.get();
+			const result = kv('theme').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe('light');
@@ -280,15 +280,15 @@ describe('KV Helpers', () => {
 				}),
 			});
 
-			kv.theme.set('dark');
-			let result = kv.theme.get();
+			kv('theme').set('dark');
+			let result = kv('theme').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe('dark');
 			}
 
-			kv.theme.set('light');
-			result = kv.theme.get();
+			kv('theme').set('light');
+			result = kv('theme').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe('light');
@@ -304,9 +304,9 @@ describe('KV Helpers', () => {
 				}),
 			});
 
-			kv.theme.set('dark');
-			kv.theme.reset();
-			const result = kv.theme.get();
+			kv('theme').set('dark');
+			kv('theme').reset();
+			const result = kv('theme').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe('light');
@@ -321,8 +321,8 @@ describe('KV Helpers', () => {
 
 			const now = Temporal.ZonedDateTime.from('2024-01-01T05:00:00.000Z[UTC]');
 			const nowString = DateTimeString.stringify(now);
-			kv.last_sync.set(nowString);
-			const result = kv.last_sync.get();
+			kv('last_sync').set(nowString);
+			const result = kv('last_sync').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe(nowString);
@@ -341,7 +341,7 @@ describe('KV Helpers', () => {
 				}),
 			});
 
-			const result = kv.last_sync.get();
+			const result = kv('last_sync').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe(DateTimeString.stringify(defaultDate));
@@ -354,7 +354,7 @@ describe('KV Helpers', () => {
 				last_sync: setting({ name: '', field: dateField({ nullable: true }) }),
 			});
 
-			const result = kv.last_sync.get();
+			const result = kv('last_sync').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe(null);
@@ -376,15 +376,15 @@ describe('KV Helpers', () => {
 			const date1String = DateTimeString.stringify(date1);
 			const date2String = DateTimeString.stringify(date2);
 
-			kv.last_sync.set(date1String);
-			let result = kv.last_sync.get();
+			kv('last_sync').set(date1String);
+			let result = kv('last_sync').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe(date1String);
 			}
 
-			kv.last_sync.set(date2String);
-			result = kv.last_sync.get();
+			kv('last_sync').set(date2String);
+			result = kv('last_sync').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe(date2String);
@@ -406,9 +406,9 @@ describe('KV Helpers', () => {
 			const newDate = Temporal.ZonedDateTime.from(
 				'2024-02-01T00:00:00.000+00:00[UTC]',
 			);
-			kv.last_sync.set(DateTimeString.stringify(newDate));
-			kv.last_sync.reset();
-			const result = kv.last_sync.get();
+			kv('last_sync').set(DateTimeString.stringify(newDate));
+			kv('last_sync').reset();
+			const result = kv('last_sync').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe(DateTimeString.stringify(defaultDate));
@@ -423,8 +423,8 @@ describe('KV Helpers', () => {
 				notes: setting({ name: '', field: richtext() }),
 			});
 
-			kv.notes.set('rtxt_abc123');
-			const result = kv.notes.get();
+			kv('notes').set('rtxt_abc123');
+			const result = kv('notes').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe('rtxt_abc123');
@@ -437,15 +437,15 @@ describe('KV Helpers', () => {
 				notes: setting({ name: '', field: richtext() }),
 			});
 
-			kv.notes.set('rtxt_first');
-			let result = kv.notes.get();
+			kv('notes').set('rtxt_first');
+			let result = kv('notes').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe('rtxt_first');
 			}
 
-			kv.notes.set('rtxt_second');
-			result = kv.notes.get();
+			kv('notes').set('rtxt_second');
+			result = kv('notes').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe('rtxt_second');
@@ -458,7 +458,7 @@ describe('KV Helpers', () => {
 				notes: setting({ name: '', field: richtext() }),
 			});
 
-			const result = kv.notes.get();
+			const result = kv('notes').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe(null);
@@ -474,8 +474,8 @@ describe('KV Helpers', () => {
 				}),
 			});
 
-			kv.tags.set(['typescript', 'javascript']);
-			const result = kv.tags.get();
+			kv('tags').set(['typescript', 'javascript']);
+			const result = kv('tags').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toEqual(['typescript', 'javascript']);
@@ -491,9 +491,9 @@ describe('KV Helpers', () => {
 				}),
 			});
 
-			kv.tags.set(['typescript']);
-			kv.tags.set(['python', 'javascript']);
-			const result = kv.tags.get();
+			kv('tags').set(['typescript']);
+			kv('tags').set(['python', 'javascript']);
+			const result = kv('tags').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toEqual(['python', 'javascript']);
@@ -506,8 +506,8 @@ describe('KV Helpers', () => {
 				categories: setting({ name: '', field: tags() }),
 			});
 
-			kv.categories.set(['anything', 'goes', 'here']);
-			const result = kv.categories.get();
+			kv('categories').set(['anything', 'goes', 'here']);
+			const result = kv('categories').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toEqual(['anything', 'goes', 'here']);
@@ -526,14 +526,14 @@ describe('KV Helpers', () => {
 			});
 
 			const values: string[] = [];
-			kv.theme.observeChanges((change) => {
+			kv('theme').observeChanges((change) => {
 				if (change.action !== 'delete') {
 					values.push(change.newValue);
 				}
 			});
 
-			kv.theme.set('dark');
-			kv.theme.set('light');
+			kv('theme').set('dark');
+			kv('theme').set('light');
 
 			expect(values).toEqual(['dark', 'light']);
 		});
@@ -549,22 +549,22 @@ describe('KV Helpers', () => {
 			});
 
 			const themeValues: string[] = [];
-			kv.theme.observeChanges((change) => {
+			kv('theme').observeChanges((change) => {
 				if (change.action !== 'delete') {
 					themeValues.push(change.newValue);
 				}
 			});
 
 			const countValues: number[] = [];
-			kv.count.observeChanges((change) => {
+			kv('count').observeChanges((change) => {
 				if (change.action !== 'delete') {
 					countValues.push(change.newValue);
 				}
 			});
 
-			kv.theme.set('dark');
-			kv.count.set(42);
-			kv.theme.set('light');
+			kv('theme').set('dark');
+			kv('count').set(42);
+			kv('theme').set('light');
 
 			expect(themeValues).toEqual(['dark', 'light']);
 			expect(countValues).toEqual([42]);
@@ -577,16 +577,16 @@ describe('KV Helpers', () => {
 			});
 
 			const values: number[] = [];
-			const unsubscribe = kv.count.observeChanges((change) => {
+			const unsubscribe = kv('count').observeChanges((change) => {
 				if (change.action !== 'delete') {
 					values.push(change.newValue);
 				}
 			});
 
-			kv.count.set(1);
-			kv.count.set(2);
+			kv('count').set(1);
+			kv('count').set(2);
 			unsubscribe();
-			kv.count.set(3);
+			kv('count').set(3);
 
 			expect(values).toEqual([1, 2]);
 		});
@@ -598,11 +598,11 @@ describe('KV Helpers', () => {
 			});
 
 			let callCount = 0;
-			kv.notes.observeChanges(() => {
+			kv('notes').observeChanges(() => {
 				callCount++;
 			});
 
-			kv.notes.set('rtxt_abc123');
+			kv('notes').set('rtxt_abc123');
 			expect(callCount).toBe(1);
 		});
 
@@ -613,11 +613,11 @@ describe('KV Helpers', () => {
 			});
 
 			let callCount = 0;
-			kv.tags.observeChanges(() => {
+			kv('tags').observeChanges(() => {
 				callCount++;
 			});
 
-			kv.tags.set(['a']);
+			kv('tags').set(['a']);
 			expect(callCount).toBe(1);
 		});
 	});
@@ -629,11 +629,11 @@ describe('KV Helpers', () => {
 				count: setting({ name: '', field: integer({ default: 0 }) }),
 			});
 
-			kv.count.set(1);
-			kv.count.set(2);
-			kv.count.set(3);
-			kv.count.set(4);
-			const result = kv.count.get();
+			kv('count').set(1);
+			kv('count').set(2);
+			kv('count').set(3);
+			kv('count').set(4);
+			const result = kv('count').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe(4);
@@ -650,15 +650,15 @@ describe('KV Helpers', () => {
 			});
 
 			const values: string[] = [];
-			kv.theme.observeChanges((change) => {
+			kv('theme').observeChanges((change) => {
 				if (change.action !== 'delete') {
 					values.push(change.newValue);
 				}
 			});
 
-			kv.theme.set('dark');
-			kv.theme.set('dark');
-			kv.theme.set('dark');
+			kv('theme').set('dark');
+			kv('theme').set('dark');
+			kv('theme').set('dark');
 
 			expect(values).toEqual(['dark', 'dark', 'dark']);
 		});
@@ -677,13 +677,13 @@ describe('KV Helpers', () => {
 				}),
 			});
 
-			kv.theme.set('dark');
-			kv.font_size.set(16);
-			kv.show_line_numbers.set(false);
+			kv('theme').set('dark');
+			kv('font_size').set(16);
+			kv('show_line_numbers').set(false);
 
-			const themeResult = kv.theme.get();
-			const fontResult = kv.font_size.get();
-			const lineResult = kv.show_line_numbers.get();
+			const themeResult = kv('theme').get();
+			const fontResult = kv('font_size').get();
+			const lineResult = kv('show_line_numbers').get();
 
 			expect(themeResult.status).toBe('valid');
 			expect(fontResult.status).toBe('valid');
@@ -699,15 +699,15 @@ describe('KV Helpers', () => {
 				expect(lineResult.value).toBe(false);
 			}
 
-			kv.theme.reset();
-			const resetTheme = kv.theme.get();
+			kv('theme').reset();
+			const resetTheme = kv('theme').get();
 			expect(resetTheme.status).toBe('valid');
 			if (resetTheme.status === 'valid') {
 				expect(resetTheme.value).toBe('light');
 			}
 
-			const stillFont = kv.font_size.get();
-			const stillLine = kv.show_line_numbers.get();
+			const stillFont = kv('font_size').get();
+			const stillLine = kv('show_line_numbers').get();
 			if (stillFont.status === 'valid') {
 				expect(stillFont.value).toBe(16);
 			}
@@ -722,15 +722,15 @@ describe('KV Helpers', () => {
 				bio: setting({ name: '', field: text({ nullable: true }) }),
 			});
 
-			kv.bio.set('Hello');
-			let result = kv.bio.get();
+			kv('bio').set('Hello');
+			let result = kv('bio').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe('Hello');
 			}
 
-			kv.bio.set(null);
-			result = kv.bio.get();
+			kv('bio').set(null);
+			result = kv('bio').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe(null);
@@ -746,14 +746,14 @@ describe('KV Helpers', () => {
 				}),
 			});
 
-			let result = kv.role.get();
+			let result = kv('role').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe('user');
 			}
 
-			kv.role.set(null);
-			result = kv.role.get();
+			kv('role').set(null);
+			result = kv('role').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe(null);
@@ -766,15 +766,15 @@ describe('KV Helpers', () => {
 				bio: setting({ name: '', field: text({ nullable: true }) }),
 			});
 
-			kv.bio.set('Hello');
-			let result = kv.bio.get();
+			kv('bio').set('Hello');
+			let result = kv('bio').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe('Hello');
 			}
 
-			kv.bio.reset();
-			result = kv.bio.get();
+			kv('bio').reset();
+			result = kv('bio').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe(null);
@@ -787,15 +787,15 @@ describe('KV Helpers', () => {
 				username: setting({ name: '', field: text() }),
 			});
 
-			kv.username.set('alice');
-			let result = kv.username.get();
+			kv('username').set('alice');
+			let result = kv('username').get();
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.value).toBe('alice');
 			}
 
-			kv.username.reset();
-			result = kv.username.get();
+			kv('username').reset();
+			result = kv('username').get();
 			expect(result.status).toBe('not_found');
 			if (result.status === 'not_found') {
 				expect(result.key).toBe('username');
@@ -813,7 +813,7 @@ describe('KV Helpers', () => {
 				enabled: setting({ name: '', field: boolean({ default: true }) }),
 			});
 
-			const all = kv.defined();
+			const all = kv.all();
 			expect(all).toHaveLength(3);
 			expect(all.map((h) => h.name).sort()).toEqual([
 				'count',
@@ -833,8 +833,9 @@ describe('KV Helpers', () => {
 				enabled: setting({ name: '', field: boolean({ default: true }) }),
 			});
 
-			kv.theme.set('dark');
-			kv.count.set(42);
+			kv('theme').set('dark');
+			kv('count').set(42);
+			kv('enabled').set(true); // Must set explicitly - toJSON only returns stored values, not defaults
 
 			const json = kv.toJSON();
 			expect(json).toEqual({
@@ -854,13 +855,13 @@ describe('KV Helpers', () => {
 				count: setting({ name: '', field: integer({ default: 0 }) }),
 			});
 
-			kv.theme.set('dark');
-			kv.count.set(42);
+			kv('theme').set('dark');
+			kv('count').set(42);
 
-			kv.clearAll();
+			kv.clear();
 
-			const themeResult = kv.theme.get();
-			const countResult = kv.count.get();
+			const themeResult = kv('theme').get();
+			const countResult = kv('count').get();
 			expect(themeResult.status).toBe('valid');
 			expect(countResult.status).toBe('valid');
 			if (themeResult.status === 'valid') {
@@ -884,7 +885,7 @@ describe('KV Helpers', () => {
 				count: setting({ name: '', field: integer({ default: 0 }) }),
 			});
 
-			const result = kv.count.get();
+			const result = kv('count').get();
 			expect(result.status).toBe('invalid');
 			if (result.status === 'invalid') {
 				expect(result.key).toBe('count');
@@ -901,7 +902,7 @@ describe('KV Helpers', () => {
 			});
 
 			let receivedValue: unknown = null;
-			kv.count.observeChanges((change) => {
+			kv('count').observeChanges((change) => {
 				if (change.action !== 'delete') {
 					receivedValue = change.newValue;
 				}
@@ -927,7 +928,7 @@ describe('KV Helpers', () => {
 			expect(kv.raw).toBe(ydoc.getMap('kv'));
 
 			// After setting a value, the raw map should have it
-			kv.theme.set('dark');
+			kv('theme').set('dark');
 			expect(kv.raw.get('theme')).toBe('dark');
 		});
 
@@ -938,14 +939,14 @@ describe('KV Helpers', () => {
 			});
 
 			// Set via helper first
-			kv.theme.set('light');
-			expect(kv.theme.get()).toEqual({ status: 'valid', value: 'light' });
+			kv('theme').set('light');
+			expect(kv('theme').get()).toEqual({ status: 'valid', value: 'light' });
 
 			// Mutate via raw
 			kv.raw.set('theme', 'dark');
 
 			// Should be reflected in helper
-			expect(kv.theme.get()).toEqual({ status: 'valid', value: 'dark' });
+			expect(kv('theme').get()).toEqual({ status: 'valid', value: 'dark' });
 		});
 
 		test('raw allows direct iteration over all KV entries', () => {
@@ -955,8 +956,8 @@ describe('KV Helpers', () => {
 				count: { name: 'Count', field: integer({ default: 0 }) },
 			});
 
-			kv.theme.set('dark');
-			kv.count.set(42);
+			kv('theme').set('dark');
+			kv('count').set(42);
 
 			// Direct iteration via raw
 			const entries: [string, unknown][] = [];

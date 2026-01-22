@@ -291,7 +291,7 @@ export const sqlite = async <
 			return tryAsync({
 				try: async () => {
 					isPushingFromSqlite = true;
-					tables.clearAll();
+					tables.clear();
 
 					for (const { table, paired: drizzleTable } of tables.zip(
 						drizzleTables,

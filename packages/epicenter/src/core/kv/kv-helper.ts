@@ -261,10 +261,10 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		 *
 		 * @example
 		 * ```typescript
-		 * type Theme = typeof kv.theme.$inferValue; // 'dark' | 'light'
+		 * type Theme = typeof kv('theme').inferValue; // 'dark' | 'light'
 		 * ```
 		 */
-		$inferValue: null as unknown as TValue,
+		inferValue: null as unknown as TValue,
 	};
 }
 
