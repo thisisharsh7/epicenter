@@ -100,9 +100,8 @@ export function workspacePersistence<
 	// For logging
 	const logPath = `workspaces/${workspaceId}/${epoch}`;
 
-	// Get the top-level Y.Maps from the workspace doc wrapper
-	const schemaMap = workspaceDoc.getSchemaMap();
-	const kvMap = workspaceDoc.getKvMap();
+	// Get the top-level Y.Maps from the workspace doc wrapper (stable references)
+	const { schemaMap, kvMap } = workspaceDoc;
 
 	// Resolve paths once, cache the promise
 	const pathsPromise = (async () => {

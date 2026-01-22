@@ -178,13 +178,13 @@ export type ExtensionContext<
 	tables: Tables<TTableDefinitionMap>;
 	/** Key-value store for simple values. */
 	kv: Kv<TKvDefinitionMap>;
-	/** Get the schema Y.Map for low-level operations. */
-	getSchemaMap(): SchemaMap;
-	/** Get the KV Y.Map for low-level operations. */
-	getKvMap(): KvMap;
-	/** Get the tables Y.Map for low-level operations. */
-	getTablesMap(): TablesMap;
-	/** Read the current schema from the Y.Doc as a plain object. */
+	/** The schema Y.Map for low-level operations. Stable reference. */
+	schemaMap: SchemaMap;
+	/** The KV Y.Map for low-level operations. Stable reference. */
+	kvMap: KvMap;
+	/** The tables Y.Map for low-level operations. Stable reference. */
+	tablesMap: TablesMap;
+	/** Read the current schema from the Y.Doc as a plain object (snapshot). */
 	getSchema(): WorkspaceSchemaMap;
 	/** Merge table/KV schema into the Y.Doc. */
 	mergeSchema<
@@ -252,7 +252,14 @@ export function createWorkspaceDoc<
 		TTableDefinitionMap,
 		TKvDefinitionMap
 	>,
->(options: {
+>({
+	workspaceId,
+	epoch,
+	tableDefinitions,
+	kvDefinitions,
+	extensionFactories,
+	onSync,
+}: {
 	workspaceId: string;
 	epoch: number;
 	tableDefinitions: TTableDefinitionMap;
@@ -265,19 +272,12 @@ export function createWorkspaceDoc<
 	TKvDefinitionMap,
 	InferExtensionExports<TExtensionFactories>
 > {
-	const {
-		workspaceId,
-		epoch,
-		tableDefinitions,
-		kvDefinitions,
-		extensionFactories,
-		onSync,
-	} = options;
 	const docId = `${workspaceId}:${epoch}`;
 	// gc: false is required for revision history snapshots to work
 	const ydoc = new Y.Doc({ guid: docId, gc: false });
 
-	// Get maps once, keep in closure
+	// Get maps once, keep in closure. Y.Doc.getMap() returns the same reference
+	// on repeated calls, but we cache them to avoid repeated string lookups.
 	const schemaMap = ydoc.getMap(WORKSPACE_DOC_MAPS.SCHEMA) as SchemaMap;
 	const kvMap = ydoc.getMap(WORKSPACE_DOC_MAPS.KV) as KvMap;
 	const tablesMap = ydoc.getMap(WORKSPACE_DOC_MAPS.TABLES) as TablesMap;
@@ -286,11 +286,6 @@ export function createWorkspaceDoc<
 	// These just bind to Y.Maps - actual data comes from persistence
 	const tables = createTables(ydoc, tableDefinitions);
 	const kv = createKv(ydoc, kvDefinitions);
-
-	// Schema methods (shared between workspace doc and extension context)
-	const getSchemaMap = () => schemaMap;
-	const getKvMap = () => kvMap;
-	const getTablesMap = () => tablesMap;
 
 	const getSchema = (): WorkspaceSchemaMap => {
 		return schemaMap.toJSON() as WorkspaceSchemaMap;
@@ -384,9 +379,9 @@ export function createWorkspaceDoc<
 			epoch,
 			tables,
 			kv,
-			getSchemaMap,
-			getKvMap,
-			getTablesMap,
+			schemaMap,
+			kvMap,
+			tablesMap,
 			getSchema,
 			mergeSchema,
 			observeSchema,
@@ -437,9 +432,9 @@ export function createWorkspaceDoc<
 		tables,
 		kv,
 		extensions,
-		getSchemaMap,
-		getKvMap,
-		getTablesMap,
+		schemaMap,
+		kvMap,
+		tablesMap,
 		getSchema,
 		mergeSchema,
 		observeSchema,
@@ -491,13 +486,13 @@ export type WorkspaceDoc<
 	kv: Kv<TKvDefinitionMap>;
 	/** Extension exports keyed by extension ID. */
 	extensions: TExtensions;
-	/** Get the schema Y.Map for low-level operations. */
-	getSchemaMap(): SchemaMap;
-	/** Get the KV Y.Map for low-level operations. */
-	getKvMap(): KvMap;
-	/** Get the tables Y.Map for low-level operations. */
-	getTablesMap(): TablesMap;
-	/** Read the current schema from the Y.Doc as a plain object. */
+	/** The schema Y.Map for low-level operations. Stable reference. */
+	schemaMap: SchemaMap;
+	/** The KV Y.Map for low-level operations. Stable reference. */
+	kvMap: KvMap;
+	/** The tables Y.Map for low-level operations. Stable reference. */
+	tablesMap: TablesMap;
+	/** Read the current schema from the Y.Doc as a plain object (snapshot). */
 	getSchema(): WorkspaceSchemaMap;
 	/** Merge table/KV schema into the Y.Doc. */
 	mergeSchema<
