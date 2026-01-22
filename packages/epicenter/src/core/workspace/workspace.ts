@@ -664,7 +664,7 @@ function createClientCore<
 > {
 	// Create Workspace Y.Doc with deterministic GUID
 	// gc: false is required for revision history snapshots to work
-	const docId = `${id}-${epoch}` as const;
+	const docId = `${id}:${epoch}` as const;
 	const ydoc = new Y.Doc({ guid: docId, gc: false });
 
 	// Get the schema Y.Map for storing table/kv definitions
