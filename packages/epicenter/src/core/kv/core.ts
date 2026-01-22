@@ -155,8 +155,9 @@ export function createKv<TKvDefinitionMap extends KvDefinitionMap>(
 		/**
 		 * Serialize all KV values to a plain JSON object.
 		 *
-		 * Returns the current value for each key. If a key is invalid or not found,
-		 * returns `null` for that key. Useful for debugging, persistence, or API responses.
+		 * Returns the raw Y.Map contents. Keys may be missing if never set,
+		 * and values may not match the schema (no validation performed).
+		 * Useful for debugging, persistence, or API responses.
 		 *
 		 * @example
 		 * ```typescript
@@ -171,17 +172,7 @@ export function createKv<TKvDefinitionMap extends KvDefinitionMap>(
 		 * ```
 		 */
 		toJSON() {
-			const result: Record<string, unknown> = {};
-			for (const keyName of Object.keys(definitions)) {
-				const helper = kvHelpers[keyName as keyof typeof kvHelpers];
-				const getResult = helper.get();
-				if (getResult.status === 'valid') {
-					result[keyName] = getResult.value;
-				} else {
-					result[keyName] = null;
-				}
-			}
-			return result as {
+			return ykvMap.toJSON() as {
 				[K in keyof TKvDefinitionMap]: KvValue<FieldOf<K>>;
 			};
 		},
