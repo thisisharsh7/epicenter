@@ -42,11 +42,11 @@ export type KvSchemaInput = {
 	field: KvFieldSchema;
 };
 
-/** Change event for schema observation. */
-export type SchemaChange<T> =
-	| { action: 'add'; key: string; value: T }
-	| { action: 'update'; key: string; oldValue: T; newValue: T }
-	| { action: 'delete'; key: string; oldValue: T };
+/** Change action for nested Y.Map observation. */
+export type ChangeAction = 'add' | 'delete';
+
+/** Change action for leaf Y.Map observation (fields can be updated). */
+export type FieldChangeAction = 'add' | 'update' | 'delete';
 
 /** Table metadata (name, icon, description). */
 export type TableMetadata = {
@@ -178,45 +178,31 @@ function createFieldsHelper(
 		/**
 		 * Observe changes to fields in this table.
 		 *
+		 * Notifies which field keys changed and how. Consumer calls `.get(key)` to retrieve values.
+		 *
 		 * @example
 		 * ```typescript
 		 * schema.tables.posts.fields.observe((changes) => {
-		 *   for (const change of changes) {
-		 *     if (change.action === 'add') {
-		 *       console.log(`Field added: ${change.key}`);
+		 *   for (const [fieldName, action] of changes) {
+		 *     if (action === 'add' || action === 'update') {
+		 *       const field = schema.tables('posts')?.fields.get(fieldName);
+		 *       console.log(`Field ${action}: ${fieldName}`, field);
+		 *     } else {
+		 *       console.log(`Field deleted: ${fieldName}`);
 		 *     }
 		 *   }
 		 * });
 		 * ```
 		 */
 		observe(
-			callback: (changes: SchemaChange<FieldSchema>[]) => void,
+			callback: (changes: Map<string, FieldChangeAction>) => void,
 		): () => void {
 			const handler = (event: Y.YMapEvent<FieldSchema>) => {
-				const changes: SchemaChange<FieldSchema>[] = [];
+				const changes = new Map<string, FieldChangeAction>();
 				event.changes.keys.forEach((change, key) => {
-					if (change.action === 'add') {
-						const value = event.target.get(key);
-						if (value) changes.push({ action: 'add', key, value });
-					} else if (change.action === 'update') {
-						const newValue = event.target.get(key);
-						if (newValue) {
-							changes.push({
-								action: 'update',
-								key,
-								oldValue: change.oldValue as FieldSchema,
-								newValue,
-							});
-						}
-					} else if (change.action === 'delete') {
-						changes.push({
-							action: 'delete',
-							key,
-							oldValue: change.oldValue as FieldSchema,
-						});
-					}
+					changes.set(key, change.action);
 				});
-				if (changes.length > 0) callback(changes);
+				if (changes.size > 0) callback(changes);
 			};
 
 			const fieldsMap = getOrCreateFieldsMap();
@@ -342,9 +328,7 @@ export type TablesSchemaHelper = {
 	delete(tableName: string): boolean;
 	has(tableName: string): boolean;
 	keys(): string[];
-	observe(
-		callback: (changes: SchemaChange<StoredTableSchema>[]) => void,
-	): () => void;
+	observe(callback: (changes: Map<string, ChangeAction>) => void): () => void;
 };
 
 function createTablesSchemaHelper(schemaMap: SchemaMap): TablesSchemaHelper {
@@ -547,70 +531,34 @@ function createTablesSchemaHelper(schemaMap: SchemaMap): TablesSchemaHelper {
 		/**
 		 * Observe changes to table schemas (add/delete tables).
 		 *
+		 * Notifies which table keys changed and how. Consumer calls `.get(key)` to retrieve values.
+		 *
 		 * @example
 		 * ```typescript
 		 * schema.tables.observe((changes) => {
-		 *   for (const change of changes) {
-		 *     if (change.action === 'add') {
-		 *       console.log(`Table added: ${change.key}`);
+		 *   for (const [tableName, action] of changes) {
+		 *     if (action === 'add') {
+		 *       const table = schema.tables.get(tableName);
+		 *       console.log(`Table added: ${tableName}`, table);
+		 *     } else {
+		 *       console.log(`Table deleted: ${tableName}`);
 		 *     }
 		 *   }
 		 * });
 		 * ```
 		 */
 		observe(
-			callback: (changes: SchemaChange<StoredTableSchema>[]) => void,
+			callback: (changes: Map<string, ChangeAction>) => void,
 		): () => void {
 			const handler = (event: Y.YMapEvent<Y.Map<unknown>>) => {
-				const changes: SchemaChange<StoredTableSchema>[] = [];
+				const changes = new Map<string, ChangeAction>();
 				event.changes.keys.forEach((change, key) => {
-					if (change.action === 'add') {
-						const tableSchemaMap = event.target.get(key);
-						if (tableSchemaMap) {
-							changes.push({
-								action: 'add',
-								key,
-								value: {
-									name: (tableSchemaMap.get('name') as string) ?? '',
-									icon:
-										(tableSchemaMap.get('icon') as IconDefinition | null) ??
-										null,
-									description:
-										(tableSchemaMap.get('description') as string) ?? '',
-									fields:
-										((
-											tableSchemaMap.get('fields') as Y.Map<FieldSchema>
-										)?.toJSON() as Record<string, FieldSchema>) ?? {},
-								},
-							});
-						}
-					} else if (change.action === 'delete') {
-						// For delete, we need to reconstruct from oldValue
-						// oldValue is the Y.Map that was deleted
-						const oldMap = change.oldValue as Y.Map<unknown> | undefined;
-						changes.push({
-							action: 'delete',
-							key,
-							oldValue: oldMap
-								? {
-										name: (oldMap.get('name') as string) ?? '',
-										icon: (oldMap.get('icon') as IconDefinition | null) ?? null,
-										description: (oldMap.get('description') as string) ?? '',
-										fields:
-											((
-												oldMap.get('fields') as Y.Map<FieldSchema>
-											)?.toJSON() as Record<string, FieldSchema>) ?? {},
-									}
-								: {
-										name: '',
-										icon: null,
-										description: '',
-										fields: {},
-									},
-						});
+					// Tables Y.Map only has 'add' and 'delete' (nested Y.Maps don't fire 'update')
+					if (change.action === 'add' || change.action === 'delete') {
+						changes.set(key, change.action);
 					}
 				});
-				if (changes.length > 0) callback(changes);
+				if (changes.size > 0) callback(changes);
 			};
 
 			const tablesMap = getOrCreateTablesMap();
@@ -757,60 +705,36 @@ function createKvSchemaHelper(schemaMap: SchemaMap) {
 		},
 
 		/**
-		 * Observe changes to KV schemas.
+		 * Observe changes to KV schemas (add/delete keys).
+		 *
+		 * Notifies which KV keys changed and how. Consumer calls `.get(key)` to retrieve values.
 		 *
 		 * @example
 		 * ```typescript
 		 * schema.kv.observe((changes) => {
-		 *   for (const change of changes) {
-		 *     console.log(`KV ${change.key}: ${change.action}`);
+		 *   for (const [kvName, action] of changes) {
+		 *     if (action === 'add') {
+		 *       const kv = schema.kv.get(kvName);
+		 *       console.log(`KV added: ${kvName}`, kv);
+		 *     } else {
+		 *       console.log(`KV deleted: ${kvName}`);
+		 *     }
 		 *   }
 		 * });
 		 * ```
 		 */
 		observe(
-			callback: (changes: SchemaChange<StoredKvSchema>[]) => void,
+			callback: (changes: Map<string, ChangeAction>) => void,
 		): () => void {
 			const handler = (event: Y.YMapEvent<Y.Map<unknown>>) => {
-				const changes: SchemaChange<StoredKvSchema>[] = [];
+				const changes = new Map<string, ChangeAction>();
 				event.changes.keys.forEach((change, key) => {
-					if (change.action === 'add') {
-						const kvEntryMap = event.target.get(key);
-						if (kvEntryMap) {
-							changes.push({
-								action: 'add',
-								key,
-								value: {
-									name: (kvEntryMap.get('name') as string) ?? '',
-									icon:
-										(kvEntryMap.get('icon') as IconDefinition | null) ?? null,
-									description: (kvEntryMap.get('description') as string) ?? '',
-									field: kvEntryMap.get('field') as FieldSchema,
-								},
-							});
-						}
-					} else if (change.action === 'delete') {
-						const oldMap = change.oldValue as Y.Map<unknown> | undefined;
-						changes.push({
-							action: 'delete',
-							key,
-							oldValue: oldMap
-								? {
-										name: (oldMap.get('name') as string) ?? '',
-										icon: (oldMap.get('icon') as IconDefinition | null) ?? null,
-										description: (oldMap.get('description') as string) ?? '',
-										field: oldMap.get('field') as FieldSchema,
-									}
-								: {
-										name: '',
-										icon: null,
-										description: '',
-										field: {} as FieldSchema,
-									},
-						});
+					// KV Y.Map only has 'add' and 'delete' (nested Y.Maps don't fire 'update')
+					if (change.action === 'add' || change.action === 'delete') {
+						changes.set(key, change.action);
 					}
 				});
-				if (changes.length > 0) callback(changes);
+				if (changes.size > 0) callback(changes);
 			};
 
 			const kvMap = getOrCreateKvMap();
@@ -913,21 +837,20 @@ export function createSchema(schemaMap: SchemaMap) {
 		/**
 		 * Observe any schema changes (tables or KV).
 		 *
-		 * Uses observeDeep to catch all nested changes.
+		 * Uses observeDeep to catch all nested changes. Just notifies that something changed;
+		 * consumer calls `schema.get()` to retrieve the current state.
 		 *
 		 * @example
 		 * ```typescript
-		 * schema.observe((snapshot) => {
+		 * schema.observe(() => {
+		 *   const snapshot = schema.get();
 		 *   console.log('Schema changed:', snapshot);
 		 * });
 		 * ```
 		 */
-		observe(callback: (schema: WorkspaceSchemaMap) => void): () => void {
-			const handler = () => {
-				callback(this.get());
-			};
-			schemaMap.observeDeep(handler);
-			return () => schemaMap.unobserveDeep(handler);
+		observe(callback: () => void): () => void {
+			schemaMap.observeDeep(callback);
+			return () => schemaMap.unobserveDeep(callback);
 		},
 
 		/**

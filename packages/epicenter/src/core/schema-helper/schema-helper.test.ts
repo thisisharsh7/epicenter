@@ -351,35 +351,33 @@ describe('createSchema', () => {
 			const schemaMap = ydoc.getMap('schema');
 			const schema = createSchema(schemaMap);
 
-			const changes: unknown[] = [];
-			const unsub = schema.tables.observe((c) => {
-				changes.push(...c);
+			const allChanges: Map<string, 'add' | 'delete'>[] = [];
+			const unsub = schema.tables.observe((changes) => {
+				allChanges.push(changes);
 			});
 
 			schema.tables.set('posts', { name: 'Posts', fields: { id: id() } });
-			expect(
-				changes.some((c: any) => c.action === 'add' && c.key === 'posts'),
-			).toBe(true);
+			expect(allChanges.length).toBeGreaterThan(0);
+			expect(allChanges.some((m) => m.get('posts') === 'add')).toBe(true);
 
 			unsub();
 		});
 
-		test('fields.observe() fires on field add/delete', () => {
+		test('fields.observe() fires on field add/update/delete', () => {
 			const ydoc = new Y.Doc();
 			const schemaMap = ydoc.getMap('schema');
 			const schema = createSchema(schemaMap);
 
 			schema.tables.set('posts', { name: 'Posts', fields: { id: id() } });
 
-			const changes: unknown[] = [];
-			const unsub = schema.tables('posts')!.fields.observe((c) => {
-				changes.push(...c);
+			const allChanges: Map<string, 'add' | 'update' | 'delete'>[] = [];
+			const unsub = schema.tables('posts')!.fields.observe((changes) => {
+				allChanges.push(changes);
 			});
 
 			schema.tables('posts')!.fields.set('title', text());
-			expect(
-				changes.some((c: any) => c.action === 'add' && c.key === 'title'),
-			).toBe(true);
+			expect(allChanges.length).toBeGreaterThan(0);
+			expect(allChanges.some((m) => m.get('title') === 'add')).toBe(true);
 
 			unsub();
 		});

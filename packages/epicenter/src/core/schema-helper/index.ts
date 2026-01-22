@@ -1,11 +1,12 @@
 export {
+	type ChangeAction,
 	createSchema,
+	type FieldChangeAction,
 	type FieldsMap,
 	type KvSchemaHelper,
 	type KvSchemaInput,
 	type KvSchemaMap,
 	type Schema,
-	type SchemaChange,
 	type StoredKvSchema,
 	type StoredTableSchema,
 	type TableMetadata,
