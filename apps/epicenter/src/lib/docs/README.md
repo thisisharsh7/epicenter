@@ -291,14 +291,22 @@ async function cleanupOldEpochs(keepLast: number = 3) {
 ```
 $lib/docs/
 ├── README.md                       # This file
-├── registry.ts                     # Module singleton for workspace registry
+├── core/                           # Low-level Y.Doc wrappers (app-specific)
+│   └── registry-doc.ts             # createRegistryDoc (Y.Doc wrapper for workspace list)
+├── registry.ts                     # Module singleton with fluent API + Tauri persistence
+├── reactive-registry.svelte.ts     # Svelte 5 reactive wrapper for registry
 ├── head.ts                         # Factory for head docs (epoch tracking)
+├── reactive-head.svelte.ts         # Svelte 5 reactive wrapper for head
 ├── workspace.ts                    # Factory for workspace clients
 ├── read-definition.ts              # Utility to load definition.json from disk
 └── persistence/                    # Persistence providers (co-located)
     ├── tauri-persistence.ts        # Binary + JSON persistence for simple docs
     └── tauri-workspace-persistence.ts  # Workspace-specific persistence with extraction
 ```
+
+**Note**: `createHeadDoc` is imported from `@epicenter/hq` (shared infrastructure for epoch tracking).
+`createRegistryDoc` is local to this app since the registry concept is specific to Epicenter's
+multi-workspace browser UI. Other apps (like Whispering) know their workspace ID upfront.
 
 ## Persistence Strategy
 

@@ -1,5 +1,5 @@
-import type { RegistryDoc } from '@epicenter/hq';
 import { createSubscriber } from 'svelte/reactivity';
+import type { RegistryDoc } from './core/registry-doc';
 
 /**
  * Wrap a RegistryDoc with Svelte 5 reactivity.
@@ -14,7 +14,7 @@ import { createSubscriber } from 'svelte/reactivity';
  *
  * @example
  * ```typescript
- * import { createRegistryDoc } from '@epicenter/hq';
+ * import { createRegistryDoc } from '$lib/docs/core/registry-doc';
  * import { reactiveRegistryDoc } from '$lib/docs/reactive-registry.svelte';
  *
  * const registry = reactiveRegistryDoc(

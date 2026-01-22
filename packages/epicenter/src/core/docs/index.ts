@@ -8,7 +8,6 @@ export {
 	type ProviderFactory,
 	type ProviderFactoryMap,
 } from './provider-types';
-export { createRegistryDoc, type RegistryDoc } from './registry-doc';
 export {
 	type DefinitionMap,
 	getWorkspaceDocMaps,

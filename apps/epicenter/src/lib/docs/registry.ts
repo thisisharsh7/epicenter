@@ -1,4 +1,4 @@
-import { createRegistryDoc } from '@epicenter/hq';
+import { createRegistryDoc } from './core/registry-doc';
 import { createHead } from './head';
 import { tauriPersistence } from './persistence/tauri-persistence';
 

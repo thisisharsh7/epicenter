@@ -1,10 +1,9 @@
-import * as Y from 'yjs';
-
 import type {
 	InferProviderExports,
 	Lifecycle,
 	ProviderFactoryMap,
-} from './provider-types.js';
+} from '@epicenter/hq';
+import * as Y from 'yjs';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Registry Doc

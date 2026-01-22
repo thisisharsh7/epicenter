@@ -55,7 +55,6 @@ export type {
 	ProviderExports,
 	ProviderFactory,
 	ProviderFactoryMap,
-	RegistryDoc,
 	RowMap,
 	TableMap,
 	TablesMap,
@@ -63,7 +62,6 @@ export type {
 } from './core/docs';
 export {
 	createHeadDoc,
-	createRegistryDoc,
 	getWorkspaceDocMaps,
 	mergeDefinitionIntoYDoc,
 	readDefinitionFromYDoc,
