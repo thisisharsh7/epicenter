@@ -6,7 +6,7 @@ import type {
 	KvValue,
 	TableDefinitionMap,
 } from '../schema/fields/types';
-import { createSchema, type Schema } from '../schema-helper';
+import { createDefinition, type Definition } from '../schema-helper';
 import { createTables, type Tables } from '../tables/create-tables';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -17,7 +17,7 @@ import { createTables, type Tables } from '../tables/create-tables';
  * The three top-level Y.Map names in a Workspace Y.Doc.
  *
  * Each workspace epoch has a single Y.Doc with three top-level maps:
- * - `schema`: Table/KV definitions (field schemas, table metadata)
+ * - `definition`: Table/KV definitions (field schemas, table metadata)
  * - `kv`: Settings values (actual KV data)
  * - `tables`: Table data (rows organized by table name)
  *
@@ -28,8 +28,8 @@ import { createTables, type Tables } from '../tables/create-tables';
  * strategies per map.
  */
 export const WORKSPACE_DOC_MAPS = {
-	/** Table/KV schema definitions. Rarely changes. */
-	SCHEMA: 'schema',
+	/** Table/KV definitions. Rarely changes. */
+	DEFINITION: 'definition',
 	/** Settings values. Changes occasionally. Persisted to kv.json */
 	KV: 'kv',
 	/** Table row data. Changes frequently. Persisted to tables.sqlite */
@@ -49,15 +49,15 @@ export type IconDefinition =
 	| { type: 'url'; value: string };
 
 /**
- * The structure stored in Y.Map('schema') in the Workspace Doc.
+ * The structure stored in Y.Map('definition') in the Workspace Doc.
  *
- * Contains table and KV schema definitions (NOT workspace identity).
+ * Contains table and KV definitions (NOT workspace identity).
  * Workspace identity (name, icon, description) lives in the Head Doc's `meta` map.
  *
  * @see WorkspaceMeta in head-doc.ts for workspace identity
  */
-export type WorkspaceSchemaMap = {
-	/** Table schemas (name, icon, description, fields) */
+export type WorkspaceDefinitionMap = {
+	/** Table definitions (name, icon, description, fields) */
 	tables: {
 		[tableName: string]: {
 			name: string;
@@ -66,7 +66,7 @@ export type WorkspaceSchemaMap = {
 			fields: Record<string, unknown>; // FieldSchema objects
 		};
 	};
-	/** KV schemas (name, icon, description, field) */
+	/** KV definitions (name, icon, description, field) */
 	kv: {
 		[key: string]: {
 			name: string;
@@ -93,8 +93,8 @@ export type TablesMap = Y.Map<TableMap>;
 /** Y.Map storing KV values, keyed by key name. */
 export type KvMap = Y.Map<KvValue>;
 
-/** Y.Map storing workspace schema (tables and kv definitions). */
-export type SchemaMap = Y.Map<unknown>;
+/** Y.Map storing workspace definition (tables and kv definitions). */
+export type DefinitionMap = Y.Map<unknown>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Extension Types
@@ -180,23 +180,23 @@ export type ExtensionContext<
 	/** Key-value store for simple values. */
 	kv: Kv<TKvDefinitionMap>;
 	/**
-	 * Schema helper for managing table and KV schemas.
+	 * Definition helper for managing table and KV definitions.
 	 *
-	 * Provides typed CRUD operations for dynamic schema editing (Notion-like UIs).
+	 * Provides typed CRUD operations for dynamic definition editing (Notion-like UIs).
 	 *
 	 * @example
 	 * ```typescript
 	 * // Add a column to a table
-	 * schema.tables.table('posts')?.fields.set('dueDate', date());
+	 * definition.tables.table('posts')?.fields.set('dueDate', date());
 	 *
 	 * // Update table metadata
-	 * schema.tables.table('posts')?.metadata.set({ name: 'Blog Posts' });
+	 * definition.tables.table('posts')?.metadata.set({ name: 'Blog Posts' });
 	 *
 	 * // Add a KV setting
-	 * schema.kv.set('theme', { name: 'Theme', field: select({ options: ['light', 'dark'] }) });
+	 * definition.kv.set('theme', { name: 'Theme', field: select({ options: ['light', 'dark'] }) });
 	 * ```
 	 */
-	schema: Schema;
+	definition: Definition;
 	/** This extension's key from `.withExtensions({ key: ... })`. */
 	extensionId: string;
 };
@@ -211,25 +211,25 @@ export type ExtensionContext<
  * This is the primary abstraction for working with workspaces. It combines:
  * - Y.Doc wrapper with typed table and kv helpers
  * - Extension initialization and lifecycle management
- * - Schema merge and observation capabilities
+ * - Definition merge and observation capabilities
  *
  * Y.Doc ID: `{workspaceId}:{epoch}`
  *
  * ## Structure
  *
  * ```
- * Y.Map('schema')  - Table/KV definitions (rarely changes)
- * Y.Map('kv')      - Settings values (changes occasionally)
- * Y.Map('tables')  - Row data by table name (changes frequently)
+ * Y.Map('definition')  - Table/KV definitions (rarely changes)
+ * Y.Map('kv')          - Settings values (changes occasionally)
+ * Y.Map('tables')      - Row data by table name (changes frequently)
  * ```
  *
- * ## Schema Merging
+ * ## Definition Merging
  *
  * After all extensions sync (e.g., persistence loads from disk), the provided
- * `tables` and `kv` definitions are automatically merged into the Y.Doc's schema map.
- * This ensures code-defined schema is the "last writer" over persisted state.
+ * `tables` and `kv` definitions are automatically merged into the Y.Doc's definition map.
+ * This ensures code-defined definition is the "last writer" over persisted state.
  *
- * For dynamic schema mode (no code-defined schema), pass empty objects `{}` for
+ * For dynamic definition mode (no code-defined definition), pass empty objects `{}` for
  * both `tables` and `kv`.
  *
  * @example
@@ -245,7 +245,7 @@ export type ExtensionContext<
  *   },
  * });
  *
- * // Wait for extensions to sync (schema is merged automatically)
+ * // Wait for extensions to sync (definition is merged automatically)
  * await workspace.whenSynced;
  *
  * // Use typed table helpers
@@ -286,27 +286,29 @@ export function createWorkspaceDoc<
 	// gc: false is required for revision history snapshots to work
 	const ydoc = new Y.Doc({ guid: docId, gc: false });
 
-	// Get schemaMap for internal use (mergeSchema needs it)
-	const schemaMap = ydoc.getMap(WORKSPACE_DOC_MAPS.SCHEMA) as SchemaMap;
+	// Get definitionMap for internal use (mergeDefinition needs it)
+	const definitionMap = ydoc.getMap(
+		WORKSPACE_DOC_MAPS.DEFINITION,
+	) as DefinitionMap;
 
 	// Create table and kv helpers bound to the Y.Doc
 	// These just bind to Y.Maps - actual data comes from persistence
 	const tables = createTables(ydoc, tableDefinitions);
 	const kv = createKv(ydoc, kvDefinitions);
-	const schema = createSchema(schemaMap);
+	const definition = createDefinition(definitionMap);
 
-	const mergeSchema = <
+	const mergeDefinition = <
 		TMergeTables extends TableDefinitionMap,
 		TMergeKv extends KvDefinitionMap,
 	>(schema: {
 		tables: TMergeTables;
 		kv: TMergeKv;
 	}) => {
-		// Merge tables schema
-		let tablesYMap = schemaMap.get('tables') as Y.Map<unknown> | undefined;
+		// Merge tables definition
+		let tablesYMap = definitionMap.get('tables') as Y.Map<unknown> | undefined;
 		if (!tablesYMap) {
 			tablesYMap = new Y.Map();
-			schemaMap.set('tables', tablesYMap);
+			definitionMap.set('tables', tablesYMap);
 		}
 
 		for (const [tableName, tableDefinition] of Object.entries(schema.tables)) {
@@ -338,18 +340,20 @@ export function createWorkspaceDoc<
 			}
 		}
 
-		// Merge KV schema
-		let kvSchemaMap = schemaMap.get('kv') as Y.Map<unknown> | undefined;
-		if (!kvSchemaMap) {
-			kvSchemaMap = new Y.Map();
-			schemaMap.set('kv', kvSchemaMap);
+		// Merge KV definition
+		let kvDefinitionMap = definitionMap.get('kv') as Y.Map<unknown> | undefined;
+		if (!kvDefinitionMap) {
+			kvDefinitionMap = new Y.Map();
+			definitionMap.set('kv', kvDefinitionMap);
 		}
 
 		for (const [keyName, kvDefinition] of Object.entries(schema.kv)) {
-			let kvEntryMap = kvSchemaMap.get(keyName) as Y.Map<unknown> | undefined;
+			let kvEntryMap = kvDefinitionMap.get(keyName) as
+				| Y.Map<unknown>
+				| undefined;
 			if (!kvEntryMap) {
 				kvEntryMap = new Y.Map();
-				kvSchemaMap.set(keyName, kvEntryMap);
+				kvDefinitionMap.set(keyName, kvEntryMap);
 			}
 
 			kvEntryMap.set('name', kvDefinition.name);
@@ -375,7 +379,7 @@ export function createWorkspaceDoc<
 			epoch,
 			tables,
 			kv,
-			schema,
+			definition,
 			extensionId,
 		};
 
@@ -394,21 +398,21 @@ export function createWorkspaceDoc<
 	//
 	// ORDER OF OPERATIONS (critical for correctness):
 	// 1. Wait for all extensions' whenSynced (e.g., persistence finishes loading disk state)
-	// 2. THEN merge schema (code-defined schema is "last writer")
+	// 2. THEN merge definition (code-defined definition is "last writer")
 	// 3. Resolve whenSynced
 	//
 	// See: specs/20260119T231252-resilient-client-architecture.md
 	const whenSynced = Promise.all(
 		Object.values(extensions).map((e) => (e as Lifecycle).whenSynced),
 	).then(() => {
-		// After persistence has loaded disk state, merge the code-defined schema.
-		// This ensures code is "last writer" over any persisted schema.
-		// For dynamic schema mode (empty tables/kv), this is a no-op.
-		const hasSchema =
+		// After persistence has loaded disk state, merge the code-defined definition.
+		// This ensures code is "last writer" over any persisted definition.
+		// For dynamic definition mode (empty tables/kv), this is a no-op.
+		const hasDefinition =
 			Object.keys(tableDefinitions).length > 0 ||
 			Object.keys(kvDefinitions).length > 0;
-		if (hasSchema) {
-			mergeSchema({ tables: tableDefinitions, kv: kvDefinitions });
+		if (hasDefinition) {
+			mergeDefinition({ tables: tableDefinitions, kv: kvDefinitions });
 		}
 	});
 
@@ -427,7 +431,7 @@ export function createWorkspaceDoc<
 		epoch,
 		tables,
 		kv,
-		schema,
+		definition,
 		extensions,
 		whenSynced,
 		destroy,
@@ -448,7 +452,7 @@ export function createWorkspaceDoc<
  * @example
  * ```typescript
  * const workspace: WorkspaceDoc<MyTables, MyKv, MyExtensions> = createClient('blog')
- *   .withSchema(schema)
+ *   .withDefinition(schema)
  *   .withExtensions({ persistence, sqlite });
  *
  * await workspace.whenSynced;
@@ -475,8 +479,8 @@ export type WorkspaceDoc<
 	tables: Tables<TTableDefinitionMap>;
 	/** Key-value store for simple values. */
 	kv: Kv<TKvDefinitionMap>;
-	/** Schema helper for managing table and KV schemas. */
-	schema: Schema;
+	/** Definition helper for managing table and KV definitions. */
+	definition: Definition;
 	/** Extension exports keyed by extension ID. */
 	extensions: TExtensions;
 	/** Promise that resolves when all extensions have synced. */

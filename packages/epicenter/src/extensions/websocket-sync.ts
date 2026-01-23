@@ -145,7 +145,7 @@ export type WebsocketSyncConfig = {
  * });
  *
  * const client = createClient('blog', { epoch })
- *   .withSchema(schema)
+ *   .withDefinition(schema)
  *   .withExtensions({
  *     sync: websocketSync({ url: 'ws://localhost:3913/sync' }),
  *   });
@@ -169,7 +169,7 @@ export type WebsocketSyncConfig = {
  * });
  *
  * const client = createClient('blog', { epoch })
- *   .withSchema(schema)
+ *   .withDefinition(schema)
  *   .withExtensions({
  *     // Create an extension for each sync node
  *     syncDesktop: websocketSync({ url: SYNC_NODES.desktop }),
@@ -194,7 +194,7 @@ export type WebsocketSyncConfig = {
  * });
  *
  * const client = createClient('blog', { epoch })
- *   .withSchema(schema)
+ *   .withDefinition(schema)
  *   .withExtensions({
  *     // Server acts as both:
  *     // 1. A sync server (via createSyncPlugin in server.ts)

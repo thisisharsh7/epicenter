@@ -24,8 +24,8 @@ import { workspacePersistence } from './workspace-persistence';
  *
  * ## Static Schema Mode (Creating New Workspaces)
  *
- * When called with a schema, the schema is merged into Y.Map('schema').
- * Use this for creating new workspaces with a known schema.
+ * When called with a schema, the definition is merged into Y.Map('definition').
+ * Use this for creating new workspaces with a known definition.
  *
  * ```typescript
  * const schema: WorkspaceSchema = { tables: {}, kv: {} };
@@ -41,7 +41,7 @@ import { workspacePersistence } from './workspace-persistence';
  * ```
  * {appLocalDataDir}/workspaces/{workspaceId}/{epoch}/
  * ├── workspace.yjs      # Full Y.Doc binary (sync source of truth)
- * ├── schema.json        # Table/KV schemas from Y.Map('schema')
+ * ├── definition.json    # Table/KV definitions from Y.Map('definition')
  * └── kv.json            # Settings from Y.Map('kv')
  * ```
  *
@@ -56,7 +56,7 @@ export function createWorkspaceClient(head: HeadDoc, schema?: WorkspaceSchema) {
 	const builder = createClient(head);
 
 	// If schema provided, use static schema mode; otherwise dynamic schema mode
-	const configuredBuilder = schema ? builder.withSchema(schema) : builder;
+	const configuredBuilder = schema ? builder.withDefinition(schema) : builder;
 
 	return configuredBuilder.withExtensions({
 		persistence: (ctx) => workspacePersistence(ctx),

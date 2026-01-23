@@ -39,7 +39,7 @@ export type PersistenceConfig = {
  * const epicenterDir = join(projectDir, '.epicenter');
  *
  * const client = createClient('blog', { epoch })
- *   .withSchema(schema)
+ *   .withDefinition(schema)
  *   .withExtensions({
  *     persistence: (ctx) => persistence(ctx, {
  *       filePath: join(epicenterDir, 'persistence', `${ctx.id}.yjs`),

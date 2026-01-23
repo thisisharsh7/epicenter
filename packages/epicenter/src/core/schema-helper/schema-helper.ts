@@ -1,5 +1,8 @@
 import * as Y from 'yjs';
-import type { SchemaMap, WorkspaceSchemaMap } from '../docs/workspace-doc';
+import type {
+	DefinitionMap,
+	WorkspaceDefinitionMap,
+} from '../docs/workspace-doc';
 import type {
 	FieldSchema,
 	FieldSchemaMap,
@@ -331,16 +334,18 @@ export type TablesSchemaHelper = {
 	observe(callback: (changes: Map<string, ChangeAction>) => void): () => void;
 };
 
-function createTablesSchemaHelper(schemaMap: SchemaMap): TablesSchemaHelper {
+function createTablesSchemaHelper(
+	definitionMap: DefinitionMap,
+): TablesSchemaHelper {
 	const getTablesMap = (): TablesSchemaMap | null => {
-		return (schemaMap.get('tables') as TablesSchemaMap) ?? null;
+		return (definitionMap.get('tables') as TablesSchemaMap) ?? null;
 	};
 
 	const getOrCreateTablesMap = (): TablesSchemaMap => {
-		let tablesMap = schemaMap.get('tables') as TablesSchemaMap | undefined;
+		let tablesMap = definitionMap.get('tables') as TablesSchemaMap | undefined;
 		if (!tablesMap) {
 			tablesMap = new Y.Map() as TablesSchemaMap;
-			schemaMap.set('tables', tablesMap);
+			definitionMap.set('tables', tablesMap);
 		}
 		return tablesMap;
 	};
@@ -574,16 +579,16 @@ function createTablesSchemaHelper(schemaMap: SchemaMap): TablesSchemaHelper {
 // Helper: KV schema collection helper
 // ─────────────────────────────────────────────────────────────────────────────
 
-function createKvSchemaHelper(schemaMap: SchemaMap) {
+function createKvSchemaHelper(definitionMap: DefinitionMap) {
 	const getKvMap = (): KvSchemaMap | null => {
-		return (schemaMap.get('kv') as KvSchemaMap) ?? null;
+		return (definitionMap.get('kv') as KvSchemaMap) ?? null;
 	};
 
 	const getOrCreateKvMap = (): KvSchemaMap => {
-		let kvMap = schemaMap.get('kv') as KvSchemaMap | undefined;
+		let kvMap = definitionMap.get('kv') as KvSchemaMap | undefined;
 		if (!kvMap) {
 			kvMap = new Y.Map() as KvSchemaMap;
-			schemaMap.set('kv', kvMap);
+			definitionMap.set('kv', kvMap);
 		}
 		return kvMap;
 	};
@@ -751,60 +756,60 @@ export type KvSchemaHelper = ReturnType<typeof createKvSchemaHelper>;
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Create a schema helper for managing workspace schema.
+ * Create a definition helper for managing workspace definition.
  *
- * The schema helper provides typed CRUD operations for table and KV schemas,
- * with granular field-level operations for Notion-like dynamic schema editing.
+ * The definition helper provides typed CRUD operations for table and KV definitions,
+ * with granular field-level operations for Notion-like dynamic definition editing.
  *
- * @param schemaMap - The Y.Map storing the workspace schema
+ * @param definitionMap - The Y.Map storing the workspace definition
  *
  * @example
  * ```typescript
- * const schema = createSchema(schemaMap);
+ * const definition = createDefinition(definitionMap);
  *
  * // Add a new table
- * schema.tables.set('tasks', {
+ * definition.tables.set('tasks', {
  *   name: 'Tasks',
  *   fields: { id: id(), title: text() },
  * });
  *
  * // Add a column to existing table
- * schema.tables.table('tasks')?.fields.set('dueDate', date());
+ * definition.tables.table('tasks')?.fields.set('dueDate', date());
  *
  * // Update table metadata
- * schema.tables.table('tasks')?.metadata.set({ name: 'My Tasks' });
+ * definition.tables.table('tasks')?.metadata.set({ name: 'My Tasks' });
  *
  * // Add a KV setting
- * schema.kv.set('theme', {
+ * definition.kv.set('theme', {
  *   name: 'Theme',
  *   field: select({ options: ['light', 'dark'] }),
  * });
  * ```
  */
-export function createSchema(schemaMap: SchemaMap) {
+export function createDefinition(definitionMap: DefinitionMap) {
 	return {
 		/**
-		 * Get the entire schema as a snapshot (plain object).
+		 * Get the entire definition as a snapshot (plain object).
 		 *
 		 * @example
 		 * ```typescript
-		 * const snapshot = schema.get();
+		 * const snapshot = definition.get();
 		 * console.log(snapshot.tables, snapshot.kv);
 		 * ```
 		 */
-		get(): WorkspaceSchemaMap {
-			return schemaMap.toJSON() as WorkspaceSchemaMap;
+		get(): WorkspaceDefinitionMap {
+			return definitionMap.toJSON() as WorkspaceDefinitionMap;
 		},
 
 		/**
-		 * Merge schema definitions into the workspace.
+		 * Merge definitions into the workspace.
 		 *
 		 * This is a bulk operation that adds/updates multiple tables and KV keys.
 		 * Existing definitions not in the merge payload are preserved.
 		 *
 		 * @example
 		 * ```typescript
-		 * schema.merge({
+		 * definition.merge({
 		 *   tables: {
 		 *     posts: table({ name: 'Posts', fields: { id: id(), title: text() } }),
 		 *     users: table({ name: 'Users', fields: { id: id(), name: text() } }),
@@ -815,54 +820,54 @@ export function createSchema(schemaMap: SchemaMap) {
 		 * });
 		 * ```
 		 */
-		merge(schema: {
+		merge(input: {
 			tables?: Record<string, TableSchemaInput>;
 			kv?: Record<string, KvSchemaInput>;
 		}): void {
-			if (schema.tables) {
+			if (input.tables) {
 				for (const [tableName, tableDefinition] of Object.entries(
-					schema.tables,
+					input.tables,
 				)) {
 					this.tables.set(tableName, tableDefinition);
 				}
 			}
 
-			if (schema.kv) {
-				for (const [keyName, kvDefinition] of Object.entries(schema.kv)) {
+			if (input.kv) {
+				for (const [keyName, kvDefinition] of Object.entries(input.kv)) {
 					this.kv.set(keyName, kvDefinition);
 				}
 			}
 		},
 
 		/**
-		 * Observe any schema changes (tables or KV).
+		 * Observe any definition changes (tables or KV).
 		 *
 		 * Uses observeDeep to catch all nested changes. Just notifies that something changed;
-		 * consumer calls `schema.get()` to retrieve the current state.
+		 * consumer calls `definition.get()` to retrieve the current state.
 		 *
 		 * @example
 		 * ```typescript
-		 * schema.observe(() => {
-		 *   const snapshot = schema.get();
-		 *   console.log('Schema changed:', snapshot);
+		 * definition.observe(() => {
+		 *   const snapshot = definition.get();
+		 *   console.log('Definition changed:', snapshot);
 		 * });
 		 * ```
 		 */
 		observe(callback: () => void): () => void {
-			schemaMap.observeDeep(callback);
-			return () => schemaMap.unobserveDeep(callback);
+			definitionMap.observeDeep(callback);
+			return () => definitionMap.unobserveDeep(callback);
 		},
 
 		/**
-		 * Table schema operations.
+		 * Table definition operations.
 		 */
-		tables: createTablesSchemaHelper(schemaMap),
+		tables: createTablesSchemaHelper(definitionMap),
 
 		/**
-		 * KV schema operations.
+		 * KV definition operations.
 		 */
-		kv: createKvSchemaHelper(schemaMap),
+		kv: createKvSchemaHelper(definitionMap),
 	};
 }
 
-export type Schema = ReturnType<typeof createSchema>;
+export type Definition = ReturnType<typeof createDefinition>;

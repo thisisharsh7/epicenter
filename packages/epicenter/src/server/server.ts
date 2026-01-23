@@ -35,7 +35,7 @@ type AnyWorkspaceDoc = WorkspaceDoc<any, any, any>;
  * });
  *
  * const client = createClient('blog', { epoch })
- *   .withSchema(schema)
+ *   .withDefinition(schema)
  *   .withExtensions({ ... });
  *
  * const server = createServer(client, { port: 3913 });

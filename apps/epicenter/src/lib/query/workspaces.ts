@@ -93,10 +93,10 @@ export const workspaces = {
 				await head.whenSynced;
 				const meta = head.getMeta();
 
-				// Get schema from Workspace Doc
+				// Get definition from Workspace Doc
 				const client = createWorkspaceClient(head);
 				await client.whenSynced;
-				const schema = client.schema.get();
+				const schema = client.definition.get();
 				await client.destroy();
 				await head.destroy();
 
@@ -145,8 +145,8 @@ export const workspaces = {
 			head.setMeta({ name: input.name, icon: null, description: '' });
 
 			// Create workspace client with schema - this will:
-			// 1. Merge schema into Y.Map('schema')
-			// 2. Persist to {epoch}/schema.json via unified persistence
+			// 1. Merge definition into Y.Map('definition')
+			// 2. Persist to {epoch}/definition.json via unified persistence
 			const client = createWorkspaceClient(head, schema);
 
 			// Wait for persistence to finish saving initial state to disk
@@ -190,10 +190,10 @@ export const workspaces = {
 			await head.whenSynced;
 			head.setMeta({ name: input.name });
 
-			// Get the workspace schema (tables, kv) from workspace client
+			// Get the workspace definition (tables, kv) from workspace client
 			const client = createWorkspaceClient(head);
 			await client.whenSynced;
-			const schema = client.schema.get();
+			const schema = client.definition.get();
 			await client.destroy();
 
 			// Clean up head doc (it's been modified, changes auto-persist)

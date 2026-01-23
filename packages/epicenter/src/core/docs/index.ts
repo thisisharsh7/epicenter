@@ -10,10 +10,10 @@ export {
 } from './provider-types';
 export {
 	createWorkspaceDoc,
+	type DefinitionMap,
 	type IconDefinition,
 	type KvMap,
-	type SchemaMap,
 	WORKSPACE_DOC_MAPS,
+	type WorkspaceDefinitionMap,
 	type WorkspaceDoc,
-	type WorkspaceSchemaMap,
 } from './workspace-doc';

@@ -15,7 +15,7 @@
  * });
  *
  * const client = createClient('blog', { epoch })
- *   .withSchema(schema)
+ *   .withDefinition(schema)
  *   .withExtensions({
  *     revisions: (ctx) => localRevisionHistory(ctx, {
  *       directory: './workspaces',

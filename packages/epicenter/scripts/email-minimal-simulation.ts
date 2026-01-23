@@ -97,7 +97,7 @@ console.log('Creating client...');
 const totalStart = performance.now();
 const head = createHeadDoc({ workspaceId: 'emails-minimal', providers: {} });
 await using client = await createClient(head)
-	.withSchema(emailSchema)
+	.withDefinition(emailSchema)
 	.withExtensions({
 		persistence: (ctx) =>
 			persistence(ctx, {

@@ -184,7 +184,7 @@ const emailSchema = defineSchema({
 
 const head = createHeadDoc({ workspaceId: 'emails-compare', providers: {} });
 await using client = await createClient(head)
-	.withSchema(emailSchema)
+	.withDefinition(emailSchema)
 	.withExtensions({
 		persistence: (ctx) =>
 			persistence(ctx, {

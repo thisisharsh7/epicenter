@@ -46,6 +46,7 @@ export {
 } from './core/actions';
 // Y.Doc wrappers for collaborative workspace architecture
 export type {
+	DefinitionMap,
 	HeadDoc,
 	InferProviderExports,
 	KvMap,
@@ -53,10 +54,9 @@ export type {
 	ProviderExports,
 	ProviderFactory,
 	ProviderFactoryMap,
-	SchemaMap,
+	WorkspaceDefinitionMap,
 	WorkspaceDoc,
 	WorkspaceMeta,
-	WorkspaceSchemaMap,
 } from './core/docs';
 export {
 	createHeadDoc,
@@ -171,9 +171,10 @@ export type {
 	ClientBuilder,
 	Workspace,
 	WorkspaceDefinition,
+	WorkspaceDefinitionInput,
 	WorkspaceSchema,
 } from './core/workspace/workspace';
-export { createClient, defineSchema } from './core/workspace/workspace';
+export { createClient, defineWorkspace } from './core/workspace/workspace';
 
 // Note: Extensions (markdown, sqlite) are NOT re-exported here to avoid bundling
 // Node.js-only code in browser builds. Import them directly from subpaths:

@@ -36,7 +36,7 @@ This module provides typed wrappers for the Y.Doc types that power collaborative
 | ---- | --------- | ---------------------- | ----------------------- | --------------------- |
 | 1    | Registry  | GUID (workspace ID)    | `{registryId}`          | `createRegistryDoc()` |
 | 2    | Head      | Epoch (version number) | `{workspaceId}`         | `createHeadDoc()`     |
-| 3    | Workspace | Schema + Data          | `{workspaceId}-{epoch}` | `createClient()`      |
+| 3    | Workspace | Definition + Data      | `{workspaceId}-{epoch}` | `createClient()`      |
 
 ## Why Three Documents?
 
@@ -88,7 +88,7 @@ A single Y.Doc per workspace seems simpler, but creates problems:
 │  ID: {workspaceId}-{epoch}                                       │
 │  Scope: Shared (syncs with all workspace collaborators)          │
 │                                                                  │
-│  Y.Map('schema')                                                 │
+│  Y.Map('definition')                                             │
 │    ├── tables: { [tableName]: {                                  │
 │    │     name: string,                                           │
 │    │     icon: IconDefinition | null,                            │
@@ -108,7 +108,7 @@ A single Y.Doc per workspace seems simpler, but creates problems:
 │  Y.Map('kv')                                                     │
 │    └── {keyName}: value                                          │
 │                                                                  │
-│  Purpose: "Schema + data for this epoch"                         │
+│  Purpose: "Definition + data for this epoch"                     │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -278,12 +278,12 @@ Epoch 2: Compacted data (fresh Y.Doc)
 they both propose the same "next" epoch. After sync, `getEpoch()` returns that
 value; no epochs are skipped.
 
-## Schema Merge Semantics
+## Definition Merge Semantics
 
-When `createClient()` is called, the code-defined schema is merged into the Y.Doc:
+When `createClient()` is called, the code-defined definition is merged into the Y.Doc:
 
 ```typescript
-// Code defines schema (simple format)
+// Code defines definition (simple format)
 const definition = defineWorkspace({
 	id: 'blog',
 	tables: {
@@ -307,7 +307,7 @@ const definition = defineWorkspace({
 	kv: {},
 });
 
-// On createClient(), schema is merged into Y.Doc internally
+// On createClient(), definition is merged into Y.Doc internally
 const client = createClient(definition.id)
 	.withDefinition(definition)
 	.withExtensions({});
@@ -351,7 +351,7 @@ const client = createClient(definition.id)
 
 **Note:** Workspace Doc creation is handled internally by `createClient()` in the workspace module.
 
-## Schema Storage
+## Definition Storage
 
 The Y.Doc stores the full `FieldSchema` directly; no conversion needed:
 
@@ -369,9 +369,9 @@ The Y.Doc stores the full `FieldSchema` directly; no conversion needed:
 **Why this works:**
 
 1. FieldSchema is fully JSON-serializable
-2. Enables Notion-like collaborative schema editing (rename fields, add descriptions, set icons)
+2. Enables Notion-like collaborative definition editing (rename fields, add descriptions, set icons)
 3. Changes sync via CRDT to all collaborators
-4. TypeScript types come from code schema (compile-time safety)
+4. TypeScript types come from code definition (compile-time safety)
 
 ## Usage
 

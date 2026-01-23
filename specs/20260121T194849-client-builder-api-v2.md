@@ -1,8 +1,8 @@
 # Client Builder API v2: Schema-First Refactor
 
-**Status**: Design Complete  
+**Status**: REVERSED (2026-01-22)  
 **Created**: 2026-01-21  
-**Updated**: 2026-01-21  
+**Updated**: 2026-01-22  
 **Purpose**: Simplify the client builder API by separating schema from identity  
 **Related**:
 
@@ -11,9 +11,23 @@
 
 ---
 
-## Executive Summary
+## REVERSAL NOTE (2026-01-22)
 
-The current `createClient().withDefinition().withExtensions()` API has redundancy after the doc-architecture-v2 changes. This spec proposes renaming `.withDefinition()` to `.withSchema()` and simplifying the types to reflect the new separation of concerns.
+This spec was implemented but then **reversed**. The rename from `.withDefinition()` to `.withSchema()` was undone because:
+
+1. **Naming inconsistency**: The method accepts `TableDefinitionMap` which contains full `TableDefinition` objects (with metadata like name, icon, description), not just raw type schemas
+2. **Convention mismatch**: Per the codebase naming convention in `packages/epicenter/src/core/schema/README.md`:
+   - **Schema** = raw type constraints (no metadata)
+   - **Definition** = metadata + schema
+3. **Y.Map alignment**: The Y.Map was renamed from `Y.Map('schema')` to `Y.Map('definition')` for the same reason—it stores definitions, not schemas
+
+The method is now back to `.withDefinition()`. The `WorkspaceSchema` type still exists as an alias (`WorkspaceDefinitionInput`) for backwards compatibility.
+
+---
+
+## Executive Summary (ORIGINAL - NOW REVERSED)
+
+The current `createClient().withDefinition().withExtensions()` API has redundancy after the doc-architecture-v2 changes. This spec proposed renaming `.withDefinition()` to `.withSchema()` and simplifying the types to reflect the new separation of concerns.
 
 ### Key Changes
 

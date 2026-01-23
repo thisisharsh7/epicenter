@@ -2,10 +2,10 @@
  * Workspace definition and creation for YJS-first collaborative workspaces.
  *
  * This module provides the core workspace API:
- * - {@link defineSchema} - Type inference helper for workspace schemas (pass-through)
+ * - {@link defineWorkspace} - Type inference helper for workspace schemas (pass-through)
  * - {@link createClient} - Factory to create workspaces with builder pattern
  * - {@link WorkspaceDoc} - The unified workspace abstraction (from workspace-doc.ts)
- * - {@link WorkspaceSchema} - Schema type for `.withSchema()` (tables + kv only)
+ * - {@link WorkspaceSchema} - Schema type for `.withDefinition()` (tables + kv only)
  *
  * ## Architecture Overview
  *
@@ -19,11 +19,11 @@
  * │         ┌───────────┴───────────┐                                           │
  * │         │                       │                                           │
  * │         ▼                       ▼                                           │
- * │   .withSchema(schema)    .withExtensions({})                                │
+ * │   .withDefinition(schema)  .withExtensions({})                              │
  * │         │                       │                                           │
  * │         ▼                       ▼                                           │
- * │   .withExtensions({})    WorkspaceDoc                                       │
- * │         │                (dynamic schema)                                   │
+ * │   .withExtensions({})       WorkspaceDoc                                    │
+ * │         │                   (dynamic schema)                                │
  * │         ▼                                                                   │
  * │   WorkspaceDoc                                                              │
  * │   (static schema)                                                           │
@@ -44,7 +44,7 @@
  *
  * // Sync construction - returns immediately
  * const workspace = createClient(head)
- *   .withSchema({ tables: {...}, kv: {} })
+ *   .withDefinition({ tables: {...}, kv: {} })
  *   .withExtensions({ persistence });
  *
  * // Sync access works immediately (operates on in-memory Y.Doc)
@@ -88,14 +88,14 @@ import type {
 /**
  * Workspace schema containing just tables and KV definitions.
  *
- * This is the minimal schema needed for `withSchema()`. It does NOT include
+ * This is the minimal schema needed for `withDefinition()`. It does NOT include
  * workspace identity (id, name, icon, description) which now lives in Head Doc.
  *
  * @example
  * ```typescript
  * const head = createHeadDoc({ workspaceId: 'blog', providers: {} });
  * const client = createClient(head)
- *   .withSchema({
+ *   .withDefinition({
  *     tables: { posts: table({ name: 'Posts', fields: { id: id(), title: text() } }) },
  *     kv: {},
  *   })
@@ -113,6 +113,14 @@ export type WorkspaceSchema<
 };
 
 /**
+ * Type alias for WorkspaceSchema, used as input to `.withDefinition()`.
+ */
+export type WorkspaceDefinitionInput<
+	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
+	TKvDefinitionMap extends KvDefinitionMap = KvDefinitionMap,
+> = WorkspaceSchema<TTableDefinitionMap, TKvDefinitionMap>;
+
+/**
  * Builder for creating workspace clients with proper type inference.
  *
  * The builder pattern solves TypeScript's limitation with simultaneous generic
@@ -128,7 +136,7 @@ export type WorkspaceSchema<
  *               ┌───────────────┴───────────────┐
  *               │                               │
  *               ▼                               ▼
- *      .withSchema(schema)               .withExtensions({})
+ *      .withDefinition(schema)           .withExtensions({})
  *               │                               │
  *               │                               │
  *               ▼                               ▼
@@ -147,7 +155,7 @@ export type WorkspaceSchema<
  * ```typescript
  * const head = createHeadDoc({ workspaceId: 'whispering', providers: {} });
  * const client = createClient(head)
- *   .withSchema({ tables: {...}, kv: {} })
+ *   .withDefinition({ tables: {...}, kv: {} })
  *   .withExtensions({
  *     persistence: (ctx) => persistence(ctx, { filePath }),
  *   });
@@ -173,7 +181,7 @@ export type WorkspaceSchema<
  * ```typescript
  * const head = createHeadDoc({ workspaceId: 'blog', providers: {} });
  * const client = createClient(head)
- *   .withSchema({ tables: {...}, kv: {} })
+ *   .withDefinition({ tables: {...}, kv: {} })
  *   .withExtensions({});
  * ```
  */
@@ -194,13 +202,13 @@ export type ClientBuilder<
 	 * ```typescript
 	 * const head = createHeadDoc({ workspaceId: 'blog', providers: {} });
 	 * const client = createClient(head)
-	 *   .withSchema({ tables: {...}, kv: {} })
+	 *   .withDefinition({ tables: {...}, kv: {} })
 	 *   .withExtensions({
 	 *     persistence: (ctx) => persistence(ctx, { filePath }),
 	 *   });
 	 * ```
 	 */
-	withSchema<
+	withDefinition<
 		TSchemaTables extends TableDefinitionMap,
 		TSchemaKv extends KvDefinitionMap,
 	>(
@@ -220,7 +228,7 @@ export type ClientBuilder<
 	 * // With extensions
 	 * const head = createHeadDoc({ workspaceId: 'whispering', providers: {} });
 	 * const workspace = createClient(head)
-	 *   .withSchema({ tables: {...}, kv: {} })
+	 *   .withDefinition({ tables: {...}, kv: {} })
 	 *   .withExtensions({
 	 *     persistence: (ctx) => persistence(ctx, { filePath }),
 	 *     sqlite: (ctx) => sqlite(ctx, { dbPath }),
@@ -232,7 +240,7 @@ export type ClientBuilder<
 	 * // Without extensions
 	 * const head = createHeadDoc({ workspaceId: 'blog', providers: {} });
 	 * const workspace = createClient(head)
-	 *   .withSchema({ tables: {...}, kv: {} })
+	 *   .withDefinition({ tables: {...}, kv: {} })
 	 *   .withExtensions({});
 	 * ```
 	 */
@@ -270,14 +278,14 @@ export type ClientBuilder<
  *
  * @example
  * ```typescript
- * const schema = defineSchema({
+ * const definition = defineWorkspace({
  *   tables: { posts: table({ name: 'Posts', fields: { id: id(), title: text() } }) },
  *   kv: {},
  * });
  *
  * const head = createHeadDoc({ workspaceId: 'epicenter.blog', providers: {} });
  * const client = createClient(head)
- *   .withSchema(schema)
+ *   .withDefinition(definition)
  *   .withExtensions({ persistence });
  *
  * // Identity comes from Head Doc
@@ -335,8 +343,8 @@ export type WorkspaceDefinition<
  * const client = workspace.create({ epoch, extensions });
  *
  * // New API
- * const schema = defineSchema({ tables, kv });
- * const client = createClient(head).withSchema(schema).withExtensions({});
+ * const definition = defineWorkspace({ tables, kv });
+ * const client = createClient(head).withDefinition(definition).withExtensions({});
  * ```
  */
 export type Workspace<
@@ -352,14 +360,14 @@ export type Workspace<
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Define a workspace schema for type inference.
+ * Define a workspace definition for type inference.
  *
  * This is a simple pass-through function that helps TypeScript infer
- * the schema types. It performs no normalization or transformation.
+ * the definition types. It performs no normalization or transformation.
  *
  * @example
  * ```typescript
- * const schema = defineSchema({
+ * const definition = defineWorkspace({
  *   tables: {
  *     posts: table({
  *       name: 'Posts',
@@ -371,18 +379,18 @@ export type Workspace<
  *
  * const head = createHeadDoc({ workspaceId: 'blog', providers: {} });
  * const client = createClient(head)
- *   .withSchema(schema)
+ *   .withDefinition(definition)
  *   .withExtensions({ persistence });
  * ```
  *
- * @param schema - The workspace schema with tables and kv definitions
- * @returns The same schema, unchanged (for type inference)
+ * @param definition - The workspace definition with tables and kv definitions
+ * @returns The same definition, unchanged (for type inference)
  */
-export function defineSchema<
+export function defineWorkspace<
 	const TTables extends TableDefinitionMap,
 	const TKv extends KvDefinitionMap = Record<string, never>,
->(schema: WorkspaceSchema<TTables, TKv>): WorkspaceSchema<TTables, TKv> {
-	return schema;
+>(definition: WorkspaceSchema<TTables, TKv>): WorkspaceSchema<TTables, TKv> {
+	return definition;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -392,7 +400,7 @@ export function defineSchema<
 /**
  * Create a client builder for a workspace.
  *
- * Returns a {@link ClientBuilder} for chaining `.withSchema()` and `.withExtensions()`.
+ * Returns a {@link ClientBuilder} for chaining `.withDefinition()` and `.withExtensions()`.
  * The client is only created when you call `.withExtensions()` (the terminal operation).
  *
  * ## Two Paths
@@ -404,7 +412,7 @@ export function defineSchema<
  *               ┌───────────────┴───────────────┐
  *               │                               │
  *               ▼                               ▼
- *      .withSchema(schema)               .withExtensions({})
+ *      .withDefinition(schema)           .withExtensions({})
  *               │                               │
  *               │                               │
  *               ▼                               ▼
@@ -423,7 +431,7 @@ export function defineSchema<
  * ```typescript
  * const head = createHeadDoc({ workspaceId: 'whispering', providers: {} });
  * const client = createClient(head)
- *   .withSchema({
+ *   .withDefinition({
  *     tables: { recordings: table({ name: 'Recordings', fields: { id: id(), title: text() } }) },
  *     kv: {},
  *   })
@@ -458,7 +466,7 @@ export function defineSchema<
  * ```typescript
  * const head = createHeadDoc({ workspaceId: 'blog', providers: {} });
  * const client = createClient(head)
- *   .withSchema({ tables: {...}, kv: {} })
+ *   .withDefinition({ tables: {...}, kv: {} })
  *   .withExtensions({});
  * ```
  *
@@ -478,7 +486,7 @@ export function createClient(
 /**
  * Internal: Create a ClientBuilder from builder config.
  *
- * The builder accumulates `tables` and `kv` definitions through `.withSchema()`.
+ * The builder accumulates `tables` and `kv` definitions through `.withDefinition()`.
  * When `.withExtensions()` is called, these are passed to `createWorkspaceDoc()`
  * which handles both creating typed helpers AND merging schema after sync.
  */
@@ -492,7 +500,7 @@ function createClientBuilder<
 	kv: TKvDefinitionMap;
 }): ClientBuilder<TTableDefinitionMap, TKvDefinitionMap> {
 	return {
-		withSchema<
+		withDefinition<
 			TSchemaTables extends TableDefinitionMap,
 			TSchemaKv extends KvDefinitionMap,
 		>(
@@ -545,7 +553,7 @@ function createClientBuilder<
 //   └── [clientId]: number
 //
 // WORKSPACE DOC (per epoch)
-// Y.Map('schema') - Table/KV definitions (rarely changes)
+// Y.Map('definition') - Table/KV definitions (rarely changes)
 //   └── tables: Y.Map<tableName, { name, icon, description, fields }>
 //   └── kv: Y.Map<keyName, { name, icon, description, field }>
 //
@@ -558,7 +566,7 @@ function createClientBuilder<
 // This enables:
 // - Independent observation (no observeDeep needed)
 // - Different persistence strategies per map
-// - Collaborative schema editing via Y.Map('schema')
+// - Collaborative definition editing via Y.Map('definition')
 // - Workspace identity (name/icon) shared across all epochs
 //
 // See specs/20260121T231500-doc-architecture-v2.md for details.

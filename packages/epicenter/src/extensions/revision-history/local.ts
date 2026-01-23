@@ -89,7 +89,7 @@ export type LocalRevisionHistoryConfig = {
  * });
  *
  * const client = createClient('blog', { epoch })
- *   .withSchema(schema)
+ *   .withDefinition(schema)
  *   .withExtensions({
  *     persistence,
  *     revisions: (ctx) => localRevisionHistory(ctx, {
@@ -116,7 +116,7 @@ export type LocalRevisionHistoryConfig = {
  * @example Custom debounce interval
  * ```typescript
  * const client = createClient('blog', { epoch })
- *   .withSchema(schema)
+ *   .withDefinition(schema)
  *   .withExtensions({
  *     revisions: (ctx) => localRevisionHistory(ctx, {
  *       directory: './workspaces',
