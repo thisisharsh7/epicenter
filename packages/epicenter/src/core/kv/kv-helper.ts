@@ -82,24 +82,6 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 	const validator = fieldSchemaToYjsArktype(fieldSchema);
 
 	return {
-		/** The name of this KV key */
-		name: keyName,
-
-		/**
-		 * The field schema for this KV entry.
-		 *
-		 * Contains the type and constraints (options, default, nullable, etc.)
-		 * for this key's value. Consistent with `KvDefinition.field`.
-		 *
-		 * @example
-		 * ```typescript
-		 * console.log(kv.theme.field.type);    // 'select'
-		 * console.log(kv.theme.field.options); // ['light', 'dark']
-		 * console.log(kv.theme.field.default); // 'light'
-		 * ```
-		 */
-		field: fieldSchema,
-
 		/**
 		 * Get the current value for this KV key.
 		 *
