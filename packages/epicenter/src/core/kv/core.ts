@@ -1,12 +1,9 @@
-import { regex } from 'arkregex';
 import type * as Y from 'yjs';
 
 import type { KvDefinitionMap, KvValue } from '../schema';
 
 import type { KvHelper } from './kv-helper';
 import { createKvHelpers } from './kv-helper';
-
-const KV_KEY_PATTERN = regex('^[a-z][a-z0-9_]*$');
 
 /** Y.Map storing all KV values, keyed by key name. */
 export type KvMap = Y.Map<KvValue>;
@@ -143,19 +140,6 @@ export function createKv<TKvDefinitionMap extends KvDefinitionMap>(
 	ydoc: Y.Doc,
 	definitions: TKvDefinitionMap,
 ): KvFunction<TKvDefinitionMap> {
-	for (const keyName of Object.keys(definitions)) {
-		if (keyName.startsWith('$')) {
-			throw new Error(
-				`KV key "${keyName}" is invalid: cannot start with "$" (reserved for utilities)`,
-			);
-		}
-		if (!KV_KEY_PATTERN.test(keyName)) {
-			throw new Error(
-				`KV key "${keyName}" is invalid: must start with a lowercase letter and contain only lowercase letters, numbers, and underscores (e.g., "theme", "last_sync", "count2")`,
-			);
-		}
-	}
-
 	const ykvMap = ydoc.getMap<KvValue>('kv');
 	const kvHelpers = createKvHelpers({ ydoc, definitions });
 

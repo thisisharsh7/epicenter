@@ -1,4 +1,3 @@
-import { regex } from 'arkregex';
 import type * as Y from 'yjs';
 import type { TableDefinitionMap } from '../schema';
 import {
@@ -8,46 +7,6 @@ import {
 	type TablesMap,
 	type UntypedTableHelper,
 } from './table-helper';
-
-/**
- * Valid table name pattern: lowercase letters, numbers, and underscores, starting with a letter.
- *
- * Table names must satisfy constraints across three systems:
- *
- * **File System** (markdown index creates directories from table names):
- * - Cross-platform safety: Windows, macOS, and Linux all handle these characters
- * - Case-insensitivity: Windows/macOS treat "Posts" and "posts" as the same directory
- * - Avoids reserved names: No risk of collision with CON, PRN, AUX, NUL, etc.
- *
- * **SQLite** (sqlite index creates tables from table names):
- * - Valid unquoted identifier: No need for "quoted" table names in SQL
- * - Avoids reserved words: Starting with letter + limited charset avoids most conflicts
- * - Case-insensitive by default: Lowercase-only prevents subtle bugs
- *
- * **JavaScript** (table names become object properties for `db.tableName` access):
- * - Valid identifier: Enables dot notation instead of bracket notation
- * - No leading numbers: JS identifiers can't start with digits
- *
- * The pattern `/^[a-z][a-z0-9_]*$/` is the intersection of all three constraint sets.
- *
- * **Why not hyphens?** SQLite requires quoting (`"my-table"`), JS needs brackets (`db['my-table']`)
- * **Why not uppercase?** Case-sensitivity varies; lowercase-only is predictable everywhere
- * **Why start with letter?** SQL/JS identifiers starting with numbers need special handling
- */
-const TABLE_NAME_PATTERN = regex('^[a-z][a-z0-9_]*$');
-
-/**
- * Valid column name pattern: camelCase allowed.
- *
- * Column names must satisfy:
- * - **SQLite**: Valid unquoted column identifier (camelCase works)
- * - **JavaScript**: `row.columnName` dot notation access
- * - **YAML frontmatter**: Markdown index serializes columns to frontmatter keys
- *
- * Unlike table names (which affect file system paths), column names don't need
- * to be lowercase-only. camelCase is idiomatic JavaScript and works everywhere.
- */
-const COLUMN_NAME_PATTERN = regex('^[a-z][a-zA-Z0-9_]*$');
 
 // Re-export types for public API
 export type {
@@ -233,31 +192,6 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 	ydoc: Y.Doc,
 	tableDefinitions: TTableDefinitionMap,
 ): TablesFunction<TTableDefinitionMap> {
-	// Validate table names
-	for (const tableName of Object.keys(tableDefinitions)) {
-		if (tableName.startsWith('$')) {
-			throw new Error(
-				`Table name "${tableName}" is invalid: cannot start with "$" (reserved for utilities)`,
-			);
-		}
-		if (!TABLE_NAME_PATTERN.test(tableName)) {
-			throw new Error(
-				`Table name "${tableName}" is invalid: must start with a lowercase letter and contain only lowercase letters, numbers, and underscores (e.g., "posts", "user_sessions", "items2")`,
-			);
-		}
-	}
-
-	// Validate column names for each table
-	for (const [tableName, tableDefinition] of Object.entries(tableDefinitions)) {
-		for (const columnName of Object.keys(tableDefinition.fields)) {
-			if (!COLUMN_NAME_PATTERN.test(columnName)) {
-				throw new Error(
-					`Column name "${columnName}" in table "${tableName}" is invalid: must start with a lowercase letter and contain only letters, numbers, and underscores (e.g., "title", "createdAt", "count2")`,
-				);
-			}
-		}
-	}
-
 	const tableHelpers = createTableHelpers({ ydoc, tableDefinitions });
 	const ytables: TablesMap = ydoc.getMap('tables');
 
