@@ -14,7 +14,7 @@ This module provides typed wrappers for the Y.Doc types that power collaborative
 │   ┌───────────┐       ┌───────────┐        ┌───────────────────┐           │
 │   │ workspaces│       │   epoch   │        │Creates Workspace  │           │
 │   │  - abc123 │       │     2     │        │ Doc internally    │           │
-│   │  - xyz789 │       │           │        │ schema + tables   │           │
+│   │  - xyz789 │       │           │        │ definition + data │           │
 │   └─────┬─────┘       └─────┬─────┘        └─────────┬─────────┘           │
 │         │                   │                        │                      │
 │         ▼                   ▼                        ▼                      │
@@ -258,9 +258,9 @@ Epochs enable atomic migrations and compaction:
 ```
 Epoch 0: Initial data
     │
-    │ Schema migration needed
+    │ Definition migration needed
     ▼
-Epoch 1: Migrated data (new schema)
+Epoch 1: Migrated data (new definition)
     │
     │ Compaction needed (Y.Doc too large)
     ▼

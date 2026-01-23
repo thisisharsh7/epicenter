@@ -120,12 +120,12 @@ export type TablesFunction<TTableDefinitionMap extends TableDefinitionMap> = {
 	all(): UntypedTableHelper[];
 
 	/**
-	 * Get names of only schema-defined tables.
+	 * Get names of only definition-declared tables.
 	 */
 	definedNames(): (keyof TTableDefinitionMap & string)[];
 
 	/**
-	 * Get table helpers for only schema-defined tables.
+	 * Get table helpers for only definition-declared tables.
 	 */
 	defined(): TableHelper<
 		TTableDefinitionMap[keyof TTableDefinitionMap]['fields']
@@ -261,7 +261,7 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 	const tableHelpers = createTableHelpers({ ydoc, tableDefinitions });
 	const ytables: TablesMap = ydoc.getMap('tables');
 
-	// Cache for dynamically-created table helpers (tables not in schema)
+	// Cache for dynamically-created table helpers (tables not in definition)
 	const dynamicTableHelpers = new Map<string, UntypedTableHelper>();
 
 	/**
@@ -328,7 +328,7 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 		 * Get all table names that exist in YJS storage.
 		 *
 		 * Returns names of every table that has been created, including both
-		 * schema-defined tables and dynamically-created tables.
+		 * definition-declared tables and dynamically-created tables.
 		 *
 		 * @example
 		 * ```typescript
@@ -343,7 +343,7 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 		 * Get all table helpers that exist in YJS (defined + undefined).
 		 *
 		 * Returns helpers for every table that has been created in YJS storage,
-		 * including both schema-defined tables and dynamically-created tables.
+		 * including both definition-declared tables and dynamically-created tables.
 		 *
 		 * @example
 		 * ```typescript
@@ -369,7 +369,7 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 		},
 
 		/**
-		 * Get names of only schema-defined tables.
+		 * Get names of only definition-declared tables.
 		 *
 		 * @example
 		 * ```typescript
@@ -381,9 +381,9 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 		},
 
 		/**
-		 * Get table helpers for only schema-defined tables.
+		 * Get table helpers for only definition-declared tables.
 		 *
-		 * Returns only tables that were declared in the schema definition,
+		 * Returns only tables that were declared in the workspace definition,
 		 * with full type information preserved.
 		 *
 		 * @example
@@ -408,7 +408,7 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 		/**
 		 * Clear all rows in defined tables.
 		 *
-		 * Only clears tables that are in the schema definition.
+		 * Only clears tables that are in the workspace definition.
 		 * Does not affect dynamically-created tables.
 		 */
 		clear(): void {
@@ -447,7 +447,7 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 		/**
 		 * The raw table definitions passed to createTables.
 		 *
-		 * Provides access to the schema definition including metadata
+		 * Provides access to the table definitions including metadata
 		 * (name, icon, description) and field schemas.
 		 *
 		 * @example
