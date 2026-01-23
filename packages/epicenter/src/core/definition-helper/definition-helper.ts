@@ -284,6 +284,28 @@ function createTableDefinitionHelper(
 	};
 }
 
+/**
+ * Helper for a single table's definition within a workspace.
+ *
+ * Provides access to the table's fields and metadata, with methods to get/set
+ * individual field schemas and table-level properties (name, icon, description).
+ *
+ * @example
+ * ```typescript
+ * const posts = definition.tables('posts');
+ * if (posts) {
+ *   // Access full table definition
+ *   const def = posts.get();
+ *
+ *   // Modify fields
+ *   posts.fields.set('dueDate', date());
+ *   posts.fields.delete('legacyField');
+ *
+ *   // Update metadata
+ *   posts.metadata.set({ name: 'Blog Posts', icon: { type: 'emoji', value: '📝' } });
+ * }
+ * ```
+ */
 export type TableDefinitionHelper = ReturnType<
 	typeof createTableDefinitionHelper
 >;
@@ -292,29 +314,7 @@ export type TableDefinitionHelper = ReturnType<
 // Helper: Tables schema collection helper (callable)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Callable function type for accessing table schema helpers.
- *
- * The definition.tables object is callable: `definition.tables('posts')` returns a TableDefinitionHelper.
- * It also has properties for utility methods: `definition.tables.get()`, `definition.tables.set()`, etc.
- */
-export type TablesDefinitionHelper = {
-	// Call signature
-	(tableName: string): TableDefinitionHelper | undefined;
-
-	// Properties
-	toJSON(): Record<string, TableDefinition>;
-	get(tableName: string): TableDefinition | undefined;
-	set(tableName: string, definition: TableDefinition): void;
-	delete(tableName: string): boolean;
-	has(tableName: string): boolean;
-	keys(): string[];
-	observe(callback: (changes: Map<string, ChangeAction>) => void): () => void;
-};
-
-function createTablesDefinitionHelper(
-	definitionMap: DefinitionMap,
-): TablesDefinitionHelper {
+function createTablesDefinitionHelper(definitionMap: DefinitionMap) {
 	const getTablesMap = (): TablesDefinitionMap | null => {
 		return (definitionMap.get('tables') as TablesDefinitionMap) ?? null;
 	};
@@ -556,8 +556,12 @@ function createTablesDefinitionHelper(
 		},
 	});
 
-	return result as TablesDefinitionHelper;
+	return result;
 }
+
+export type TablesDefinitionHelper = ReturnType<
+	typeof createTablesDefinitionHelper
+>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper: KV schema collection helper
