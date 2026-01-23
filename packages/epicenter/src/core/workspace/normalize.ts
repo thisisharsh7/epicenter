@@ -1,19 +1,17 @@
 /**
- * KV normalization utilities.
+ * Normalization utilities and type guards.
  *
  * This module provides:
  * - Icon normalization (string → Icon tagged string)
- * - KV entry normalization
- * - Type guards for KV definitions
+ * - Type guards for KV and Table definitions
  * - Default icon constants
  *
- * Note: Table normalization has been removed. Tables now require explicit metadata
- * via the `table()` helper, which returns a fully normalized `TableDefinition`.
+ * Note: KV and Table normalization has been removed. Both now require explicit
+ * metadata via the `setting()` and `table()` helpers respectively.
  *
  * @module
  */
 
-import humanizeString from 'humanize-string';
 import type {
 	FieldMap,
 	Icon,
@@ -112,44 +110,4 @@ export function isKvDefinition(value: unknown): value is KvDefinition<KvField> {
 		'field' in value &&
 		'name' in value
 	);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Normalization Functions
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Normalize a KV input to a full KV definition.
- *
- * Accepts either:
- * - Minimal input (just field schema) → adds default metadata
- * - Full definition → passes through unchanged
- *
- * @param key - The KV key (used for humanized name if minimal)
- * @param input - Either minimal input (field only) or full definition
- * @returns Full KvDefinition with all metadata
- *
- * @example
- * ```typescript
- * const input = select({ options: ['light', 'dark'] });
- * const def = normalizeKv('darkMode', input);
- * // def.name === 'Dark mode'
- * // def.icon === 'emoji:⚙️'
- * // def.field === select({ options: ['light', 'dark'] })
- * ```
- */
-export function normalizeKv<TField extends KvField>(
-	key: string,
-	input: TField | KvDefinition<TField>,
-): KvDefinition<TField> {
-	if (isKvDefinition(input)) {
-		return input as KvDefinition<TField>;
-	}
-
-	return {
-		name: humanizeString(key),
-		icon: DEFAULT_KV_ICON,
-		description: '',
-		field: input,
-	};
 }
