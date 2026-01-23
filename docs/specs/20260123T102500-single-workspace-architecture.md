@@ -2,46 +2,110 @@
 
 ## Summary
 
-An alternative to the multi-doc subdoc architecture. Instead of splitting workspace data across multiple Y.Docs (Head, Tables, KV), use a **single Y.Doc per workspace** with co-located definitions and data.
+An alternative to the multi-doc subdoc architecture. Instead of splitting workspace data across multiple Y.Docs (Head, Tables, KV), use a **single Y.Doc per workspace** with definitions separated from data internally for optimal observation patterns.
 
-This document explores the structure, trade-offs, and migration path for this simpler approach.
+This document explores the structure, trade-offs, and migration path for this approach.
 
-## Key Insight: Layers Have Different Concerns
+## Final Structure
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
+│  WORKSPACE DOC (guid: "ws-123")                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│   YJS Document (Source of Truth)         Files (Materialized Views)         │
-│   ══════════════════════════════         ═══════════════════════════        │
+│  ┌────────────────────────────────────────────────────────────────────────┐ │
+│  │  COLD ZONE (rarely changes)                                            │ │
+│  ├────────────────────────────────────────────────────────────────────────┤ │
+│  │                                                                        │ │
+│  │  Y.Map('definition')                # Workspace identity + all schemas │ │
+│  │    ├── name: "My Blog"                                                 │ │
+│  │    ├── icon: "emoji:📝"                                                │ │
+│  │    ├── description: "..."                                              │ │
+│  │    │                                                                   │ │
+│  │    ├── tables: Y.Map                # Table definitions                │ │
+│  │    │   └── {tableId}: Y.Map                                            │ │
+│  │    │       ├── name: "Posts"                                           │ │
+│  │    │       ├── icon: "emoji:📝"                                        │ │
+│  │    │       ├── description: "..."                                      │ │
+│  │    │       └── fields: Y.Map                                           │ │
+│  │    │           └── {fieldId}: Field                                    │ │
+│  │    │                                                                   │ │
+│  │    └── kv: Y.Map                    # KV definitions                   │ │
+│  │        └── {key}: Y.Map                                                │ │
+│  │            ├── name: "Theme"                                           │ │
+│  │            ├── icon: "emoji:🎨"                                        │ │
+│  │            └── field: Field                                            │ │
+│  │                                                                        │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
 │                                                                             │
-│   Co-located for:                        Separated for:                     │
-│   • API ergonomics                       • Human readability                │
-│   • Atomic transactions                  • Right tool per data type         │
-│   • Single mental model                  • Different change frequencies     │
-│   • Granular observation                 • Debugging & inspection           │
-│                                                                             │
-│   ┌─────────────────────────┐            ┌─────────────────────────┐        │
-│   │ Y.Map('tables')         │            │ definition.json         │        │
-│   │   └── posts             │     ──►    │   (all schemas)         │        │
-│   │       ├── name ─────────┼────────►   │                         │        │
-│   │       ├── icon ─────────┼────────►   │                         │        │
-│   │       ├── fields ───────┼────────►   │                         │        │
-│   │       └── rows ─────────┼────────►   │ tables.sqlite           │        │
-│   │                         │            │   (row data only)       │        │
-│   │ Y.Map('kv')             │            │                         │        │
-│   │   └── theme             │     ──►    │ kv.json                 │        │
-│   │       ├── name ─────────┼────────►   │   (values only)         │        │
-│   │       ├── field ────────┼────────►   │                         │        │
-│   │       └── value ────────┼────────►   └─────────────────────────┘        │
-│   └─────────────────────────┘                                               │
-│                                                                             │
-│   ONE co-located structure               THREE separated files              │
-│   (developer ergonomics)                 (operational ergonomics)           │
+│  ┌────────────────────────────────────────────────────────────────────────┐ │
+│  │  HOT ZONE (changes frequently)                                         │ │
+│  ├────────────────────────────────────────────────────────────────────────┤ │
+│  │                                                                        │ │
+│  │  Y.Map('tables')                    # Row data ONLY                    │ │
+│  │    └── {tableId}: Y.Map             # This IS the rows map             │ │
+│  │        └── {rowId}: Y.Map           # Row                              │ │
+│  │            └── {fieldId}: value     # Cell  ←─── HOTTEST PATH          │ │
+│  │                                                                        │ │
+│  │  Y.Map('kv')                        # Values ONLY                      │ │
+│  │    └── {key}: value                 # Just the value                   │ │
+│  │                                                                        │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
+
+
+THREE TOP-LEVEL MAPS = THREE CONCERNS
+═════════════════════════════════════
+
+Y.Map('definition')  →  "What IS this workspace?"      →  definition.json
+Y.Map('tables')      →  "What DATA is in the tables?"  →  tables.sqlite
+Y.Map('kv')          →  "What are current settings?"   →  kv.json
+
+
+OBSERVER ATTACHMENT POINTS
+══════════════════════════
+
+Cold Zone (schema changes):
+  definition.observe()                        → workspace meta changed
+  definition.observeDeep()                    → ANY schema change (tables, kv, fields)
+  definition.get('tables').observe()          → table def added/removed
+  definition.get('tables').get(id).observe()  → table meta changed
+  definition.get('tables').get(id).get('fields').observe() → field added/removed
+
+Hot Zone (data changes):
+  tables.observe()                            → table data added/removed
+  tables.get(id).observe()                    → row added/removed
+  tables.get(id).observeDeep()                → row OR cell changed
+  kv.observe()                                → any kv value changed
+
+
+CHANGE FREQUENCY HEAT MAP
+═════════════════════════
+
+definition (workspace meta)                   ~1/month     ░░░░░░░░░░
+definition.tables.{id} (table meta)           ~1/month     ░░░░░░░░░░
+definition.tables.{id}.fields                 ~1/week      ██░░░░░░░░
+definition.kv.{key}                           ~1/month     ░░░░░░░░░░
+kv.{key} (value)                              ~10/day      ████░░░░░░
+tables.{id} (row add/remove)                  ~100/day     ██████░░░░
+tables.{id}.{rowId}.{fieldId} (cell)          ~1000/day    ██████████  ← HOTTEST
 ```
 
-**The API mirrors the YJS structure** (co-located), but **the files are separated by concern**.
+## Key Insight: Structure Optimized for Observation
+
+The internal YJS structure is **separated by change frequency**, not co-located. This is intentional:
+
+1. **Cold data (definitions)** lives in `Y.Map('definition')`
+2. **Hot data (rows, values)** lives in `Y.Map('tables')` and `Y.Map('kv')`
+
+**Why this matters:**
+
+- Observers attach directly to the heat — `tables.get('posts').observeDeep()` only fires for row/cell changes
+- No filtering needed — you don't get schema changes mixed into data observers
+- Different debounce strategies — sync definitions every 5s, sync rows every 100ms
+
+**But the API hides this!** Developers see a unified, ergonomic interface.
 
 ---
 
@@ -55,7 +119,7 @@ Separate Y.Docs for each table, plus shared docs for metadata and KV.
 
 ### Option B: Single Workspace Doc (This Spec)
 
-All tables and KV in one Y.Doc with co-located definitions.
+All tables and KV in one Y.Doc with definitions separated from data.
 
 ### Key Factors in the Decision
 
@@ -88,121 +152,99 @@ All tables and KV in one Y.Doc with co-located definitions.
 
 ---
 
-## Why Co-located in YJS + API
+## Why Separated Internally, Unified API
 
-The YJS document structure and API are **co-located**—definitions live alongside data. This is intentional.
+The YJS document structure is **separated by change frequency** (definitions in one tree, data in another), but the **API presents a unified view**. This gives us the best of both worlds.
 
-### 1. API Ergonomics
-
-**Co-located (what we're doing):**
+### Internal Structure: Optimized for Observation
 
 ```typescript
+// INTERNAL: Two separate Y.Map trees
+const defYMap = doc.getMap('definition').get('tables').get('posts');
+const rowsYMap = doc.getMap('tables').get('posts');
+
+// Clean observation - no filtering needed
+defYMap.get('fields').observe(() => rebuildColumns()); // Schema only
+rowsYMap.observeDeep(() => syncToSqlite()); // Data only
+```
+
+### API: Optimized for Ergonomics
+
+```typescript
+// EXTERNAL: Unified TableHelper bridges both trees
 const posts = workspace.tables('posts');
 
 // Everything about "posts" is RIGHT HERE
-posts.name; // metadata
-posts.icon; // metadata
-posts.fields.get('title'); // definition
-posts.rows.get({ id: '1' }); // data
+posts.name;                    // reads from definition.tables.posts.name
+posts.icon;                    // reads from definition.tables.posts.icon
+posts.fields.get('title');     // reads from definition.tables.posts.fields
+posts.upsert({ id: '1', ... }); // writes to tables.posts
 
 // One mental model: "I have a table, it has everything"
 ```
 
-**Separated (the alternative we rejected):**
+### Why This Works
+
+The API hides the internal separation:
 
 ```typescript
-// Would have to access THREE different trees
-const postsMeta = workspace.definitions.tables('posts'); // metadata
-const postsFields = workspace.definitions.tables('posts').fields; // definition
-const postsRows = workspace.data.tables('posts'); // data
+function createTableHelper(tableId: string) {
+	// Bridge the two Y.Map trees
+	const defYMap = doc.getMap('definition').get('tables').get(tableId);
+	const rowsYMap = doc.getMap('tables').get(tableId);
 
-// Mental overhead: "Where does this live again?"
+	return {
+		// Definition access (from cold zone)
+		get name() {
+			return defYMap.get('name');
+		},
+		get fields() {
+			return createFieldsHelper(defYMap.get('fields'));
+		},
+
+		// CRUD operations (from hot zone)
+		upsert(row) {
+			rowsYMap.set(row.id, toYMap(row));
+		},
+		get(key) {
+			return rowsYMap.get(key.id)?.toJSON();
+		},
+
+		// Observation (precise attachment points)
+		observeRows(cb) {
+			return rowsYMap.observeDeep(cb);
+		},
+		observeFields(cb) {
+			return defYMap.get('fields').observe(cb);
+		},
+		observe(cb) {
+			return defYMap.observe(cb);
+		}, // Just metadata
+	};
+}
 ```
 
-### 2. Atomic Operations
+### Benefits of This Approach
 
-**Co-located:** Adding a field with default values is one transaction:
-
-```typescript
-workspace.ydoc.transact(() => {
-	// Same Y.Map subtree—guaranteed atomic
-	posts.fields.set('status', {
-		type: 'select',
-		options: ['draft', 'published'],
-		default: 'draft',
-	});
-
-	// Backfill existing rows in the same transaction
-	for (const [id, row] of posts.rows.entries()) {
-		if (!row.has('status')) {
-			row.set('status', 'draft');
-		}
-	}
-});
-```
-
-**Separated:** Would require coordinating across different Y.Maps or even different Y.Docs—complex and error-prone.
-
-### 3. Granular Observation
-
-Co-location enables **precise observation** at any level of the tree:
-
-```typescript
-// Watch just table metadata (name, icon changes)
-postsYMap.observe((event) => {
-	// Only fires for direct children: name, icon, description
-	// Does NOT fire for field or row changes
-	updateSidebarUI();
-});
-
-// Watch just fields (schema changes)
-postsYMap.get('fields').observe((event) => {
-	// Only fires when fields are added/removed/modified
-	rebuildTableColumns();
-});
-
-// Watch just rows (data changes)
-postsYMap.get('rows').observeDeep((events) => {
-	// Fires for any row or cell change
-	syncToSQLite();
-});
-
-// Watch everything about posts
-postsYMap.observeDeep((events) => {
-	// Fires for ANY change: metadata, fields, or rows
-	fullTableRebuild();
-});
-```
-
-**This is possible BECAUSE of co-location.** If definitions were in a separate tree, you couldn't easily observe "all changes to the posts table" with a single `observeDeep`.
-
-### 4. No Cross-Referencing
-
-**Co-located:**
-
-```typescript
-const table = workspace.tables('posts');
-const titleField = table.fields.get('title');
-const rows = table.rows.getAll();
-// Everything is right here
-```
-
-**Separated:**
-
-```typescript
-const tableDef = workspace.definitions.tables.get('posts');
-const titleField = workspace.definitions.fields.get('posts', 'title');
-const rows = workspace.data.tables.get('posts');
-// Have to know where to look for each piece
-```
+1. **API ergonomics** — Developers see one unified table helper
+2. **Clean observation** — Observers attach to exactly what they need
+3. **No filtering** — `observeRows` only fires for rows, never for schema
+4. **Atomic operations** — Still one Y.Doc, so `transact()` works across both trees
+5. **Different debounce strategies** — Sync definitions slowly, sync rows quickly
 
 ---
 
-## Why Separated in File System
+## Why Files Mirror the Three-Map Structure
 
-While YJS is co-located, the **materialized files** are separated by concern. Different reasons:
+The YJS structure (3 top-level maps) directly mirrors the file output:
 
-### 1. Right Tool for the Job
+| Y.Map        | File              | Content                      |
+| ------------ | ----------------- | ---------------------------- |
+| `definition` | `definition.json` | Workspace meta + all schemas |
+| `tables`     | `tables.sqlite`   | Row data only                |
+| `kv`         | `kv.json`         | KV values only               |
+
+### Right Tool for the Job
 
 | Data Type             | Best Storage | Why                                         |
 | --------------------- | ------------ | ------------------------------------------- |
@@ -210,19 +252,7 @@ While YJS is co-located, the **materialized files** are separated by concern. Di
 | Row data              | SQLite       | Queryable, indexed, handles large datasets  |
 | KV values             | JSON         | Tiny, loaded all at once, no queries needed |
 
-### 2. Different Change Frequencies
-
-- **Definitions:** Change rarely (add a field once a week)
-- **Row data:** Changes constantly (every user action)
-- **KV values:** Change occasionally (user changes a setting)
-
-Separating them means you can:
-
-- Version control `definition.json` in git
-- Let SQLite handle the heavy lifting for rows
-- Keep `kv.json` tiny and fast to load
-
-### 3. Debugging & Inspection
+### Debugging & Inspection
 
 ```bash
 # "What's the schema?"
@@ -235,54 +265,48 @@ cat kv.json
 sqlite3 tables.sqlite "SELECT COUNT(*) FROM posts"
 ```
 
-If everything was in one binary YJS file, you'd need special tooling.
-
 ---
 
-## Document Structure
+## Document Structure (Detailed)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │  WORKSPACE DOC (guid: "ws-123")                                             │
-│  One doc to rule them all                                                   │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│  Y.Map('meta')                         # Workspace identity                 │
-│    ├── name: "My Blog"                                                      │
+│  Y.Map('definition')                   # COLD: Identity + all schemas       │
+│    ├── name: "My Blog"                 # Workspace name                     │
 │    ├── icon: "emoji:📝"                # Tagged string (see Icon Storage)   │
-│    └── description: "..."                                                   │
+│    ├── description: "..."              # Workspace description              │
+│    │                                                                        │
+│    ├── tables: Y.Map                   # Table definitions                  │
+│    │   └── {tableId}: Y.Map                                                 │
+│    │       ├── name: "Posts"                                                │
+│    │       ├── icon: "emoji:📝"                                             │
+│    │       ├── description: "..."                                           │
+│    │       └── fields: Y.Map                                                │
+│    │           └── {fieldId}: Field                                         │
+│    │               ├── type: "text"                                         │
+│    │               ├── name: "Title"                                        │
+│    │               ├── nullable: false                                      │
+│    │               └── default: undefined                                   │
+│    │                                                                        │
+│    └── kv: Y.Map                       # KV definitions                     │
+│        └── {key}: Y.Map                                                     │
+│            ├── name: "Theme"                                                │
+│            ├── icon: "emoji:🎨"                                             │
+│            └── field: Field                                                 │
+│                ├── type: "select"                                           │
+│                ├── options: ["light", "dark"]                               │
+│                └── default: "light"                                         │
 │                                                                             │
-│  Y.Map('tables')                       # All tables (top-level)             │
-│    └── {tableId}: Y.Map                                                     │
-│        ├── name: "Posts"                                                    │
-│        ├── icon: "emoji:📝"                                                 │
-│        ├── description: "..."                                               │
-│        ├── createdAt: 1706000000                                            │
-│        ├── deletedAt: null             # Tombstone for soft delete          │
-│        │                                                                    │
-│        ├── fields: Y.Map               # Co-located field definitions       │
-│        │   └── {fieldId}: Field                                             │
-│        │       ├── type: "text"                                             │
-│        │       ├── name: "Title"                                            │
-│        │       ├── description: ""                                          │
-│        │       ├── icon: null                                               │
-│        │       ├── nullable: false                                          │
-│        │       └── default: undefined                                       │
-│        │                                                                    │
-│        └── rows: Y.Map                 # Co-located row data                │
-│            └── {rowId}: Y.Map                                               │
-│                └── {fieldId}: value                                         │
+│  Y.Map('tables')                       # HOT: Row data only                 │
+│    └── {tableId}: Y.Map                # This IS the rows map               │
+│        └── {rowId}: Y.Map              # Row data                           │
+│            └── {fieldId}: value        # Cell value                         │
 │                                                                             │
-│  Y.Map('kv')                           # KV store (top-level, separate)     │
-│    └── {key}: Y.Map                                                         │
-│        ├── name: "Theme"                                                    │
-│        ├── icon: "emoji:🎨"                                                 │
-│        ├── description: "Color theme preference"                            │
-│        ├── field: Field                # Co-located field definition        │
-│        │   ├── type: "select"                                               │
-│        │   ├── options: ["light", "dark"]                                   │
-│        │   └── default: "light"                                             │
-│        └── value: "dark"               # Co-located value                   │
+│  Y.Map('kv')                           # WARM: Values only                  │
+│    └── {key}: value                    # Just the value, no definition      │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -291,65 +315,61 @@ If everything was in one binary YJS file, you'd need special tooling.
 
 ## Design Decisions
 
-### 1. Tables at Top-Level
+### 1. Three Top-Level Maps
 
-Tables are a top-level concept in `Y.Map('tables')`:
+The workspace doc has exactly three top-level Y.Maps:
 
 ```typescript
-doc.getMap('tables').get('tbl-123');
+doc.getMap('definition'); // Cold: workspace meta + all schemas
+doc.getMap('tables'); // Hot: row data only
+doc.getMap('kv'); // Warm: values only
+```
+
+**Why three maps:**
+
+- **Maps to file output** — Each map becomes one file
+- **Maps to change frequency** — Cold, warm, hot zones
+- **Clean observation boundaries** — No filtering needed
+
+### 2. Definitions Separated from Data
+
+Table definitions live in `definition.tables`, while row data lives in `tables`:
+
+```typescript
+// Definition (cold)
+const tableDef = doc.getMap('definition').get('tables').get(tableId);
+const fields = tableDef.get('fields');
+
+// Data (hot)
+const rows = doc.getMap('tables').get(tableId);
+```
+
+**Why separate:**
+
+- **Observation alignment** — Attach observers to exactly what you need
+- **Change frequency** — Definitions change rarely, rows change constantly
+- **Debounce strategies** — Sync definitions every 5s, sync rows every 100ms
+
+### 3. KV Split: Definition vs Value
+
+KV definitions live in `definition.kv`, while values live in `kv`:
+
+```typescript
+// Definition (cold)
+const kvDef = doc.getMap('definition').get('kv').get('theme');
+const field = kvDef.get('field'); // { type: 'select', options: [...] }
+
+// Value (warm)
+const value = doc.getMap('kv').get('theme'); // 'dark'
 ```
 
 **Why:**
 
-- Clear namespace separation from KV
-- Tables and KV are fundamentally different data shapes
-- Easy to enumerate all tables for sidebar UI
+- Consistent with table pattern
+- Values change more often than definitions
+- Clean observation for "any setting changed"
 
-### 2. Fields Co-located with Tables
-
-Field definitions live inside each table, not in a separate schemas map:
-
-```typescript
-// Co-located approach (direct)
-const table = doc.getMap('tables').get(tableId);
-const fields = table.get('fields');
-const rows = table.get('rows');
-```
-
-**Why co-locate:**
-
-- **Locality**: When you need a table, you need its schema. Always.
-- **Atomic operations**: Adding a field + setting default values = one `transact()`
-- **Simpler mental model**: "A table has fields and rows" is intuitive
-- **No cross-referencing**: Don't need to look up `schemas.get(tableId)` separately
-
-### 3. KV Separate from Tables (Top-Level)
-
-KV is structurally different from tables:
-
-- No "rows"—just key → single value
-- Often used for settings/config
-- Different access patterns
-
-Keeping it at top-level (`doc.getMap('kv')`) makes sense.
-
-### 4. KV Field + Value Co-located
-
-Each KV entry contains both its field definition and its value:
-
-```typescript
-const themeEntry = doc.getMap('kv').get('theme');
-const field = themeEntry.get('field'); // { type: 'select', options: [...] }
-const value = themeEntry.get('value'); // 'dark'
-```
-
-**Why:**
-
-- No need to look up schema separately
-- Atomic updates when changing both definition and value
-- Self-contained entries
-
-### 5. Naming: "Field" Not "Schema"
+### 4. Naming: "Field" Not "Schema"
 
 Following the codebase convention established in the recent refactor:
 
@@ -359,20 +379,23 @@ Following the codebase convention established in the recent refactor:
 | `Definition` | Metadata + Field(s)                             |
 | `Schema`     | Reserved for full workspace or validation logic |
 
-For KV entries, the property is `field` (not `schema`):
+### 5. API Bridges the Separation
+
+Despite internal separation, the API presents a unified view:
 
 ```typescript
-// KV entry structure
-{
-  name: 'Theme',
-  icon: 'emoji:🎨',
-  description: '...',
-  field: { type: 'select', options: ['light', 'dark'] },  // Field definition
-  value: 'dark'                                           // Current value
-}
+const posts = workspace.tables('posts');
+
+// These read from definition.tables.posts
+posts.name;
+posts.fields.get('title');
+
+// These read/write from tables.posts
+posts.upsert({ id: '1', title: 'Hello' });
+posts.get({ id: '1' });
 ```
 
-This matches the existing `KvDefinition` type which has a `field` property.
+The developer doesn't need to know about the internal separation.
 
 ---
 
@@ -455,16 +478,16 @@ workspace/
 
 ### What Gets Written Where
 
-| YJS Path               | Materialized To   | Content                           |
-| ---------------------- | ----------------- | --------------------------------- |
-| `meta.*`               | `definition.json` | Workspace name, icon, description |
-| `tables.{name}.name`   | `definition.json` | Table display name                |
-| `tables.{name}.icon`   | `definition.json` | Table icon                        |
-| `tables.{name}.fields` | `definition.json` | Field definitions                 |
-| `tables.{name}.rows`   | `tables.sqlite`   | Row data                          |
-| `kv.{key}.name`        | `definition.json` | KV display name                   |
-| `kv.{key}.field`       | `definition.json` | KV field definition               |
-| `kv.{key}.value`       | `kv.json`         | KV current value                  |
+| YJS Path                        | Materialized To   | Content               |
+| ------------------------------- | ----------------- | --------------------- |
+| `definition.name`               | `definition.json` | Workspace name        |
+| `definition.icon`               | `definition.json` | Workspace icon        |
+| `definition.description`        | `definition.json` | Workspace description |
+| `definition.tables.{id}.*`      | `definition.json` | Table definitions     |
+| `definition.tables.{id}.fields` | `definition.json` | Field definitions     |
+| `definition.kv.{key}.*`         | `definition.json` | KV definitions        |
+| `tables.{id}.{rowId}`           | `tables.sqlite`   | Row data              |
+| `kv.{key}`                      | `kv.json`         | KV values             |
 
 ### definition.json
 
@@ -550,53 +573,43 @@ KV values only—flat map:
 ### Sync Strategy: Debounced Pull-Down
 
 ```typescript
-// On any Y.Map change, debounce and materialize
-ydoc.on('update', () => {
-	debouncedSync(); // 100-500ms debounce
+const definitionYMap = doc.getMap('definition');
+const tablesYMap = doc.getMap('tables');
+const kvYMap = doc.getMap('kv');
+
+// Different debounce for different change frequencies
+definitionYMap.observeDeep(() => {
+	debouncedSyncDefinition(); // 5000ms debounce (cold)
 });
 
-async function syncToFiles() {
-	// 1. Materialize definitions
-	const definition = {
-		meta: metaYMap.toJSON(),
-		tables: Object.fromEntries(
-			[...tablesYMap.entries()].map(([name, table]) => [
-				name,
-				{
-					name: table.get('name'),
-					icon: table.get('icon'),
-					description: table.get('description'),
-					fields: table.get('fields').toJSON(),
-				},
-			]),
-		),
-		kv: Object.fromEntries(
-			[...kvYMap.entries()].map(([key, entry]) => [
-				key,
-				{
-					name: entry.get('name'),
-					icon: entry.get('icon'),
-					description: entry.get('description'),
-					field: entry.get('field'),
-				},
-			]),
-		),
-	};
+tablesYMap.observeDeep(() => {
+	debouncedSyncTables(); // 100ms debounce (hot)
+});
+
+kvYMap.observe(() => {
+	debouncedSyncKv(); // 500ms debounce (warm)
+});
+
+async function syncDefinition() {
+	// definition.json = Y.Map('definition').toJSON()
+	const definition = definitionYMap.toJSON();
 	await writeFile('definition.json', JSON.stringify(definition, null, 2));
+}
 
-	// 2. Materialize KV values
-	const kvValues = Object.fromEntries(
-		[...kvYMap.entries()].map(([key, entry]) => [key, entry.get('value')]),
-	);
+async function syncKv() {
+	// kv.json = Y.Map('kv').toJSON()
+	const kvValues = kvYMap.toJSON();
 	await writeFile('kv.json', JSON.stringify(kvValues, null, 2));
+}
 
-	// 3. Materialize table rows to SQLite
-	for (const [tableName, tableYMap] of tablesYMap.entries()) {
-		const rows = tableYMap.get('rows').toJSON();
-		await db.run(`DROP TABLE IF EXISTS ${tableName}`);
-		await db.run(`CREATE TABLE ${tableName} (...)`);
+async function syncTables() {
+	// tables.sqlite = one table per Y.Map('tables') entry
+	for (const [tableId, rowsYMap] of tablesYMap.entries()) {
+		const rows = rowsYMap.toJSON();
+		await db.run(`DROP TABLE IF EXISTS "${tableId}"`);
+		await db.run(`CREATE TABLE "${tableId}" (...)`);
 		for (const [rowId, row] of Object.entries(rows)) {
-			await db.run(`INSERT INTO ${tableName} ...`, { id: rowId, ...row });
+			await db.run(`INSERT INTO "${tableId}" ...`, { id: rowId, ...row });
 		}
 	}
 }
@@ -604,10 +617,10 @@ async function syncToFiles() {
 
 **Why this approach:**
 
-1. **Simple**: No incremental diffing, no conflict resolution with files
-2. **Correct**: YJS is always source of truth; files are just views
-3. **Fast enough**: For small-medium workspaces, full rebuild is < 100ms
-4. **Inspectable**: Can `cat` the JSON files, query SQLite directly
+1. **Aligned with structure** — Each Y.Map maps to one file
+2. **Different debounce per zone** — Hot data syncs fast, cold data syncs slow
+3. **Simple** — `toJSON()` gives you exactly what you need
+4. **Inspectable** — Can `cat` the JSON files, query SQLite directly
 
 ---
 
@@ -622,67 +635,73 @@ async function syncToFiles() {
 type Icon = `emoji:${string}` | `lucide:${string}` | `url:${string}`;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Top-Level Y.Map Types
+// Top-Level Y.Map Types (3 maps)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Y.Map storing workspace metadata. */
-type MetaYMap = Y.Map<unknown>;
+/** Y.Map('definition') - workspace identity + all schemas */
+type DefinitionYMap = Y.Map<unknown>;
 
-/** Y.Map storing all tables, keyed by table ID. */
-type TablesYMap = Y.Map<TableYMap>;
+/** Y.Map('tables') - row data only, keyed by table ID */
+type TablesYMap = Y.Map<RowsYMap>;
 
-/** Y.Map storing all KV entries, keyed by key name. */
-type KvYMap = Y.Map<KvEntryYMap>;
+/** Y.Map('kv') - values only, keyed by key name */
+type KvValuesYMap = Y.Map<unknown>;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Table Y.Map Types
+// Definition Sub-Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Y.Map for a single table (metadata + fields + rows). */
-type TableYMap = Y.Map<unknown>;
+/** definition.tables - all table definitions */
+type TableDefinitionsYMap = Y.Map<TableDefinitionYMap>;
 
-/** Y.Map storing field definitions for a table. */
+/** definition.tables.{id} - single table definition */
+type TableDefinitionYMap = Y.Map<unknown>;
+
+/** definition.tables.{id}.fields - field definitions for a table */
 type FieldsYMap = Y.Map<Field>;
 
-/** Y.Map storing rows for a table, keyed by row ID. */
+/** definition.kv - all KV definitions */
+type KvDefinitionsYMap = Y.Map<KvDefinitionYMap>;
+
+/** definition.kv.{key} - single KV definition */
+type KvDefinitionYMap = Y.Map<unknown>;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Data Sub-Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** tables.{id} - rows for a single table */
 type RowsYMap = Y.Map<RowYMap>;
 
-/** Y.Map storing cell values for a single row. */
+/** tables.{id}.{rowId} - single row */
 type RowYMap = Y.Map<unknown>;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// KV Y.Map Types
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** Y.Map for a single KV entry (metadata + field + value). */
-type KvEntryYMap = Y.Map<unknown>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Plain Object Types (for toJSON())
 // ─────────────────────────────────────────────────────────────────────────────
 
-type WorkspaceMeta = {
+/** definition.toJSON() */
+type WorkspaceDefinition = {
 	name: string;
 	icon: Icon | null;
 	description: string;
+	tables: Record<string, TableDefinition>;
+	kv: Record<string, KvDefinition>;
 };
 
-type TableEntry = {
+/** definition.tables.{id}.toJSON() */
+type TableDefinition = {
 	name: string;
 	icon: Icon | null;
 	description: string;
-	createdAt: number;
-	deletedAt: number | null;
 	fields: Record<string, Field>;
-	rows: Record<string, Record<string, unknown>>;
 };
 
-type KvEntry = {
+/** definition.kv.{key}.toJSON() */
+type KvDefinition = {
 	name: string;
 	icon: Icon | null;
-	description: string;
 	field: KvField;
-	value: unknown;
 };
 ```
 
@@ -690,18 +709,18 @@ type KvEntry = {
 
 ## API Design
 
-The API mirrors the YJS structure—co-located, intuitive, everything about a table in one place.
+The API presents a **unified view** despite the internal separation. Everything about a table is accessible from one helper.
 
 ### Workspace Access
 
 ```typescript
 const workspace = createWorkspace({ id: 'ws-123' });
 
-// Metadata
-workspace.meta.name;                    // 'My Blog'
-workspace.meta.setName('New Name');
-workspace.meta.icon;                    // 'emoji:📝'
-workspace.meta.setIcon('lucide:book');
+// Metadata (reads from definition.name, definition.icon, etc.)
+workspace.name;                         // 'My Blog'
+workspace.setName('New Name');
+workspace.icon;                         // 'emoji:📝'
+workspace.setIcon('lucide:book');
 
 // Tables (callable collection)
 workspace.tables('posts');              // TableHelper | undefined
@@ -716,25 +735,24 @@ workspace.tables.delete('oldTable');
 ```typescript
 const posts = workspace.tables('posts');
 
-// Metadata (getters + setters)
+// Metadata (reads from definition.tables.posts)
 posts.name; // 'Posts'
 posts.setName('Blog Posts');
 posts.icon; // 'emoji:📝'
 posts.setIcon('lucide:file-text');
 
-// Fields (collection)
+// Fields (reads from definition.tables.posts.fields)
 posts.fields.get('title'); // Field | undefined
 posts.fields.set('dueDate', date());
 posts.fields.delete('legacyField');
 posts.fields.keys(); // ['id', 'title', 'content']
 
-// Rows (CRUD)
-posts.rows.upsert({ id: '1', title: 'Hello' });
-posts.rows.get({ id: '1' }); // RowResult
-posts.rows.update({ id: '1', title: 'Updated' });
-posts.rows.delete({ id: '1' });
-posts.rows.getAll(); // RowResult[]
-posts.rows.filter((r) => r.published);
+// CRUD (reads/writes from tables.posts)
+posts.upsert({ id: '1', title: 'Hello' });
+posts.get({ id: '1' }); // Row | undefined
+posts.getAll(); // Row[]
+posts.filter((r) => r.published); // Row[]
+posts.delete({ id: '1' });
 ```
 
 ### KV Access
@@ -747,48 +765,52 @@ workspace.kv.has('theme'); // true
 
 // Single KV entry
 const theme = workspace.kv('theme');
-theme.name; // 'Theme'
-theme.field; // { type: 'select', options: [...] }
-theme.value; // 'dark'
+theme.name; // 'Theme' (from definition.kv.theme)
+theme.field; // { type: 'select', ... } (from definition.kv.theme)
+theme.value; // 'dark' (from kv.theme)
 theme.set('light');
 theme.reset(); // Back to default
 ```
 
 ### Observation Patterns
 
-The co-located structure enables granular observation:
+The separated internal structure enables **precise observation**:
 
 ```typescript
 const posts = workspace.tables('posts');
 
-// Watch table metadata only (name, icon, description changes)
-posts.observeMetadata(() => {
+// Watch table metadata (name, icon, description)
+// Internally: definition.tables.posts.observe()
+posts.observe(() => {
 	updateSidebarUI();
 });
 
 // Watch fields only (schema changes)
+// Internally: definition.tables.posts.fields.observe()
 posts.fields.observe((changes) => {
 	rebuildTableColumns();
 });
 
-// Watch rows only (data changes)
-posts.rows.observe((changes) => {
-	// Incremental: only the rows that changed
-	syncChangedRowsToSQLite(changes);
+// Watch rows (data changes)
+// Internally: tables.posts.observeDeep()
+posts.observeRows((changes) => {
+	syncToSQLite(changes);
 });
 
-// Watch everything about this table
-posts.observeDeep(() => {
-	// Any change: metadata, fields, or rows
-	fullTableRebuild();
+// KV value changes
+// Internally: kv.observe()
+workspace.kv('theme').observe(() => {
+	applyTheme();
 });
 
-// Watch all tables (add/remove)
-workspace.tables.observe((changes) => {
-	// A table was added or removed
-	rebuildSidebar();
+// All definition changes (for persisting definition.json)
+// Internally: definition.observeDeep()
+workspace.observeDefinition(() => {
+	debouncedWriteDefinitionJson();
 });
 ```
+
+**Key insight:** Because definitions and data are in separate Y.Map trees, `posts.observeRows()` ONLY fires for row changes. It never fires for name/icon/field changes. No filtering needed.
 
 ---
 
@@ -796,27 +818,41 @@ workspace.tables.observe((changes) => {
 
 ### What Changes
 
-| Current (Multi-Doc)            | New (Single Doc)                         |
-| ------------------------------ | ---------------------------------------- |
-| `Y.Map('definition')` separate | Fields co-located in each table          |
-| `Y.Map('tables')` = rows only  | `Y.Map('tables')` = meta + fields + rows |
-| `Y.Map('kv')` = values only    | `Y.Map('kv')` = meta + field + value     |
-| Head Doc for identity          | `Y.Map('meta')` in same doc              |
-| Multiple docs per workspace    | Single doc per workspace                 |
+| Current                         | New (This Spec)                                  |
+| ------------------------------- | ------------------------------------------------ |
+| `Y.Map('definition')` (mixed)   | `Y.Map('definition')` (workspace meta + schemas) |
+| `Y.Map('tables')` = rows + meta | `Y.Map('tables')` = rows only                    |
+| `Y.Map('kv')` = values + meta   | `Y.Map('kv')` = values only                      |
+| Head Doc for workspace identity | `definition.{name,icon,description}`             |
+| Multiple docs per workspace     | Single doc per workspace                         |
 
 ### Migration Steps
 
-1. **Create new doc structure** with combined format
-2. **Copy table definitions** from `definition.tables` → each table's `fields`
-3. **Copy table rows** from `tables.{name}.rows` → each table's `rows`
-4. **Copy KV definitions** from `definition.kv` → each KV entry's `field`
-5. **Copy KV values** from `kv` → each KV entry's `value`
-6. **Copy workspace meta** from Head Doc → `meta`
+1. **Create new doc** with three top-level maps
+2. **Copy workspace meta** from Head Doc → `definition.{name,icon,description}`
+3. **Copy table definitions** from `definition.tables` → `definition.tables`
+4. **Copy table rows** from `tables.{name}` → `tables.{name}` (structure similar)
+5. **Copy KV definitions** from `definition.kv` → `definition.kv`
+6. **Copy KV values** from `kv` → `kv` (now just values, no definition)
 
 ### Backward Compatibility
 
-The old multi-doc structure and new single-doc structure are incompatible.
+The old structure and new structure are incompatible.
 Migration requires a full data copy (epoch bump).
+
+### Multi-Doc Future Path
+
+If you later need to split into multiple Y.Docs:
+
+```
+WORKSPACE DOC (ws-123)           # Light: definitions only
+├── definition                   # Already the right shape!
+
+TABLE DOC (ws-123:posts)         # Heavy: data only
+└── rows                         # Move tables.posts here
+```
+
+The separated structure makes this migration trivial.
 
 ---
 
