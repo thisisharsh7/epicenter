@@ -2,6 +2,8 @@
 
 A pattern for type-safe collection APIs that avoids namespace collisions and supports nested structures.
 
+> **TL;DR**: The core insight is simple: lift `.get()` to be the call signature itself. See [The Callable Collection Insight](./callable-collection-insight.md) for the 30-second version.
+
 ## The Problem
 
 When building collection APIs, you often want both:

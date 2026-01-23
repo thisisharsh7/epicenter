@@ -2,6 +2,8 @@
 
 A TypeScript pattern for type-safe, namespace-preserving collection accessors with support for nested structures.
 
+> **TL;DR**: The core insight is simple: lift `.get()` to be the call signature itself. `tables.get('posts')` becomes `tables('posts')`. See [The Callable Collection Insight](/docs/articles/callable-collection-insight.md) for the 30-second version.
+
 ## The Problem
 
 You want to provide typed access to a collection (like tables, fields, settings) where:
