@@ -412,7 +412,7 @@ export const markdown = async <
 				) as AbsolutePath;
 
 				// Check if we need to clean up an old file before updating tracking
-				const oldFilename = tracking[table.name]?.[row.id];
+				const oldFilename = tracking[tableName]?.[row.id];
 
 				/**
 				 * This is checking if there's an old filename AND if it's different
@@ -430,7 +430,7 @@ export const markdown = async <
 
 				// Update tracking (rowId → filename)
 				// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
-				tracking[table.name]![row.id] = filename;
+				tracking[tableName]![row.id] = filename;
 
 				return writeMarkdownFile({
 					filePath,
@@ -451,7 +451,7 @@ export const markdown = async <
 						void (async () => {
 							syncCoordination.yjsWriteCount++;
 
-							const filename = tracking[table.name]?.[id];
+							const filename = tracking[tableName]?.[id];
 							if (filename) {
 								const filePath = path.join(
 									tableConfig.directory,
@@ -460,14 +460,14 @@ export const markdown = async <
 								const { error } = await deleteMarkdownFile({ filePath });
 
 								// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
-								delete tracking[table.name]![id];
+								delete tracking[tableName]![id];
 
 								if (error) {
 									logger.log(
 										ExtensionError({
-											message: `YJS observer onDelete: failed to delete ${table.name}/${id}`,
+											message: `YJS observer onDelete: failed to delete ${tableName}/${id}`,
 											context: {
-												tableName: table.name,
+												tableName,
 												rowId: id,
 												filePath,
 											},
@@ -489,7 +489,7 @@ export const markdown = async <
 							.join(', ');
 						logger.log(
 							ExtensionError({
-								message: `YJS observer: validation failed for ${table.name}/${id}: ${errorMessages}`,
+								message: `YJS observer: validation failed for ${tableName}/${id}: ${errorMessages}`,
 								context: {
 									tableName: result.tableName,
 									rowId: id,
@@ -509,8 +509,8 @@ export const markdown = async <
 						if (error) {
 							logger.log(
 								ExtensionError({
-									message: `YJS observer: failed to write ${table.name}/${row.id}`,
-									context: { tableName: table.name, rowId: row.id },
+									message: `YJS observer: failed to write ${tableName}/${row.id}`,
+									context: { tableName, rowId: row.id },
 								}),
 							);
 						}
@@ -595,14 +595,14 @@ export const markdown = async <
 			// Helper: Process file add/change
 			const handleFileAddOrChange = async (filePath: string) => {
 				const filename = path.basename(filePath);
-				dbg('HANDLER', `START ${table.name}/${filename}`, {
+				dbg('HANDLER', `START ${tableName}/${filename}`, {
 					yjsWriteCount: syncCoordination.yjsWriteCount,
 					fileChangeCount: syncCoordination.fileChangeCount,
 				});
 
 				// Skip if this file change was triggered by a YJS change
 				if (syncCoordination.yjsWriteCount > 0) {
-					dbg('HANDLER', `SKIP ${table.name}/${filename} (yjsWriteCount > 0)`);
+					dbg('HANDLER', `SKIP ${tableName}/${filename} (yjsWriteCount > 0)`);
 					return;
 				}
 
@@ -618,12 +618,12 @@ export const markdown = async <
 						await readMarkdownFile(absolutePath);
 
 					if (readError) {
-						dbg('HANDLER', `FAIL ${table.name}/${filename} (read error)`, {
+						dbg('HANDLER', `FAIL ${tableName}/${filename} (read error)`, {
 							error: readError.message,
 						});
 						diagnostics.add({
 							filePath: absolutePath,
-							tableName: table.name,
+							tableName,
 							filename,
 							error: MarkdownExtensionError({
 								message: `Failed to read markdown file at ${absolutePath}: ${readError.message}`,
@@ -631,10 +631,10 @@ export const markdown = async <
 						});
 						logger.log(
 							ExtensionError({
-								message: `File watcher: failed to read ${table.name}/${filename}`,
+								message: `File watcher: failed to read ${tableName}/${filename}`,
 								context: {
 									filePath: absolutePath,
-									tableName: table.name,
+									tableName,
 									filename,
 								},
 							}),
@@ -647,22 +647,22 @@ export const markdown = async <
 					// Parse filename to extract structured data
 					const parsed = tableConfig.parseFilename(filename);
 					if (!parsed) {
-						dbg('HANDLER', `FAIL ${table.name}/${filename} (parse error)`);
+						dbg('HANDLER', `FAIL ${tableName}/${filename} (parse error)`);
 						const error = MarkdownExtensionError({
 							message: `Failed to parse filename: ${filename}`,
 						});
 						diagnostics.add({
 							filePath: absolutePath,
-							tableName: table.name,
+							tableName,
 							filename,
 							error,
 						});
 						logger.log(
 							ExtensionError({
-								message: `File watcher: failed to parse filename ${table.name}/${filename}`,
+								message: `File watcher: failed to parse filename ${tableName}/${filename}`,
 								context: {
 									filePath: absolutePath,
-									tableName: table.name,
+									tableName,
 									filename,
 								},
 							}),
@@ -681,25 +681,21 @@ export const markdown = async <
 						});
 
 					if (deserializeError) {
-						dbg(
-							'HANDLER',
-							`FAIL ${table.name}/${filename} (validation error)`,
-							{
-								error: deserializeError.message,
-							},
-						);
+						dbg('HANDLER', `FAIL ${tableName}/${filename} (validation error)`, {
+							error: deserializeError.message,
+						});
 						diagnostics.add({
 							filePath: absolutePath,
-							tableName: table.name,
+							tableName,
 							filename,
 							error: deserializeError,
 						});
 						logger.log(
 							ExtensionError({
-								message: `File watcher: validation failed for ${table.name}/${filename}`,
+								message: `File watcher: validation failed for ${tableName}/${filename}`,
 								context: {
 									filePath: absolutePath,
-									tableName: table.name,
+									tableName,
 									filename,
 								},
 							}),
@@ -716,13 +712,13 @@ export const markdown = async <
 
 					// Check for duplicate files: same row ID but different filename
 					// This happens when users copy-paste markdown files in Finder
-					const existingFilename = tracking[table.name]?.[validatedRow.id];
+					const existingFilename = tracking[tableName]?.[validatedRow.id];
 
 					if (existingFilename && existingFilename !== filename) {
 						// This is a duplicate file with the same ID - delete it
 						dbg(
 							'HANDLER',
-							`SKIP ${table.name}/${filename} (duplicate of ${existingFilename})`,
+							`SKIP ${tableName}/${filename} (duplicate of ${existingFilename})`,
 							{
 								rowId: validatedRow.id,
 							},
@@ -731,7 +727,7 @@ export const markdown = async <
 							ExtensionError({
 								message: `Duplicate file detected: ${filename} has same ID as ${existingFilename}, deleting duplicate`,
 								context: {
-									tableName: table.name,
+									tableName,
 									filename,
 									rowId: validatedRow.id,
 								},
@@ -743,9 +739,9 @@ export const markdown = async <
 
 					// Update tracking (rowId → filename) and upsert to Y.js
 					// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
-					tracking[table.name]![validatedRow.id] = filename;
+					tracking[tableName]![validatedRow.id] = filename;
 					table.upsert(validatedRow);
-					dbg('HANDLER', `SUCCESS ${table.name}/${filename}`, {
+					dbg('HANDLER', `SUCCESS ${tableName}/${filename}`, {
 						rowId: validatedRow.id,
 					});
 				} finally {
@@ -766,7 +762,7 @@ export const markdown = async <
 					// Parse filename to extract row ID (single source of truth)
 					const parsed = tableConfig.parseFilename(filename);
 					const rowIdToDelete = parsed?.id;
-					dbg('HANDLER', `UNLINK ${table.name}/${filename}`, {
+					dbg('HANDLER', `UNLINK ${tableName}/${filename}`, {
 						extractedRowId: rowIdToDelete ?? 'undefined',
 					});
 
@@ -775,23 +771,23 @@ export const markdown = async <
 							table.delete(rowIdToDelete);
 							dbg(
 								'HANDLER',
-								`UNLINK deleted row ${table.name}/${rowIdToDelete}`,
+								`UNLINK deleted row ${tableName}/${rowIdToDelete}`,
 							);
 						} else {
 							dbg(
 								'HANDLER',
-								`UNLINK row not in Y.js ${table.name}/${rowIdToDelete}`,
+								`UNLINK row not in Y.js ${tableName}/${rowIdToDelete}`,
 							);
 						}
 
 						// Clean up tracking (if it existed)
 						// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
-						delete tracking[table.name]![rowIdToDelete];
+						delete tracking[tableName]![rowIdToDelete];
 					} else {
 						logger.log(
 							ExtensionError({
-								message: `File deleted but could not parse row ID from ${table.name}/${filename}`,
-								context: { tableName: table.name, filename },
+								message: `File deleted but could not parse row ID from ${tableName}/${filename}`,
+								context: { tableName, filename },
 							}),
 						);
 					}
@@ -803,26 +799,26 @@ export const markdown = async <
 			// Register event handlers with debug logging for raw events
 			watcher
 				.on('add', (filePath) => {
-					dbg('CHOKIDAR', `add: ${table.name}/${path.basename(filePath)}`);
+					dbg('CHOKIDAR', `add: ${tableName}/${path.basename(filePath)}`);
 					handleFileAddOrChange(filePath);
 				})
 				.on('change', (filePath) => {
-					dbg('CHOKIDAR', `change: ${table.name}/${path.basename(filePath)}`);
+					dbg('CHOKIDAR', `change: ${tableName}/${path.basename(filePath)}`);
 					handleFileAddOrChange(filePath);
 				})
 				.on('unlink', (filePath) => {
-					dbg('CHOKIDAR', `unlink: ${table.name}/${path.basename(filePath)}`);
+					dbg('CHOKIDAR', `unlink: ${tableName}/${path.basename(filePath)}`);
 					handleFileUnlink(filePath);
 				})
 				.on('error', (error) => {
-					dbg('CHOKIDAR', `error: ${table.name}`, {
+					dbg('CHOKIDAR', `error: ${tableName}`, {
 						error: extractErrorMessage(error),
 					});
 					logger.log(
 						ExtensionError({
-							message: `File watcher error for ${table.name}: ${extractErrorMessage(error)}`,
+							message: `File watcher error for ${tableName}: ${extractErrorMessage(error)}`,
 							context: {
-								tableName: table.name,
+								tableName,
 								directory: tableConfig.directory,
 							},
 						}),
@@ -831,7 +827,7 @@ export const markdown = async <
 				.on('ready', () => {
 					dbg(
 						'CHOKIDAR',
-						`ready: ${table.name} watching ${tableConfig.directory}`,
+						`ready: ${tableName} watching ${tableConfig.directory}`,
 					);
 				});
 
@@ -898,14 +894,14 @@ export const markdown = async <
 						});
 						diagnostics.add({
 							filePath,
-							tableName: table.name,
+							tableName,
 							filename,
 							error,
 						});
 						logger.log(
 							ExtensionError({
-								message: `${operationPrefix}failed to parse filename ${table.name}/${filename}`,
-								context: { filePath, tableName: table.name, filename },
+								message: `${operationPrefix}failed to parse filename ${tableName}/${filename}`,
+								context: { filePath, tableName, filename },
 							}),
 						);
 						return;
@@ -924,15 +920,15 @@ export const markdown = async <
 						// Track validation error in diagnostics (current state)
 						diagnostics.add({
 							filePath,
-							tableName: table.name,
+							tableName,
 							filename,
 							error: deserializeError,
 						});
 						// Log to historical record
 						logger.log(
 							ExtensionError({
-								message: `${operationPrefix}validation failed for ${table.name}/${filename}`,
-								context: { filePath, tableName: table.name, filename },
+								message: `${operationPrefix}validation failed for ${tableName}/${filename}`,
+								context: { filePath, tableName, filename },
 							}),
 						);
 					}
@@ -1160,7 +1156,7 @@ export const markdown = async <
 											logger.log(
 												ExtensionError({
 													message: `pullToMarkdown: failed to delete ${filePath}`,
-													context: { filePath, tableName: table.name },
+													context: { filePath, tableName },
 												}),
 											);
 										}
@@ -1227,7 +1223,7 @@ export const markdown = async <
 														message: `pullToMarkdown: failed to write ${filePath}`,
 														context: {
 															filePath,
-															tableName: table.name,
+															tableName,
 															rowId: row.id,
 														},
 													}),
@@ -1283,6 +1279,7 @@ export const markdown = async <
 					diagnostics.clear();
 
 					type TableSyncData = {
+						tableName: string;
 						table: TableHelper<
 							TTableDefinitionMap[keyof TTableDefinitionMap]['fields']
 						>;
@@ -1340,7 +1337,7 @@ export const markdown = async <
 										if (!parsed) {
 											diagnostics.add({
 												filePath,
-												tableName: table.name,
+												tableName,
 												filename,
 												error: MarkdownExtensionError({
 													message: `Failed to parse filename: ${filename}`,
@@ -1348,10 +1345,10 @@ export const markdown = async <
 											});
 											logger.log(
 												ExtensionError({
-													message: `pushFromMarkdown: failed to parse filename ${table.name}/${filename}`,
+													message: `pushFromMarkdown: failed to parse filename ${tableName}/${filename}`,
 													context: {
 														filePath,
-														tableName: table.name,
+														tableName,
 														filename,
 													},
 												}),
@@ -1365,7 +1362,7 @@ export const markdown = async <
 										if (readError) {
 											diagnostics.add({
 												filePath,
-												tableName: table.name,
+												tableName,
 												filename,
 												error: MarkdownExtensionError({
 													message: `Failed to read markdown file at ${filePath}: ${readError.message}`,
@@ -1373,10 +1370,10 @@ export const markdown = async <
 											});
 											logger.log(
 												ExtensionError({
-													message: `pushFromMarkdown: failed to read ${table.name}/${filename}`,
+													message: `pushFromMarkdown: failed to read ${tableName}/${filename}`,
 													context: {
 														filePath,
-														tableName: table.name,
+														tableName,
 														filename,
 													},
 												}),
@@ -1398,16 +1395,16 @@ export const markdown = async <
 										if (deserializeError) {
 											diagnostics.add({
 												filePath,
-												tableName: table.name,
+												tableName,
 												filename,
 												error: deserializeError,
 											});
 											logger.log(
 												ExtensionError({
-													message: `pushFromMarkdown: validation failed for ${table.name}/${filename}`,
+													message: `pushFromMarkdown: validation failed for ${tableName}/${filename}`,
 													context: {
 														filePath,
-														tableName: table.name,
+														tableName,
 														filename,
 													},
 												}),
@@ -1421,6 +1418,7 @@ export const markdown = async <
 								);
 
 								return {
+									tableName,
 									table,
 									yjsIds,
 									fileExistsIds,
@@ -1434,13 +1432,14 @@ export const markdown = async <
 					ydoc.transact(() => {
 						allTableData.forEach(
 							({
+								tableName,
 								table,
 								yjsIds,
 								fileExistsIds,
 								markdownRows,
 								markdownFilenames,
 							}) => {
-								const tableTracking = tracking[table.name];
+								const tableTracking = tracking[tableName];
 								const idsToDelete = [...yjsIds].filter(
 									(id) => !fileExistsIds.has(id),
 								);

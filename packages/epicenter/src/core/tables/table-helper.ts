@@ -312,7 +312,6 @@ function createTableHelper<TFieldSchemaMap extends FieldSchemaMap>({
 	};
 
 	return {
-		name: tableName,
 		schema,
 
 		update(partialRow: PartialRow<TFieldSchemaMap>): UpdateResult {
@@ -682,7 +681,6 @@ export type TableHelper<TFieldSchemaMap extends FieldSchemaMap> = ReturnType<
  * No validation is performed; all rows are treated as `Record<string, unknown> & { id: string }`.
  */
 export type UntypedTableHelper = {
-	name: string;
 	schema: FieldSchemaMap;
 	update(partialRow: { id: string } & Record<string, unknown>): UpdateResult;
 	upsert(rowData: { id: string } & Record<string, unknown>): void;
@@ -773,7 +771,6 @@ export function createUntypedTableHelper({
 	};
 
 	return {
-		name: tableName,
 		schema: {} as FieldSchemaMap,
 
 		update(partialRow: TRow): UpdateResult {
