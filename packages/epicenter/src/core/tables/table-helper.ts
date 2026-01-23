@@ -1,13 +1,8 @@
 import { Compile } from 'typebox/compile';
 import type { TLocalizedValidationError } from 'typebox/error';
 import * as Y from 'yjs';
-import type {
-	FieldSchemaMap,
-	PartialRow,
-	Row,
-	TableDefinitionMap,
-} from '../schema';
-import { fieldsSchemaToTypebox } from '../schema';
+import type { FieldMap, PartialRow, Row, TableDefinitionMap } from '../schema';
+import { fieldsToTypebox } from '../schema';
 
 /**
  * A single validation error from TypeBox schema validation.
@@ -187,7 +182,7 @@ export function createTableHelpers<
  * User A edits title, User B edits views → After sync: both changes preserved
  * ```
  */
-function createTableHelper<TFieldSchemaMap extends FieldSchemaMap>({
+function createTableHelper<TFieldMap extends FieldMap>({
 	ydoc,
 	tableName,
 	ytables,
@@ -196,11 +191,11 @@ function createTableHelper<TFieldSchemaMap extends FieldSchemaMap>({
 	ydoc: Y.Doc;
 	tableName: string;
 	ytables: TablesMap;
-	schema: TFieldSchemaMap;
+	schema: TFieldMap;
 }) {
-	type TRow = Row<TFieldSchemaMap>;
+	type TRow = Row<TFieldMap>;
 
-	const typeboxSchema = fieldsSchemaToTypebox(schema);
+	const typeboxSchema = fieldsToTypebox(schema);
 	const rowValidator = Compile(typeboxSchema);
 
 	/**
@@ -312,7 +307,7 @@ function createTableHelper<TFieldSchemaMap extends FieldSchemaMap>({
 	};
 
 	return {
-		update(partialRow: PartialRow<TFieldSchemaMap>): UpdateResult {
+		update(partialRow: PartialRow<TFieldMap>): UpdateResult {
 			const rowMap = getRow(partialRow.id);
 			if (!rowMap) return { status: 'not_found_locally' };
 
@@ -345,7 +340,7 @@ function createTableHelper<TFieldSchemaMap extends FieldSchemaMap>({
 			});
 		},
 
-		updateMany(rows: PartialRow<TFieldSchemaMap>[]): UpdateManyResult {
+		updateMany(rows: PartialRow<TFieldMap>[]): UpdateManyResult {
 			const applied: string[] = [];
 			const notFoundLocally: string[] = [];
 
@@ -670,8 +665,8 @@ function createTableHelper<TFieldSchemaMap extends FieldSchemaMap>({
 	};
 }
 
-export type TableHelper<TFieldSchemaMap extends FieldSchemaMap> = ReturnType<
-	typeof createTableHelper<TFieldSchemaMap>
+export type TableHelper<TFieldMap extends FieldMap> = ReturnType<
+	typeof createTableHelper<TFieldMap>
 >;
 
 /**

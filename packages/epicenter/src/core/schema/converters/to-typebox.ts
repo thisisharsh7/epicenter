@@ -1,93 +1,89 @@
 /**
- * Converts FieldSchema to TypeBox TSchema definitions for runtime validation.
+ * Converts Field to TypeBox TSchema definitions for runtime validation.
  *
  * TypeBox schemas can be compiled to JIT validators using `Compile()` from `typebox/compile`.
  */
 
 import {
-	Type,
-	type TSchema,
-	type TObject,
-	type TString,
-	type TInteger,
-	type TNumber,
-	type TBoolean,
-	type TUnion,
-	type TNull,
 	type TArray,
+	type TBoolean,
+	type TInteger,
+	type TNull,
+	type TNumber,
+	type TObject,
+	type TSchema,
+	type TString,
+	type TUnion,
+	Type,
 } from 'typebox';
-import type {
-	BooleanFieldSchema,
-	DateFieldSchema,
-	FieldSchema,
-	FieldSchemaMap,
-	IdFieldSchema,
-	IntegerFieldSchema,
-	JsonFieldSchema,
-	RealFieldSchema,
-	RichtextFieldSchema,
-	SelectFieldSchema,
-	TagsFieldSchema,
-	TextFieldSchema,
-} from '../fields/types';
-import { isNullableFieldSchema } from '../fields/helpers';
+import { isNullableField } from '../fields/helpers';
 import { DATE_TIME_STRING_REGEX } from '../fields/regex';
+import type {
+	BooleanField,
+	DateField,
+	Field,
+	FieldMap,
+	IdField,
+	IntegerField,
+	JsonField,
+	RealField,
+	RichtextField,
+	SelectField,
+	TagsField,
+	TextField,
+} from '../fields/types';
 
 /**
- * Maps a FieldSchema to its corresponding TypeBox TSchema type.
+ * Maps a Field to its corresponding TypeBox TSchema type.
  *
  * Use `Static<typeof schema>` to infer the TypeScript type from the returned schema.
  *
  * @example
  * ```typescript
- * const schema = fieldSchemaToTypebox({ type: 'text' });
+ * const schema = fieldToTypebox({ type: 'text' });
  * type TextValue = Static<typeof schema>; // string
  *
- * const nullableSchema = fieldSchemaToTypebox({ type: 'integer', nullable: true });
+ * const nullableSchema = fieldToTypebox({ type: 'integer', nullable: true });
  * type NullableInt = Static<typeof nullableSchema>; // number | null
  * ```
  */
-export type FieldSchemaToTypebox<C extends FieldSchema> =
-	C extends IdFieldSchema
-		? TString
-		: C extends TextFieldSchema<infer TNullable>
-			? TNullable extends true
-				? TUnion<[TString, TNull]>
-				: TString
-			: C extends RichtextFieldSchema
-				? TUnion<[TString, TNull]>
-				: C extends IntegerFieldSchema<infer TNullable>
+export type FieldToTypebox<C extends Field> = C extends IdField
+	? TString
+	: C extends TextField<infer TNullable>
+		? TNullable extends true
+			? TUnion<[TString, TNull]>
+			: TString
+		: C extends RichtextField
+			? TUnion<[TString, TNull]>
+			: C extends IntegerField<infer TNullable>
+				? TNullable extends true
+					? TUnion<[TInteger, TNull]>
+					: TInteger
+				: C extends RealField<infer TNullable>
 					? TNullable extends true
-						? TUnion<[TInteger, TNull]>
-						: TInteger
-					: C extends RealFieldSchema<infer TNullable>
+						? TUnion<[TNumber, TNull]>
+						: TNumber
+					: C extends BooleanField<infer TNullable>
 						? TNullable extends true
-							? TUnion<[TNumber, TNull]>
-							: TNumber
-						: C extends BooleanFieldSchema<infer TNullable>
+							? TUnion<[TBoolean, TNull]>
+							: TBoolean
+						: C extends DateField<infer TNullable>
 							? TNullable extends true
-								? TUnion<[TBoolean, TNull]>
-								: TBoolean
-							: C extends DateFieldSchema<infer TNullable>
+								? TUnion<[TString, TNull]>
+								: TString
+							: C extends SelectField<infer _TOptions, infer TNullable>
 								? TNullable extends true
-									? TUnion<[TString, TNull]>
-									: TString
-								: C extends SelectFieldSchema<infer _TOptions, infer TNullable>
+									? TUnion<TSchema[]>
+									: TUnion<TSchema[]>
+								: C extends TagsField<infer _TOptions, infer TNullable>
 									? TNullable extends true
-										? TUnion<TSchema[]>
-										: TUnion<TSchema[]>
-									: C extends TagsFieldSchema<infer _TOptions, infer TNullable>
+										? TUnion<[TArray, TNull]>
+										: TArray
+									: C extends JsonField<infer _TStandardSchema, infer TNullable>
 										? TNullable extends true
-											? TUnion<[TArray, TNull]>
-											: TArray
-										: C extends JsonFieldSchema<
-													infer _TStandardSchema,
-													infer TNullable
-												>
-											? TNullable extends true
-												? TUnion<[TSchema, TNull]>
-												: TSchema
-											: never;
+											? TUnion<[TSchema, TNull]>
+											: TSchema
+										: never;
 
 /**
  * Converts a table schema to a TypeBox TObject schema.
@@ -108,7 +104,7 @@ export type FieldSchemaToTypebox<C extends FieldSchema> =
  *   count: integer({ nullable: true }),
  * };
  *
- * const typeboxSchema = fieldsSchemaToTypebox(schema);
+ * const typeboxSchema = fieldsToTypebox(schema);
  * const validator = Compile(typeboxSchema);
  *
  * validator.Check({ id: '123', title: 'Test', count: 42 }); // true
@@ -116,20 +112,20 @@ export type FieldSchemaToTypebox<C extends FieldSchema> =
  * validator.Check({ id: '123', title: 'Test' }); // false (missing count)
  * ```
  */
-export function fieldsSchemaToTypebox<TFieldSchemaMap extends FieldSchemaMap>(
-	fieldsSchema: TFieldSchemaMap,
+export function fieldsToTypebox<TFieldMap extends FieldMap>(
+	fieldsSchema: TFieldMap,
 ): TObject {
 	const properties: Record<string, TSchema> = {};
 
 	for (const [fieldName, fieldDefinition] of Object.entries(fieldsSchema)) {
-		properties[fieldName] = fieldSchemaToTypebox(fieldDefinition);
+		properties[fieldName] = fieldToTypebox(fieldDefinition);
 	}
 
 	return Type.Object(properties);
 }
 
 /**
- * Converts a single FieldSchema to a TypeBox TSchema.
+ * Converts a single Field to a TypeBox TSchema.
  *
  * Use this when you need to validate individual field values rather than
  * complete row objects. The resulting schema is JIT-compilable.
@@ -149,16 +145,16 @@ export function fieldsSchemaToTypebox<TFieldSchemaMap extends FieldSchemaMap>(
  *
  * @example
  * ```typescript
- * const textSchema = fieldSchemaToTypebox({ type: 'text' });
- * const selectSchema = fieldSchemaToTypebox({
+ * const textSchema = fieldToTypebox({ type: 'text' });
+ * const selectSchema = fieldToTypebox({
  *   type: 'select',
  *   options: ['draft', 'published'],
  * });
  * ```
  */
-export function fieldSchemaToTypebox<C extends FieldSchema>(
+export function fieldToTypebox<C extends Field>(
 	fieldDefinition: C,
-): FieldSchemaToTypebox<C> {
+): FieldToTypebox<C> {
 	let baseType: TSchema;
 
 	switch (fieldDefinition.type) {
@@ -215,10 +211,10 @@ export function fieldSchemaToTypebox<C extends FieldSchema>(
 		}
 	}
 
-	const isNullable = isNullableFieldSchema(fieldDefinition);
+	const isNullable = isNullableField(fieldDefinition);
 	if (isNullable) {
 		baseType = Type.Union([baseType, Type.Null()]);
 	}
 
-	return baseType as FieldSchemaToTypebox<C>;
+	return baseType as FieldToTypebox<C>;
 }

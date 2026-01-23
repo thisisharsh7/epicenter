@@ -123,28 +123,28 @@ The field schema is the source of truth. Other formats are derived representatio
 
 ## Naming Conventions
 
-The codebase distinguishes between **Schema** (raw type constraints) and **Definition** (metadata + schema):
+The codebase uses **Field** for raw type constraints and **Definition** for metadata + fields:
 
 | Concept       | Single Item           | Map of Items         | Generic Parameter     |
 | ------------- | --------------------- | -------------------- | --------------------- |
-| **Field**     | `TextFieldSchema`     | `FieldSchemaMap`     | `TFieldSchemaMap`     |
+| **Field**     | `TextField`           | `FieldMap`           | `TFieldMap`           |
 | **Table**     | `TableDefinition`     | `TableDefinitionMap` | `TTableDefinitionMap` |
 | **KV**        | `KvDefinition`        | `KvDefinitionMap`    | `TKvDefinitionMap`    |
 | **Workspace** | `WorkspaceDefinition` | N/A                  | N/A                   |
 
-**Schema** = raw type/constraint description (no metadata beyond the type discriminant):
+**Field** = raw type/constraint description (no metadata beyond the type discriminant):
 
 ```typescript
-// FieldSchema examples
+// Field examples
 { type: 'text', nullable: true }
 { type: 'select', options: ['a', 'b'] }
 { type: 'integer', default: 0 }
 ```
 
-**Definition** = metadata + schema(s):
+**Definition** = metadata + field(s):
 
 ```typescript
-// TableDefinition: name, icon, cover, description + fields (FieldSchemaMap)
+// TableDefinition: name, icon, cover, description + fields (FieldMap)
 {
   name: 'Blog Posts',
   icon: { type: 'emoji', value: '📝' },
@@ -153,7 +153,7 @@ The codebase distinguishes between **Schema** (raw type constraints) and **Defin
   fields: { id: id(), title: text(), published: boolean() }
 }
 
-// KvDefinition: name, icon, description + field (single FieldSchema)
+// KvDefinition: name, icon, description + field (single Field)
 {
   name: 'Theme',
   icon: { type: 'emoji', value: '🎨' },
@@ -162,4 +162,4 @@ The codebase distinguishes between **Schema** (raw type constraints) and **Defin
 }
 ```
 
-This distinction keeps the naming predictable: if you're working with raw type constraints, look for `Schema`; if you need metadata, look for `Definition`.
+This distinction keeps the naming predictable: if you're working with raw type constraints, look for `Field`; if you need metadata, look for `Definition`.

@@ -1,16 +1,16 @@
 /**
- * @fileoverview Field schema helper functions
+ * @fileoverview Field helper functions
  *
- * Utility functions for introspecting field schemas. These helpers answer
- * questions about schema properties without transforming them to other formats.
+ * Utility functions for introspecting fields. These helpers answer
+ * questions about field properties without transforming them to other formats.
  *
  * For format conversions (arktype, drizzle, typebox), see `../converters/`.
  */
 
-import type { FieldSchema } from './types';
+import type { Field } from './types';
 
 /**
- * Determines if a field schema is nullable.
+ * Determines if a field is nullable.
  *
  * Nullability rules:
  * - `id`: Never nullable (primary key)
@@ -19,14 +19,14 @@ import type { FieldSchema } from './types';
  *
  * @example
  * ```typescript
- * isNullableFieldSchema({ type: 'text' });                    // false
- * isNullableFieldSchema({ type: 'text', nullable: true });    // true
- * isNullableFieldSchema({ type: 'id' });                      // false (always)
- * isNullableFieldSchema({ type: 'richtext' });                // true (always)
+ * isNullableField({ type: 'text' });                    // false
+ * isNullableField({ type: 'text', nullable: true });    // true
+ * isNullableField({ type: 'id' });                      // false (always)
+ * isNullableField({ type: 'richtext' });                // true (always)
  * ```
  */
-export function isNullableFieldSchema(
-	schema: Pick<FieldSchema, 'type'> & { nullable?: boolean },
+export function isNullableField(
+	schema: Pick<Field, 'type'> & { nullable?: boolean },
 ): boolean {
 	if (schema.type === 'id') return false;
 	if (schema.type === 'richtext') return true;

@@ -1,86 +1,85 @@
 /**
- * Converts FieldSchema to arktype Type definitions for runtime validation.
+ * Converts Field to arktype Type definitions for runtime validation.
  *
  * Returns raw arktype definitions to enable proper type inference for
  * object methods like .partial() and .merge().
  */
 
-import { type Type, type } from 'arktype';
 import { jsonSchemaToType } from '@ark/json-schema';
-import type { TSchema, Static } from 'typebox';
+import { type Type, type } from 'arktype';
 import type { ObjectType } from 'arktype/internal/variants/object.ts';
-import type {
-	BooleanFieldSchema,
-	DateFieldSchema,
-	FieldSchema,
-	FieldSchemaMap,
-	IdFieldSchema,
-	IntegerFieldSchema,
-	JsonFieldSchema,
-	RealFieldSchema,
-	RichtextFieldSchema,
-	Row,
-	SelectFieldSchema,
-	TagsFieldSchema,
-	TextFieldSchema,
-} from '../fields/types';
+import type { Static, TSchema } from 'typebox';
 import type { DateTimeString } from '../fields/datetime';
-import { isNullableFieldSchema } from '../fields/helpers';
+import { isNullableField } from '../fields/helpers';
 import { DATE_TIME_STRING_REGEX } from '../fields/regex';
+import type {
+	BooleanField,
+	DateField,
+	Field,
+	FieldMap,
+	IdField,
+	IntegerField,
+	JsonField,
+	RealField,
+	RichtextField,
+	Row,
+	SelectField,
+	TagsField,
+	TextField,
+} from '../fields/types';
 
 /**
- * Maps a FieldSchema to its corresponding arktype Type.
+ * Maps a Field to its corresponding arktype Type.
  *
  * This type mapping ensures proper TypeScript inference when building
  * schema validators, preserving exact type information from the schema.
  *
  * @example
  * ```typescript
- * type TextType = FieldSchemaToArktype<{ type: 'text' }>; // Type<string>
- * type NullableInt = FieldSchemaToArktype<{ type: 'integer', nullable: true }>; // Type<number | null>
+ * type TextType = FieldToArktype<{ type: 'text' }>; // Type<string>
+ * type NullableInt = FieldToArktype<{ type: 'integer', nullable: true }>; // Type<number | null>
  * ```
  */
-export type FieldSchemaToArktype<C extends FieldSchema> =
-	C extends IdFieldSchema
-		? Type<string>
-		: C extends TextFieldSchema<infer TNullable>
-			? TNullable extends true
-				? Type<string | null>
-				: Type<string>
-			: C extends RichtextFieldSchema
-				? Type<string | null>
-				: C extends IntegerFieldSchema<infer TNullable>
+export type FieldToArktype<C extends Field> = C extends IdField
+	? Type<string>
+	: C extends TextField<infer TNullable>
+		? TNullable extends true
+			? Type<string | null>
+			: Type<string>
+		: C extends RichtextField
+			? Type<string | null>
+			: C extends IntegerField<infer TNullable>
+				? TNullable extends true
+					? Type<number | null>
+					: Type<number>
+				: C extends RealField<infer TNullable>
 					? TNullable extends true
 						? Type<number | null>
 						: Type<number>
-					: C extends RealFieldSchema<infer TNullable>
+					: C extends BooleanField<infer TNullable>
 						? TNullable extends true
-							? Type<number | null>
-							: Type<number>
-						: C extends BooleanFieldSchema<infer TNullable>
+							? Type<boolean | null>
+							: Type<boolean>
+						: C extends DateField<infer TNullable>
 							? TNullable extends true
-								? Type<boolean | null>
-								: Type<boolean>
-							: C extends DateFieldSchema<infer TNullable>
+								? Type<DateTimeString | null>
+								: Type<DateTimeString>
+							: C extends SelectField<infer TOptions, infer TNullable>
 								? TNullable extends true
-									? Type<DateTimeString | null>
-									: Type<DateTimeString>
-								: C extends SelectFieldSchema<infer TOptions, infer TNullable>
+									? Type<TOptions[number] | null>
+									: Type<TOptions[number]>
+								: C extends TagsField<infer TOptions, infer TNullable>
 									? TNullable extends true
-										? Type<TOptions[number] | null>
-										: Type<TOptions[number]>
-									: C extends TagsFieldSchema<infer TOptions, infer TNullable>
+										? Type<TOptions[number][] | null>
+										: Type<TOptions[number][]>
+									: C extends JsonField<
+												infer T extends TSchema,
+												infer TNullable
+											>
 										? TNullable extends true
-											? Type<TOptions[number][] | null>
-											: Type<TOptions[number][]>
-										: C extends JsonFieldSchema<
-													infer T extends TSchema,
-													infer TNullable
-												>
-											? TNullable extends true
-												? Type<Static<T> | null>
-												: Type<Static<T>>
-											: never;
+											? Type<Static<T> | null>
+											: Type<Static<T>>
+										: never;
 
 /**
  * Converts a table schema to a fully instantiated arktype Type.
@@ -100,7 +99,7 @@ export type FieldSchemaToArktype<C extends FieldSchema> =
  *   count: integer({ nullable: true }),
  * };
  *
- * const validator = tableSchemaToArktype(schema);
+ * const validator = tableToArktype(schema);
  *
  * // Use immediately for validation
  * const result = validator({ id: '123', title: 'Test', count: 42 });
@@ -113,21 +112,21 @@ export type FieldSchemaToArktype<C extends FieldSchema> =
  * const arrayValidator = validator.array();
  * ```
  */
-export function tableSchemaToArktype<TFieldSchemaMap extends FieldSchemaMap>(
-	fieldsSchema: TFieldSchemaMap,
-): ObjectType<Row<TFieldSchemaMap>> {
+export function tableToArktype<TFieldMap extends FieldMap>(
+	fieldsSchema: TFieldMap,
+): ObjectType<Row<TFieldMap>> {
 	return type(
 		Object.fromEntries(
 			Object.entries(fieldsSchema).map(([fieldName, fieldDefinition]) => [
 				fieldName,
-				fieldSchemaToArktype(fieldDefinition),
+				fieldToArktype(fieldDefinition),
 			]),
 		),
-	) as ObjectType<Row<TFieldSchemaMap>>;
+	) as ObjectType<Row<TFieldMap>>;
 }
 
 /**
- * Converts a single FieldSchema to an arktype Type for runtime validation.
+ * Converts a single Field to an arktype Type for runtime validation.
  *
  * Use this when you need to validate individual field values. For nullable
  * fields, automatically wraps with `.or(type.null).default(null)` so that
@@ -148,8 +147,8 @@ export function tableSchemaToArktype<TFieldSchemaMap extends FieldSchemaMap>(
  *
  * @example
  * ```typescript
- * const textValidator = fieldSchemaToArktype({ type: 'text' });
- * const selectValidator = fieldSchemaToArktype({
+ * const textValidator = fieldToArktype({ type: 'text' });
+ * const selectValidator = fieldToArktype({
  *   type: 'select',
  *   options: ['draft', 'published'],
  * });
@@ -159,9 +158,9 @@ export function tableSchemaToArktype<TFieldSchemaMap extends FieldSchemaMap>(
  * selectValidator('invalid'); // type.errors
  * ```
  */
-export function fieldSchemaToArktype<C extends FieldSchema>(
+export function fieldToArktype<C extends Field>(
 	fieldDefinition: C,
-): FieldSchemaToArktype<C> {
+): FieldToArktype<C> {
 	let baseType: Type;
 
 	switch (fieldDefinition.type) {
@@ -203,8 +202,8 @@ export function fieldSchemaToArktype<C extends FieldSchema>(
 			break;
 	}
 
-	const isNullable = isNullableFieldSchema(fieldDefinition);
+	const isNullable = isNullableField(fieldDefinition);
 	return (
 		isNullable ? baseType.or(type.null).default(null) : baseType
-	) as FieldSchemaToArktype<C>;
+	) as FieldToArktype<C>;
 }

@@ -7,7 +7,7 @@ import { tryAsync, trySync } from 'wellcrafted/result';
 import { ExtensionErr, ExtensionError } from '../../core/errors';
 import { defineExports, type ExtensionContext } from '../../core/extension';
 import type {
-	FieldSchemaMap,
+	FieldMap,
 	KvDefinitionMap,
 	Row,
 	TableDefinitionMap,
@@ -134,11 +134,11 @@ type TableConfigs<TTableDefinitionMap extends TableDefinitionMap> = {
  * Internal resolved config with all required fields.
  * This is what the provider uses internally after merging user config with defaults.
  */
-type ResolvedTableConfig<TFieldSchemaMap extends FieldSchemaMap> = {
+type ResolvedTableConfig<TFieldMap extends FieldMap> = {
 	directory: AbsolutePath;
-	serialize: MarkdownSerializer<TFieldSchemaMap>['serialize'];
-	parseFilename: MarkdownSerializer<TFieldSchemaMap>['deserialize']['parseFilename'];
-	deserialize: MarkdownSerializer<TFieldSchemaMap>['deserialize']['fromContent'];
+	serialize: MarkdownSerializer<TFieldMap>['serialize'];
+	parseFilename: MarkdownSerializer<TFieldMap>['deserialize']['parseFilename'];
+	deserialize: MarkdownSerializer<TFieldMap>['deserialize']['fromContent'];
 };
 
 /**
@@ -398,8 +398,8 @@ export const markdown = async <
 			/**
 			 * Write a YJS row to markdown file
 			 */
-			async function writeRowToMarkdown<TFieldSchemaMap extends FieldSchemaMap>(
-				row: Row<TFieldSchemaMap>,
+			async function writeRowToMarkdown<TFieldMap extends FieldMap>(
+				row: Row<TFieldMap>,
 			) {
 				const { frontmatter, body, filename } = tableConfig.serialize({
 					row,

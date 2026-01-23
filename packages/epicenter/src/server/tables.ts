@@ -2,8 +2,8 @@ import { type } from 'arktype';
 import { Elysia } from 'elysia';
 import { Ok } from 'wellcrafted/result';
 import type { WorkspaceDoc } from '../core/docs/workspace-doc';
-import type { FieldSchemaMap, Row } from '../core/schema';
-import { tableSchemaToArktype } from '../core/schema';
+import type { FieldMap, Row } from '../core/schema';
+import { tableToArktype } from '../core/schema';
 
 type AnyWorkspaceDoc = WorkspaceDoc<any, any, any>;
 
@@ -45,11 +45,11 @@ export function createTablesPlugin(
 			app.post(
 				basePath,
 				({ body }) => {
-					tableHelper.upsert(body as Row<FieldSchemaMap>);
-					return Ok({ id: (body as Row<FieldSchemaMap>).id });
+					tableHelper.upsert(body as Row<FieldMap>);
+					return Ok({ id: (body as Row<FieldMap>).id });
 				},
 				{
-					body: tableSchemaToArktype(fields),
+					body: tableToArktype(fields),
 					detail: { description: `Create or update ${tableName}`, tags },
 				},
 			);
@@ -59,14 +59,12 @@ export function createTablesPlugin(
 				({ params, body }) => {
 					const result = tableHelper.update({
 						id: params.id,
-						...(body as Partial<Row<FieldSchemaMap>>),
+						...(body as Partial<Row<FieldMap>>),
 					});
 					return Ok(result);
 				},
 				{
-					body: tableSchemaToArktype(fields)
-						.partial()
-						.merge({ id: type.string }),
+					body: tableToArktype(fields).partial().merge({ id: type.string }),
 					detail: { description: `Update ${tableName} by ID`, tags },
 				},
 			);

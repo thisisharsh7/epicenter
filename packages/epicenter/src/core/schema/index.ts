@@ -1,12 +1,12 @@
-export type { FieldSchemaToArktype } from './converters/to-arktype.js';
+export type { FieldToArktype } from './converters/to-arktype.js';
 export {
-	fieldSchemaToArktype,
-	tableSchemaToArktype,
+	fieldToArktype,
+	tableToArktype,
 } from './converters/to-arktype.js';
-export type { FieldSchemaToYjsArktype } from './converters/to-arktype-yjs.js';
+export type { FieldToYjsArktype } from './converters/to-arktype-yjs.js';
 export {
-	fieldSchemaToYjsArktype,
-	tableSchemaToYjsArktype,
+	fieldToYjsArktype,
+	tableToYjsArktype,
 } from './converters/to-arktype-yjs.js';
 export type { TableDefinitionsToDrizzle } from './converters/to-drizzle.js';
 export {
@@ -14,10 +14,10 @@ export {
 	toSqlIdentifier,
 } from './converters/to-drizzle.js';
 
-export type { FieldSchemaToTypebox } from './converters/to-typebox.js';
+export type { FieldToTypebox } from './converters/to-typebox.js';
 export {
-	fieldSchemaToTypebox,
-	fieldsSchemaToTypebox,
+	fieldsToTypebox,
+	fieldToTypebox,
 } from './converters/to-typebox.js';
 export type { DateIsoString, TimezoneId } from './fields/datetime.js';
 export { DateTimeString } from './fields/datetime.js';
@@ -37,7 +37,7 @@ export {
 	tags,
 	text,
 } from './fields/factories.js';
-export { isNullableFieldSchema } from './fields/helpers.js';
+export { isNullableField } from './fields/helpers.js';
 export type { Guid, Id } from './fields/id.js';
 export { generateGuid, generateId } from './fields/id.js';
 export {
@@ -46,33 +46,33 @@ export {
 	TIMEZONE_ID_REGEX,
 } from './fields/regex.js';
 export type {
-	BooleanFieldSchema,
+	BooleanField,
 	CellValue,
 	CoverDefinition,
-	DateFieldSchema,
+	DateField,
+	Field,
+	FieldMap,
 	FieldMetadata,
 	FieldOptions,
-	FieldSchema,
-	FieldSchemaMap,
 	FieldType,
 	IconDefinition,
-	IdFieldSchema,
-	IntegerFieldSchema,
-	JsonFieldSchema,
+	IdField,
+	IntegerField,
+	JsonField,
 	KvDefinition,
 	KvDefinitionMap,
-	KvFieldSchema,
-	KvSchemaMap,
+	KvField,
+	KvMap,
 	KvValue,
 	PartialRow,
-	RealFieldSchema,
-	RichtextFieldSchema,
+	RealField,
+	RichtextField,
 	Row,
-	SelectFieldSchema,
+	SelectField,
 	TableDefinition,
 	TableDefinitionMap,
-	TagsFieldSchema,
-	TextFieldSchema,
+	TagsField,
+	TextField,
 } from './fields/types.js';
 export { standardSchemaToJsonSchema } from './standard/to-json-schema.js';
 export type {

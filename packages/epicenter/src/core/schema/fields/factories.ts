@@ -9,23 +9,23 @@ import type { Temporal } from 'temporal-polyfill';
 import type { Static, TSchema } from 'typebox';
 import { DateTimeString } from './datetime';
 import type {
-	BooleanFieldSchema,
+	BooleanField,
 	CoverDefinition,
-	DateFieldSchema,
+	DateField,
+	FieldMap,
 	FieldOptions,
-	FieldSchemaMap,
 	IconDefinition,
-	IdFieldSchema,
-	IntegerFieldSchema,
-	JsonFieldSchema,
+	IdField,
+	IntegerField,
+	JsonField,
 	KvDefinition,
-	KvFieldSchema,
-	RealFieldSchema,
-	RichtextFieldSchema,
-	SelectFieldSchema,
+	KvField,
+	RealField,
+	RichtextField,
+	SelectField,
 	TableDefinition,
-	TagsFieldSchema,
-	TextFieldSchema,
+	TagsField,
+	TextField,
 } from './types';
 
 /**
@@ -80,7 +80,7 @@ function normalizeIcon(
  * });
  * ```
  */
-export function table<TFields extends FieldSchemaMap>(options: {
+export function table<TFields extends FieldMap>(options: {
 	name: string;
 	fields: TFields;
 	description?: string;
@@ -122,7 +122,7 @@ export function table<TFields extends FieldSchemaMap>(options: {
  * });
  * ```
  */
-export function setting<TField extends KvFieldSchema>(options: {
+export function setting<TField extends KvField>(options: {
 	name: string;
 	field: TField;
 	icon?: IconDefinition | null;
@@ -213,7 +213,7 @@ export function id({
 	name = '',
 	description = '',
 	icon = null,
-}: FieldOptions = {}): IdFieldSchema {
+}: FieldOptions = {}): IdField {
 	return {
 		type: 'id',
 		name,
@@ -227,13 +227,13 @@ export function text(
 		nullable: true;
 		default?: string;
 	},
-): TextFieldSchema<true>;
+): TextField<true>;
 export function text(
 	opts?: FieldOptions & {
 		nullable?: false;
 		default?: string;
 	},
-): TextFieldSchema<false>;
+): TextField<false>;
 export function text({
 	nullable = false,
 	default: defaultValue,
@@ -243,7 +243,7 @@ export function text({
 }: FieldOptions & {
 	nullable?: boolean;
 	default?: string;
-} = {}): TextFieldSchema<boolean> {
+} = {}): TextField<boolean> {
 	return {
 		type: 'text',
 		name,
@@ -258,7 +258,7 @@ export function richtext({
 	name = '',
 	description = '',
 	icon = null,
-}: FieldOptions = {}): RichtextFieldSchema {
+}: FieldOptions = {}): RichtextField {
 	return {
 		type: 'richtext',
 		name,
@@ -272,13 +272,13 @@ export function integer(
 		nullable: true;
 		default?: number;
 	},
-): IntegerFieldSchema<true>;
+): IntegerField<true>;
 export function integer(
 	opts?: FieldOptions & {
 		nullable?: false;
 		default?: number;
 	},
-): IntegerFieldSchema<false>;
+): IntegerField<false>;
 export function integer({
 	nullable = false,
 	default: defaultValue,
@@ -288,7 +288,7 @@ export function integer({
 }: FieldOptions & {
 	nullable?: boolean;
 	default?: number;
-} = {}): IntegerFieldSchema<boolean> {
+} = {}): IntegerField<boolean> {
 	return {
 		type: 'integer',
 		name,
@@ -304,13 +304,13 @@ export function real(
 		nullable: true;
 		default?: number;
 	},
-): RealFieldSchema<true>;
+): RealField<true>;
 export function real(
 	opts?: FieldOptions & {
 		nullable?: false;
 		default?: number;
 	},
-): RealFieldSchema<false>;
+): RealField<false>;
 export function real({
 	nullable = false,
 	default: defaultValue,
@@ -320,7 +320,7 @@ export function real({
 }: FieldOptions & {
 	nullable?: boolean;
 	default?: number;
-} = {}): RealFieldSchema<boolean> {
+} = {}): RealField<boolean> {
 	return {
 		type: 'real',
 		name,
@@ -336,13 +336,13 @@ export function boolean(
 		nullable: true;
 		default?: boolean;
 	},
-): BooleanFieldSchema<true>;
+): BooleanField<true>;
 export function boolean(
 	opts?: FieldOptions & {
 		nullable?: false;
 		default?: boolean;
 	},
-): BooleanFieldSchema<false>;
+): BooleanField<false>;
 export function boolean({
 	nullable = false,
 	default: defaultValue,
@@ -352,7 +352,7 @@ export function boolean({
 }: FieldOptions & {
 	nullable?: boolean;
 	default?: boolean;
-} = {}): BooleanFieldSchema<boolean> {
+} = {}): BooleanField<boolean> {
 	return {
 		type: 'boolean',
 		name,
@@ -368,13 +368,13 @@ export function date(
 		nullable: true;
 		default?: Temporal.ZonedDateTime;
 	},
-): DateFieldSchema<true>;
+): DateField<true>;
 export function date(
 	opts?: FieldOptions & {
 		nullable?: false;
 		default?: Temporal.ZonedDateTime;
 	},
-): DateFieldSchema<false>;
+): DateField<false>;
 export function date({
 	nullable = false,
 	default: defaultValue,
@@ -384,7 +384,7 @@ export function date({
 }: FieldOptions & {
 	nullable?: boolean;
 	default?: Temporal.ZonedDateTime;
-} = {}): DateFieldSchema<boolean> {
+} = {}): DateField<boolean> {
 	return {
 		type: 'date',
 		name,
@@ -403,14 +403,14 @@ export function select<const TOptions extends readonly [string, ...string[]]>(
 		nullable: true;
 		default?: TOptions[number];
 	},
-): SelectFieldSchema<TOptions, true>;
+): SelectField<TOptions, true>;
 export function select<const TOptions extends readonly [string, ...string[]]>(
 	opts: FieldOptions & {
 		options: TOptions;
 		nullable?: false;
 		default?: TOptions[number];
 	},
-): SelectFieldSchema<TOptions, false>;
+): SelectField<TOptions, false>;
 export function select<const TOptions extends readonly [string, ...string[]]>({
 	options,
 	nullable = false,
@@ -422,7 +422,7 @@ export function select<const TOptions extends readonly [string, ...string[]]>({
 	options: TOptions;
 	nullable?: boolean;
 	default?: TOptions[number];
-}): SelectFieldSchema<TOptions, boolean> {
+}): SelectField<TOptions, boolean> {
 	return {
 		type: 'select',
 		name,
@@ -440,20 +440,20 @@ export function tags<const TOptions extends readonly [string, ...string[]]>(
 		nullable: true;
 		default?: TOptions[number][];
 	},
-): TagsFieldSchema<TOptions, true>;
+): TagsField<TOptions, true>;
 export function tags<const TOptions extends readonly [string, ...string[]]>(
 	opts: FieldOptions & {
 		options: TOptions;
 		nullable?: false;
 		default?: TOptions[number][];
 	},
-): TagsFieldSchema<TOptions, false>;
+): TagsField<TOptions, false>;
 export function tags<TNullable extends boolean = false>(
 	opts?: FieldOptions & {
 		nullable?: TNullable;
 		default?: string[];
 	},
-): TagsFieldSchema<readonly [string, ...string[]], TNullable>;
+): TagsField<readonly [string, ...string[]], TNullable>;
 export function tags<const TOptions extends readonly [string, ...string[]]>({
 	options,
 	nullable = false,
@@ -465,7 +465,7 @@ export function tags<const TOptions extends readonly [string, ...string[]]>({
 	options?: TOptions;
 	nullable?: boolean;
 	default?: TOptions[number][] | string[];
-} = {}): TagsFieldSchema<TOptions, boolean> {
+} = {}): TagsField<TOptions, boolean> {
 	return {
 		type: 'tags',
 		name,
@@ -485,14 +485,14 @@ export function json<const T extends TSchema>(
 		nullable: true;
 		default?: Static<T>;
 	},
-): JsonFieldSchema<T, true>;
+): JsonField<T, true>;
 export function json<const T extends TSchema>(
 	opts: FieldOptions & {
 		schema: T;
 		nullable?: false;
 		default?: Static<T>;
 	},
-): JsonFieldSchema<T, false>;
+): JsonField<T, false>;
 export function json<const T extends TSchema>({
 	schema,
 	nullable = false,
@@ -504,7 +504,7 @@ export function json<const T extends TSchema>({
 	schema: T;
 	nullable?: boolean;
 	default?: Static<T>;
-}): JsonFieldSchema<T, boolean> {
+}): JsonField<T, boolean> {
 	return {
 		type: 'json',
 		name,

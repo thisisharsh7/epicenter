@@ -15,10 +15,10 @@
 
 import humanizeString from 'humanize-string';
 import type {
-	FieldSchemaMap,
+	FieldMap,
 	IconDefinition,
 	KvDefinition,
-	KvFieldSchema,
+	KvField,
 	TableDefinition,
 } from '../schema';
 
@@ -82,7 +82,7 @@ export function normalizeIcon(
  */
 export function isTableDefinition(
 	value: unknown,
-): value is TableDefinition<FieldSchemaMap> {
+): value is TableDefinition<FieldMap> {
 	return (
 		typeof value === 'object' &&
 		value !== null &&
@@ -105,9 +105,7 @@ export function isTableDefinition(
  * isKvDefinition(kvDef); // true
  * ```
  */
-export function isKvDefinition(
-	value: unknown,
-): value is KvDefinition<KvFieldSchema> {
+export function isKvDefinition(value: unknown): value is KvDefinition<KvField> {
 	return (
 		typeof value === 'object' &&
 		value !== null &&
@@ -140,7 +138,7 @@ export function isKvDefinition(
  * // def.field === select({ options: ['light', 'dark'] })
  * ```
  */
-export function normalizeKv<TField extends KvFieldSchema>(
+export function normalizeKv<TField extends KvField>(
 	key: string,
 	input: TField | KvDefinition<TField>,
 ): KvDefinition<TField> {

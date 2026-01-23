@@ -63,7 +63,7 @@ export type WorkspaceDefinitionMap = {
 			name: string;
 			icon: IconDefinition | null;
 			description: string;
-			fields: Record<string, unknown>; // FieldSchema objects
+			fields: Record<string, unknown>; // Field objects
 		};
 	};
 	/** KV definitions (name, icon, description, field) */
@@ -72,7 +72,7 @@ export type WorkspaceDefinitionMap = {
 			name: string;
 			icon: IconDefinition | null;
 			description: string;
-			field: unknown; // FieldSchema object
+			field: unknown; // Field object
 		};
 	};
 };
@@ -91,7 +91,7 @@ export type TableMap = Y.Map<RowMap>;
 export type TablesMap = Y.Map<TableMap>;
 
 /** Y.Map storing KV values, keyed by key name. */
-export type KvMap = Y.Map<KvValue>;
+export type KvYMap = Y.Map<KvValue>;
 
 /** Y.Map storing workspace definition (tables and kv definitions). */
 export type DefinitionMap = Y.Map<unknown>;

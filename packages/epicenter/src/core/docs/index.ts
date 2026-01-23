@@ -12,7 +12,7 @@ export {
 	createWorkspaceDoc,
 	type DefinitionMap,
 	type IconDefinition,
-	type KvMap,
+	type KvYMap,
 	WORKSPACE_DOC_MAPS,
 	type WorkspaceDefinitionMap,
 	type WorkspaceDoc,

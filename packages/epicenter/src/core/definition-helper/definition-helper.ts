@@ -4,10 +4,10 @@ import type {
 	WorkspaceDefinitionMap,
 } from '../docs/workspace-doc';
 import type {
-	FieldSchema,
+	Field,
 	IconDefinition,
 	KvDefinition,
-	KvFieldSchema,
+	KvField,
 	TableDefinition,
 } from '../schema';
 
@@ -22,7 +22,7 @@ export type TablesDefinitionMap = Y.Map<Y.Map<unknown>>;
 export type KvDefinitionYMap = Y.Map<Y.Map<unknown>>;
 
 /** Y.Map storing fields for a single table, keyed by field name. */
-export type FieldsMap = Y.Map<FieldSchema>;
+export type FieldsMap = Y.Map<Field>;
 
 /** Change action for collection observation. */
 export type ChangeAction = 'add' | 'delete';
@@ -42,14 +42,14 @@ export type FieldChangeAction = 'add' | 'update' | 'delete';
  *
  * @example
  * ```typescript
- * // Get a field schema
- * const titleSchema = table.fields.get('title');
+ * // Get a field
+ * const titleField = table.fields.get('title');
  *
  * // Check if field exists
  * if (table.fields.has('title')) { ... }
  *
  * // Iterate over fields
- * for (const [name, schema] of table.fields.entries()) { ... }
+ * for (const [name, field] of table.fields.entries()) { ... }
  *
  * // Modify fields
  * table.fields.set('dueDate', date());
@@ -57,18 +57,18 @@ export type FieldChangeAction = 'add' | 'update' | 'delete';
  * ```
  */
 export type FieldsCollection = {
-	/** Get a field schema by name. */
-	get(fieldName: string): FieldSchema | undefined;
+	/** Get a field by name. */
+	get(fieldName: string): Field | undefined;
 	/** Check if a field exists. */
 	has(fieldName: string): boolean;
 	/** Get all fields as a plain object. */
-	toJSON(): Record<string, FieldSchema>;
+	toJSON(): Record<string, Field>;
 	/** Get all field names. */
 	keys(): string[];
-	/** Get all fields as [name, schema] pairs. */
-	entries(): [string, FieldSchema][];
-	/** Set (add or update) a field schema. */
-	set(fieldName: string, schema: FieldSchema): void;
+	/** Get all fields as [name, field] pairs. */
+	entries(): [string, Field][];
+	/** Set (add or update) a field. */
+	set(fieldName: string, field: Field): void;
 	/** Delete a field. Returns true if deleted. */
 	delete(fieldName: string): boolean;
 	/** Observe changes to fields (add/update/delete). */
@@ -105,7 +105,7 @@ function createFieldsCollection(
 		toJSON() {
 			const fieldsMap = getFieldsMap();
 			if (!fieldsMap) return {};
-			return fieldsMap.toJSON() as Record<string, FieldSchema>;
+			return fieldsMap.toJSON() as Record<string, Field>;
 		},
 
 		keys() {
@@ -132,7 +132,7 @@ function createFieldsCollection(
 		},
 
 		observe(callback) {
-			const handler = (event: Y.YMapEvent<FieldSchema>) => {
+			const handler = (event: Y.YMapEvent<Field>) => {
 				const changes = new Map<string, FieldChangeAction>();
 				event.changes.keys.forEach((change, key) => {
 					changes.set(key, change.action);
@@ -238,8 +238,7 @@ function createTableHelper(
 				icon: (tableDefinitionMap.get('icon') as IconDefinition | null) ?? null,
 				description: (tableDefinitionMap.get('description') as string) ?? '',
 				fields:
-					(tableDefinitionMap.get('fields') as Y.Map<FieldSchema>)?.toJSON() ??
-					{},
+					(tableDefinitionMap.get('fields') as Y.Map<Field>)?.toJSON() ?? {},
 			} as TableDefinition;
 		},
 
@@ -255,10 +254,8 @@ function createTableHelper(
 			}
 
 			fieldsMap.clear();
-			for (const [fieldName, fieldSchema] of Object.entries(
-				definition.fields,
-			)) {
-				fieldsMap.set(fieldName, fieldSchema as FieldSchema);
+			for (const [fieldName, field] of Object.entries(definition.fields)) {
+				fieldsMap.set(fieldName, field as Field);
 			}
 		},
 
@@ -358,8 +355,7 @@ function createTablesCollection(
 			icon: (tableDefinitionMap.get('icon') as IconDefinition | null) ?? null,
 			description: (tableDefinitionMap.get('description') as string) ?? '',
 			fields:
-				(tableDefinitionMap.get('fields') as Y.Map<FieldSchema>)?.toJSON() ??
-				{},
+				(tableDefinitionMap.get('fields') as Y.Map<Field>)?.toJSON() ?? {},
 		} as TableDefinition;
 	};
 
@@ -399,9 +395,7 @@ function createTablesCollection(
 						(tableDefinitionMap.get('icon') as IconDefinition | null) ?? null,
 					description: (tableDefinitionMap.get('description') as string) ?? '',
 					fields:
-						(
-							tableDefinitionMap.get('fields') as Y.Map<FieldSchema>
-						)?.toJSON() ?? {},
+						(tableDefinitionMap.get('fields') as Y.Map<Field>)?.toJSON() ?? {},
 				} as TableDefinition;
 			}
 			return result;
@@ -428,9 +422,8 @@ function createTablesCollection(
 						description:
 							(tableDefinitionMap.get('description') as string) ?? '',
 						fields:
-							(
-								tableDefinitionMap.get('fields') as Y.Map<FieldSchema>
-							)?.toJSON() ?? {},
+							(tableDefinitionMap.get('fields') as Y.Map<Field>)?.toJSON() ??
+							{},
 					} as TableDefinition,
 				]);
 			}
@@ -456,10 +449,8 @@ function createTablesCollection(
 				tableDefinitionMap.set('fields', fieldsMap);
 			}
 
-			for (const [fieldName, fieldSchema] of Object.entries(
-				definition.fields,
-			)) {
-				fieldsMap.set(fieldName, fieldSchema as FieldSchema);
+			for (const [fieldName, field] of Object.entries(definition.fields)) {
+				fieldsMap.set(fieldName, field as Field);
 			}
 
 			tableHelperCache.delete(tableName);
@@ -523,8 +514,8 @@ export type KvHelper = {
 	readonly icon: IconDefinition | null;
 	/** KV description. */
 	readonly description: string;
-	/** KV field schema. */
-	readonly field: KvFieldSchema;
+	/** KV field. */
+	readonly field: KvField;
 
 	/** Set the KV name. */
 	setName(name: string): void;
@@ -532,8 +523,8 @@ export type KvHelper = {
 	setIcon(icon: IconDefinition | null): void;
 	/** Set the KV description. */
 	setDescription(description: string): void;
-	/** Set the KV field schema. */
-	setField(field: KvFieldSchema): void;
+	/** Set the KV field. */
+	setField(field: KvField): void;
 
 	/** Get the full KV definition as JSON. */
 	toJSON(): KvDefinition;
@@ -562,7 +553,7 @@ function createKvHelper(
 			return (kvEntryMap.get('description') as string) ?? '';
 		},
 		get field() {
-			return kvEntryMap.get('field') as KvFieldSchema;
+			return kvEntryMap.get('field') as KvField;
 		},
 
 		// Setters
@@ -838,11 +829,11 @@ function createKvCollection(definitionMap: DefinitionMap): KvCollection {
  * ├── .delete()                       → boolean
  * ├── .observe(cb)                    → unsubscribe
  * └── .fields                         → FieldsCollection
- *     ├── .get(name)                  → FieldSchema | undefined
+ *     ├── .get(name)                  → Field | undefined
  *     ├── .has(name)                  → boolean
- *     ├── .toJSON()                   → Record<string, FieldSchema>
+ *     ├── .toJSON()                   → Record<string, Field>
  *     ├── .keys()                     → string[]
- *     ├── .entries()                  → [string, FieldSchema][]
+ *     ├── .entries()                  → [string, Field][]
  *     ├── .set(name, schema)          → void
  *     ├── .delete(name)               → boolean
  *     └── .observe(cb)                → unsubscribe

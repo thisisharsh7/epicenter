@@ -1,92 +1,91 @@
 /**
- * Converts FieldSchema to arktype Type definitions for YJS Row validation.
+ * Converts Field to arktype Type definitions for YJS Row validation.
  *
  * Unlike to-arktype.ts which validates SerializedRow, this validates Row objects
  * where fields may contain YJS types.
  */
 
-import { type Type, type } from 'arktype';
 import { jsonSchemaToType } from '@ark/json-schema';
-import type { TSchema, Static } from 'typebox';
+import { type Type, type } from 'arktype';
 import type { ObjectType } from 'arktype/internal/variants/object.ts';
-import type {
-	BooleanFieldSchema,
-	FieldSchema,
-	FieldSchemaMap,
-	DateFieldSchema,
-	IdFieldSchema,
-	IntegerFieldSchema,
-	JsonFieldSchema,
-	RealFieldSchema,
-	RichtextFieldSchema,
-	Row,
-	SelectFieldSchema,
-	TagsFieldSchema,
-	TextFieldSchema,
-} from '../fields/types';
-import { isNullableFieldSchema } from '../fields/helpers';
+import type { Static, TSchema } from 'typebox';
+import { isNullableField } from '../fields/helpers';
 import { DATE_TIME_STRING_REGEX } from '../fields/regex';
+import type {
+	BooleanField,
+	DateField,
+	Field,
+	FieldMap,
+	IdField,
+	IntegerField,
+	JsonField,
+	RealField,
+	RichtextField,
+	Row,
+	SelectField,
+	TagsField,
+	TextField,
+} from '../fields/types';
 
 /**
- * Maps a FieldSchema to its corresponding YJS-aware arktype Type.
+ * Maps a Field to its corresponding YJS-aware arktype Type.
  *
- * Unlike `FieldSchemaToArktype` which validates serialized values, this type
+ * Unlike `FieldToArktype` which validates serialized values, this type
  * validates Row objects that may contain YJS collaborative types. Use this
  * when working with live YJS data.
  *
  * @example
  * ```typescript
- * type TextType = FieldSchemaToYjsArktype<{ type: 'text' }>; // Type<string>
- * type TagsType = FieldSchemaToYjsArktype<{ type: 'tags', options: ['a', 'b'] }>; // Type<('a' | 'b')[]>
+ * type TextType = FieldToYjsArktype<{ type: 'text' }>; // Type<string>
+ * type TagsType = FieldToYjsArktype<{ type: 'tags', options: ['a', 'b'] }>; // Type<('a' | 'b')[]>
  * ```
  */
-export type FieldSchemaToYjsArktype<C extends FieldSchema> =
-	C extends IdFieldSchema
-		? Type<string>
-		: C extends TextFieldSchema<infer TNullable>
-			? TNullable extends true
-				? Type<string | null>
-				: Type<string>
-			: C extends RichtextFieldSchema
-				? Type<string | null>
-				: C extends IntegerFieldSchema<infer TNullable>
+export type FieldToYjsArktype<C extends Field> = C extends IdField
+	? Type<string>
+	: C extends TextField<infer TNullable>
+		? TNullable extends true
+			? Type<string | null>
+			: Type<string>
+		: C extends RichtextField
+			? Type<string | null>
+			: C extends IntegerField<infer TNullable>
+				? TNullable extends true
+					? Type<number | null>
+					: Type<number>
+				: C extends RealField<infer TNullable>
 					? TNullable extends true
 						? Type<number | null>
 						: Type<number>
-					: C extends RealFieldSchema<infer TNullable>
+					: C extends BooleanField<infer TNullable>
 						? TNullable extends true
-							? Type<number | null>
-							: Type<number>
-						: C extends BooleanFieldSchema<infer TNullable>
+							? Type<boolean | null>
+							: Type<boolean>
+						: C extends DateField<infer TNullable>
 							? TNullable extends true
-								? Type<boolean | null>
-								: Type<boolean>
-							: C extends DateFieldSchema<infer TNullable>
+								? Type<string | null>
+								: Type<string>
+							: C extends SelectField<infer TOptions, infer TNullable>
 								? TNullable extends true
-									? Type<string | null>
-									: Type<string>
-								: C extends SelectFieldSchema<infer TOptions, infer TNullable>
+									? Type<TOptions[number] | null>
+									: Type<TOptions[number]>
+								: C extends TagsField<infer TOptions, infer TNullable>
 									? TNullable extends true
-										? Type<TOptions[number] | null>
-										: Type<TOptions[number]>
-									: C extends TagsFieldSchema<infer TOptions, infer TNullable>
+										? Type<TOptions[number][] | null>
+										: Type<TOptions[number][]>
+									: C extends JsonField<
+												infer T extends TSchema,
+												infer TNullable
+											>
 										? TNullable extends true
-											? Type<TOptions[number][] | null>
-											: Type<TOptions[number][]>
-										: C extends JsonFieldSchema<
-													infer T extends TSchema,
-													infer TNullable
-												>
-											? TNullable extends true
-												? Type<Static<T> | null>
-												: Type<Static<T>>
-											: never;
+											? Type<Static<T> | null>
+											: Type<Static<T>>
+										: never;
 
 /**
  * Converts a table schema to an arktype Type for YJS Row validation.
  *
  * Use this validator to check that Row objects (built from Y.Maps) contain
- * correctly-typed values. Unlike `tableSchemaToArktype`, this is designed
+ * correctly-typed values. Unlike `tableToArktype`, this is designed
  * for validating live YJS data before returning it to consumers.
  *
  * @param fieldsSchema - The table schema to convert
@@ -100,7 +99,7 @@ export type FieldSchemaToYjsArktype<C extends FieldSchema> =
  *   tags: tags({ options: ['tech', 'blog'] }),
  * };
  *
- * const validator = tableSchemaToYjsArktype(schema);
+ * const validator = tableToYjsArktype(schema);
  *
  * // Build Row from Y.Map
  * const row = buildRowFromYRow(yrow, schema);
@@ -112,24 +111,24 @@ export type FieldSchemaToYjsArktype<C extends FieldSchema> =
  * }
  * ```
  */
-export function tableSchemaToYjsArktype<TFieldSchemaMap extends FieldSchemaMap>(
-	fieldsSchema: TFieldSchemaMap,
-): ObjectType<Row<TFieldSchemaMap>> {
+export function tableToYjsArktype<TFieldMap extends FieldMap>(
+	fieldsSchema: TFieldMap,
+): ObjectType<Row<TFieldMap>> {
 	return type(
 		Object.fromEntries(
 			Object.entries(fieldsSchema).map(([fieldName, fieldDefinition]) => [
 				fieldName,
-				fieldSchemaToYjsArktype(fieldDefinition),
+				fieldToYjsArktype(fieldDefinition),
 			]),
 		),
-	) as ObjectType<Row<TFieldSchemaMap>>;
+	) as ObjectType<Row<TFieldMap>>;
 }
 
 /**
- * Converts a single FieldSchema to a YJS-aware arktype Type.
+ * Converts a single Field to a YJS-aware arktype Type.
  *
  * Returns arktype Type instances that validate YJS cell values. Unlike
- * `fieldSchemaToArktype`, this validator is designed for Row objects
+ * `fieldToArktype`, this validator is designed for Row objects
  * built from Y.Maps where values have already been extracted.
  *
  * @param fieldDefinition - The field definition to convert
@@ -137,8 +136,8 @@ export function tableSchemaToYjsArktype<TFieldSchemaMap extends FieldSchemaMap>(
  *
  * @example
  * ```typescript
- * const textValidator = fieldSchemaToYjsArktype({ type: 'text' });
- * const tagsValidator = fieldSchemaToYjsArktype({
+ * const textValidator = fieldToYjsArktype({ type: 'text' });
+ * const tagsValidator = fieldToYjsArktype({
  *   type: 'tags',
  *   options: ['tech', 'blog'],
  * });
@@ -148,9 +147,9 @@ export function tableSchemaToYjsArktype<TFieldSchemaMap extends FieldSchemaMap>(
  * tagsValidator(['invalid']); // type.errors
  * ```
  */
-export function fieldSchemaToYjsArktype<C extends FieldSchema>(
+export function fieldToYjsArktype<C extends Field>(
 	fieldDefinition: C,
-): FieldSchemaToYjsArktype<C> {
+): FieldToYjsArktype<C> {
 	let baseType: Type;
 
 	switch (fieldDefinition.type) {
@@ -192,8 +191,8 @@ export function fieldSchemaToYjsArktype<C extends FieldSchema>(
 			break;
 	}
 
-	const isNullable = isNullableFieldSchema(fieldDefinition);
+	const isNullable = isNullableField(fieldDefinition);
 	return (
 		isNullable ? baseType.or(type.null) : baseType
-	) as FieldSchemaToYjsArktype<C>;
+	) as FieldToYjsArktype<C>;
 }
