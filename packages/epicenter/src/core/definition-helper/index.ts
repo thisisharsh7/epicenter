@@ -1,0 +1,17 @@
+export {
+	type ChangeAction,
+	createDefinition,
+	type Definition,
+	type FieldChangeAction,
+	type FieldsMap,
+	type KvDefinitionHelper,
+	type KvDefinitionInput,
+	type KvDefinitionMap,
+	type StoredKvDefinition,
+	type StoredTableDefinition,
+	type TableDefinitionHelper,
+	type TableDefinitionInput,
+	type TableMetadata,
+	type TablesDefinitionHelper,
+	type TablesDefinitionMap,
+} from './definition-helper';

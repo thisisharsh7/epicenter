@@ -1,4 +1,5 @@
 import * as Y from 'yjs';
+import { createDefinition, type Definition } from '../definition-helper';
 import { createKv, type Kv } from '../kv/core';
 import { defineExports, type Lifecycle } from '../lifecycle';
 import type {
@@ -6,7 +7,6 @@ import type {
 	KvValue,
 	TableDefinitionMap,
 } from '../schema/fields/types';
-import { createDefinition, type Definition } from '../schema-helper';
 import { createTables, type Tables } from '../tables/create-tables';
 
 // ─────────────────────────────────────────────────────────────────────────────

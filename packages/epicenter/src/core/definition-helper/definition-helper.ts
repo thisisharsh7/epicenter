@@ -14,20 +14,20 @@ import type {
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Y.Map storing table schemas, keyed by table name. */
-export type TablesSchemaMap = Y.Map<Y.Map<unknown>>;
+/** Y.Map storing table definitions, keyed by table name. */
+export type TablesDefinitionMap = Y.Map<Y.Map<unknown>>;
 
-/** Y.Map storing KV schemas, keyed by key name. */
-export type KvSchemaMap = Y.Map<Y.Map<unknown>>;
+/** Y.Map storing KV definitions, keyed by key name. */
+export type KvDefinitionMap = Y.Map<Y.Map<unknown>>;
 
 /** Y.Map storing fields for a single table, keyed by field name. */
 export type FieldsMap = Y.Map<FieldSchema>;
 
 /**
- * Input type for setting a table schema.
+ * Input type for setting a table definition.
  * Allows optional metadata fields (icon, description) that will default.
  */
-export type TableSchemaInput = {
+export type TableDefinitionInput = {
 	name: string;
 	icon?: IconDefinition | null;
 	description?: string;
@@ -35,10 +35,10 @@ export type TableSchemaInput = {
 };
 
 /**
- * Input type for setting a KV schema.
+ * Input type for setting a KV definition.
  * Allows optional metadata fields (icon, description) that will default.
  */
-export type KvSchemaInput = {
+export type KvDefinitionInput = {
 	name: string;
 	icon?: IconDefinition | null;
 	description?: string;
@@ -58,16 +58,16 @@ export type TableMetadata = {
 	description: string;
 };
 
-/** Stored table schema in Y.Map format. */
-export type StoredTableSchema = {
+/** Stored table definition in Y.Map format. */
+export type StoredTableDefinition = {
 	name: string;
 	icon: IconDefinition | null;
 	description: string;
 	fields: Record<string, FieldSchema>;
 };
 
-/** Stored KV schema in Y.Map format. */
-export type StoredKvSchema = {
+/** Stored KV definition in Y.Map format. */
+export type StoredKvDefinition = {
 	name: string;
 	icon: IconDefinition | null;
 	description: string;
@@ -79,18 +79,18 @@ export type StoredKvSchema = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function createFieldsHelper(
-	tableSchemaMap: Y.Map<unknown>,
+	tableDefinitionMap: Y.Map<unknown>,
 	_tableName: string,
 ) {
 	const getFieldsMap = (): FieldsMap | null => {
-		return (tableSchemaMap.get('fields') as FieldsMap) ?? null;
+		return (tableDefinitionMap.get('fields') as FieldsMap) ?? null;
 	};
 
 	const getOrCreateFieldsMap = (): FieldsMap => {
-		let fieldsMap = tableSchemaMap.get('fields') as FieldsMap | undefined;
+		let fieldsMap = tableDefinitionMap.get('fields') as FieldsMap | undefined;
 		if (!fieldsMap) {
 			fieldsMap = new Y.Map() as FieldsMap;
-			tableSchemaMap.set('fields', fieldsMap);
+			tableDefinitionMap.set('fields', fieldsMap);
 		}
 		return fieldsMap;
 	};
@@ -101,7 +101,7 @@ function createFieldsHelper(
 		 *
 		 * @example
 		 * ```typescript
-		 * const titleSchema = schema.tables.posts.fields.get('title');
+		 * const titleSchema = definition.tables.posts.fields.get('title');
 		 * if (titleSchema) {
 		 *   console.log(titleSchema.type); // 'text'
 		 * }
@@ -116,7 +116,7 @@ function createFieldsHelper(
 		 *
 		 * @example
 		 * ```typescript
-		 * const fields = schema.tables.posts.fields.getAll();
+		 * const fields = definition.tables.posts.fields.getAll();
 		 * for (const [name, schema] of Object.entries(fields)) {
 		 *   console.log(name, schema.type);
 		 * }
@@ -134,10 +134,10 @@ function createFieldsHelper(
 		 * @example
 		 * ```typescript
 		 * // Add a new field
-		 * schema.tables.posts.fields.set('dueDate', date({ nullable: true }));
+		 * definition.tables.posts.fields.set('dueDate', date({ nullable: true }));
 		 *
 		 * // Update an existing field
-		 * schema.tables.posts.fields.set('title', text({ default: 'Untitled' }));
+		 * definition.tables.posts.fields.set('title', text({ default: 'Untitled' }));
 		 * ```
 		 */
 		set(fieldName: string, fieldSchema: FieldSchema): void {
@@ -152,7 +152,7 @@ function createFieldsHelper(
 		 *
 		 * @example
 		 * ```typescript
-		 * schema.tables.posts.fields.delete('dueDate');
+		 * definition.tables.posts.fields.delete('dueDate');
 		 * ```
 		 */
 		delete(fieldName: string): boolean {
@@ -185,10 +185,10 @@ function createFieldsHelper(
 		 *
 		 * @example
 		 * ```typescript
-		 * schema.tables.posts.fields.observe((changes) => {
+		 * definition.tables.posts.fields.observe((changes) => {
 		 *   for (const [fieldName, action] of changes) {
 		 *     if (action === 'add' || action === 'update') {
-		 *       const field = schema.tables('posts')?.fields.get(fieldName);
+		 *       const field = definition.tables('posts')?.fields.get(fieldName);
 		 *       console.log(`Field ${action}: ${fieldName}`, field);
 		 *     } else {
 		 *       console.log(`Field deleted: ${fieldName}`);
@@ -219,22 +219,22 @@ function createFieldsHelper(
 // Helper: Metadata sub-helper for a single table
 // ─────────────────────────────────────────────────────────────────────────────
 
-function createMetadataHelper(tableSchemaMap: Y.Map<unknown>) {
+function createMetadataHelper(tableDefinitionMap: Y.Map<unknown>) {
 	return {
 		/**
 		 * Get table metadata (name, icon, description).
 		 *
 		 * @example
 		 * ```typescript
-		 * const meta = schema.tables.posts.metadata.get();
+		 * const meta = definition.tables.posts.metadata.get();
 		 * console.log(meta.name); // 'Posts'
 		 * ```
 		 */
 		get(): TableMetadata {
 			return {
-				name: (tableSchemaMap.get('name') as string) ?? '',
-				icon: (tableSchemaMap.get('icon') as IconDefinition | null) ?? null,
-				description: (tableSchemaMap.get('description') as string) ?? '',
+				name: (tableDefinitionMap.get('name') as string) ?? '',
+				icon: (tableDefinitionMap.get('icon') as IconDefinition | null) ?? null,
+				description: (tableDefinitionMap.get('description') as string) ?? '',
 			};
 		},
 
@@ -243,19 +243,19 @@ function createMetadataHelper(tableSchemaMap: Y.Map<unknown>) {
 		 *
 		 * @example
 		 * ```typescript
-		 * schema.tables.posts.metadata.set({ name: 'Blog Posts' });
-		 * schema.tables.posts.metadata.set({ icon: { type: 'emoji', value: '📝' } });
+		 * definition.tables.posts.metadata.set({ name: 'Blog Posts' });
+		 * definition.tables.posts.metadata.set({ icon: { type: 'emoji', value: '📝' } });
 		 * ```
 		 */
 		set(metadata: Partial<TableMetadata>): void {
 			if (metadata.name !== undefined) {
-				tableSchemaMap.set('name', metadata.name);
+				tableDefinitionMap.set('name', metadata.name);
 			}
 			if (metadata.icon !== undefined) {
-				tableSchemaMap.set('icon', metadata.icon);
+				tableDefinitionMap.set('icon', metadata.icon);
 			}
 			if (metadata.description !== undefined) {
-				tableSchemaMap.set('description', metadata.description);
+				tableDefinitionMap.set('description', metadata.description);
 			}
 		},
 
@@ -266,32 +266,32 @@ function createMetadataHelper(tableSchemaMap: Y.Map<unknown>) {
 			const handler = () => {
 				callback(this.get());
 			};
-			tableSchemaMap.observe(handler);
-			return () => tableSchemaMap.unobserve(handler);
+			tableDefinitionMap.observe(handler);
+			return () => tableDefinitionMap.unobserve(handler);
 		},
 	};
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Helper: Per-table schema helper
+// Helper: Per-table definition helper
 // ─────────────────────────────────────────────────────────────────────────────
 
-function createTableSchemaHelper(
-	tableSchemaMap: Y.Map<unknown>,
+function createTableDefinitionHelper(
+	tableDefinitionMap: Y.Map<unknown>,
 	tableName: string,
 ) {
 	return {
 		/**
 		 * Get the full table definition.
 		 */
-		get(): StoredTableSchema {
+		get(): StoredTableDefinition {
 			return {
-				name: (tableSchemaMap.get('name') as string) ?? '',
-				icon: (tableSchemaMap.get('icon') as IconDefinition | null) ?? null,
-				description: (tableSchemaMap.get('description') as string) ?? '',
+				name: (tableDefinitionMap.get('name') as string) ?? '',
+				icon: (tableDefinitionMap.get('icon') as IconDefinition | null) ?? null,
+				description: (tableDefinitionMap.get('description') as string) ?? '',
 				fields:
 					((
-						tableSchemaMap.get('fields') as Y.Map<FieldSchema>
+						tableDefinitionMap.get('fields') as Y.Map<FieldSchema>
 					)?.toJSON() as Record<string, FieldSchema>) ?? {},
 			};
 		},
@@ -299,16 +299,18 @@ function createTableSchemaHelper(
 		/**
 		 * Field schema operations for this table.
 		 */
-		fields: createFieldsHelper(tableSchemaMap, tableName),
+		fields: createFieldsHelper(tableDefinitionMap, tableName),
 
 		/**
 		 * Table metadata operations (name, icon, description).
 		 */
-		metadata: createMetadataHelper(tableSchemaMap),
+		metadata: createMetadataHelper(tableDefinitionMap),
 	};
 }
 
-export type TableSchemaHelper = ReturnType<typeof createTableSchemaHelper>;
+export type TableDefinitionHelper = ReturnType<
+	typeof createTableDefinitionHelper
+>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper: Tables schema collection helper (callable)
@@ -317,53 +319,57 @@ export type TableSchemaHelper = ReturnType<typeof createTableSchemaHelper>;
 /**
  * Callable function type for accessing table schema helpers.
  *
- * The schema.tables object is callable: `schema.tables('posts')` returns a TableSchemaHelper.
- * It also has properties for utility methods: `schema.tables.get()`, `schema.tables.set()`, etc.
+ * The definition.tables object is callable: `definition.tables('posts')` returns a TableDefinitionHelper.
+ * It also has properties for utility methods: `definition.tables.get()`, `definition.tables.set()`, etc.
  */
-export type TablesSchemaHelper = {
+export type TablesDefinitionHelper = {
 	// Call signature
-	(tableName: string): TableSchemaHelper | undefined;
+	(tableName: string): TableDefinitionHelper | undefined;
 
 	// Properties
-	get(tableName: string): StoredTableSchema | undefined;
-	getAll(): Record<string, StoredTableSchema>;
-	set(tableName: string, definition: TableSchemaInput): void;
+	get(tableName: string): StoredTableDefinition | undefined;
+	getAll(): Record<string, StoredTableDefinition>;
+	set(tableName: string, definition: TableDefinitionInput): void;
 	delete(tableName: string): boolean;
 	has(tableName: string): boolean;
 	keys(): string[];
 	observe(callback: (changes: Map<string, ChangeAction>) => void): () => void;
 };
 
-function createTablesSchemaHelper(
+function createTablesDefinitionHelper(
 	definitionMap: DefinitionMap,
-): TablesSchemaHelper {
-	const getTablesMap = (): TablesSchemaMap | null => {
-		return (definitionMap.get('tables') as TablesSchemaMap) ?? null;
+): TablesDefinitionHelper {
+	const getTablesMap = (): TablesDefinitionMap | null => {
+		return (definitionMap.get('tables') as TablesDefinitionMap) ?? null;
 	};
 
-	const getOrCreateTablesMap = (): TablesSchemaMap => {
-		let tablesMap = definitionMap.get('tables') as TablesSchemaMap | undefined;
+	const getOrCreateTablesMap = (): TablesDefinitionMap => {
+		let tablesMap = definitionMap.get('tables') as
+			| TablesDefinitionMap
+			| undefined;
 		if (!tablesMap) {
-			tablesMap = new Y.Map() as TablesSchemaMap;
+			tablesMap = new Y.Map() as TablesDefinitionMap;
 			definitionMap.set('tables', tablesMap);
 		}
 		return tablesMap;
 	};
 
 	// Cache for per-table helpers (created lazily)
-	const tableHelperCache = new Map<string, TableSchemaHelper>();
+	const tableHelperCache = new Map<string, TableDefinitionHelper>();
 
-	const getTableHelper = (tableName: string): TableSchemaHelper | undefined => {
+	const getTableHelper = (
+		tableName: string,
+	): TableDefinitionHelper | undefined => {
 		const tablesMap = getTablesMap();
 		if (!tablesMap) return undefined;
 
-		const tableSchemaMap = tablesMap.get(tableName);
-		if (!tableSchemaMap) return undefined;
+		const tableDefinitionMap = tablesMap.get(tableName);
+		if (!tableDefinitionMap) return undefined;
 
 		// Check cache first
 		let helper = tableHelperCache.get(tableName);
 		if (!helper) {
-			helper = createTableSchemaHelper(tableSchemaMap, tableName);
+			helper = createTableDefinitionHelper(tableDefinitionMap, tableName);
 			tableHelperCache.set(tableName, helper);
 		}
 		return helper;
@@ -380,14 +386,16 @@ function createTablesSchemaHelper(
 	 *
 	 * @example
 	 * ```typescript
-	 * const postsHelper = schema.tables('posts');
+	 * const postsHelper = definition.tables('posts');
 	 * if (postsHelper) {
 	 *   postsHelper.fields.set('dueDate', date());
 	 *   postsHelper.metadata.set({ name: 'Blog Posts' });
 	 * }
 	 * ```
 	 */
-	const tablesAccessor = (tableName: string): TableSchemaHelper | undefined => {
+	const tablesAccessor = (
+		tableName: string,
+	): TableDefinitionHelper | undefined => {
 		return getTableHelper(tableName);
 	};
 
@@ -401,23 +409,23 @@ function createTablesSchemaHelper(
 		 *
 		 * @example
 		 * ```typescript
-		 * const postsSchema = schema.tables.get('posts');
+		 * const postsSchema = definition.tables.get('posts');
 		 * ```
 		 */
-		get(tableName: string): StoredTableSchema | undefined {
+		get(tableName: string): StoredTableDefinition | undefined {
 			const tablesMap = getTablesMap();
 			if (!tablesMap) return undefined;
 
-			const tableSchemaMap = tablesMap.get(tableName);
-			if (!tableSchemaMap) return undefined;
+			const tableDefinitionMap = tablesMap.get(tableName);
+			if (!tableDefinitionMap) return undefined;
 
 			return {
-				name: (tableSchemaMap.get('name') as string) ?? '',
-				icon: (tableSchemaMap.get('icon') as IconDefinition | null) ?? null,
-				description: (tableSchemaMap.get('description') as string) ?? '',
+				name: (tableDefinitionMap.get('name') as string) ?? '',
+				icon: (tableDefinitionMap.get('icon') as IconDefinition | null) ?? null,
+				description: (tableDefinitionMap.get('description') as string) ?? '',
 				fields:
 					((
-						tableSchemaMap.get('fields') as Y.Map<FieldSchema>
+						tableDefinitionMap.get('fields') as Y.Map<FieldSchema>
 					)?.toJSON() as Record<string, FieldSchema>) ?? {},
 			};
 		},
@@ -427,25 +435,26 @@ function createTablesSchemaHelper(
 		 *
 		 * @example
 		 * ```typescript
-		 * const allTables = schema.tables.getAll();
+		 * const allTables = definition.tables.getAll();
 		 * for (const [name, schema] of Object.entries(allTables)) {
 		 *   console.log(name, schema.fields);
 		 * }
 		 * ```
 		 */
-		getAll(): Record<string, StoredTableSchema> {
+		getAll(): Record<string, StoredTableDefinition> {
 			const tablesMap = getTablesMap();
 			if (!tablesMap) return {};
 
-			const result: Record<string, StoredTableSchema> = {};
-			for (const [tableName, tableSchemaMap] of tablesMap.entries()) {
+			const result: Record<string, StoredTableDefinition> = {};
+			for (const [tableName, tableDefinitionMap] of tablesMap.entries()) {
 				result[tableName] = {
-					name: (tableSchemaMap.get('name') as string) ?? '',
-					icon: (tableSchemaMap.get('icon') as IconDefinition | null) ?? null,
-					description: (tableSchemaMap.get('description') as string) ?? '',
+					name: (tableDefinitionMap.get('name') as string) ?? '',
+					icon:
+						(tableDefinitionMap.get('icon') as IconDefinition | null) ?? null,
+					description: (tableDefinitionMap.get('description') as string) ?? '',
 					fields:
 						((
-							tableSchemaMap.get('fields') as Y.Map<FieldSchema>
+							tableDefinitionMap.get('fields') as Y.Map<FieldSchema>
 						)?.toJSON() as Record<string, FieldSchema>) ?? {},
 				};
 			}
@@ -459,7 +468,7 @@ function createTablesSchemaHelper(
 		 *
 		 * @example
 		 * ```typescript
-		 * schema.tables.set('tasks', {
+		 * definition.tables.set('tasks', {
 		 *   name: 'Tasks',
 		 *   icon: { type: 'emoji', value: '✅' },
 		 *   description: 'Project tasks',
@@ -467,30 +476,30 @@ function createTablesSchemaHelper(
 		 * });
 		 *
 		 * // Minimal form (icon and description optional)
-		 * schema.tables.set('posts', {
+		 * definition.tables.set('posts', {
 		 *   name: 'Posts',
 		 *   fields: { id: id(), title: text() },
 		 * });
 		 * ```
 		 */
-		set(tableName: string, definition: TableSchemaInput): void {
+		set(tableName: string, definition: TableDefinitionInput): void {
 			const tablesMap = getOrCreateTablesMap();
 
-			let tableSchemaMap = tablesMap.get(tableName);
-			if (!tableSchemaMap) {
-				tableSchemaMap = new Y.Map();
-				tablesMap.set(tableName, tableSchemaMap);
+			let tableDefinitionMap = tablesMap.get(tableName);
+			if (!tableDefinitionMap) {
+				tableDefinitionMap = new Y.Map();
+				tablesMap.set(tableName, tableDefinitionMap);
 			}
 
-			tableSchemaMap.set('name', definition.name);
-			tableSchemaMap.set('icon', definition.icon ?? null);
-			tableSchemaMap.set('description', definition.description ?? '');
+			tableDefinitionMap.set('name', definition.name);
+			tableDefinitionMap.set('icon', definition.icon ?? null);
+			tableDefinitionMap.set('description', definition.description ?? '');
 
 			// Set fields
-			let fieldsMap = tableSchemaMap.get('fields') as FieldsMap | undefined;
+			let fieldsMap = tableDefinitionMap.get('fields') as FieldsMap | undefined;
 			if (!fieldsMap) {
 				fieldsMap = new Y.Map() as FieldsMap;
-				tableSchemaMap.set('fields', fieldsMap);
+				tableDefinitionMap.set('fields', fieldsMap);
 			}
 
 			for (const [fieldName, fieldSchema] of Object.entries(
@@ -540,10 +549,10 @@ function createTablesSchemaHelper(
 		 *
 		 * @example
 		 * ```typescript
-		 * schema.tables.observe((changes) => {
+		 * definition.tables.observe((changes) => {
 		 *   for (const [tableName, action] of changes) {
 		 *     if (action === 'add') {
-		 *       const table = schema.tables.get(tableName);
+		 *       const table = definition.tables.get(tableName);
 		 *       console.log(`Table added: ${tableName}`, table);
 		 *     } else {
 		 *       console.log(`Table deleted: ${tableName}`);
@@ -572,22 +581,22 @@ function createTablesSchemaHelper(
 		},
 	});
 
-	return result as TablesSchemaHelper;
+	return result as TablesDefinitionHelper;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper: KV schema collection helper
 // ─────────────────────────────────────────────────────────────────────────────
 
-function createKvSchemaHelper(definitionMap: DefinitionMap) {
-	const getKvMap = (): KvSchemaMap | null => {
-		return (definitionMap.get('kv') as KvSchemaMap) ?? null;
+function createKvDefinitionHelper(definitionMap: DefinitionMap) {
+	const getKvMap = (): KvDefinitionMap | null => {
+		return (definitionMap.get('kv') as KvDefinitionMap) ?? null;
 	};
 
-	const getOrCreateKvMap = (): KvSchemaMap => {
-		let kvMap = definitionMap.get('kv') as KvSchemaMap | undefined;
+	const getOrCreateKvMap = (): KvDefinitionMap => {
+		let kvMap = definitionMap.get('kv') as KvDefinitionMap | undefined;
 		if (!kvMap) {
-			kvMap = new Y.Map() as KvSchemaMap;
+			kvMap = new Y.Map() as KvDefinitionMap;
 			definitionMap.set('kv', kvMap);
 		}
 		return kvMap;
@@ -599,10 +608,10 @@ function createKvSchemaHelper(definitionMap: DefinitionMap) {
 		 *
 		 * @example
 		 * ```typescript
-		 * const themeSchema = schema.kv.get('theme');
+		 * const themeSchema = definition.kv.get('theme');
 		 * ```
 		 */
-		get(keyName: string): StoredKvSchema | undefined {
+		get(keyName: string): StoredKvDefinition | undefined {
 			const kvMap = getKvMap();
 			if (!kvMap) return undefined;
 
@@ -622,17 +631,17 @@ function createKvSchemaHelper(definitionMap: DefinitionMap) {
 		 *
 		 * @example
 		 * ```typescript
-		 * const allKv = schema.kv.getAll();
+		 * const allKv = definition.kv.getAll();
 		 * for (const [name, def] of Object.entries(allKv)) {
 		 *   console.log(name, def.field.type);
 		 * }
 		 * ```
 		 */
-		getAll(): Record<string, StoredKvSchema> {
+		getAll(): Record<string, StoredKvDefinition> {
 			const kvMap = getKvMap();
 			if (!kvMap) return {};
 
-			const result: Record<string, StoredKvSchema> = {};
+			const result: Record<string, StoredKvDefinition> = {};
 			for (const [keyName, kvEntryMap] of kvMap.entries()) {
 				result[keyName] = {
 					name: (kvEntryMap.get('name') as string) ?? '',
@@ -651,7 +660,7 @@ function createKvSchemaHelper(definitionMap: DefinitionMap) {
 		 *
 		 * @example
 		 * ```typescript
-		 * schema.kv.set('theme', {
+		 * definition.kv.set('theme', {
 		 *   name: 'Theme',
 		 *   icon: { type: 'emoji', value: '🎨' },
 		 *   description: 'Application color theme',
@@ -659,13 +668,13 @@ function createKvSchemaHelper(definitionMap: DefinitionMap) {
 		 * });
 		 *
 		 * // Minimal form (icon and description optional)
-		 * schema.kv.set('count', {
+		 * definition.kv.set('count', {
 		 *   name: 'Count',
 		 *   field: integer({ default: 0 }),
 		 * });
 		 * ```
 		 */
-		set(keyName: string, definition: KvSchemaInput): void {
+		set(keyName: string, definition: KvDefinitionInput): void {
 			const kvMap = getOrCreateKvMap();
 
 			let kvEntryMap = kvMap.get(keyName);
@@ -716,10 +725,10 @@ function createKvSchemaHelper(definitionMap: DefinitionMap) {
 		 *
 		 * @example
 		 * ```typescript
-		 * schema.kv.observe((changes) => {
+		 * definition.kv.observe((changes) => {
 		 *   for (const [kvName, action] of changes) {
 		 *     if (action === 'add') {
-		 *       const kv = schema.kv.get(kvName);
+		 *       const kv = definition.kv.get(kvName);
 		 *       console.log(`KV added: ${kvName}`, kv);
 		 *     } else {
 		 *       console.log(`KV deleted: ${kvName}`);
@@ -749,10 +758,10 @@ function createKvSchemaHelper(definitionMap: DefinitionMap) {
 	};
 }
 
-export type KvSchemaHelper = ReturnType<typeof createKvSchemaHelper>;
+export type KvDefinitionHelper = ReturnType<typeof createKvDefinitionHelper>;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Main: Schema helper
+// Main: Definition helper
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -821,8 +830,8 @@ export function createDefinition(definitionMap: DefinitionMap) {
 		 * ```
 		 */
 		merge(input: {
-			tables?: Record<string, TableSchemaInput>;
-			kv?: Record<string, KvSchemaInput>;
+			tables?: Record<string, TableDefinitionInput>;
+			kv?: Record<string, KvDefinitionInput>;
 		}): void {
 			if (input.tables) {
 				for (const [tableName, tableDefinition] of Object.entries(
@@ -861,12 +870,12 @@ export function createDefinition(definitionMap: DefinitionMap) {
 		/**
 		 * Table definition operations.
 		 */
-		tables: createTablesSchemaHelper(definitionMap),
+		tables: createTablesDefinitionHelper(definitionMap),
 
 		/**
 		 * KV definition operations.
 		 */
-		kv: createKvSchemaHelper(definitionMap),
+		kv: createKvDefinitionHelper(definitionMap),
 	};
 }
 

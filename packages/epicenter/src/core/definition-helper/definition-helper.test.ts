@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import * as Y from 'yjs';
 import { boolean, date, id, integer, select, text } from '../schema';
-import { createDefinition } from './schema-helper';
+import { createDefinition } from './definition-helper';
 
 describe('createDefinition', () => {
 	describe('definition.get()', () => {
