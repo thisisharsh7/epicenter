@@ -10,7 +10,7 @@ export {
 } from './provider-types';
 export {
 	createWorkspaceDoc,
-	type DefinitionMap,
+	type DefinitionYMap as DefinitionMap,
 	type IconDefinition,
 	type KvYMap,
 	WORKSPACE_DOC_MAPS,

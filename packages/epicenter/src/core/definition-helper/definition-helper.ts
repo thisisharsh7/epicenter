@@ -1,6 +1,6 @@
 import * as Y from 'yjs';
 import type {
-	DefinitionMap,
+	DefinitionYMap,
 	WorkspaceDefinitionMap,
 } from '../docs/workspace-doc';
 import type {
@@ -322,7 +322,7 @@ export type TablesCollection = {
 };
 
 function createTablesCollection(
-	definitionMap: DefinitionMap,
+	definitionMap: DefinitionYMap,
 ): TablesCollection {
 	const getTablesMap = (): TablesDefinitionMap | null => {
 		return (definitionMap.get('tables') as TablesDefinitionMap) ?? null;
@@ -644,7 +644,7 @@ export type KvCollection = {
 	observe(callback: (changes: Map<string, ChangeAction>) => void): () => void;
 };
 
-function createKvCollection(definitionMap: DefinitionMap): KvCollection {
+function createKvCollection(definitionMap: DefinitionYMap): KvCollection {
 	const getKvMap = (): KvDefinitionYMap | null => {
 		return (definitionMap.get('kv') as KvDefinitionYMap) ?? null;
 	};
@@ -839,7 +839,7 @@ function createKvCollection(definitionMap: DefinitionMap): KvCollection {
  *     └── .observe(cb)                → unsubscribe
  * ```
  */
-export function createDefinition(definitionMap: DefinitionMap) {
+export function createDefinition(definitionMap: DefinitionYMap) {
 	const tables = createTablesCollection(definitionMap);
 	const kv = createKvCollection(definitionMap);
 

@@ -82,19 +82,19 @@ export type WorkspaceDefinitionMap = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Y.Map storing cell values for a single row, keyed by column name. */
-export type RowMap = Y.Map<unknown>;
+export type RowYMap = Y.Map<unknown>;
 
 /** Y.Map storing rows for a single table, keyed by row ID. */
-export type TableMap = Y.Map<RowMap>;
+export type TableYMap = Y.Map<RowYMap>;
 
 /** Y.Map storing all tables, keyed by table name. */
-export type TablesMap = Y.Map<TableMap>;
+export type TablesYMap = Y.Map<TableYMap>;
 
 /** Y.Map storing KV values, keyed by key name. */
 export type KvYMap = Y.Map<KvValue>;
 
 /** Y.Map storing workspace definition (tables and kv definitions). */
-export type DefinitionMap = Y.Map<unknown>;
+export type DefinitionYMap = Y.Map<unknown>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Extension Types
@@ -288,7 +288,7 @@ export function createWorkspaceDoc<
 
 	const definitionMap = ydoc.getMap(
 		WORKSPACE_DOC_MAPS.DEFINITION,
-	) as DefinitionMap;
+	) as DefinitionYMap;
 
 	// Create table and kv helpers bound to the Y.Doc
 	// These just bind to Y.Maps - actual data comes from persistence
