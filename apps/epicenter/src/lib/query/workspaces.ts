@@ -193,7 +193,7 @@ export const workspaces = {
 			// Get the workspace definition (tables, kv) from workspace client
 			const client = createWorkspaceClient(head);
 			await client.whenSynced;
-			const definition = client.definition.get();
+			const definition = client.definition.toJSON();
 			await client.destroy();
 
 			// Clean up head doc (it's been modified, changes auto-persist)

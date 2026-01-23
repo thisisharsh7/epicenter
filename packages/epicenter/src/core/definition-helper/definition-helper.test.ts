@@ -56,7 +56,15 @@ describe('createDefinition', () => {
 	});
 
 	describe('definition.tables', () => {
-		test('set() creates a new table definition', () => {
+		test('tables() returns undefined for non-existent table', () => {
+			const ydoc = new Y.Doc();
+			const definitionMap = ydoc.getMap('definition');
+			const definition = createDefinition(definitionMap);
+
+			expect(definition.tables('nonexistent')).toBeUndefined();
+		});
+
+		test('tables() returns helper for existing table', () => {
 			const ydoc = new Y.Doc();
 			const definitionMap = ydoc.getMap('definition');
 			const definition = createDefinition(definitionMap);
@@ -71,22 +79,34 @@ describe('createDefinition', () => {
 				}),
 			);
 
-			expect(definition.tables.has('posts')).toBe(true);
-			const posts = definition.tables.get('posts');
-			expect(posts?.name).toBe('Posts');
-			expect(posts?.fields.id.type).toBe('id');
-			expect(posts?.fields.title.type).toBe('text');
+			const posts = definition.tables('posts');
+			expect(posts).toBeDefined();
+			expect(posts!.toJSON().name).toBe('Posts');
 		});
 
-		test('get() returns undefined for non-existent table', () => {
+		test('tables.set() creates a new table definition', () => {
 			const ydoc = new Y.Doc();
 			const definitionMap = ydoc.getMap('definition');
 			const definition = createDefinition(definitionMap);
 
-			expect(definition.tables.get('nonexistent')).toBeUndefined();
+			definition.tables.set(
+				'posts',
+				table({
+					name: 'Posts',
+					icon: '📝',
+					description: 'Blog posts',
+					fields: { id: id(), title: text() },
+				}),
+			);
+
+			expect(definition.tables('posts')).toBeDefined();
+			const posts = definition.tables('posts')!.toJSON();
+			expect(posts.name).toBe('Posts');
+			expect(posts.fields.id.type).toBe('id');
+			expect(posts.fields.title.type).toBe('text');
 		});
 
-		test('toJSON() returns all table definitions', () => {
+		test('tables.toJSON() returns all table definitions', () => {
 			const ydoc = new Y.Doc();
 			const definitionMap = ydoc.getMap('definition');
 			const definition = createDefinition(definitionMap);
@@ -106,7 +126,7 @@ describe('createDefinition', () => {
 			expect(all.users.name).toBe('Users');
 		});
 
-		test('delete() removes a table definition', () => {
+		test('tables().delete() removes a table definition', () => {
 			const ydoc = new Y.Doc();
 			const definitionMap = ydoc.getMap('definition');
 			const definition = createDefinition(definitionMap);
@@ -116,21 +136,13 @@ describe('createDefinition', () => {
 				table({ name: 'Posts', fields: { id: id(), title: text() } }),
 			);
 
-			expect(definition.tables.has('posts')).toBe(true);
-			const deleted = definition.tables.delete('posts');
+			expect(definition.tables('posts')).toBeDefined();
+			const deleted = definition.tables('posts')!.delete();
 			expect(deleted).toBe(true);
-			expect(definition.tables.has('posts')).toBe(false);
+			expect(definition.tables('posts')).toBeUndefined();
 		});
 
-		test('delete() returns false for non-existent table', () => {
-			const ydoc = new Y.Doc();
-			const definitionMap = ydoc.getMap('definition');
-			const definition = createDefinition(definitionMap);
-
-			expect(definition.tables.delete('nonexistent')).toBe(false);
-		});
-
-		test('keys() returns all table names', () => {
+		test('tables.keys() returns all table names', () => {
 			const ydoc = new Y.Doc();
 			const definitionMap = ydoc.getMap('definition');
 			const definition = createDefinition(definitionMap);
@@ -151,7 +163,20 @@ describe('createDefinition', () => {
 	});
 
 	describe('definition.tables().fields', () => {
-		test('set() adds a field to the table', () => {
+		test('fields() returns undefined for non-existent field', () => {
+			const ydoc = new Y.Doc();
+			const definitionMap = ydoc.getMap('definition');
+			const definition = createDefinition(definitionMap);
+
+			definition.tables.set(
+				'posts',
+				table({ name: 'Posts', fields: { id: id() } }),
+			);
+
+			expect(definition.tables('posts')!.fields('nonexistent')).toBeUndefined();
+		});
+
+		test('fields() returns helper for existing field', () => {
 			const ydoc = new Y.Doc();
 			const definitionMap = ydoc.getMap('definition');
 			const definition = createDefinition(definitionMap);
@@ -161,17 +186,31 @@ describe('createDefinition', () => {
 				table({ name: 'Posts', fields: { id: id(), title: text() } }),
 			);
 
-			const postsHelper = definition.tables('posts');
-			expect(postsHelper).toBeDefined();
-
-			postsHelper!.fields.set('dueDate', date({ nullable: true }));
-
-			expect(postsHelper!.fields.has('dueDate')).toBe(true);
-			const field = postsHelper!.fields.get('dueDate');
-			expect(field?.type).toBe('date');
+			const title = definition.tables('posts')!.fields('title');
+			expect(title).toBeDefined();
+			expect(title!.toJSON().type).toBe('text');
 		});
 
-		test('delete() removes a field from the table', () => {
+		test('fields.set() adds a field to the table', () => {
+			const ydoc = new Y.Doc();
+			const definitionMap = ydoc.getMap('definition');
+			const definition = createDefinition(definitionMap);
+
+			definition.tables.set(
+				'posts',
+				table({ name: 'Posts', fields: { id: id(), title: text() } }),
+			);
+
+			definition
+				.tables('posts')!
+				.fields.set('dueDate', date({ nullable: true }));
+
+			const field = definition.tables('posts')!.fields('dueDate');
+			expect(field).toBeDefined();
+			expect(field!.toJSON().type).toBe('date');
+		});
+
+		test('fields().delete() removes a field from the table', () => {
 			const ydoc = new Y.Doc();
 			const definitionMap = ydoc.getMap('definition');
 			const definition = createDefinition(definitionMap);
@@ -184,15 +223,14 @@ describe('createDefinition', () => {
 				}),
 			);
 
-			const postsHelper = definition.tables('posts');
-			expect(postsHelper!.fields.has('extra')).toBe(true);
+			expect(definition.tables('posts')!.fields('extra')).toBeDefined();
 
-			const deleted = postsHelper!.fields.delete('extra');
+			const deleted = definition.tables('posts')!.fields('extra')!.delete();
 			expect(deleted).toBe(true);
-			expect(postsHelper!.fields.has('extra')).toBe(false);
+			expect(definition.tables('posts')!.fields('extra')).toBeUndefined();
 		});
 
-		test('toJSON() returns all fields', () => {
+		test('fields.toJSON() returns all fields', () => {
 			const ydoc = new Y.Doc();
 			const definitionMap = ydoc.getMap('definition');
 			const definition = createDefinition(definitionMap);
@@ -212,7 +250,7 @@ describe('createDefinition', () => {
 			expect(fields.count.type).toBe('integer');
 		});
 
-		test('keys() returns all field names', () => {
+		test('fields.keys() returns all field names', () => {
 			const ydoc = new Y.Doc();
 			const definitionMap = ydoc.getMap('definition');
 			const definition = createDefinition(definitionMap);
@@ -229,7 +267,7 @@ describe('createDefinition', () => {
 	});
 
 	describe('definition.tables().metadata', () => {
-		test('get() returns table metadata', () => {
+		test('metadata.toJSON() returns table metadata', () => {
 			const ydoc = new Y.Doc();
 			const definitionMap = ydoc.getMap('definition');
 			const definition = createDefinition(definitionMap);
@@ -244,13 +282,13 @@ describe('createDefinition', () => {
 				}),
 			);
 
-			const meta = definition.tables('posts')!.metadata.get();
+			const meta = definition.tables('posts')!.metadata.toJSON();
 			expect(meta.name).toBe('Posts');
 			expect(meta.icon).toEqual({ type: 'emoji', value: '📝' });
 			expect(meta.description).toBe('Blog posts');
 		});
 
-		test('set() updates table metadata partially', () => {
+		test('metadata.set() updates table metadata partially', () => {
 			const ydoc = new Y.Doc();
 			const definitionMap = ydoc.getMap('definition');
 			const definition = createDefinition(definitionMap);
@@ -265,17 +303,42 @@ describe('createDefinition', () => {
 				}),
 			);
 
-			const postsHelper = definition.tables('posts')!;
-			postsHelper.metadata.set({ name: 'Blog Posts' });
+			definition.tables('posts')!.metadata.set({ name: 'Blog Posts' });
 
-			const meta = postsHelper.metadata.get();
+			const meta = definition.tables('posts')!.metadata.toJSON();
 			expect(meta.name).toBe('Blog Posts');
 			expect(meta.icon).toEqual({ type: 'emoji', value: '📝' }); // unchanged
 		});
 	});
 
 	describe('definition.kv', () => {
-		test('set() creates a new KV definition', () => {
+		test('kv() returns undefined for non-existent key', () => {
+			const ydoc = new Y.Doc();
+			const definitionMap = ydoc.getMap('definition');
+			const definition = createDefinition(definitionMap);
+
+			expect(definition.kv('nonexistent')).toBeUndefined();
+		});
+
+		test('kv() returns helper for existing key', () => {
+			const ydoc = new Y.Doc();
+			const definitionMap = ydoc.getMap('definition');
+			const definition = createDefinition(definitionMap);
+
+			definition.kv.set(
+				'theme',
+				setting({
+					name: 'Theme',
+					field: select({ options: ['light', 'dark'] }),
+				}),
+			);
+
+			const theme = definition.kv('theme');
+			expect(theme).toBeDefined();
+			expect(theme!.toJSON().name).toBe('Theme');
+		});
+
+		test('kv.set() creates a new KV definition', () => {
 			const ydoc = new Y.Doc();
 			const definitionMap = ydoc.getMap('definition');
 			const definition = createDefinition(definitionMap);
@@ -290,21 +353,13 @@ describe('createDefinition', () => {
 				}),
 			);
 
-			expect(definition.kv.has('theme')).toBe(true);
-			const theme = definition.kv.get('theme');
-			expect(theme?.name).toBe('Theme');
-			expect(theme?.field.type).toBe('select');
+			expect(definition.kv('theme')).toBeDefined();
+			const theme = definition.kv('theme')!.toJSON();
+			expect(theme.name).toBe('Theme');
+			expect(theme.field.type).toBe('select');
 		});
 
-		test('get() returns undefined for non-existent key', () => {
-			const ydoc = new Y.Doc();
-			const definitionMap = ydoc.getMap('definition');
-			const definition = createDefinition(definitionMap);
-
-			expect(definition.kv.get('nonexistent')).toBeUndefined();
-		});
-
-		test('toJSON() returns all KV definitions', () => {
+		test('kv.toJSON() returns all KV definitions', () => {
 			const ydoc = new Y.Doc();
 			const definitionMap = ydoc.getMap('definition');
 			const definition = createDefinition(definitionMap);
@@ -327,7 +382,7 @@ describe('createDefinition', () => {
 			expect(all.count.field.type).toBe('integer');
 		});
 
-		test('delete() removes a KV definition', () => {
+		test('kv().delete() removes a KV definition', () => {
 			const ydoc = new Y.Doc();
 			const definitionMap = ydoc.getMap('definition');
 			const definition = createDefinition(definitionMap);
@@ -340,10 +395,10 @@ describe('createDefinition', () => {
 				}),
 			);
 
-			expect(definition.kv.has('theme')).toBe(true);
-			const deleted = definition.kv.delete('theme');
+			expect(definition.kv('theme')).toBeDefined();
+			const deleted = definition.kv('theme')!.delete();
 			expect(deleted).toBe(true);
-			expect(definition.kv.has('theme')).toBe(false);
+			expect(definition.kv('theme')).toBeUndefined();
 		});
 	});
 
@@ -366,9 +421,9 @@ describe('createDefinition', () => {
 				},
 			});
 
-			expect(definition.tables.has('posts')).toBe(true);
-			expect(definition.tables.has('users')).toBe(true);
-			expect(definition.kv.has('theme')).toBe(true);
+			expect(definition.tables('posts')).toBeDefined();
+			expect(definition.tables('users')).toBeDefined();
+			expect(definition.kv('theme')).toBeDefined();
 		});
 	});
 
@@ -432,6 +487,48 @@ describe('createDefinition', () => {
 			expect(allChanges.some((m) => m.get('title') === 'add')).toBe(true);
 
 			unsub();
+		});
+	});
+
+	describe('existence checks (no .has() needed)', () => {
+		test('check table exists by calling tables()', () => {
+			const ydoc = new Y.Doc();
+			const definitionMap = ydoc.getMap('definition');
+			const definition = createDefinition(definitionMap);
+
+			// Doesn't exist
+			expect(definition.tables('posts')).toBeUndefined();
+			expect(!!definition.tables('posts')).toBe(false);
+
+			// Create it
+			definition.tables.set(
+				'posts',
+				table({ name: 'Posts', fields: { id: id() } }),
+			);
+
+			// Now exists
+			expect(definition.tables('posts')).toBeDefined();
+			expect(!!definition.tables('posts')).toBe(true);
+		});
+
+		test('check field exists by calling fields()', () => {
+			const ydoc = new Y.Doc();
+			const definitionMap = ydoc.getMap('definition');
+			const definition = createDefinition(definitionMap);
+
+			definition.tables.set(
+				'posts',
+				table({ name: 'Posts', fields: { id: id() } }),
+			);
+
+			// Doesn't exist
+			expect(definition.tables('posts')!.fields('title')).toBeUndefined();
+
+			// Create it
+			definition.tables('posts')!.fields.set('title', text());
+
+			// Now exists
+			expect(definition.tables('posts')!.fields('title')).toBeDefined();
 		});
 	});
 });
