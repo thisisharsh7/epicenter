@@ -51,7 +51,6 @@ import filenamify from 'filenamify';
 import { Ok, type Result } from 'wellcrafted/result';
 import type { FieldSchemaMap, Row } from '../../core/schema';
 import { tableSchemaToArktype } from '../../core/schema';
-import type { TableHelper } from '../../core/tables/table-helper';
 import { MarkdownExtensionErr, type MarkdownExtensionError } from './markdown';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -80,7 +79,7 @@ export type MarkdownSerializer<
 	 */
 	serialize: (params: {
 		row: Row<TFieldSchemaMap>;
-		table: TableHelper<TFieldSchemaMap>;
+		fields: TFieldSchemaMap;
 	}) => {
 		frontmatter: Record<string, unknown>;
 		body: string;
@@ -108,7 +107,7 @@ export type MarkdownSerializer<
 			body: string;
 			filename: string;
 			parsed: TParsed;
-			table: TableHelper<TFieldSchemaMap>;
+			fields: TFieldSchemaMap;
 		}) => Result<Row<TFieldSchemaMap>, MarkdownExtensionError>;
 	};
 };
@@ -169,7 +168,7 @@ type SerializerBuilderWithParser<
 	serialize(
 		serializeFn: (params: {
 			row: Row<TFieldSchemaMap>;
-			table: TableHelper<TFieldSchemaMap>;
+			fields: TFieldSchemaMap;
 		}) => {
 			frontmatter: Record<string, unknown>;
 			body: string;
@@ -201,7 +200,7 @@ type SerializerBuilderWithSerialize<
 			body: string;
 			filename: TFilename;
 			parsed: TParsed;
-			table: TableHelper<TFieldSchemaMap>;
+			fields: TFieldSchemaMap;
 		}) => Result<Row<TFieldSchemaMap>, MarkdownExtensionError>,
 	): MarkdownSerializer<TFieldSchemaMap, TParsed>;
 };
@@ -330,14 +329,14 @@ export function defaultSerializer(): MarkdownSerializer<FieldSchemaMap> {
 			body: '',
 			filename: `${id}.md`,
 		}))
-		.deserialize(({ frontmatter, parsed, table }) => {
+		.deserialize(({ frontmatter, parsed, fields }) => {
 			const { id } = parsed;
 
 			// Combine id with frontmatter
 			const data = { id, ...frontmatter };
 
 			// Validate using direct arktype pattern
-			const validator = tableSchemaToArktype(table.fields);
+			const validator = tableSchemaToArktype(fields);
 			const result = validator(data);
 
 			if (result instanceof type.errors) {
@@ -417,12 +416,12 @@ export function bodyFieldSerializer(
 				filename: `${filename}.md`,
 			};
 		})
-		.deserialize(({ frontmatter, body, parsed, table }) => {
+		.deserialize(({ frontmatter, body, parsed, fields }) => {
 			const { id: rowId } = parsed;
 
 			// Create validator that omits the body field and filename field
 			// Nullable fields that were stripped during serialize are restored via .default(null)
-			const FrontMatter = tableSchemaToArktype(table.fields)
+			const FrontMatter = tableSchemaToArktype(fields)
 				// eslint-disable-next-line @typescript-eslint/no-explicit-any
 				.omit(filenameField as any, bodyField as any);
 
@@ -561,14 +560,14 @@ export function titleFilenameSerializer(
 				filename: `${sanitizedTitle}-${id}.md`,
 			};
 		})
-		.deserialize(({ frontmatter, parsed, table }) => {
+		.deserialize(({ frontmatter, parsed, fields }) => {
 			const { id } = parsed;
 
 			// Combine id with frontmatter
 			const data = { id, ...frontmatter };
 
 			// Validate using direct arktype pattern
-			const validator = tableSchemaToArktype(table.fields);
+			const validator = tableSchemaToArktype(fields);
 			const result = validator(data);
 
 			if (result instanceof type.errors) {
@@ -722,14 +721,14 @@ export function domainTitleFilenameSerializer(
 				filename: `${sanitizedDomain} - ${sanitizedTitle}-${id}.md`,
 			};
 		})
-		.deserialize(({ frontmatter, parsed, table }) => {
+		.deserialize(({ frontmatter, parsed, fields }) => {
 			const { id } = parsed;
 
 			// Combine id with frontmatter
 			const data = { id, ...frontmatter };
 
 			// Validate using direct arktype pattern
-			const validator = tableSchemaToArktype(table.fields);
+			const validator = tableSchemaToArktype(fields);
 			const result = validator(data);
 
 			if (result instanceof type.errors) {

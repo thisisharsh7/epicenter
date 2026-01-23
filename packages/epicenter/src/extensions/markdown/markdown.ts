@@ -389,6 +389,7 @@ export const markdown = async <
 
 		for (const [tableName, tableConfig] of Object.entries(resolvedConfigs)) {
 			const table = tables(tableName);
+			const fields = tables.definitions[tableName]!.fields;
 			// Initialize tracking map for this table
 			if (!tracking[tableName]) {
 				tracking[tableName] = {};
@@ -402,7 +403,7 @@ export const markdown = async <
 			) {
 				const { frontmatter, body, filename } = tableConfig.serialize({
 					row,
-					table,
+					fields,
 				});
 
 				// Construct file path
@@ -538,6 +539,7 @@ export const markdown = async <
 
 		for (const [tableName, tableConfig] of Object.entries(resolvedConfigs)) {
 			const table = tables(tableName);
+			const fields = tables.definitions[tableName]!.fields;
 			// Ensure table directory exists
 			const { error: mkdirError } = trySync({
 				try: () => {
@@ -677,7 +679,7 @@ export const markdown = async <
 							body,
 							filename,
 							parsed,
-							table,
+							fields,
 						});
 
 					if (deserializeError) {
@@ -856,7 +858,7 @@ export const markdown = async <
 		diagnostics.clear();
 
 		for (const [tableName, tableConfig] of Object.entries(resolvedConfigs)) {
-			const table = tables(tableName);
+			const fields = tables.definitions[tableName]!.fields;
 			const filePaths = await listMarkdownFiles(tableConfig.directory);
 
 			await Promise.all(
@@ -913,7 +915,7 @@ export const markdown = async <
 						body,
 						filename,
 						parsed,
-						table,
+						fields,
 					});
 
 					if (deserializeError) {
@@ -1007,6 +1009,7 @@ export const markdown = async <
 	 */
 	for (const [tableName, tableConfig] of Object.entries(resolvedConfigs)) {
 		const table = tables(tableName);
+		const fields = tables.definitions[tableName]!.fields;
 		// Initialize tracking map for this table
 		if (!tracking[tableName]) {
 			tracking[tableName] = {};
@@ -1019,7 +1022,7 @@ export const markdown = async <
 		for (const row of rows) {
 			const { filename } = tableConfig.serialize({
 				row,
-				table,
+				fields,
 			});
 
 			// Store rowId → filename mapping
@@ -1123,6 +1126,7 @@ export const markdown = async <
 						Object.entries(resolvedConfigs).map(
 							async ([tableName, tableConfig]) => {
 								const table = tables(tableName);
+								const fields = tables.definitions[tableName]!.fields;
 								const tableTracking = tracking[tableName];
 								const filePaths = await listMarkdownFiles(
 									tableConfig.directory,
@@ -1171,7 +1175,7 @@ export const markdown = async <
 										const { frontmatter, body, filename } =
 											tableConfig.serialize({
 												row,
-												table,
+												fields,
 											});
 
 										const filePath = path.join(
@@ -1299,6 +1303,7 @@ export const markdown = async <
 						Object.entries(resolvedConfigs).map(
 							async ([tableName, tableConfig]): Promise<TableSyncData> => {
 								const table = tables(tableName);
+								const fields = tables.definitions[tableName]!.fields;
 								const yjsIds = new Set(
 									table
 										.getAll()
@@ -1389,7 +1394,7 @@ export const markdown = async <
 												body,
 												filename,
 												parsed,
-												table,
+												fields,
 											});
 
 										if (deserializeError) {
