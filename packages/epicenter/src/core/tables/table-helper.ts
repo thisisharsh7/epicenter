@@ -13,7 +13,7 @@ import { fieldsToTypebox } from '../schema';
  *
  * @example
  * ```typescript
- * const result = tables.posts.get({ id: '123' });
+ * const result = tables.get('posts').get({ id: '123' });
  * if (result.status === 'invalid') {
  *   for (const error of result.errors) {
  *     console.log(`${error.path}: ${error.message}`);
@@ -464,7 +464,7 @@ function createTableHelper<TFieldMap extends FieldMap>({
 		 *
 		 * This design ensures:
 		 * - Observers remain attached (no need to re-observe after clearing)
-		 * - `tables('posts')` always returns a valid helper
+		 * - `tables.get('posts')` always returns a valid helper
 		 * - No edge cases around table deletion/recreation during sync
 		 *
 		 * If you need to "reset" a table, call `clear()`. The table structure
@@ -658,7 +658,7 @@ function createTableHelper<TFieldMap extends FieldMap>({
 		 *
 		 * @example
 		 * ```typescript
-		 * type PostRow = typeof tables('posts').inferRow;
+		 * type PostRow = typeof tables.get('posts').inferRow;
 		 * ```
 		 */
 		inferRow: null as unknown as TRow,
@@ -907,7 +907,7 @@ export function createUntypedTableHelper({
 		 *
 		 * This design ensures:
 		 * - Observers remain attached (no need to re-observe after clearing)
-		 * - `tables('posts')` always returns a valid helper
+		 * - `tables.get('posts')` always returns a valid helper
 		 * - No edge cases around table deletion/recreation during sync
 		 *
 		 * If you need to "reset" a table, call `clear()`. The table structure
@@ -1039,7 +1039,7 @@ export function createUntypedTableHelper({
 		 *
 		 * @example
 		 * ```typescript
-		 * type PostRow = typeof tables('posts').inferRow;
+		 * type PostRow = typeof tables.get('posts').inferRow;
 		 * ```
 		 */
 		inferRow: null as unknown as TRow,

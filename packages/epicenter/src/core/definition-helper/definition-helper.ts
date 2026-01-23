@@ -279,18 +279,15 @@ function createTableHelper(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Callable collection for table definitions.
+ * Collection for table definitions.
  *
- * Call with a table name to get a TableHelper for nested operations.
+ * Use `.get(tableName)` to get a TableHelper for nested operations.
  * Use collection methods for bulk operations or snapshots.
  *
  * @example
  * ```typescript
  * // Get a table helper (for nested access)
- * const posts = definition.tables('posts');
- *
- * // Get a table snapshot (without helper)
- * const postsDef = definition.tables.get('posts');
+ * const posts = definition.tables.get('posts');
  *
  * // Bulk operations
  * definition.tables.toJSON();           // all tables as JSON
@@ -302,9 +299,7 @@ function createTableHelper(
  */
 export type TablesCollection = {
 	/** Get a table helper for nested operations. */
-	(tableName: string): TableHelper | undefined;
-	/** Get a table definition snapshot. */
-	get(tableName: string): TableDefinition | undefined;
+	get(tableName: string): TableHelper | undefined;
 	/** Check if a table exists. */
 	has(tableName: string): boolean;
 	/** Get all tables as a plain object. */
@@ -341,42 +336,20 @@ function createTablesCollection(
 
 	const tableHelperCache = new Map<string, TableHelper>();
 
-	const getTableDefinition = (
-		tableName: string,
-	): TableDefinition | undefined => {
-		const tablesMap = getTablesMap();
-		if (!tablesMap) return undefined;
+	return {
+		get(tableName: string): TableHelper | undefined {
+			const tablesMap = getTablesMap();
+			if (!tablesMap) return undefined;
 
-		const tableDefinitionMap = tablesMap.get(tableName);
-		if (!tableDefinitionMap) return undefined;
+			const tableDefinitionMap = tablesMap.get(tableName);
+			if (!tableDefinitionMap) return undefined;
 
-		return {
-			name: (tableDefinitionMap.get('name') as string) ?? '',
-			icon: (tableDefinitionMap.get('icon') as Icon | null) ?? null,
-			description: (tableDefinitionMap.get('description') as string) ?? '',
-			fields:
-				(tableDefinitionMap.get('fields') as Y.Map<Field>)?.toJSON() ?? {},
-		} as TableDefinition;
-	};
-
-	const tablesAccessor = (tableName: string): TableHelper | undefined => {
-		const tablesMap = getTablesMap();
-		if (!tablesMap) return undefined;
-
-		const tableDefinitionMap = tablesMap.get(tableName);
-		if (!tableDefinitionMap) return undefined;
-
-		let helper = tableHelperCache.get(tableName);
-		if (!helper) {
-			helper = createTableHelper(tablesMap, tableDefinitionMap, tableName);
-			tableHelperCache.set(tableName, helper);
-		}
-		return helper;
-	};
-
-	return Object.assign(tablesAccessor, {
-		get(tableName: string) {
-			return getTableDefinition(tableName);
+			let helper = tableHelperCache.get(tableName);
+			if (!helper) {
+				helper = createTableHelper(tablesMap, tableDefinitionMap, tableName);
+				tableHelperCache.set(tableName, helper);
+			}
+			return helper;
 		},
 
 		has(tableName: string) {
@@ -479,7 +452,7 @@ function createTablesCollection(
 			tablesMap.observe(handler);
 			return () => tablesMap.unobserve(handler);
 		},
-	});
+	};
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -605,15 +578,12 @@ function createKvHelper(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Callable collection for KV definitions.
+ * Collection for KV definitions.
  *
  * @example
  * ```typescript
- * // Get a KV helper
- * const theme = definition.kv('theme');
- *
- * // Get a KV snapshot
- * const themeDef = definition.kv.get('theme');
+ * // Get a KV helper for nested operations
+ * const theme = definition.kv.get('theme');
  *
  * // Bulk operations
  * definition.kv.toJSON();
@@ -623,9 +593,7 @@ function createKvHelper(
  */
 export type KvCollection = {
 	/** Get a KV helper for nested operations. */
-	(keyName: string): KvHelper | undefined;
-	/** Get a KV definition snapshot. */
-	get(keyName: string): KvDefinition | undefined;
+	get(keyName: string): KvHelper | undefined;
 	/** Check if a KV entry exists. */
 	has(keyName: string): boolean;
 	/** Get all KV definitions as a plain object. */
@@ -658,39 +626,20 @@ function createKvCollection(definitionMap: DefinitionYMap): KvCollection {
 
 	const kvHelperCache = new Map<string, KvHelper>();
 
-	const getKvDefinition = (keyName: string): KvDefinition | undefined => {
-		const kvMap = getKvMap();
-		if (!kvMap) return undefined;
+	return {
+		get(keyName: string): KvHelper | undefined {
+			const kvMap = getKvMap();
+			if (!kvMap) return undefined;
 
-		const kvEntryMap = kvMap.get(keyName);
-		if (!kvEntryMap) return undefined;
+			const kvEntryMap = kvMap.get(keyName);
+			if (!kvEntryMap) return undefined;
 
-		return {
-			name: (kvEntryMap.get('name') as string) ?? '',
-			icon: (kvEntryMap.get('icon') as Icon | null) ?? null,
-			description: (kvEntryMap.get('description') as string) ?? '',
-			field: kvEntryMap.get('field'),
-		} as KvDefinition;
-	};
-
-	const kvAccessor = (keyName: string): KvHelper | undefined => {
-		const kvMap = getKvMap();
-		if (!kvMap) return undefined;
-
-		const kvEntryMap = kvMap.get(keyName);
-		if (!kvEntryMap) return undefined;
-
-		let helper = kvHelperCache.get(keyName);
-		if (!helper) {
-			helper = createKvHelper(kvMap, kvEntryMap, keyName);
-			kvHelperCache.set(keyName, helper);
-		}
-		return helper;
-	};
-
-	return Object.assign(kvAccessor, {
-		get(keyName: string) {
-			return getKvDefinition(keyName);
+			let helper = kvHelperCache.get(keyName);
+			if (!helper) {
+				helper = createKvHelper(kvMap, kvEntryMap, keyName);
+				kvHelperCache.set(keyName, helper);
+			}
+			return helper;
 		},
 
 		has(keyName: string) {
@@ -780,7 +729,7 @@ function createKvCollection(definitionMap: DefinitionYMap): KvCollection {
 			kvMap.observe(handler);
 			return () => kvMap.unobserve(handler);
 		},
-	});
+	};
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

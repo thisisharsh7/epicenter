@@ -34,7 +34,7 @@ describe('Cell-Level CRDT Merging', () => {
 			}),
 		});
 
-		tables1('posts').upsert({
+		tables1.get('posts').upsert({
 			id: 'post-1',
 			title: 'Original',
 			views: 0,
@@ -43,8 +43,8 @@ describe('Cell-Level CRDT Merging', () => {
 
 		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
 
-		const row1Before = tables1('posts').get('post-1');
-		const row2Before = tables2('posts').get('post-1');
+		const row1Before = tables1.get('posts').get('post-1');
+		const row2Before = tables2.get('posts').get('post-1');
 		expect(row1Before.status).toBe('valid');
 		expect(row2Before.status).toBe('valid');
 		if (row1Before.status === 'valid' && row2Before.status === 'valid') {
@@ -52,11 +52,11 @@ describe('Cell-Level CRDT Merging', () => {
 			expect(row2Before.row.title).toBe('Original');
 		}
 
-		tables1('posts').update({ id: 'post-1', title: 'Updated by User 1' });
-		tables2('posts').update({ id: 'post-1', views: 100 });
+		tables1.get('posts').update({ id: 'post-1', title: 'Updated by User 1' });
+		tables2.get('posts').update({ id: 'post-1', views: 100 });
 
-		const row1Mid = tables1('posts').get('post-1');
-		const row2Mid = tables2('posts').get('post-1');
+		const row1Mid = tables1.get('posts').get('post-1');
+		const row2Mid = tables2.get('posts').get('post-1');
 		expect(row1Mid.status).toBe('valid');
 		expect(row2Mid.status).toBe('valid');
 		if (row1Mid.status === 'valid') {
@@ -71,8 +71,8 @@ describe('Cell-Level CRDT Merging', () => {
 		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
 		Y.applyUpdate(doc1, Y.encodeStateAsUpdate(doc2));
 
-		const row1After = tables1('posts').get('post-1');
-		const row2After = tables2('posts').get('post-1');
+		const row1After = tables1.get('posts').get('post-1');
+		const row2After = tables2.get('posts').get('post-1');
 
 		expect(row1After.status).toBe('valid');
 		expect(row2After.status).toBe('valid');
@@ -98,17 +98,17 @@ describe('Cell-Level CRDT Merging', () => {
 			posts: table({ name: '', fields: { id: id(), title: text() } }),
 		});
 
-		tables1('posts').upsert({ id: 'post-1', title: 'Original' });
+		tables1.get('posts').upsert({ id: 'post-1', title: 'Original' });
 		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
 
-		tables1('posts').update({ id: 'post-1', title: 'User 1 Title' });
-		tables2('posts').update({ id: 'post-1', title: 'User 2 Title' });
+		tables1.get('posts').update({ id: 'post-1', title: 'User 1 Title' });
+		tables2.get('posts').update({ id: 'post-1', title: 'User 2 Title' });
 
 		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
 		Y.applyUpdate(doc1, Y.encodeStateAsUpdate(doc2));
 
-		const row1 = tables1('posts').get('post-1');
-		const row2 = tables2('posts').get('post-1');
+		const row1 = tables1.get('posts').get('post-1');
+		const row2 = tables2.get('posts').get('post-1');
 
 		expect(row1.status).toBe('valid');
 		expect(row2.status).toBe('valid');
@@ -142,17 +142,21 @@ describe('Cell-Level CRDT Merging', () => {
 				posts: table({ name: '', fields: { id: id(), title: text() } }),
 			});
 
-			tables1('posts').upsert({ id: 'post-1', title: 'Original' });
+			tables1.get('posts').upsert({ id: 'post-1', title: 'Original' });
 			Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
 
-			tables1('posts').update({ id: 'post-1', title: `Iteration ${i} User 1` });
-			tables2('posts').update({ id: 'post-1', title: `Iteration ${i} User 2` });
+			tables1
+				.get('posts')
+				.update({ id: 'post-1', title: `Iteration ${i} User 1` });
+			tables2
+				.get('posts')
+				.update({ id: 'post-1', title: `Iteration ${i} User 2` });
 
 			Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
 			Y.applyUpdate(doc1, Y.encodeStateAsUpdate(doc2));
 
-			const row1 = tables1('posts').get('post-1');
-			const row2 = tables2('posts').get('post-1');
+			const row1 = tables1.get('posts').get('post-1');
+			const row2 = tables2.get('posts').get('post-1');
 
 			expect(row1.status).toBe('valid');
 			expect(row2.status).toBe('valid');
@@ -180,16 +184,16 @@ describe('Cell-Level CRDT Merging', () => {
 			}),
 		});
 
-		tables('posts').upsert({
+		tables.get('posts').upsert({
 			id: 'post-1',
 			title: 'Original Title',
 			views: 50,
 			published: true,
 		});
 
-		tables('posts').update({ id: 'post-1', title: 'New Title' });
+		tables.get('posts').update({ id: 'post-1', title: 'New Title' });
 
-		const result = tables('posts').get('post-1');
+		const result = tables.get('posts').get('post-1');
 		expect(result.status).toBe('valid');
 		if (result.status === 'valid') {
 			expect(result.row.title).toBe('New Title');
@@ -223,7 +227,7 @@ describe('Cell-Level CRDT Merging', () => {
 		const tables3 = createTables(doc3, tableDefinitions);
 
 		// Initial state
-		tables1('posts').upsert({
+		tables1.get('posts').upsert({
 			id: 'post-1',
 			title: 'Original',
 			views: 0,
@@ -235,9 +239,9 @@ describe('Cell-Level CRDT Merging', () => {
 		Y.applyUpdate(doc3, Y.encodeStateAsUpdate(doc1));
 
 		// Each doc edits a different column concurrently
-		tables1('posts').update({ id: 'post-1', title: 'Title by User 1' });
-		tables2('posts').update({ id: 'post-1', views: 100 });
-		tables3('posts').update({ id: 'post-1', published: true });
+		tables1.get('posts').update({ id: 'post-1', title: 'Title by User 1' });
+		tables2.get('posts').update({ id: 'post-1', views: 100 });
+		tables3.get('posts').update({ id: 'post-1', published: true });
 
 		// Full sync: all docs exchange updates
 		const update1 = Y.encodeStateAsUpdate(doc1);
@@ -253,7 +257,7 @@ describe('Cell-Level CRDT Merging', () => {
 
 		// All three docs should have all three changes
 		for (const tables of [tables1, tables2, tables3]) {
-			const result = tables('posts').get('post-1');
+			const result = tables.get('posts').get('post-1');
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.row.title).toBe('Title by User 1');
@@ -285,7 +289,7 @@ describe('Cell-Level CRDT Merging', () => {
 		const tables2 = createTables(doc2, tableDefinitions);
 
 		// Initial state
-		tables1('posts').upsert({
+		tables1.get('posts').upsert({
 			id: 'post-1',
 			title: 'Original',
 			views: 0,
@@ -294,16 +298,16 @@ describe('Cell-Level CRDT Merging', () => {
 		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
 
 		// A edits title
-		tables1('posts').update({ id: 'post-1', title: 'Edit 1 by A' });
+		tables1.get('posts').update({ id: 'post-1', title: 'Edit 1 by A' });
 
 		// Partial sync: A -> B only
 		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
 
 		// B edits views (after receiving A's title change)
-		tables2('posts').update({ id: 'post-1', views: 50 });
+		tables2.get('posts').update({ id: 'post-1', views: 50 });
 
 		// A edits title again (hasn't received B's views yet)
-		tables1('posts').update({ id: 'post-1', title: 'Edit 2 by A' });
+		tables1.get('posts').update({ id: 'post-1', title: 'Edit 2 by A' });
 
 		// Full sync
 		Y.applyUpdate(doc1, Y.encodeStateAsUpdate(doc2));
@@ -311,7 +315,7 @@ describe('Cell-Level CRDT Merging', () => {
 
 		// Both should have A's second title edit and B's views
 		for (const tables of [tables1, tables2]) {
-			const result = tables('posts').get('post-1');
+			const result = tables.get('posts').get('post-1');
 			expect(result.status).toBe('valid');
 			if (result.status === 'valid') {
 				expect(result.row.title).toBe('Edit 2 by A');
@@ -340,21 +344,21 @@ describe('Cell-Level CRDT Merging', () => {
 		const tables1 = createTables(doc1, tableDefinitions);
 		const tables2 = createTables(doc2, tableDefinitions);
 
-		tables1('posts').upsert({
+		tables1.get('posts').upsert({
 			id: 'post-1',
 			title: 'Original',
 			views: 0,
 		});
 		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
 
-		tables1('posts').delete('post-1');
-		tables2('posts').update({ id: 'post-1', title: 'Updated Title' });
+		tables1.get('posts').delete('post-1');
+		tables2.get('posts').update({ id: 'post-1', title: 'Updated Title' });
 
 		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
 		Y.applyUpdate(doc1, Y.encodeStateAsUpdate(doc2));
 
-		const result1 = tables1('posts').get('post-1');
-		const result2 = tables2('posts').get('post-1');
+		const result1 = tables1.get('posts').get('post-1');
+		const result2 = tables2.get('posts').get('post-1');
 
 		// With Y.Map delete semantics, delete wins over concurrent updates
 		// because the row's Y.Array is removed from the table Y.Map.
@@ -388,14 +392,14 @@ describe('Cell-Level CRDT Merging', () => {
 		// No initial sync - docs start empty
 
 		// Doc1 upserts a new row
-		tables1('posts').upsert({
+		tables1.get('posts').upsert({
 			id: 'post-1',
 			title: 'Created by Doc1',
 			views: 10,
 		});
 
 		// Doc2 tries to update a row with same ID (doesn't exist locally)
-		const updateResult = tables2('posts').update({
+		const updateResult = tables2.get('posts').update({
 			id: 'post-1',
 			title: 'Updated by Doc2',
 		});
@@ -404,12 +408,12 @@ describe('Cell-Level CRDT Merging', () => {
 		expect(updateResult.status).toBe('not_found_locally');
 
 		// Doc2 row should still not exist
-		expect(tables2('posts').get('post-1').status).toBe('not_found');
+		expect(tables2.get('posts').get('post-1').status).toBe('not_found');
 
 		// After sync, doc2 should see doc1's row
 		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
 
-		const result = tables2('posts').get('post-1');
+		const result = tables2.get('posts').get('post-1');
 		expect(result.status).toBe('valid');
 		if (result.status === 'valid') {
 			expect(result.row.title).toBe('Created by Doc1');
@@ -438,13 +442,13 @@ describe('Cell-Level CRDT Merging', () => {
 		const tables2 = createTables(doc2, tableDefinitions);
 
 		// Create two rows
-		tables1('posts').upsert({ id: 'post-1', title: 'Post 1', views: 0 });
-		tables1('posts').upsert({ id: 'post-2', title: 'Post 2', views: 0 });
+		tables1.get('posts').upsert({ id: 'post-1', title: 'Post 1', views: 0 });
+		tables1.get('posts').upsert({ id: 'post-2', title: 'Post 2', views: 0 });
 		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
 
 		// Doc1 edits post-1, doc2 edits post-2
-		tables1('posts').update({ id: 'post-1', title: 'Post 1 Edited' });
-		tables2('posts').update({ id: 'post-2', title: 'Post 2 Edited' });
+		tables1.get('posts').update({ id: 'post-1', title: 'Post 1 Edited' });
+		tables2.get('posts').update({ id: 'post-2', title: 'Post 2 Edited' });
 
 		// Sync
 		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
@@ -452,8 +456,8 @@ describe('Cell-Level CRDT Merging', () => {
 
 		// Both rows should have their respective edits
 		for (const tables of [tables1, tables2]) {
-			const result1 = tables('posts').get('post-1');
-			const result2 = tables('posts').get('post-2');
+			const result1 = tables.get('posts').get('post-1');
+			const result2 = tables.get('posts').get('post-2');
 
 			expect(result1.status).toBe('valid');
 			expect(result2.status).toBe('valid');
@@ -480,9 +484,9 @@ describe('Cell-Level CRDT Merging', () => {
 
 		// Set up observer on doc2 BEFORE any sync
 		const addedIds: string[] = [];
-		tables2('posts').observe((changedIds) => {
+		tables2.get('posts').observe((changedIds) => {
 			for (const id of changedIds) {
-				const result = tables2('posts').get(id);
+				const result = tables2.get('posts').get(id);
 				if (result.status !== 'not_found') {
 					// Could be add or update - we only care about new rows here
 					// Since we're tracking before any sync, these are all adds
@@ -492,7 +496,7 @@ describe('Cell-Level CRDT Merging', () => {
 		});
 
 		// Create row on doc1
-		tables1('posts').upsert({ id: 'post-1', title: 'Created on Doc1' });
+		tables1.get('posts').upsert({ id: 'post-1', title: 'Created on Doc1' });
 
 		// Sync to doc2 - observer should fire 'add'
 		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
@@ -517,14 +521,14 @@ describe('Cell-Level CRDT Merging', () => {
 		const tables2 = createTables(doc2, tableDefinitions);
 
 		// Create row and sync
-		tables1('posts').upsert({ id: 'post-1', title: 'Original', views: 0 });
+		tables1.get('posts').upsert({ id: 'post-1', title: 'Original', views: 0 });
 		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
 
 		// Set up observer on doc2
 		const updatedIds: string[] = [];
-		tables2('posts').observe((changedIds) => {
+		tables2.get('posts').observe((changedIds) => {
 			for (const id of changedIds) {
-				const result = tables2('posts').get(id);
+				const result = tables2.get('posts').get(id);
 				if (result.status !== 'not_found') {
 					// Row exists, so it was added or updated
 					updatedIds.push(id);
@@ -533,7 +537,7 @@ describe('Cell-Level CRDT Merging', () => {
 		});
 
 		// Update on doc1
-		tables1('posts').update({ id: 'post-1', title: 'Modified' });
+		tables1.get('posts').update({ id: 'post-1', title: 'Modified' });
 
 		// Sync to doc2 - observer should fire 'update'
 		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
@@ -555,14 +559,14 @@ describe('Cell-Level CRDT Merging', () => {
 		const tables2 = createTables(doc2, tableDefinitions);
 
 		// Create row and sync
-		tables1('posts').upsert({ id: 'post-1', title: 'To be deleted' });
+		tables1.get('posts').upsert({ id: 'post-1', title: 'To be deleted' });
 		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
 
 		// Set up observer on doc2
 		const deletedIds: string[] = [];
-		tables2('posts').observe((changedIds) => {
+		tables2.get('posts').observe((changedIds) => {
 			for (const id of changedIds) {
-				const result = tables2('posts').get(id);
+				const result = tables2.get('posts').get(id);
 				if (result.status === 'not_found') {
 					// Row was deleted
 					deletedIds.push(id);
@@ -571,7 +575,7 @@ describe('Cell-Level CRDT Merging', () => {
 		});
 
 		// Delete on doc1
-		tables1('posts').delete('post-1');
+		tables1.get('posts').delete('post-1');
 
 		// Sync to doc2 - observer should fire 'delete'
 		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
@@ -596,24 +600,24 @@ describe('Cell-Level CRDT Merging', () => {
 		const tables2 = createTables(doc2, tableDefinitions);
 
 		// Create row on doc1 and sync
-		tables1('posts').upsert({ id: 'post-1', title: 'Original', views: 0 });
+		tables1.get('posts').upsert({ id: 'post-1', title: 'Original', views: 0 });
 		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
 
 		// Read on doc2 to populate cache
-		const initialResult = tables2('posts').get('post-1');
+		const initialResult = tables2.get('posts').get('post-1');
 		expect(initialResult.status).toBe('valid');
 		if (initialResult.status === 'valid') {
 			expect(initialResult.row.title).toBe('Original');
 		}
 
 		// Update on doc1
-		tables1('posts').update({ id: 'post-1', title: 'Updated by Doc1' });
+		tables1.get('posts').update({ id: 'post-1', title: 'Updated by Doc1' });
 
 		// Sync to doc2
 		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
 
 		// Read from doc2 cache - should see updated value
-		const updatedResult = tables2('posts').get('post-1');
+		const updatedResult = tables2.get('posts').get('post-1');
 		expect(updatedResult.status).toBe('valid');
 		if (updatedResult.status === 'valid') {
 			expect(updatedResult.row.title).toBe('Updated by Doc1');
@@ -641,13 +645,13 @@ describe('Cell-Level CRDT Merging', () => {
 		const tables1 = createTables(doc1, tableDefinitions);
 		const tables2 = createTables(doc2, tableDefinitions);
 
-		tables1('posts').upsert({
+		tables1.get('posts').upsert({
 			id: 'post-1',
 			title: 'Title from Doc1',
 			views: 100,
 			published: true,
 		});
-		tables2('posts').upsert({
+		tables2.get('posts').upsert({
 			id: 'post-1',
 			title: 'Title from Doc2',
 			views: 200,
@@ -657,8 +661,8 @@ describe('Cell-Level CRDT Merging', () => {
 		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
 		Y.applyUpdate(doc1, Y.encodeStateAsUpdate(doc2));
 
-		const result1 = tables1('posts').get('post-1');
-		const result2 = tables2('posts').get('post-1');
+		const result1 = tables1.get('posts').get('post-1');
+		const result2 = tables2.get('posts').get('post-1');
 
 		expect(result1.status).toBe('valid');
 		expect(result2.status).toBe('valid');
@@ -688,15 +692,15 @@ describe('Cell-Level CRDT Merging', () => {
 		const tables2 = createTables(doc2, tableDefinitions);
 
 		// Doc1 creates multiple rows
-		tables1('posts').upsert({ id: 'post-1', title: 'First' });
-		tables1('posts').upsert({ id: 'post-2', title: 'Second' });
-		tables1('posts').upsert({ id: 'post-3', title: 'Third' });
+		tables1.get('posts').upsert({ id: 'post-1', title: 'First' });
+		tables1.get('posts').upsert({ id: 'post-2', title: 'Second' });
+		tables1.get('posts').upsert({ id: 'post-3', title: 'Third' });
 
 		// Sync to doc2
 		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
 
 		// getAll on doc2 should return all 3 rows
-		const allRows = tables2('posts').getAllValid();
+		const allRows = tables2.get('posts').getAllValid();
 		expect(allRows).toHaveLength(3);
 
 		const titles = allRows.map((r) => r.title).sort();
@@ -717,24 +721,24 @@ describe('Cell-Level CRDT Merging', () => {
 		const tables2 = createTables(doc2, tableDefinitions);
 
 		// Doc1 creates rows
-		tables1('posts').upsert({ id: 'post-1', title: 'One' });
-		tables1('posts').upsert({ id: 'post-2', title: 'Two' });
+		tables1.get('posts').upsert({ id: 'post-1', title: 'One' });
+		tables1.get('posts').upsert({ id: 'post-2', title: 'Two' });
 		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
 
-		expect(tables2('posts').count()).toBe(2);
+		expect(tables2.get('posts').count()).toBe(2);
 
 		// Doc1 deletes one
-		tables1('posts').delete('post-1');
+		tables1.get('posts').delete('post-1');
 		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
 
-		expect(tables2('posts').count()).toBe(1);
+		expect(tables2.get('posts').count()).toBe(1);
 
 		// Doc1 adds more
-		tables1('posts').upsert({ id: 'post-3', title: 'Three' });
-		tables1('posts').upsert({ id: 'post-4', title: 'Four' });
+		tables1.get('posts').upsert({ id: 'post-3', title: 'Three' });
+		tables1.get('posts').upsert({ id: 'post-4', title: 'Four' });
 		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
 
-		expect(tables2('posts').count()).toBe(3);
+		expect(tables2.get('posts').count()).toBe(3);
 	});
 
 	test('observer continues working after clear() and detects new rows', () => {
@@ -753,13 +757,13 @@ describe('Cell-Level CRDT Merging', () => {
 		const tables1 = createTables(doc1, tableDefinitions);
 		const tables2 = createTables(doc2, tableDefinitions);
 
-		tables1('posts').upsert({ id: 'post-1', title: 'First' });
+		tables1.get('posts').upsert({ id: 'post-1', title: 'First' });
 		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
 
 		const changes: Array<{ action: string; id: string }> = [];
-		tables2('posts').observe((changedIds) => {
+		tables2.get('posts').observe((changedIds) => {
 			for (const id of changedIds) {
-				const result = tables2('posts').get(id);
+				const result = tables2.get('posts').get(id);
 				if (result.status === 'not_found') {
 					changes.push({ action: 'delete', id });
 				} else {
@@ -769,12 +773,12 @@ describe('Cell-Level CRDT Merging', () => {
 		});
 
 		// Use clear() instead of deleting the table Y.Map directly
-		tables2('posts').clear();
+		tables2.get('posts').clear();
 
 		expect(changes).toContainEqual({ action: 'delete', id: 'post-1' });
 
 		// Add a new row; observer should still be working
-		tables2('posts').upsert({ id: 'post-new', title: 'New Post' });
+		tables2.get('posts').upsert({ id: 'post-new', title: 'New Post' });
 
 		expect(changes).toContainEqual({ action: 'add', id: 'post-new' });
 	});
@@ -795,13 +799,13 @@ describe('Cell-Level CRDT Merging', () => {
 		const tables1 = createTables(doc1, tableDefinitions);
 		const tables2 = createTables(doc2, tableDefinitions);
 
-		tables1('posts').upsert({ id: 'post-1', title: 'Original', views: 0 });
+		tables1.get('posts').upsert({ id: 'post-1', title: 'Original', views: 0 });
 		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
 
 		const changes: Array<{ action: string; id: string }> = [];
-		tables2('posts').observe((changedIds) => {
+		tables2.get('posts').observe((changedIds) => {
 			for (const id of changedIds) {
-				const result = tables2('posts').get(id);
+				const result = tables2.get('posts').get(id);
 				if (result.status === 'not_found') {
 					changes.push({ action: 'delete', id });
 				} else {
@@ -810,12 +814,12 @@ describe('Cell-Level CRDT Merging', () => {
 			}
 		});
 
-		tables1('posts').update({ id: 'post-1', title: 'Updated on Doc1' });
+		tables1.get('posts').update({ id: 'post-1', title: 'Updated on Doc1' });
 		Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
 
 		expect(changes).toContainEqual({ action: 'update', id: 'post-1' });
 
-		const result = tables2('posts').get('post-1');
+		const result = tables2.get('posts').get('post-1');
 		expect(result.status).toBe('valid');
 		if (result.status === 'valid') {
 			expect(result.row.title).toBe('Updated on Doc1');
@@ -832,15 +836,15 @@ describe('Cell-Level CRDT Merging', () => {
 			posts: table({ name: '', fields: { id: id(), title: text() } }),
 		});
 
-		tables('posts').upsertMany([
+		tables.get('posts').upsertMany([
 			{ id: 'old-1', title: 'Old Post 1' },
 			{ id: 'old-2', title: 'Old Post 2' },
 		]);
 
 		const changes: Array<{ action: string; id: string }> = [];
-		tables('posts').observe((changedIds) => {
+		tables.get('posts').observe((changedIds) => {
 			for (const rowId of changedIds) {
-				const result = tables('posts').get(rowId);
+				const result = tables.get('posts').get(rowId);
 				if (result.status === 'not_found') {
 					changes.push({ action: 'delete', id: rowId });
 				} else {
@@ -850,8 +854,8 @@ describe('Cell-Level CRDT Merging', () => {
 		});
 
 		// Clear and add new rows (simulates "table replacement")
-		tables('posts').clear();
-		tables('posts').upsertMany([
+		tables.get('posts').clear();
+		tables.get('posts').upsertMany([
 			{ id: 'new-1', title: 'New Post 1' },
 			{ id: 'new-2', title: 'New Post 2' },
 		]);
@@ -874,12 +878,12 @@ describe('Cell-Level CRDT Merging', () => {
 			posts: table({ name: '', fields: { id: id(), title: text() } }),
 		});
 
-		tables('posts').upsert({ id: 'post-1', title: 'Original' });
+		tables.get('posts').upsert({ id: 'post-1', title: 'Original' });
 
 		const changes: Array<{ action: string; id: string; title?: string }> = [];
-		tables('posts').observe((changedIds) => {
+		tables.get('posts').observe((changedIds) => {
 			for (const rowId of changedIds) {
-				const result = tables('posts').get(rowId);
+				const result = tables.get('posts').get(rowId);
 				if (result.status === 'not_found') {
 					changes.push({ action: 'delete', id: rowId });
 				} else {
@@ -929,9 +933,9 @@ describe('Cell-Level CRDT Merging', () => {
 		});
 
 		const changes: Array<{ action: string; id: string }> = [];
-		tables('posts').observe((changedIds) => {
+		tables.get('posts').observe((changedIds) => {
 			for (const rowId of changedIds) {
-				const result = tables('posts').get(rowId);
+				const result = tables.get('posts').get(rowId);
 				if (result.status === 'not_found') {
 					changes.push({ action: 'delete', id: rowId });
 				} else {

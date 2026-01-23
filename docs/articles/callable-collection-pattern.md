@@ -4,6 +4,8 @@ A pattern for type-safe collection APIs that avoids namespace collisions and sup
 
 > **TL;DR**: The core insight is simple: lift `.get()` to be the call signature itself. See [The Callable Collection Insight](./callable-collection-insight.md) for the 30-second version.
 
+> **Update**: After consideration, we now recommend **preferring `.get()` over the callable pattern** in most cases. The callable pattern is documented here for completeness, but explicit method calls are more discoverable, familiar, and consistent with standard library conventions. See the [insight article](./callable-collection-insight.md#our-recommendation-prefer-get) for reasoning.
+
 ## The Problem
 
 When building collection APIs, you often want both:

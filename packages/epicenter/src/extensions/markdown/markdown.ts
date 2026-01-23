@@ -388,7 +388,7 @@ export const markdown = async <
 		const unsubscribers: Array<() => void> = [];
 
 		for (const [tableName, tableConfig] of Object.entries(resolvedConfigs)) {
-			const table = tables(tableName);
+			const table = tables.get(tableName);
 			const fields = tables.definitions[tableName]!.fields;
 			// Initialize tracking map for this table
 			if (!tracking[tableName]) {
@@ -538,7 +538,7 @@ export const markdown = async <
 		const watchers: FSWatcher[] = [];
 
 		for (const [tableName, tableConfig] of Object.entries(resolvedConfigs)) {
-			const table = tables(tableName);
+			const table = tables.get(tableName);
 			const fields = tables.definitions[tableName]!.fields;
 			// Ensure table directory exists
 			const { error: mkdirError } = trySync({
@@ -1008,7 +1008,7 @@ export const markdown = async <
 	 * Cost: O(n × serialize) where n = row count. ~1ms per 100 rows.
 	 */
 	for (const [tableName, tableConfig] of Object.entries(resolvedConfigs)) {
-		const table = tables(tableName);
+		const table = tables.get(tableName);
 		const fields = tables.definitions[tableName]!.fields;
 		// Initialize tracking map for this table
 		if (!tracking[tableName]) {
@@ -1044,7 +1044,7 @@ export const markdown = async <
 	 * Cost: O(n) where n = file count. ~10ms per 100 files (mostly I/O).
 	 */
 	for (const [tableName, tableConfig] of Object.entries(resolvedConfigs)) {
-		const table = tables(tableName);
+		const table = tables.get(tableName);
 		const filePaths = await listMarkdownFiles(tableConfig.directory);
 
 		for (const filePath of filePaths) {
@@ -1125,7 +1125,7 @@ export const markdown = async <
 					await Promise.all(
 						Object.entries(resolvedConfigs).map(
 							async ([tableName, tableConfig]) => {
-								const table = tables(tableName);
+								const table = tables.get(tableName);
 								const fields = tables.definitions[tableName]!.fields;
 								const tableTracking = tracking[tableName];
 								const filePaths = await listMarkdownFiles(
@@ -1302,7 +1302,7 @@ export const markdown = async <
 					const allTableData = await Promise.all(
 						Object.entries(resolvedConfigs).map(
 							async ([tableName, tableConfig]): Promise<TableSyncData> => {
-								const table = tables(tableName);
+								const table = tables.get(tableName);
 								const fields = tables.definitions[tableName]!.fields;
 								const yjsIds = new Set(
 									table

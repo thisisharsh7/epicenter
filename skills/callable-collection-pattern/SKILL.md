@@ -4,6 +4,8 @@ A TypeScript pattern for type-safe, namespace-preserving collection accessors wi
 
 > **TL;DR**: The core insight is simple: lift `.get()` to be the call signature itself. `tables.get('posts')` becomes `tables('posts')`. See [The Callable Collection Insight](/docs/articles/callable-collection-insight.md) for the 30-second version.
 
+> **Recommendation**: Prefer `.get()` over callable in most cases. The callable pattern saves 4 characters but adds cognitive load. Explicit method calls are more discoverable, familiar (Map, WeakMap, ORMs all use `.get()`), and consistent. Only consider callable if verbosity becomes a genuine pain point.
+
 ## The Problem
 
 You want to provide typed access to a collection (like tables, fields, settings) where:

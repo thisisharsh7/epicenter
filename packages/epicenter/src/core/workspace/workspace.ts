@@ -48,7 +48,7 @@
  *   .withExtensions({ persistence });
  *
  * // Sync access works immediately (operates on in-memory Y.Doc)
- * workspace.tables.posts.upsert({ id: '1', title: 'Hello' });
+ * workspace.tables.get('posts').upsert({ id: '1', title: 'Hello' });
  *
  * // Await when you need initialization complete
  * await workspace.whenSynced;

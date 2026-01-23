@@ -77,7 +77,7 @@
  *   .withExtensions({ persistence });
  *
  * // Ready to use immediately
- * client.tables.posts.upsert({ id: '1', title: 'Hello' });
+ * client.tables.get('posts').upsert({ id: '1', title: 'Hello' });
  * await client.destroy();
  * ```
  *
@@ -101,8 +101,8 @@
  *     .withDefinition(definition)
  *     .withExtensions({});
  *
- *   for (const post of oldClient.tables.posts.getAllValid()) {
- *     newClient.tables.posts.upsert(migratePost(post));
+ *   for (const post of oldClient.tables.get('posts').getAllValid()) {
+ *     newClient.tables.get('posts').upsert(migratePost(post));
  *   }
  *
  *   await oldClient.destroy();
@@ -146,7 +146,7 @@ import {
  * WorkspaceDoc (browser)                 WorkspaceDoc (node)
  * ├── workspaceId: string                ├── workspaceId: string
  * ├── epoch: number                      ├── epoch: number
- * ├── tables: Tables<T>                  ├── tables: Tables<T>
+ * ├── tables: Tables                     ├── tables: Tables
  * ├── kv: Kv<K>                          ├── kv: Kv<K>
  * ├── extensions: E                      ├── extensions: E
  * ├── ydoc: Y.Doc                        ├── ydoc: Y.Doc

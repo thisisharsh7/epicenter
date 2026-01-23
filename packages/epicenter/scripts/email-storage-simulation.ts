@@ -249,7 +249,7 @@ while (inserted < EMAIL_COUNT) {
 	}
 
 	// Bulk upsert
-	client.tables.emails.upsertMany(emails);
+	client.tables.get('emails').upsertMany(emails);
 	inserted += batchCount;
 
 	const batchElapsed = performance.now() - batchStart;

@@ -243,7 +243,7 @@ export type ExtensionContext<
  * await workspace.whenSynced;
  *
  * // Use typed table helpers
- * workspace.tables.posts.upsert({ id: '1', title: 'Hello' });
+ * workspace.tables.get('posts').upsert({ id: '1', title: 'Hello' });
  *
  * // Access extension exports
  * workspace.extensions.sqlite.db.select().from(...);
@@ -383,7 +383,7 @@ export function createWorkspaceDoc<
  *   .withExtensions({ persistence, sqlite });
  *
  * await workspace.whenSynced;
- * workspace.tables.posts.upsert({ id: '1', title: 'Hello' });
+ * workspace.tables.get('posts').upsert({ id: '1', title: 'Hello' });
  * workspace.extensions.sqlite.db.select()...;
  * await workspace.destroy();
  * ```

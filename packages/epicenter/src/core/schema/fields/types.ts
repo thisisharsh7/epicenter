@@ -497,14 +497,14 @@ export type TableDefinitionMap = Record<string, TableDefinition>;
  * @example
  * ```typescript
  * // Write: pass a Row to upsert
- * tables.posts.upsert({
+ * tables.get('posts').upsert({
  *   id: generateId(),
  *   title: 'Hello World',
  *   published: false,
  * });
  *
  * // Read: get returns a Row (wrapped in RowResult for validation)
- * const result = tables.posts.get({ id: '1' });
+ * const result = tables.get('posts').get({ id: '1' });
  * if (result.status === 'valid') {
  *   const row: Row = result.row;
  *   console.log(row.title);
@@ -527,10 +527,10 @@ export type Row<TFieldMap extends FieldMap = FieldMap> = {
  * @example
  * ```typescript
  * // Update only the title, leave other fields unchanged
- * tables.posts.update({ id: '1', title: 'New Title' });
+ * tables.get('posts').update({ id: '1', title: 'New Title' });
  *
  * // Update multiple fields
- * tables.posts.update({
+ * tables.get('posts').update({
  *   id: '1',
  *   title: 'Updated',
  *   published: true,
