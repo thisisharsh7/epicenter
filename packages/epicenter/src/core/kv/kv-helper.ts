@@ -94,7 +94,7 @@ export function createKvHelper<TField extends KvField>({
 		 *
 		 * @example
 		 * ```typescript
-		 * const result = kv.theme.get();
+		 * const result = kv.get('theme');
 		 * if (result.status === 'valid') {
 		 *   console.log(result.value); // 'dark' | 'light'
 		 * } else if (result.status === 'invalid') {
@@ -148,9 +148,9 @@ export function createKvHelper<TField extends KvField>({
 		 *
 		 * @example
 		 * ```typescript
-		 * kv.theme.set('dark');
-		 * kv.count.set(42);
-		 * kv.categories.set(['tech', 'blog']);
+		 * kv.set('theme', 'dark');
+		 * kv.set('count', 42);
+		 * kv.set('categories', ['tech', 'blog']);
 		 * ```
 		 */
 		set(value: TValue): void {
@@ -167,7 +167,7 @@ export function createKvHelper<TField extends KvField>({
 		 *
 		 * @example
 		 * ```typescript
-		 * const unsubscribe = kv('theme').observe((change, transaction) => {
+		 * const unsubscribe = kv.observeKey('theme', (change, transaction) => {
 		 *   switch (change.action) {
 		 *     case 'add':
 		 *     case 'update':
@@ -225,7 +225,7 @@ export function createKvHelper<TField extends KvField>({
 		 *
 		 * @example
 		 * ```typescript
-		 * kv.theme.reset(); // Back to schema default
+		 * kv.reset('theme'); // Back to schema default
 		 * ```
 		 */
 		reset(): void {
@@ -243,7 +243,8 @@ export function createKvHelper<TField extends KvField>({
 		 *
 		 * @example
 		 * ```typescript
-		 * type Theme = typeof kv('theme').inferValue; // 'dark' | 'light'
+		 * type Theme = typeof kv.definitions.theme.field extends SelectField<infer O> ? O[number] : never;
+		 * // Or use the schema directly for type inference
 		 * ```
 		 */
 		inferValue: null as unknown as TValue,

@@ -195,7 +195,7 @@ await using client = await createClient(head)
 // Insert in batches
 for (let i = 0; i < EMAIL_COUNT; i += BATCH_SIZE) {
 	const batch = emails.slice(i, i + BATCH_SIZE);
-	client.tables.emails.upsertMany(batch);
+	client.tables.get('emails').upsertMany(batch);
 }
 
 // Wait for persistence

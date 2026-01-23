@@ -11,7 +11,6 @@ export {
 export {
 	createWorkspaceDoc,
 	type DefinitionYMap as DefinitionMap,
-	type IconDefinition,
 	type KvYMap,
 	WORKSPACE_DOC_MAPS,
 	type WorkspaceDefinitionMap,

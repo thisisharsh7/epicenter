@@ -48,7 +48,7 @@
  *   .withExtensions({ persistence });
  *
  * // Sync access works immediately (operates on in-memory Y.Doc)
- * workspace.tables.posts.upsert({ id: '1', title: 'Hello' });
+ * workspace.tables.get('posts').upsert({ id: '1', title: 'Hello' });
  *
  * // Await when you need initialization complete
  * await workspace.whenSynced;
@@ -447,7 +447,7 @@ function createClientBuilder<
 // HEAD DOC (per workspace, all epochs)
 // Y.Map('meta') - Workspace identity
 //   └── name: string
-//   └── icon: IconDefinition | null
+//   └── icon: Icon | null
 //   └── description: string
 // Y.Map('epochs') - Epoch tracking
 //   └── [clientId]: number

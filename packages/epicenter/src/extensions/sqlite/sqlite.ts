@@ -173,7 +173,7 @@ export const sqlite = async <
 
 		// Insert all valid rows from YJS into SQLite
 		for (const [tableName, drizzleTable] of Object.entries(drizzleTables)) {
-			const table = tables(tableName);
+			const table = tables.get(tableName);
 			const rows = table.getAllValid();
 
 			if (rows.length > 0) {
@@ -213,7 +213,7 @@ export const sqlite = async <
 	const unsubscribers: Array<() => void> = [];
 
 	for (const tableName of Object.keys(tables.definitions)) {
-		const table = tables(tableName);
+		const table = tables.get(tableName);
 		const unsub = table.observe((changedIds) => {
 			if (isPushingFromSqlite) return;
 
@@ -245,7 +245,7 @@ export const sqlite = async <
 
 	// Insert all valid rows from YJS into SQLite
 	for (const [tableName, drizzleTable] of Object.entries(drizzleTables)) {
-		const table = tables(tableName);
+		const table = tables.get(tableName);
 		const rows = table.getAllValid();
 
 		if (rows.length > 0) {
@@ -302,7 +302,7 @@ export const sqlite = async <
 					for (const [tableName, drizzleTable] of Object.entries(
 						drizzleTables,
 					)) {
-						const table = tables(tableName);
+						const table = tables.get(tableName);
 						const rows = await sqliteDb.select().from(drizzleTable);
 						for (const row of rows) {
 							// Cast is safe: Drizzle schema is derived from workspace definition

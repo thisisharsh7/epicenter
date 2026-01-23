@@ -23,9 +23,7 @@ export type { DateIsoString, TimezoneId } from './fields/datetime.js';
 export { DateTimeString } from './fields/datetime.js';
 export {
 	boolean,
-	cover,
 	date,
-	icon,
 	id,
 	integer,
 	json,
@@ -48,14 +46,14 @@ export {
 export type {
 	BooleanField,
 	CellValue,
-	CoverDefinition,
 	DateField,
 	Field,
 	FieldMap,
 	FieldMetadata,
 	FieldOptions,
 	FieldType,
-	IconDefinition,
+	Icon,
+	IconType,
 	IdField,
 	IntegerField,
 	JsonField,
@@ -74,6 +72,7 @@ export type {
 	TagsField,
 	TextField,
 } from './fields/types.js';
+export { createIcon, isIcon, parseIcon } from './fields/types.js';
 export { standardSchemaToJsonSchema } from './standard/to-json-schema.js';
 export type {
 	StandardJSONSchemaV1,

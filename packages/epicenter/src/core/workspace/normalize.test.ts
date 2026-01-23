@@ -6,33 +6,36 @@
  */
 
 import { describe, expect, test } from 'bun:test';
-import type { IconDefinition } from '../schema/fields/types';
+import type { Icon } from '../schema/fields/types';
 import { normalizeIcon } from './normalize';
 
 describe('normalizeIcon', () => {
-	test('string input → IconDefinition (emoji)', () => {
+	test('plain emoji string → Icon tagged string', () => {
 		const result = normalizeIcon('📝');
-		expect(result).toEqual({ type: 'emoji', value: '📝' });
+		expect(result).toBe('emoji:📝');
 	});
 
-	test('string input with unicode emoji → IconDefinition', () => {
+	test('plain emoji string with unicode → Icon tagged string', () => {
 		const result = normalizeIcon('🚀');
-		expect(result).toEqual({ type: 'emoji', value: '🚀' });
+		expect(result).toBe('emoji:🚀');
 	});
 
-	test('IconDefinition input → unchanged', () => {
-		const icon: IconDefinition = { type: 'emoji', value: '📝' };
+	test('Icon tagged string input → unchanged', () => {
+		const icon: Icon = 'emoji:📝';
 		const result = normalizeIcon(icon);
-		expect(result).toEqual(icon);
+		expect(result).toBe('emoji:📝');
 	});
 
-	test('external IconDefinition input → unchanged', () => {
-		const icon: IconDefinition = {
-			type: 'external',
-			url: 'https://example.com/icon.png',
-		};
+	test('lucide Icon input → unchanged', () => {
+		const icon: Icon = 'lucide:file-text';
 		const result = normalizeIcon(icon);
-		expect(result).toEqual(icon);
+		expect(result).toBe('lucide:file-text');
+	});
+
+	test('url Icon input → unchanged', () => {
+		const icon: Icon = 'url:https://example.com/icon.png';
+		const result = normalizeIcon(icon);
+		expect(result).toBe('url:https://example.com/icon.png');
 	});
 
 	test('null input → null', () => {

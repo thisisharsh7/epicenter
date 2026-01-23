@@ -33,7 +33,7 @@
  * ```typescript
  * // Simple extension - explicit lifecycle with defaults
  * const simple: ExtensionFactory = ({ tables }) => {
- *   tables.posts.observe({ onAdd: console.log });
+ *   tables.get('posts').observe({ onAdd: console.log });
  *   return defineExports(); // Framework fills in whenSynced and destroy
  * };
  *

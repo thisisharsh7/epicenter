@@ -37,7 +37,7 @@ const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 12);
  * ```typescript
  * // Creating a new post with rich content
  * const contentId = createRichContentId();
- * tables.posts.upsert({
+ * tables.get('posts').upsert({
  *   id: generateId(),
  *   title: 'My Post',
  *   content: contentId,  // richtext() column stores this ID

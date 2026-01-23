@@ -83,14 +83,14 @@ tables.posts.observe((changes, transaction) => {
 
 ## Summary Table
 
-| Structure        | Observer Callback Receives               | Consumer Fetches With     |
-| ---------------- | ---------------------------------------- | ------------------------- |
-| `kv` (top-level) | `() => void`                             | `kv.toJSON()`             |
-| `kv('key')`      | `(change: KvChange) => void`             | (change has the value)    |
-| `schema`         | `() => void`                             | `schema.get()`            |
-| `schema.tables`  | `Map<string, 'add'\|'delete'>`           | `schema.tables.get(name)` |
-| `schema.kv`      | `Map<string, 'add'\|'delete'>`           | `schema.kv.get(name)`     |
-| `tables.{name}`  | `Map<string, 'add'\|'update'\|'delete'>` | `tables.{name}.get(id)`   |
+| Structure                   | Observer Callback Receives               | Consumer Fetches With     |
+| --------------------------- | ---------------------------------------- | ------------------------- |
+| `kv` (top-level)            | `() => void`                             | `kv.toJSON()`             |
+| `kv.observeKey('key', ...)` | `(change: KvChange) => void`             | (change has the value)    |
+| `schema`                    | `() => void`                             | `schema.get()`            |
+| `schema.tables`             | `Map<string, 'add'\|'delete'>`           | `schema.tables.get(name)` |
+| `schema.kv`                 | `Map<string, 'add'\|'delete'>`           | `schema.kv.get(name)`     |
+| `tables.{name}`             | `Map<string, 'add'\|'update'\|'delete'>` | `tables.{name}.get(id)`   |
 
 ## The Y.Map Boundary Rule
 

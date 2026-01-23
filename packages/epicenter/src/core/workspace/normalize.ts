@@ -2,7 +2,7 @@
  * KV normalization utilities.
  *
  * This module provides:
- * - Icon normalization (string → IconDefinition)
+ * - Icon normalization (string → Icon tagged string)
  * - KV entry normalization
  * - Type guards for KV definitions
  * - Default icon constants
@@ -16,11 +16,12 @@
 import humanizeString from 'humanize-string';
 import type {
 	FieldMap,
-	IconDefinition,
+	Icon,
 	KvDefinition,
 	KvField,
 	TableDefinition,
 } from '../schema';
+import { isIcon } from '../schema';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -29,37 +30,36 @@ import type {
 /**
  * Default icon for KV entries when using minimal input.
  */
-export const DEFAULT_KV_ICON = {
-	type: 'emoji',
-	value: '⚙️',
-} as const satisfies IconDefinition;
+export const DEFAULT_KV_ICON: Icon = 'emoji:⚙️';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Icon Normalization
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Normalize icon input to canonical IconDefinition | null.
+ * Normalize icon input to Icon | null.
  *
- * - string → `{ type: 'emoji', value: string }`
+ * - Icon string (tagged format) → unchanged
+ * - Plain emoji string → converted to 'emoji:{value}'
  * - undefined → null
  * - null → null
- * - IconDefinition → unchanged
  *
  * @example
  * ```typescript
- * normalizeIcon('📝');           // { type: 'emoji', value: '📝' }
- * normalizeIcon({ type: 'emoji', value: '📝' }); // unchanged
+ * normalizeIcon('emoji:📝');     // 'emoji:📝' (unchanged)
+ * normalizeIcon('📝');           // 'emoji:📝' (converted)
+ * normalizeIcon('lucide:file');  // 'lucide:file' (unchanged)
  * normalizeIcon(undefined);      // null
  * normalizeIcon(null);           // null
  * ```
  */
 export function normalizeIcon(
-	icon: string | IconDefinition | null | undefined,
-): IconDefinition | null {
+	icon: string | Icon | null | undefined,
+): Icon | null {
 	if (icon === undefined || icon === null) return null;
-	if (typeof icon === 'string') return { type: 'emoji', value: icon };
-	return icon;
+	if (isIcon(icon)) return icon;
+	// Plain string (emoji) → convert to tagged format
+	return `emoji:${icon}` as Icon;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -134,7 +134,7 @@ export function isKvDefinition(value: unknown): value is KvDefinition<KvField> {
  * const input = select({ options: ['light', 'dark'] });
  * const def = normalizeKv('darkMode', input);
  * // def.name === 'Dark mode'
- * // def.icon === { type: 'emoji', value: '⚙️' }
+ * // def.icon === 'emoji:⚙️'
  * // def.field === select({ options: ['light', 'dark'] })
  * ```
  */

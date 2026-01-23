@@ -41,17 +41,17 @@ describe('Offline Sync Scenarios', () => {
 				}),
 			});
 
-			tablesA('posts').upsert({ id: 'post-1', title: 'Original' });
+			tablesA.get('posts').upsert({ id: 'post-1', title: 'Original' });
 			Y.applyUpdate(docB, Y.encodeStateAsUpdate(docA));
 
-			tablesA('posts').update({ id: 'post-1', title: 'Edit by A' });
-			tablesB('posts').update({ id: 'post-1', title: 'Edit by B' });
+			tablesA.get('posts').update({ id: 'post-1', title: 'Edit by A' });
+			tablesB.get('posts').update({ id: 'post-1', title: 'Edit by B' });
 
 			Y.applyUpdate(docB, Y.encodeStateAsUpdate(docA));
 			Y.applyUpdate(docA, Y.encodeStateAsUpdate(docB));
 
-			const rowA = tablesA('posts').get('post-1');
-			const rowB = tablesB('posts').get('post-1');
+			const rowA = tablesA.get('posts').get('post-1');
+			const rowB = tablesB.get('posts').get('post-1');
 
 			expect(rowA.status).toBe('valid');
 			expect(rowB.status).toBe('valid');
@@ -80,17 +80,17 @@ describe('Offline Sync Scenarios', () => {
 				}),
 			});
 
-			tablesA('posts').upsert({ id: 'post-1', title: 'Original' });
+			tablesA.get('posts').upsert({ id: 'post-1', title: 'Original' });
 			Y.applyUpdate(docB, Y.encodeStateAsUpdate(docA));
 
-			tablesA('posts').update({ id: 'post-1', title: 'Edit by A' });
-			tablesB('posts').update({ id: 'post-1', title: 'Edit by B' });
+			tablesA.get('posts').update({ id: 'post-1', title: 'Edit by A' });
+			tablesB.get('posts').update({ id: 'post-1', title: 'Edit by B' });
 
 			Y.applyUpdate(docA, Y.encodeStateAsUpdate(docB));
 			Y.applyUpdate(docB, Y.encodeStateAsUpdate(docA));
 
-			const rowA = tablesA('posts').get('post-1');
-			const rowB = tablesB('posts').get('post-1');
+			const rowA = tablesA.get('posts').get('post-1');
+			const rowB = tablesB.get('posts').get('post-1');
 
 			expect(rowA.status).toBe('valid');
 			expect(rowB.status).toBe('valid');
@@ -141,15 +141,15 @@ describe('Offline Sync Scenarios', () => {
 					}),
 				});
 
-				tablesA1('posts').upsert({ id: 'post-1', title: 'Original' });
-				tablesA2('posts').upsert({ id: 'post-1', title: 'Original' });
+				tablesA1.get('posts').upsert({ id: 'post-1', title: 'Original' });
+				tablesA2.get('posts').upsert({ id: 'post-1', title: 'Original' });
 				Y.applyUpdate(docB1, Y.encodeStateAsUpdate(docA1));
 				Y.applyUpdate(docB2, Y.encodeStateAsUpdate(docA2));
 
-				tablesA1('posts').update({ id: 'post-1', title: `A-${i}` });
-				tablesB1('posts').update({ id: 'post-1', title: `B-${i}` });
-				tablesA2('posts').update({ id: 'post-1', title: `A-${i}` });
-				tablesB2('posts').update({ id: 'post-1', title: `B-${i}` });
+				tablesA1.get('posts').update({ id: 'post-1', title: `A-${i}` });
+				tablesB1.get('posts').update({ id: 'post-1', title: `B-${i}` });
+				tablesA2.get('posts').update({ id: 'post-1', title: `A-${i}` });
+				tablesB2.get('posts').update({ id: 'post-1', title: `B-${i}` });
 
 				Y.applyUpdate(docB1, Y.encodeStateAsUpdate(docA1));
 				Y.applyUpdate(docA1, Y.encodeStateAsUpdate(docB1));
@@ -157,8 +157,8 @@ describe('Offline Sync Scenarios', () => {
 				Y.applyUpdate(docA2, Y.encodeStateAsUpdate(docB2));
 				Y.applyUpdate(docB2, Y.encodeStateAsUpdate(docA2));
 
-				const rowA1 = tablesA1('posts').get('post-1');
-				const rowA2 = tablesA2('posts').get('post-1');
+				const rowA1 = tablesA1.get('posts').get('post-1');
+				const rowA2 = tablesA2.get('posts').get('post-1');
 
 				if (rowA1.status === 'valid' && rowA2.status === 'valid') {
 					results.push({
@@ -194,14 +194,14 @@ describe('Offline Sync Scenarios', () => {
 				}),
 			});
 
-			tablesOnline('posts').upsert({ id: 'post-1', title: 'Initial' });
+			tablesOnline.get('posts').upsert({ id: 'post-1', title: 'Initial' });
 			Y.applyUpdate(docOffline, Y.encodeStateAsUpdate(docOnline));
 
-			tablesOnline('posts').update({ id: 'post-1', title: 'Online Edit 1' });
-			tablesOnline('posts').update({ id: 'post-1', title: 'Online Edit 2' });
-			tablesOnline('posts').update({ id: 'post-1', title: 'Online Edit 3' });
+			tablesOnline.get('posts').update({ id: 'post-1', title: 'Online Edit 1' });
+			tablesOnline.get('posts').update({ id: 'post-1', title: 'Online Edit 2' });
+			tablesOnline.get('posts').update({ id: 'post-1', title: 'Online Edit 3' });
 
-			tablesOffline('posts').update({
+			tablesOffline.get('posts').update({
 				id: 'post-1',
 				title: 'Offline Final Edit',
 			});
@@ -209,8 +209,8 @@ describe('Offline Sync Scenarios', () => {
 			Y.applyUpdate(docOffline, Y.encodeStateAsUpdate(docOnline));
 			Y.applyUpdate(docOnline, Y.encodeStateAsUpdate(docOffline));
 
-			const rowOnline = tablesOnline('posts').get('post-1');
-			const rowOffline = tablesOffline('posts').get('post-1');
+			const rowOnline = tablesOnline.get('posts').get('post-1');
+			const rowOffline = tablesOffline.get('posts').get('post-1');
 
 			expect(rowOnline.status).toBe('valid');
 			expect(rowOffline.status).toBe('valid');
@@ -251,13 +251,13 @@ describe('Offline Sync Scenarios', () => {
 				}),
 			});
 
-			tablesA('posts').upsert({ id: 'post-1', title: 'Original' });
+			tablesA.get('posts').upsert({ id: 'post-1', title: 'Original' });
 			Y.applyUpdate(docB, Y.encodeStateAsUpdate(docA));
 			Y.applyUpdate(docC, Y.encodeStateAsUpdate(docA));
 
-			tablesA('posts').update({ id: 'post-1', title: 'Edit by A' });
-			tablesB('posts').update({ id: 'post-1', title: 'Edit by B' });
-			tablesC('posts').update({ id: 'post-1', title: 'Edit by C' });
+			tablesA.get('posts').update({ id: 'post-1', title: 'Edit by A' });
+			tablesB.get('posts').update({ id: 'post-1', title: 'Edit by B' });
+			tablesC.get('posts').update({ id: 'post-1', title: 'Edit by C' });
 
 			const updateA = Y.encodeStateAsUpdate(docA);
 			const updateB = Y.encodeStateAsUpdate(docB);
@@ -270,9 +270,9 @@ describe('Offline Sync Scenarios', () => {
 			Y.applyUpdate(docC, updateA);
 			Y.applyUpdate(docC, updateB);
 
-			const rowA = tablesA('posts').get('post-1');
-			const rowB = tablesB('posts').get('post-1');
-			const rowC = tablesC('posts').get('post-1');
+			const rowA = tablesA.get('posts').get('post-1');
+			const rowB = tablesB.get('posts').get('post-1');
+			const rowC = tablesC.get('posts').get('post-1');
 
 			expect(rowA.status).toBe('valid');
 			expect(rowB.status).toBe('valid');
@@ -313,16 +313,16 @@ describe('Offline Sync Scenarios', () => {
 					}),
 				});
 
-				tablesA('posts').upsert({ id: 'post-1', title: 'Original' });
+				tablesA.get('posts').upsert({ id: 'post-1', title: 'Original' });
 				Y.applyUpdate(docB, Y.encodeStateAsUpdate(docA));
 
-				tablesA('posts').update({ id: 'post-1', title: 'A' });
-				tablesB('posts').update({ id: 'post-1', title: 'B' });
+				tablesA.get('posts').update({ id: 'post-1', title: 'A' });
+				tablesB.get('posts').update({ id: 'post-1', title: 'B' });
 
 				Y.applyUpdate(docB, Y.encodeStateAsUpdate(docA));
 				Y.applyUpdate(docA, Y.encodeStateAsUpdate(docB));
 
-				const row = tablesA('posts').get('post-1');
+				const row = tablesA.get('posts').get('post-1');
 				if (row.status === 'valid') {
 					winners.push(row.row.title);
 				}
@@ -358,14 +358,14 @@ describe('Offline Sync Scenarios', () => {
 				}),
 			});
 
-			tablesA('posts').upsert({ id: 'post-1', title: 'Original' });
+			tablesA.get('posts').upsert({ id: 'post-1', title: 'Original' });
 			Y.applyUpdate(docB, Y.encodeStateAsUpdate(docA));
 
-			tablesA('posts').update({ id: 'post-1', title: 'A edits at 10:00am' });
+			tablesA.get('posts').update({ id: 'post-1', title: 'A edits at 10:00am' });
 
 			await new Promise((r) => setTimeout(r, 100));
 
-			tablesB('posts').update({
+			tablesB.get('posts').update({
 				id: 'post-1',
 				title: 'B edits at 10:05am (100ms later in test)',
 			});
@@ -373,8 +373,8 @@ describe('Offline Sync Scenarios', () => {
 			Y.applyUpdate(docB, Y.encodeStateAsUpdate(docA));
 			Y.applyUpdate(docA, Y.encodeStateAsUpdate(docB));
 
-			const rowA = tablesA('posts').get('post-1');
-			const rowB = tablesB('posts').get('post-1');
+			const rowA = tablesA.get('posts').get('post-1');
+			const rowB = tablesB.get('posts').get('post-1');
 
 			expect(rowA.status).toBe('valid');
 			expect(rowB.status).toBe('valid');

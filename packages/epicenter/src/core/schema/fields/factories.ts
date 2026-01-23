@@ -10,11 +10,10 @@ import type { Static, TSchema } from 'typebox';
 import { DateTimeString } from './datetime';
 import type {
 	BooleanField,
-	CoverDefinition,
 	DateField,
 	FieldMap,
 	FieldOptions,
-	IconDefinition,
+	Icon,
 	IdField,
 	IntegerField,
 	JsonField,
@@ -27,16 +26,21 @@ import type {
 	TagsField,
 	TextField,
 } from './types';
+import { isIcon } from './types';
 
 /**
- * Normalize icon input to canonical IconDefinition | null.
+ * Normalize icon input to Icon | null.
+ *
+ * Accepts:
+ * - Icon string (tagged format) → unchanged
+ * - Plain emoji string → converted to 'emoji:{value}'
+ * - null/undefined → null
  */
-function normalizeIcon(
-	icon: string | IconDefinition | null | undefined,
-): IconDefinition | null {
+function normalizeIcon(icon: string | Icon | null | undefined): Icon | null {
 	if (icon === undefined || icon === null) return null;
-	if (typeof icon === 'string') return { type: 'emoji', value: icon };
-	return icon;
+	if (isIcon(icon)) return icon;
+	// Plain string (emoji) → convert to tagged format
+	return `emoji:${icon}` as Icon;
 }
 
 /**
@@ -46,7 +50,7 @@ function normalizeIcon(
  * - `name`: Required display name for the table.
  * - `fields`: Required field schema map.
  * - `description`: Optional. Defaults to empty string.
- * - `icon`: Optional. Accepts string shorthand ('📝'), IconDefinition, or null. Defaults to null.
+ * - `icon`: Optional. Accepts Icon string ('emoji:📝'), plain emoji ('📝'), or null. Defaults to null.
  *
  * @example
  * ```typescript
@@ -56,10 +60,17 @@ function normalizeIcon(
  *   fields: { id: id(), title: text(), published: boolean() },
  * });
  *
- * // With icon shorthand
+ * // With icon (tagged format)
  * const posts = table({
  *   name: 'Posts',
- *   icon: '📝',
+ *   icon: 'emoji:📝',
+ *   fields: { id: id(), title: text() },
+ * });
+ *
+ * // With icon shorthand (plain emoji)
+ * const posts = table({
+ *   name: 'Posts',
+ *   icon: '📝',  // Converted to 'emoji:📝'
  *   fields: { id: id(), title: text() },
  * });
  *
@@ -67,7 +78,7 @@ function normalizeIcon(
  * const posts = table({
  *   name: 'Blog Posts',
  *   description: 'Articles and blog posts',
- *   icon: '📝',
+ *   icon: 'emoji:📝',
  *   fields: { id: id(), title: text(), published: boolean() },
  * });
  *
@@ -84,7 +95,7 @@ export function table<TFields extends FieldMap>(options: {
 	name: string;
 	fields: TFields;
 	description?: string;
-	icon?: string | IconDefinition | null;
+	icon?: string | Icon | null;
 }): TableDefinition<TFields> {
 	return {
 		name: options.name,
@@ -105,12 +116,12 @@ export function table<TFields extends FieldMap>(options: {
  *
  * @example
  * ```typescript
- * import { setting, icon, select, integer } from '@epicenter/hq';
+ * import { setting, select, integer } from '@epicenter/hq';
  *
  * // Production use - with meaningful metadata
  * const theme = setting({
  *   name: 'Theme',
- *   icon: icon.emoji('🎨'),
+ *   icon: 'emoji:🎨',
  *   field: select({ options: ['light', 'dark'], default: 'light' }),
  *   description: 'Application color theme',
  * });
@@ -125,89 +136,16 @@ export function table<TFields extends FieldMap>(options: {
 export function setting<TField extends KvField>(options: {
 	name: string;
 	field: TField;
-	icon?: IconDefinition | null;
+	icon?: string | Icon | null;
 	description?: string;
 }): KvDefinition<TField> {
 	return {
 		name: options.name,
-		icon: options.icon ?? null,
+		icon: normalizeIcon(options.icon),
 		description: options.description ?? '',
 		field: options.field,
 	};
 }
-
-/**
- * Factory functions for creating IconDefinition objects.
- *
- * Icons can be emoji characters or external image URLs.
- * Use these helpers instead of manually constructing icon objects.
- *
- * @example
- * ```typescript
- * import { table, icon } from '@epicenter/hq';
- *
- * const posts = table({
- *   name: 'Posts',
- *   icon: icon.emoji('📝'),
- *   fields: { id: id(), title: text() },
- * });
- *
- * const settings = table({
- *   name: 'Settings',
- *   icon: icon.external('https://example.com/icon.png'),
- *   fields: { id: id(), key: text() },
- * });
- * ```
- */
-export const icon = {
-	/**
-	 * Create an emoji icon.
-	 *
-	 * @param value - The emoji character to use as the icon
-	 * @returns An emoji icon definition
-	 *
-	 * @example
-	 * ```typescript
-	 * icon.emoji('📝')  // { type: 'emoji', value: '📝' }
-	 * icon.emoji('🚀')  // { type: 'emoji', value: '🚀' }
-	 * ```
-	 */
-	emoji: (value: string) =>
-		({ type: 'emoji', value }) as const satisfies IconDefinition,
-
-	/**
-	 * Create an external image icon.
-	 *
-	 * @param url - The URL of the external image
-	 * @returns An external icon definition
-	 *
-	 * @example
-	 * ```typescript
-	 * icon.external('https://example.com/icon.png')
-	 * ```
-	 */
-	external: (url: string) =>
-		({ type: 'external', url }) as const satisfies IconDefinition,
-};
-
-/**
- * Factory functions for creating CoverDefinition objects.
- *
- * @deprecated Cover has been removed from TableDefinition.
- * This factory is kept for backward compatibility but will be removed in a future version.
- */
-export const cover = {
-	/**
-	 * Create an external image cover.
-	 *
-	 * @deprecated Cover has been removed from TableDefinition.
-	 *
-	 * @param url - The URL of the external cover image
-	 * @returns An external cover definition
-	 */
-	external: (url: string) =>
-		({ type: 'external', url }) as const satisfies CoverDefinition,
-};
 
 export function id({
 	name = '',

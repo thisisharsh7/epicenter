@@ -11,12 +11,12 @@
  * const actions = {
  *   posts: {
  *     getAll: defineQuery({
- *       handler: () => client.tables.posts.getAllValid(),
+ *       handler: () => client.tables.get('posts').getAllValid(),
  *     }),
  *     create: defineMutation({
  *       input: type({ title: 'string' }),
  *       handler: ({ title }) => {
- *         client.tables.posts.upsert({ id: generateId(), title });
+ *         client.tables.get('posts').upsert({ id: generateId(), title });
  *         return { id };
  *       },
  *     }),
@@ -78,12 +78,12 @@ export type Actions = {
  * @example
  * ```typescript
  * const getAllPosts = defineQuery({
- *   handler: () => client.tables.posts.getAllValid(),
+ *   handler: () => client.tables.get('posts').getAllValid(),
  * });
  *
  * const getPost = defineQuery({
  *   input: type({ id: 'string' }),
- *   handler: ({ id }) => client.tables.posts.get({ id }),
+ *   handler: ({ id }) => client.tables.get('posts').get({ id }),
  * });
  * ```
  */
@@ -105,7 +105,7 @@ export function defineQuery<
  * const createPost = defineMutation({
  *   input: type({ title: 'string' }),
  *   handler: ({ title }) => {
- *     client.tables.posts.upsert({ id: generateId(), title });
+ *     client.tables.get('posts').upsert({ id: generateId(), title });
  *     return { id };
  *   },
  * });

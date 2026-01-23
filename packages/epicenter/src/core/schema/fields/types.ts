@@ -37,36 +37,77 @@ import type { Static, TSchema } from 'typebox';
 import type { DateTimeString } from './datetime';
 
 // ============================================================================
-// Icon and Cover Definitions (Forward Compatible)
+// Icon Type (Tagged String)
 // ============================================================================
 
 /**
- * Icon definition - emoji or external image URL.
- * Uses discriminated union for future extensibility.
+ * Icon as a tagged string format: `{type}:{value}`
+ *
+ * Uses template literal types for compile-time safety. Tagged strings are
+ * LWW-safe in YJS (concurrent edits produce valid icons) and require no
+ * encode/decode layer.
  *
  * @example
  * ```typescript
  * // Emoji icon
- * { type: 'emoji', value: '📝' }
+ * const icon: Icon = 'emoji:📝';
  *
- * // External image
- * { type: 'external', url: 'https://example.com/icon.png' }
+ * // Lucide icon
+ * const icon: Icon = 'lucide:file-text';
+ *
+ * // External URL
+ * const icon: Icon = 'url:https://example.com/icon.png';
+ *
+ * // Parsing when needed
+ * const [type, value] = icon.split(':') as [IconType, string];
  * ```
  */
-export type IconDefinition =
-	| { type: 'emoji'; value: string }
-	| { type: 'external'; url: string };
+export type Icon = `emoji:${string}` | `lucide:${string}` | `url:${string}`;
 
 /**
- * Cover definition - external image URL for table banners.
- * Uses discriminated union for future extensibility (gradients, unsplash, etc).
+ * Icon type discriminator.
+ */
+export type IconType = 'emoji' | 'lucide' | 'url';
+
+/**
+ * Parse an Icon tagged string into its components.
  *
  * @example
  * ```typescript
- * { type: 'external', url: 'https://example.com/cover.jpg' }
+ * const { type, value } = parseIcon('emoji:📝');
+ * // type: 'emoji', value: '📝'
  * ```
  */
-export type CoverDefinition = { type: 'external'; url: string };
+export function parseIcon(icon: Icon): { type: IconType; value: string } {
+	const colonIndex = icon.indexOf(':');
+	return {
+		type: icon.slice(0, colonIndex) as IconType,
+		value: icon.slice(colonIndex + 1),
+	};
+}
+
+/**
+ * Create an Icon tagged string from type and value.
+ *
+ * @example
+ * ```typescript
+ * const icon = createIcon('emoji', '📝'); // 'emoji:📝'
+ * ```
+ */
+export function createIcon(type: IconType, value: string): Icon {
+	return `${type}:${value}` as Icon;
+}
+
+/**
+ * Check if a string is a valid Icon format.
+ */
+export function isIcon(value: string): value is Icon {
+	return (
+		value.startsWith('emoji:') ||
+		value.startsWith('lucide:') ||
+		value.startsWith('url:')
+	);
+}
 
 // ============================================================================
 // Field Metadata
@@ -97,7 +138,7 @@ export type CoverDefinition = { type: 'external'; url: string };
  * // Field with custom metadata
  * const titleField = text({
  *   name: 'Post Title',
- *   icon: { type: 'emoji', value: '📝' },
+ *   icon: 'emoji:📝',
  *   description: 'The main title displayed on the blog',
  * });
  *
@@ -110,8 +151,8 @@ export type FieldMetadata = {
 	name: string;
 	/** Description shown in tooltips/docs. Empty string if not provided. */
 	description: string;
-	/** Icon for the field - emoji or external image URL. */
-	icon: IconDefinition | null;
+	/** Icon for the field - tagged string format 'type:value'. */
+	icon: Icon | null;
 };
 
 /**
@@ -123,8 +164,8 @@ export type FieldOptions = {
 	name?: string;
 	/** Description shown in tooltips/docs. Defaults to empty string. */
 	description?: string;
-	/** Icon for the field. Defaults to null. */
-	icon?: IconDefinition | null;
+	/** Icon for the field - tagged string format 'type:value'. Defaults to null. */
+	icon?: Icon | null;
 };
 
 // ============================================================================
@@ -402,7 +443,7 @@ export type FieldMap = { id: IdField } & Record<string, Field>;
  * const postsTable: TableDefinition = {
  *   name: 'Posts',
  *   description: 'Blog posts and articles',
- *   icon: { type: 'emoji', value: '📝' },
+ *   icon: 'emoji:📝',
  *   fields: {
  *     id: id(),
  *     title: text(),
@@ -416,8 +457,8 @@ export type TableDefinition<TFields extends FieldMap = FieldMap> = {
 	name: string;
 	/** Required description shown in tooltips/docs */
 	description: string;
-	/** Icon for the table - normalized to IconDefinition | null */
-	icon: IconDefinition | null;
+	/** Icon for the table - tagged string format 'type:value' or null */
+	icon: Icon | null;
 	/** Field schema map for this table */
 	fields: TFields;
 };
@@ -435,7 +476,7 @@ export type TableDefinition<TFields extends FieldMap = FieldMap> = {
  *   posts: {
  *     name: 'Posts',
  *     description: 'Blog posts',
- *     icon: { type: 'emoji', value: '📝' },
+ *     icon: 'emoji:📝',
  *     fields: { id: id(), title: text() },
  *   },
  * };
@@ -456,14 +497,14 @@ export type TableDefinitionMap = Record<string, TableDefinition>;
  * @example
  * ```typescript
  * // Write: pass a Row to upsert
- * tables.posts.upsert({
+ * tables.get('posts').upsert({
  *   id: generateId(),
  *   title: 'Hello World',
  *   published: false,
  * });
  *
  * // Read: get returns a Row (wrapped in RowResult for validation)
- * const result = tables.posts.get({ id: '1' });
+ * const result = tables.get('posts').get({ id: '1' });
  * if (result.status === 'valid') {
  *   const row: Row = result.row;
  *   console.log(row.title);
@@ -486,10 +527,10 @@ export type Row<TFieldMap extends FieldMap = FieldMap> = {
  * @example
  * ```typescript
  * // Update only the title, leave other fields unchanged
- * tables.posts.update({ id: '1', title: 'New Title' });
+ * tables.get('posts').update({ id: '1', title: 'New Title' });
  *
  * // Update multiple fields
- * tables.posts.update({
+ * tables.get('posts').update({
  *   id: '1',
  *   title: 'Updated',
  *   published: true,
@@ -525,7 +566,7 @@ export type KvValue<C extends KvField = KvField> = CellValue<C>;
  * ```typescript
  * const themeKv: KvDefinition = {
  *   name: 'Theme',
- *   icon: { type: 'emoji', value: '🎨' },
+ *   icon: 'emoji:🎨',
  *   description: 'Application color theme',
  *   field: select({ options: ['light', 'dark'] }),
  * };
@@ -534,8 +575,8 @@ export type KvValue<C extends KvField = KvField> = CellValue<C>;
 export type KvDefinition<TField extends KvField = KvField> = {
 	/** Display name shown in UI (e.g., "Theme") */
 	name: string;
-	/** Icon for this KV entry - emoji or external image URL */
-	icon: IconDefinition | null;
+	/** Icon for this KV entry - tagged string format 'type:value' or null */
+	icon: Icon | null;
 	/** Description shown in tooltips/docs */
 	description: string;
 	/** The field schema for this KV entry */
@@ -553,13 +594,13 @@ export type KvDefinition<TField extends KvField = KvField> = {
  * const settingsKv: KvDefinitionMap = {
  *   theme: {
  *     name: 'Theme',
- *     icon: { type: 'emoji', value: '🎨' },
+ *     icon: 'emoji:🎨',
  *     description: 'Application color theme',
  *     field: select({ options: ['light', 'dark'], default: 'light' }),
  *   },
  *   fontSize: {
  *     name: 'Font Size',
- *     icon: { type: 'emoji', value: '🔤' },
+ *     icon: 'emoji:🔤',
  *     description: 'Editor font size in pixels',
  *     field: integer({ default: 14 }),
  *   },

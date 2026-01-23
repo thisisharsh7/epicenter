@@ -24,17 +24,17 @@ export type {
 } from './table-helper';
 
 /**
- * Callable function type for accessing tables.
+ * Object type for accessing tables.
  *
- * The tables object is a callable function: `tables('posts')` returns a TableHelper.
- * It also has properties for utility methods: `tables.has()`, `tables.names()`, etc.
+ * The tables object provides table access via `tables.get('posts')`.
+ * Utility methods are properties: `tables.has()`, `tables.names()`, etc.
  *
  * This pattern eliminates collision risk between user-defined table names and
- * utility methods, since user names only appear as function arguments.
+ * utility methods, since user names only appear as method arguments.
  */
 export type TablesFunction<TTableDefinitionMap extends TableDefinitionMap> = {
 	// ════════════════════════════════════════════════════════════════════
-	// CALL SIGNATURES
+	// TABLE ACCESS
 	// ════════════════════════════════════════════════════════════════════
 
 	/**
@@ -42,10 +42,10 @@ export type TablesFunction<TTableDefinitionMap extends TableDefinitionMap> = {
 	 *
 	 * @example
 	 * ```typescript
-	 * tables('posts').getAll()  // Row[] - fully typed
+	 * tables.get('posts').getAll()  // Row[] - fully typed
 	 * ```
 	 */
-	<K extends keyof TTableDefinitionMap & string>(
+	get<K extends keyof TTableDefinitionMap & string>(
 		name: K,
 	): TableHelper<TTableDefinitionMap[K]['fields']>;
 
@@ -54,10 +54,10 @@ export type TablesFunction<TTableDefinitionMap extends TableDefinitionMap> = {
 	 *
 	 * @example
 	 * ```typescript
-	 * tables('dynamic').getAll()  // unknown[]
+	 * tables.get('dynamic').getAll()  // unknown[]
 	 * ```
 	 */
-	(name: string): UntypedTableHelper;
+	get(name: string): UntypedTableHelper;
 
 	// ════════════════════════════════════════════════════════════════════
 	// EXISTENCE & ENUMERATION
@@ -106,18 +106,18 @@ export type TablesFunction<TTableDefinitionMap extends TableDefinitionMap> = {
  * This is a pure function that doesn't handle persistence - it only wraps
  * the Y.Doc with type-safe table operations.
  *
- * The returned object is a **callable function** that returns table helpers.
- * Utility methods are properties on the function itself.
+ * The returned object provides table access via the `.get()` method.
+ * Utility methods are properties on the object itself.
  *
  * ## API Design
  *
- * Tables are accessed by calling the function: `tables('posts')`.
+ * Tables are accessed via: `tables.get('posts')`.
  * Utilities are properties: `tables.has()`, `tables.clear()`, etc.
  * This eliminates collision risk between user table names and utility methods.
  *
  * @param ydoc - An existing Y.Doc instance (already loaded/initialized)
  * @param tableDefinitions - Table definitions (use `table()` helper for ergonomic definitions)
- * @returns Callable function with table helpers and utility methods
+ * @returns Object with table helpers and utility methods
  *
  * @example
  * ```typescript
@@ -135,15 +135,15 @@ export type TablesFunction<TTableDefinitionMap extends TableDefinitionMap> = {
  *   }),
  * });
  *
- * // Tables are accessed by calling the function
- * tables('posts').upsert({ id: '1', title: 'Hello', published: false });
- * tables('posts').getAll();
+ * // Tables are accessed via get()
+ * tables.get('posts').upsert({ id: '1', title: 'Hello', published: false });
+ * tables.get('posts').getAll();
  *
  * // Clear all tables
  * tables.clear();
  *
  * // With destructuring (unchanged ergonomics)
- * const posts = tables('posts');
+ * const posts = tables.get('posts');
  * posts.upsert({ id: '1', title: 'Hello', published: false });
  * ```
  */
@@ -170,27 +170,42 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 	};
 
 	// ════════════════════════════════════════════════════════════════════
-	// BUILD CALLABLE FUNCTION WITH PROPERTIES
+	// BUILD TABLES OBJECT WITH METHODS
 	// ════════════════════════════════════════════════════════════════════
 
-	/**
-	 * The main accessor function. Call with a table name to get a helper.
-	 */
-	const tablesAccessor = (
-		name: string,
-	):
-		| TableHelper<TTableDefinitionMap[keyof TTableDefinitionMap]['fields']>
-		| UntypedTableHelper => {
-		// Check if it's a defined table first
-		if (name in tableHelpers) {
-			return tableHelpers[name as keyof typeof tableHelpers];
-		}
-		// Otherwise return/create a dynamic helper
-		return getOrCreateDynamicHelper(name);
-	};
+	return {
+		// ════════════════════════════════════════════════════════════════════
+		// TABLE ACCESS
+		// ════════════════════════════════════════════════════════════════════
 
-	// Use Object.assign for cleaner property attachment
-	return Object.assign(tablesAccessor, {
+		/**
+		 * Get a table helper by name.
+		 *
+		 * Returns a typed helper for defined tables, or an untyped helper for
+		 * dynamic tables.
+		 *
+		 * @example
+		 * ```typescript
+		 * tables.get('posts').upsert({ id: '1', title: 'Hello' });
+		 * tables.get('posts').getAll();
+		 *
+		 * // Dynamic tables are also supported
+		 * tables.get('custom').upsert({ id: '1', data: 'value' });
+		 * ```
+		 */
+		get(
+			name: string,
+		):
+			| TableHelper<TTableDefinitionMap[keyof TTableDefinitionMap]['fields']>
+			| UntypedTableHelper {
+			// Check if it's a defined table first
+			if (name in tableHelpers) {
+				return tableHelpers[name as keyof typeof tableHelpers];
+			}
+			// Otherwise return/create a dynamic helper
+			return getOrCreateDynamicHelper(name);
+		},
+
 		// ════════════════════════════════════════════════════════════════════
 		// EXISTENCE & ENUMERATION
 		// ════════════════════════════════════════════════════════════════════
@@ -205,7 +220,7 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 		 * ```typescript
 		 * if (tables.has('custom')) {
 		 *   // Table exists, safe to read
-		 *   const rows = tables('custom').getAll()
+		 *   const rows = tables.get('custom').getAll()
 		 * }
 		 * ```
 		 */
@@ -290,7 +305,7 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 			}
 			return result;
 		},
-	}) as TablesFunction<TTableDefinitionMap>;
+	} as TablesFunction<TTableDefinitionMap>;
 }
 
 /**

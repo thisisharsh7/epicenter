@@ -6,7 +6,6 @@
  */
 
 import type { ExtractTablesSchema, Tables } from '@epicenter/hq';
-import { icon } from '@epicenter/hq';
 import {
 	DEVICES_SCHEMA,
 	TAB_GROUPS_SCHEMA,
@@ -23,25 +22,25 @@ export const BROWSER_SCHEMA = {
 	devices: {
 		name: 'Devices',
 		description: 'Browser installations for multi-device sync',
-		icon: icon.emoji('💻'),
+		icon: 'emoji:💻',
 		fields: DEVICES_SCHEMA,
 	},
 	tabs: {
 		name: 'Tabs',
 		description: 'Browser tab state',
-		icon: icon.emoji('📑'),
+		icon: 'emoji:📑',
 		fields: TABS_SCHEMA,
 	},
 	windows: {
 		name: 'Windows',
 		description: 'Browser window state',
-		icon: icon.emoji('🪟'),
+		icon: 'emoji:🪟',
 		fields: WINDOWS_SCHEMA,
 	},
 	tab_groups: {
 		name: 'Tab Groups',
 		description: 'Chrome tab groups (Chrome 88+)',
-		icon: icon.emoji('📁'),
+		icon: 'emoji:📁',
 		fields: TAB_GROUPS_SCHEMA,
 	},
 } as const;

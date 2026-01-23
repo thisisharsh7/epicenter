@@ -2,8 +2,7 @@ import type * as Y from 'yjs';
 
 import type { KvDefinitionMap, KvValue } from '../schema';
 
-import type { KvHelper } from './kv-helper';
-import { createKvHelpers } from './kv-helper';
+import { createKvHelpers, type KvChange, type KvGetResult } from './kv-helper';
 
 /** Y.Map storing all KV values, keyed by key name. */
 export type KvMap = Y.Map<KvValue>;
@@ -11,31 +10,91 @@ export type KvMap = Y.Map<KvValue>;
 export type { KvHelper } from './kv-helper';
 
 /**
- * Callable function type for accessing KV entries.
+ * Flat Map-like API for accessing KV entries.
  *
- * The kv object is a callable function: `kv('theme')` returns a KvHelper.
- * It also has properties for utility methods: `kv.has()`, `kv.definitions`, etc.
+ * The kv object provides direct methods: `kv.get('theme')`, `kv.set('theme', value)`.
+ * This is simpler than the previous callable pattern and matches standard Map semantics.
  *
- * This pattern eliminates collision risk between user-defined key names and
- * utility methods, since user names only appear as function arguments.
+ * @example
+ * ```typescript
+ * kv.set('theme', 'dark');
+ * kv.get('theme');  // { status: 'valid', value: 'dark' }
+ * kv.reset('theme');
+ * kv.has('theme');  // false (if no default)
+ * ```
  */
 export type KvFunction<TKvDefinitionMap extends KvDefinitionMap> = {
 	// ════════════════════════════════════════════════════════════════════
-	// CALL SIGNATURE
+	// KEY-VALUE OPERATIONS
 	// ════════════════════════════════════════════════════════════════════
 
 	/**
-	 * Get a KV helper by key name.
+	 * Get the value for a specific KV key.
+	 *
+	 * Returns a discriminated union with status:
+	 * - `{ status: 'valid', value }` if value exists and passes validation
+	 * - `{ status: 'invalid', key, error }` if value exists but fails validation
+	 * - `{ status: 'not_found', key }` if value is unset (no default, not nullable)
 	 *
 	 * @example
 	 * ```typescript
-	 * kv('theme').set('dark')
-	 * kv('theme').get()  // { status: 'valid', value: 'dark' }
+	 * const result = kv.get('theme');
+	 * if (result.status === 'valid') {
+	 *   console.log(result.value); // 'dark' | 'light'
+	 * }
 	 * ```
 	 */
-	<K extends keyof TKvDefinitionMap & string>(
-		name: K,
-	): KvHelper<TKvDefinitionMap[K]['field']>;
+	get<K extends keyof TKvDefinitionMap & string>(
+		key: K,
+	): KvGetResult<KvValue<TKvDefinitionMap[K]['field']>>;
+
+	/**
+	 * Set the value for a specific KV key.
+	 *
+	 * @example
+	 * ```typescript
+	 * kv.set('theme', 'dark');
+	 * kv.set('count', 42);
+	 * ```
+	 */
+	set<K extends keyof TKvDefinitionMap & string>(
+		key: K,
+		value: KvValue<TKvDefinitionMap[K]['field']>,
+	): void;
+
+	/**
+	 * Reset a specific KV key to its default value.
+	 *
+	 * If a default is defined in the schema, sets to that value.
+	 * If nullable with no default, sets to null.
+	 * Otherwise, deletes the key entirely.
+	 *
+	 * @example
+	 * ```typescript
+	 * kv.reset('theme'); // Back to schema default
+	 * ```
+	 */
+	reset<K extends keyof TKvDefinitionMap & string>(key: K): void;
+
+	/**
+	 * Observe changes to a specific KV key.
+	 *
+	 * @example
+	 * ```typescript
+	 * const unsubscribe = kv.observeKey('theme', (change) => {
+	 *   if (change.action !== 'delete') {
+	 *     document.body.className = String(change.newValue);
+	 *   }
+	 * });
+	 * ```
+	 */
+	observeKey<K extends keyof TKvDefinitionMap & string>(
+		key: K,
+		callback: (
+			change: KvChange<KvValue<TKvDefinitionMap[K]['field']>>,
+			transaction: Y.Transaction,
+		) => void,
+	): () => void;
 
 	// ════════════════════════════════════════════════════════════════════
 	// EXISTENCE & ENUMERATION
@@ -44,7 +103,7 @@ export type KvFunction<TKvDefinitionMap extends KvDefinitionMap> = {
 	/**
 	 * Check if a KV key has a value set in YJS storage.
 	 */
-	has(name: string): boolean;
+	has(key: string): boolean;
 
 	// ════════════════════════════════════════════════════════════════════
 	// BULK OPERATIONS
@@ -88,8 +147,8 @@ export type KvFunction<TKvDefinitionMap extends KvDefinitionMap> = {
 /**
  * Create a KV (key-value) store from definitions.
  *
- * The returned object is a **callable function** that returns KV helpers.
- * Utility methods are properties on the function itself.
+ * The returned object provides a flat Map-like API with direct methods:
+ * `kv.get('key')`, `kv.set('key', value)`, `kv.reset('key')`.
  *
  * Conceptually, a KV store is like a single table row where each key is a column.
  * While tables have multiple rows with IDs, KV stores have one "row" of settings/state.
@@ -99,31 +158,28 @@ export type KvFunction<TKvDefinitionMap extends KvDefinitionMap> = {
  *
  * @example
  * ```typescript
- * import { createKv, kv, icon, select, integer } from '@epicenter/hq';
+ * import { createKv, kv, select, integer } from '@epicenter/hq';
  *
  * const settings = createKv(ydoc, {
  *   theme: kv({
  *     name: 'Theme',
- *     icon: icon.emoji('🎨'),
+ *     icon: 'emoji:🎨',
  *     field: select({ options: ['light', 'dark'], default: 'light' }),
  *     description: 'Application color theme',
  *   }),
  *   fontSize: kv({
  *     name: 'Font Size',
- *     icon: icon.emoji('🔤'),
+ *     icon: 'emoji:🔤',
  *     field: integer({ default: 14 }),
  *     description: 'Editor font size in pixels',
  *   }),
  * });
  *
- * // KV entries are accessed by calling the function
- * settings('theme').set('dark');
- * settings('fontSize').set(16);
- *
- * // With destructuring (unchanged ergonomics)
- * const theme = settings('theme');
- * theme.set('dark');
- * theme.get();
+ * // Flat Map-like API
+ * settings.set('theme', 'dark');
+ * settings.set('fontSize', 16);
+ * settings.get('theme');  // { status: 'valid', value: 'dark' }
+ * settings.reset('theme'); // Back to default
  * ```
  */
 export function createKv<TKvDefinitionMap extends KvDefinitionMap>(
@@ -133,21 +189,85 @@ export function createKv<TKvDefinitionMap extends KvDefinitionMap>(
 	const ykvMap = ydoc.getMap<KvValue>('kv');
 	const kvHelpers = createKvHelpers({ ydoc, definitions });
 
-	// ════════════════════════════════════════════════════════════════════
-	// BUILD CALLABLE FUNCTION WITH PROPERTIES
-	// ════════════════════════════════════════════════════════════════════
+	return {
+		// ════════════════════════════════════════════════════════════════════
+		// KEY-VALUE OPERATIONS
+		// ════════════════════════════════════════════════════════════════════
 
-	/**
-	 * The main accessor function. Call with a key name to get a helper.
-	 */
-	const kvAccessor = <K extends keyof TKvDefinitionMap & string>(
-		name: K,
-	): KvHelper<TKvDefinitionMap[K]['field']> => {
-		return kvHelpers[name];
-	};
+		/**
+		 * Get the value for a specific KV key.
+		 *
+		 * Returns a discriminated union with status:
+		 * - `{ status: 'valid', value }` if value exists and passes validation
+		 * - `{ status: 'invalid', key, error }` if value exists but fails validation
+		 * - `{ status: 'not_found', key }` if value is unset (no default, not nullable)
+		 *
+		 * @example
+		 * ```typescript
+		 * const result = kv.get('theme');
+		 * if (result.status === 'valid') {
+		 *   console.log(result.value); // 'dark' | 'light'
+		 * }
+		 * ```
+		 */
+		get<K extends keyof TKvDefinitionMap & string>(key: K) {
+			return kvHelpers[key].get();
+		},
 
-	// Use Object.assign for cleaner property attachment
-	return Object.assign(kvAccessor, {
+		/**
+		 * Set the value for a specific KV key.
+		 *
+		 * @example
+		 * ```typescript
+		 * kv.set('theme', 'dark');
+		 * kv.set('count', 42);
+		 * ```
+		 */
+		set<K extends keyof TKvDefinitionMap & string>(
+			key: K,
+			value: KvValue<TKvDefinitionMap[K]['field']>,
+		) {
+			kvHelpers[key].set(value);
+		},
+
+		/**
+		 * Reset a specific KV key to its default value.
+		 *
+		 * If a default is defined in the schema, sets to that value.
+		 * If nullable with no default, sets to null.
+		 * Otherwise, deletes the key entirely.
+		 *
+		 * @example
+		 * ```typescript
+		 * kv.reset('theme'); // Back to schema default
+		 * ```
+		 */
+		reset<K extends keyof TKvDefinitionMap & string>(key: K) {
+			kvHelpers[key].reset();
+		},
+
+		/**
+		 * Observe changes to a specific KV key.
+		 *
+		 * @example
+		 * ```typescript
+		 * const unsubscribe = kv.observeKey('theme', (change) => {
+		 *   if (change.action !== 'delete') {
+		 *     document.body.className = String(change.newValue);
+		 *   }
+		 * });
+		 * ```
+		 */
+		observeKey<K extends keyof TKvDefinitionMap & string>(
+			key: K,
+			callback: (
+				change: KvChange<KvValue<TKvDefinitionMap[K]['field']>>,
+				transaction: Y.Transaction,
+			) => void,
+		) {
+			return kvHelpers[key].observe(callback);
+		},
+
 		// ════════════════════════════════════════════════════════════════════
 		// EXISTENCE & ENUMERATION
 		// ════════════════════════════════════════════════════════════════════
@@ -161,12 +281,12 @@ export function createKv<TKvDefinitionMap extends KvDefinitionMap>(
 		 * @example
 		 * ```typescript
 		 * kv.has('theme')  // false (never set, will use default)
-		 * kv('theme').set('dark')
+		 * kv.set('theme', 'dark')
 		 * kv.has('theme')  // true
 		 * ```
 		 */
-		has(name: string): boolean {
-			return ykvMap.has(name);
+		has(key: string): boolean {
+			return ykvMap.has(key);
 		},
 
 		// ════════════════════════════════════════════════════════════════════
@@ -182,13 +302,13 @@ export function createKv<TKvDefinitionMap extends KvDefinitionMap>(
 		 *
 		 * @example
 		 * ```typescript
-		 * kv('theme').set('dark');
-		 * kv('fontSize').set(20);
+		 * kv.set('theme', 'dark');
+		 * kv.set('fontSize', 20);
 		 *
 		 * kv.clear();
 		 *
-		 * kv('theme').get();    // { status: 'valid', value: 'light' } (default)
-		 * kv('fontSize').get(); // { status: 'valid', value: 14 } (default)
+		 * kv.get('theme');    // { status: 'valid', value: 'light' } (default)
+		 * kv.get('fontSize'); // { status: 'valid', value: 14 } (default)
 		 * ```
 		 */
 		clear(): void {
@@ -211,7 +331,7 @@ export function createKv<TKvDefinitionMap extends KvDefinitionMap>(
 		 * ```typescript
 		 * // Access definition metadata
 		 * console.log(kv.definitions.theme.name);        // 'Theme'
-		 * console.log(kv.definitions.theme.icon);        // { type: 'emoji', value: '🎨' }
+		 * console.log(kv.definitions.theme.icon);        // 'emoji:🎨'
 		 * console.log(kv.definitions.theme.description); // 'Application color theme'
 		 *
 		 * // Access the field schema
@@ -268,8 +388,8 @@ export function createKv<TKvDefinitionMap extends KvDefinitionMap>(
 		 *
 		 * @example
 		 * ```typescript
-		 * kv('theme').set('dark');
-		 * kv('fontSize').set(16);
+		 * kv.set('theme', 'dark');
+		 * kv.set('fontSize', 16);
 		 *
 		 * const json = kv.toJSON();
 		 * // { theme: 'dark', fontSize: 16 }
@@ -285,7 +405,7 @@ export function createKv<TKvDefinitionMap extends KvDefinitionMap>(
 				[K in keyof TKvDefinitionMap]: KvValue<TKvDefinitionMap[K]['field']>;
 			};
 		},
-	}) as KvFunction<TKvDefinitionMap>;
+	};
 }
 
 /**
