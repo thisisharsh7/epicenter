@@ -370,7 +370,7 @@ describe('createDefinition', () => {
 
 			const posts = definition.tables('posts')!;
 			expect(posts.name).toBe('Posts');
-			expect(posts.icon).toEqual({ type: 'emoji', value: '📝' });
+			expect(posts.icon).toBe('emoji:📝');
 			expect(posts.description).toBe('Blog posts');
 		});
 
@@ -393,7 +393,7 @@ describe('createDefinition', () => {
 			posts.setName('Blog Posts');
 
 			expect(posts.name).toBe('Blog Posts');
-			expect(posts.icon).toEqual({ type: 'emoji', value: '📝' }); // unchanged
+			expect(posts.icon).toBe('emoji:📝'); // unchanged
 		});
 
 		test('setIcon() updates table icon', () => {
@@ -412,9 +412,9 @@ describe('createDefinition', () => {
 			);
 
 			const posts = definition.tables('posts')!;
-			posts.setIcon({ type: 'emoji', value: '✍️' });
+			posts.setIcon('emoji:✍️');
 
-			expect(posts.icon).toEqual({ type: 'emoji', value: '✍️' });
+			expect(posts.icon).toBe('emoji:✍️');
 			expect(posts.name).toBe('Posts'); // unchanged
 		});
 
@@ -512,7 +512,7 @@ describe('createDefinition', () => {
 				'theme',
 				setting({
 					name: 'Theme',
-					icon: { type: 'emoji', value: '🎨' },
+					icon: 'emoji:🎨',
 					description: 'Color theme',
 					field: select({ options: ['light', 'dark'], default: 'light' }),
 				}),
@@ -599,7 +599,7 @@ describe('createDefinition', () => {
 				'theme',
 				setting({
 					name: 'Theme',
-					icon: { type: 'emoji', value: '🎨' },
+					icon: 'emoji:🎨',
 					description: 'Color theme',
 					field: select({ options: ['light', 'dark'] }),
 				}),
@@ -607,7 +607,7 @@ describe('createDefinition', () => {
 
 			const theme = definition.kv('theme')!;
 			expect(theme.name).toBe('Theme');
-			expect(theme.icon).toEqual({ type: 'emoji', value: '🎨' });
+			expect(theme.icon).toBe('emoji:🎨');
 			expect(theme.description).toBe('Color theme');
 			expect(theme.field.type).toBe('select');
 		});

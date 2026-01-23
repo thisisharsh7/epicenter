@@ -99,18 +99,18 @@ export type KvFunction<TKvDefinitionMap extends KvDefinitionMap> = {
  *
  * @example
  * ```typescript
- * import { createKv, kv, icon, select, integer } from '@epicenter/hq';
+ * import { createKv, kv, select, integer } from '@epicenter/hq';
  *
  * const settings = createKv(ydoc, {
  *   theme: kv({
  *     name: 'Theme',
- *     icon: icon.emoji('🎨'),
+ *     icon: 'emoji:🎨',
  *     field: select({ options: ['light', 'dark'], default: 'light' }),
  *     description: 'Application color theme',
  *   }),
  *   fontSize: kv({
  *     name: 'Font Size',
- *     icon: icon.emoji('🔤'),
+ *     icon: 'emoji:🔤',
  *     field: integer({ default: 14 }),
  *     description: 'Editor font size in pixels',
  *   }),
@@ -211,7 +211,7 @@ export function createKv<TKvDefinitionMap extends KvDefinitionMap>(
 		 * ```typescript
 		 * // Access definition metadata
 		 * console.log(kv.definitions.theme.name);        // 'Theme'
-		 * console.log(kv.definitions.theme.icon);        // { type: 'emoji', value: '🎨' }
+		 * console.log(kv.definitions.theme.icon);        // 'emoji:🎨'
 		 * console.log(kv.definitions.theme.description); // 'Application color theme'
 		 *
 		 * // Access the field schema

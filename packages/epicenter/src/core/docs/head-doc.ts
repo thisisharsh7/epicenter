@@ -1,11 +1,11 @@
 import * as Y from 'yjs';
 
+import type { Icon } from '../schema/fields/types.js';
 import type {
 	InferProviderExports,
 	Lifecycle,
 	ProviderFactoryMap,
 } from './provider-types.js';
-import type { IconDefinition } from './workspace-doc.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Workspace Meta Type
@@ -20,8 +20,8 @@ import type { IconDefinition } from './workspace-doc.js';
 export type WorkspaceMeta = {
 	/** Display name of the workspace */
 	name: string;
-	/** Optional icon (emoji, Lucide icon name, or URL) */
-	icon: IconDefinition | null;
+	/** Optional icon (tagged string format: 'emoji:📝', 'lucide:file', 'url:...') */
+	icon: Icon | null;
 	/** Optional description */
 	description: string;
 };
@@ -120,7 +120,7 @@ export function createHeadDoc<T extends ProviderFactoryMap>(options: {
 	const { workspaceId, providers: providerFactories } = options;
 	const ydoc = new Y.Doc({ guid: workspaceId });
 	const epochsMap = ydoc.getMap<number>('epochs');
-	const metaMap = ydoc.getMap<string | IconDefinition | null>('meta');
+	const metaMap = ydoc.getMap<string | Icon | null>('meta');
 
 	// Initialize providers synchronously — async work is in their whenSynced
 	const providers = {} as InferProviderExports<T>;
@@ -372,14 +372,14 @@ export function createHeadDoc<T extends ProviderFactoryMap>(options: {
 		 * ```typescript
 		 * const meta = head.getMeta();
 		 * console.log(meta.name);        // "Whispering"
-		 * console.log(meta.icon);        // { type: 'emoji', value: '🎙️' }
+		 * console.log(meta.icon);        // 'emoji:🎙️'
 		 * console.log(meta.description); // "Voice recordings"
 		 * ```
 		 */
 		getMeta(): WorkspaceMeta {
 			return {
 				name: (metaMap.get('name') as string) ?? '',
-				icon: (metaMap.get('icon') as IconDefinition | null) ?? null,
+				icon: (metaMap.get('icon') as Icon | null) ?? null,
 				description: (metaMap.get('description') as string) ?? '',
 			};
 		},
@@ -400,7 +400,7 @@ export function createHeadDoc<T extends ProviderFactoryMap>(options: {
 		 * // Update multiple fields
 		 * head.setMeta({
 		 *   name: 'Whispering',
-		 *   icon: { type: 'emoji', value: '🎙️' },
+		 *   icon: 'emoji:🎙️',
 		 *   description: 'Voice recordings and transcriptions',
 		 * });
 		 * ```

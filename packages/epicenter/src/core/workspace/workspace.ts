@@ -447,7 +447,7 @@ function createClientBuilder<
 // HEAD DOC (per workspace, all epochs)
 // Y.Map('meta') - Workspace identity
 //   └── name: string
-//   └── icon: IconDefinition | null
+//   └── icon: Icon | null
 //   └── description: string
 // Y.Map('epochs') - Epoch tracking
 //   └── [clientId]: number

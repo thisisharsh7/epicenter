@@ -5,7 +5,7 @@ import type {
 } from '../docs/workspace-doc';
 import type {
 	Field,
-	IconDefinition,
+	Icon,
 	KvDefinition,
 	KvField,
 	TableDefinition,
@@ -163,11 +163,11 @@ function createFieldsCollection(
  * if (posts) {
  *   // Read fixed properties
  *   console.log(posts.name);        // 'Posts'
- *   console.log(posts.icon);        // { type: 'emoji', value: '📝' }
+ *   console.log(posts.icon);        // 'emoji:📝'
  *
  *   // Update fixed properties
  *   posts.setName('Blog Posts');
- *   posts.setIcon({ type: 'emoji', value: '✍️' });
+ *   posts.setIcon('emoji:✍️');
  *
  *   // Access fields (collection-style)
  *   const titleSchema = posts.fields.get('title');
@@ -179,15 +179,15 @@ function createFieldsCollection(
 export type TableHelper = {
 	/** Table name (display name, not the key). */
 	readonly name: string;
-	/** Table icon. */
-	readonly icon: IconDefinition | null;
+	/** Table icon (tagged string format: 'emoji:📝', 'lucide:file', 'url:...'). */
+	readonly icon: Icon | null;
 	/** Table description. */
 	readonly description: string;
 
 	/** Set the table name. */
 	setName(name: string): void;
 	/** Set the table icon. */
-	setIcon(icon: IconDefinition | null): void;
+	setIcon(icon: Icon | null): void;
 	/** Set the table description. */
 	setDescription(description: string): void;
 
@@ -215,7 +215,7 @@ function createTableHelper(
 			return (tableDefinitionMap.get('name') as string) ?? '';
 		},
 		get icon() {
-			return (tableDefinitionMap.get('icon') as IconDefinition | null) ?? null;
+			return (tableDefinitionMap.get('icon') as Icon | null) ?? null;
 		},
 		get description() {
 			return (tableDefinitionMap.get('description') as string) ?? '';
@@ -235,7 +235,7 @@ function createTableHelper(
 		toJSON() {
 			return {
 				name: (tableDefinitionMap.get('name') as string) ?? '',
-				icon: (tableDefinitionMap.get('icon') as IconDefinition | null) ?? null,
+				icon: (tableDefinitionMap.get('icon') as Icon | null) ?? null,
 				description: (tableDefinitionMap.get('description') as string) ?? '',
 				fields:
 					(tableDefinitionMap.get('fields') as Y.Map<Field>)?.toJSON() ?? {},
@@ -352,7 +352,7 @@ function createTablesCollection(
 
 		return {
 			name: (tableDefinitionMap.get('name') as string) ?? '',
-			icon: (tableDefinitionMap.get('icon') as IconDefinition | null) ?? null,
+			icon: (tableDefinitionMap.get('icon') as Icon | null) ?? null,
 			description: (tableDefinitionMap.get('description') as string) ?? '',
 			fields:
 				(tableDefinitionMap.get('fields') as Y.Map<Field>)?.toJSON() ?? {},
@@ -391,8 +391,7 @@ function createTablesCollection(
 			for (const [tableName, tableDefinitionMap] of tablesMap.entries()) {
 				result[tableName] = {
 					name: (tableDefinitionMap.get('name') as string) ?? '',
-					icon:
-						(tableDefinitionMap.get('icon') as IconDefinition | null) ?? null,
+					icon: (tableDefinitionMap.get('icon') as Icon | null) ?? null,
 					description: (tableDefinitionMap.get('description') as string) ?? '',
 					fields:
 						(tableDefinitionMap.get('fields') as Y.Map<Field>)?.toJSON() ?? {},
@@ -417,8 +416,7 @@ function createTablesCollection(
 					tableName,
 					{
 						name: (tableDefinitionMap.get('name') as string) ?? '',
-						icon:
-							(tableDefinitionMap.get('icon') as IconDefinition | null) ?? null,
+						icon: (tableDefinitionMap.get('icon') as Icon | null) ?? null,
 						description:
 							(tableDefinitionMap.get('description') as string) ?? '',
 						fields:
@@ -510,8 +508,8 @@ function createTablesCollection(
 export type KvHelper = {
 	/** KV display name. */
 	readonly name: string;
-	/** KV icon. */
-	readonly icon: IconDefinition | null;
+	/** KV icon (tagged string format: 'emoji:🎨', 'lucide:settings', 'url:...'). */
+	readonly icon: Icon | null;
 	/** KV description. */
 	readonly description: string;
 	/** KV field. */
@@ -520,7 +518,7 @@ export type KvHelper = {
 	/** Set the KV name. */
 	setName(name: string): void;
 	/** Set the KV icon. */
-	setIcon(icon: IconDefinition | null): void;
+	setIcon(icon: Icon | null): void;
 	/** Set the KV description. */
 	setDescription(description: string): void;
 	/** Set the KV field. */
@@ -547,7 +545,7 @@ function createKvHelper(
 			return (kvEntryMap.get('name') as string) ?? '';
 		},
 		get icon() {
-			return (kvEntryMap.get('icon') as IconDefinition | null) ?? null;
+			return (kvEntryMap.get('icon') as Icon | null) ?? null;
 		},
 		get description() {
 			return (kvEntryMap.get('description') as string) ?? '';
@@ -573,7 +571,7 @@ function createKvHelper(
 		toJSON() {
 			return {
 				name: (kvEntryMap.get('name') as string) ?? '',
-				icon: (kvEntryMap.get('icon') as IconDefinition | null) ?? null,
+				icon: (kvEntryMap.get('icon') as Icon | null) ?? null,
 				description: (kvEntryMap.get('description') as string) ?? '',
 				field: kvEntryMap.get('field'),
 			} as KvDefinition;
@@ -669,7 +667,7 @@ function createKvCollection(definitionMap: DefinitionYMap): KvCollection {
 
 		return {
 			name: (kvEntryMap.get('name') as string) ?? '',
-			icon: (kvEntryMap.get('icon') as IconDefinition | null) ?? null,
+			icon: (kvEntryMap.get('icon') as Icon | null) ?? null,
 			description: (kvEntryMap.get('description') as string) ?? '',
 			field: kvEntryMap.get('field'),
 		} as KvDefinition;
@@ -707,7 +705,7 @@ function createKvCollection(definitionMap: DefinitionYMap): KvCollection {
 			for (const [keyName, kvEntryMap] of kvMap.entries()) {
 				result[keyName] = {
 					name: (kvEntryMap.get('name') as string) ?? '',
-					icon: (kvEntryMap.get('icon') as IconDefinition | null) ?? null,
+					icon: (kvEntryMap.get('icon') as Icon | null) ?? null,
 					description: (kvEntryMap.get('description') as string) ?? '',
 					field: kvEntryMap.get('field'),
 				} as KvDefinition;
@@ -731,7 +729,7 @@ function createKvCollection(definitionMap: DefinitionYMap): KvCollection {
 					keyName,
 					{
 						name: (kvEntryMap.get('name') as string) ?? '',
-						icon: (kvEntryMap.get('icon') as IconDefinition | null) ?? null,
+						icon: (kvEntryMap.get('icon') as Icon | null) ?? null,
 						description: (kvEntryMap.get('description') as string) ?? '',
 						field: kvEntryMap.get('field'),
 					} as KvDefinition,
@@ -819,7 +817,7 @@ function createKvCollection(definitionMap: DefinitionYMap): KvCollection {
  *
  * definition.tables('posts')          → TableHelper
  * ├── .name                           → string (getter)
- * ├── .icon                           → IconDefinition | null (getter)
+ * ├── .icon                           → Icon | null (getter)
  * ├── .description                    → string (getter)
  * ├── .setName(v)                     → void
  * ├── .setIcon(v)                     → void

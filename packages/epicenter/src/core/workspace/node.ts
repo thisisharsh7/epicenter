@@ -470,16 +470,17 @@ function createAsyncClientBuilder<
 export {
 	// Field factories for table definitions
 	boolean,
-	// Table metadata helpers
-	cover,
+	// Icon utilities
+	createIcon,
 	date,
 	// ID generation utilities
 	generateGuid,
 	generateId,
-	icon,
 	id,
 	integer,
+	isIcon,
 	json,
+	parseIcon,
 	real,
 	richtext,
 	select,

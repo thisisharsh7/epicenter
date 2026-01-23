@@ -40,13 +40,7 @@ export const WORKSPACE_DOC_MAPS = {
 // Type Definitions for Y.Doc Structure
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Icon definition for workspaces, tables, and KV entries.
- */
-export type IconDefinition =
-	| { type: 'emoji'; value: string }
-	| { type: 'lucide'; value: string }
-	| { type: 'url'; value: string };
+import type { Icon } from '../schema/fields/types.js';
 
 /**
  * The structure stored in Y.Map('definition') in the Workspace Doc.
@@ -61,7 +55,7 @@ export type WorkspaceDefinitionMap = {
 	tables: {
 		[tableName: string]: {
 			name: string;
-			icon: IconDefinition | null;
+			icon: Icon | null;
 			description: string;
 			fields: Record<string, unknown>; // Field objects
 		};
@@ -70,7 +64,7 @@ export type WorkspaceDefinitionMap = {
 	kv: {
 		[key: string]: {
 			name: string;
-			icon: IconDefinition | null;
+			icon: Icon | null;
 			description: string;
 			field: unknown; // Field object
 		};
