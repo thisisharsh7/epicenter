@@ -312,8 +312,6 @@ function createTableHelper<TFieldSchemaMap extends FieldSchemaMap>({
 	};
 
 	return {
-		fields: schema,
-
 		update(partialRow: PartialRow<TFieldSchemaMap>): UpdateResult {
 			const rowMap = getRow(partialRow.id);
 			if (!rowMap) return { status: 'not_found_locally' };
@@ -681,7 +679,6 @@ export type TableHelper<TFieldSchemaMap extends FieldSchemaMap> = ReturnType<
  * No validation is performed; all rows are treated as `Record<string, unknown> & { id: string }`.
  */
 export type UntypedTableHelper = {
-	fields: FieldSchemaMap;
 	update(partialRow: { id: string } & Record<string, unknown>): UpdateResult;
 	upsert(rowData: { id: string } & Record<string, unknown>): void;
 	upsertMany(rows: ({ id: string } & Record<string, unknown>)[]): void;
@@ -771,8 +768,6 @@ export function createUntypedTableHelper({
 	};
 
 	return {
-		fields: {} as FieldSchemaMap,
-
 		update(partialRow: TRow): UpdateResult {
 			const rowMap = getRow(partialRow.id);
 			if (!rowMap) return { status: 'not_found_locally' };
