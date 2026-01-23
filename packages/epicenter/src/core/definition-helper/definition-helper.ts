@@ -4,7 +4,6 @@ import type {
 	WorkspaceDefinitionMap,
 } from '../docs/workspace-doc';
 import type {
-	FieldMetadata,
 	FieldSchema,
 	IconDefinition,
 	KvDefinition,
@@ -30,8 +29,12 @@ export type ChangeAction = 'add' | 'delete';
 /** Change action for leaf Y.Map observation (fields can be updated). */
 export type FieldChangeAction = 'add' | 'update' | 'delete';
 
-/** Table metadata (name, icon, description). Alias for FieldMetadata. */
-export type TableMetadata = FieldMetadata;
+/** Table metadata (name, icon, description). */
+export type TableMetadata = {
+	name: string;
+	icon: IconDefinition | null;
+	description: string;
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper: Fields sub-helper for a single table
