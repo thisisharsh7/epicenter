@@ -29,7 +29,22 @@ export type ChangeAction = 'add' | 'delete';
 /** Change action for leaf Y.Map observation (fields can be updated). */
 export type FieldChangeAction = 'add' | 'update' | 'delete';
 
-/** Table metadata (name, icon, description). */
+/**
+ * Metadata for a table itself (not its fields).
+ *
+ * This is the table-level name, icon, and description shown in UI navigation,
+ * distinct from the per-field metadata on each column.
+ *
+ * ```
+ * TableDefinition ("posts")
+ * ├── name: "Blog Posts"           ┐
+ * ├── icon: { type: 'emoji', ... } ├── TableMetadata (this type)
+ * ├── description: "All posts"     ┘
+ * └── fields
+ *     ├── "id"    → has its own FieldMetadata
+ *     └── "title" → has its own FieldMetadata
+ * ```
+ */
 export type TableMetadata = {
 	name: string;
 	icon: IconDefinition | null;
