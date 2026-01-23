@@ -846,7 +846,7 @@ export const markdown = async <
 	/**
 	 * Validate all markdown files and rebuild diagnostics
 	 *
-	 * Scans every markdown file, validates it against the schema, and updates diagnostics
+	 * Scans every markdown file, validates it against the table definition, and updates diagnostics
 	 * to reflect current state. Used in three places:
 	 * 1. Initial scan on startup (before watchers start)
 	 * 2. Manual scan via scanForErrors query
@@ -979,7 +979,7 @@ export const markdown = async <
 	// ┌─────────────────────────────────────────────────────────────────────────┐
 	// │ PHASE 4: Validate Remaining Files (BACKGROUND/NON-BLOCKING)             │
 	// │                                                                         │
-	// │   For each remaining file, deserialize and validate against schema.     │
+	// │   For each remaining file, deserialize and validate against definition.  │
 	// │   Build diagnostics for any files with validation errors.               │
 	// │                                                                         │
 	// │   This runs in background - provider is already ready for sync.         │
@@ -1479,7 +1479,7 @@ export const markdown = async <
 		/**
 		 * Scan all markdown files and rebuild diagnostics
 		 *
-		 * Validates every markdown file against its schema and updates the diagnostics
+		 * Validates every markdown file against its table definition and updates the diagnostics
 		 * to reflect the current state. This is useful for:
 		 * - On-demand validation after bulk file edits
 		 * - Scheduled validation jobs (e.g., nightly scans)

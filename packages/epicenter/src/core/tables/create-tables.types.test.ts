@@ -19,7 +19,7 @@ import { createTables } from './create-tables';
  */
 
 describe('YjsDoc Type Inference', () => {
-	test('should infer row types from schema', () => {
+	test('should infer row types from definition', () => {
 		const doc = createTables(new Y.Doc({ guid: 'test-workspace' }), {
 			posts: table({
 				name: '',
@@ -223,7 +223,7 @@ describe('YjsDoc Type Inference', () => {
 		}
 	});
 
-	test('should handle multi-table schemas with proper type inference', () => {
+	test('should handle multi-table definitions with proper type inference', () => {
 		const doc = createTables(new Y.Doc({ guid: 'test-workspace' }), {
 			authors: table({
 				name: '',

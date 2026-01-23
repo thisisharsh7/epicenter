@@ -143,7 +143,7 @@ export type RowAction = 'add' | 'update' | 'delete';
 export type RowChanges = Map<string, RowAction>;
 
 /**
- * Creates a type-safe collection of table helpers for all tables in a schema.
+ * Creates a type-safe collection of table helpers for all tables in a definition.
  */
 export function createTableHelpers<
 	TTableDefinitionMap extends TableDefinitionMap,
@@ -467,7 +467,7 @@ function createTableHelper<TFieldSchemaMap extends FieldSchemaMap>({
 		 * ## Design: Tables Are Never Deleted
 		 *
 		 * This method deletes all rows within the table, but the table's Y.Map
-		 * structure itself is preserved. Tables defined in your schema are permanent;
+		 * structure itself is preserved. Tables defined in your definition are permanent;
 		 * they can be emptied but never removed.
 		 *
 		 * This design ensures:
@@ -678,7 +678,7 @@ export type TableHelper<TFieldSchemaMap extends FieldSchemaMap> = ReturnType<
 >;
 
 /**
- * A table helper for dynamically-created tables without a schema definition.
+ * A table helper for dynamically-created tables without a definition.
  * No validation is performed; all rows are treated as `Record<string, unknown> & { id: string }`.
  */
 export type UntypedTableHelper = {
@@ -718,10 +718,10 @@ export type UntypedTableHelper = {
 };
 
 /**
- * Creates a table helper for a dynamic/undefined table (no schema validation).
+ * Creates a table helper for a dynamic/undefined table (no field schema validation).
  *
  * Used by `tables.table(name)` when accessing a table that isn't in the
- * schema definition. All rows are typed as `{ id: string } & Record<string, unknown>`
+ * workspace definition. All rows are typed as `{ id: string } & Record<string, unknown>`
  * and no validation is performed.
  */
 export function createUntypedTableHelper({
@@ -915,7 +915,7 @@ export function createUntypedTableHelper({
 		 * ## Design: Tables Are Never Deleted
 		 *
 		 * This method deletes all rows within the table, but the table's Y.Map
-		 * structure itself is preserved. Tables defined in your schema are permanent;
+		 * structure itself is preserved. Tables defined in your definition are permanent;
 		 * they can be emptied but never removed.
 		 *
 		 * This design ensures:

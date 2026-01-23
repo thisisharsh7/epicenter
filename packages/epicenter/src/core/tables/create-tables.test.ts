@@ -819,7 +819,7 @@ describe('createTables', () => {
 				}),
 			});
 
-			// Access a table not in schema
+			// Access a table not in definition
 			const customTable = tables('custom_data');
 			customTable.upsert({ id: '1', foo: 'bar', count: 42 });
 
@@ -939,7 +939,7 @@ describe('createTables', () => {
 			expect(names).toEqual(['custom', 'posts']);
 		});
 
-		test('defined() returns only schema-defined table helpers', () => {
+		test('defined() returns only definition-declared table helpers', () => {
 			const ydoc = new Y.Doc({ guid: 'test-workspace' });
 			const tables = createTables(ydoc, {
 				posts: table({
@@ -971,7 +971,7 @@ describe('createTables', () => {
 			expect(tables.defined()).toHaveLength(2);
 		});
 
-		test('definedNames() returns only schema-defined table names', () => {
+		test('definedNames() returns only definition-declared table names', () => {
 			const ydoc = new Y.Doc({ guid: 'test-workspace' });
 			const tables = createTables(ydoc, {
 				posts: table({
@@ -1058,7 +1058,7 @@ describe('createTables', () => {
 	});
 
 	describe('new property names (non-$ prefixed)', () => {
-		test('definitions property provides schema definitions', () => {
+		test('definitions property provides table definitions', () => {
 			const ydoc = new Y.Doc({ guid: 'test-workspace' });
 			const tables = createTables(ydoc, {
 				posts: table({

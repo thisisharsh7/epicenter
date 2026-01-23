@@ -303,7 +303,7 @@ export const sqlite = async <
 					)) {
 						const rows = await sqliteDb.select().from(drizzleTable);
 						for (const row of rows) {
-							// Cast is safe: Drizzle schema is derived from workspace schema
+							// Cast is safe: Drizzle schema is derived from workspace definition
 							table.upsert(
 								row as Row<
 									TTableDefinitionMap[keyof TTableDefinitionMap &

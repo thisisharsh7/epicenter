@@ -64,7 +64,7 @@ export type KvFunction<TKvDefinitionMap extends KvDefinitionMap> = {
 	// ════════════════════════════════════════════════════════════════════
 
 	/**
-	 * Clear all KV values, resetting them to their schema defaults.
+	 * Clear all KV values, resetting them to their definition defaults.
 	 */
 	clear(): void;
 
@@ -243,7 +243,7 @@ export function createKv<TKvDefinitionMap extends KvDefinitionMap>(
 		// ════════════════════════════════════════════════════════════════════
 
 		/**
-		 * Clear all KV values, resetting them to their schema defaults.
+		 * Clear all KV values, resetting them to their definition defaults.
 		 *
 		 * Deletes all keys from the underlying Y.Map. After clearing,
 		 * `get()` will return defaults (if defined), `null` (if nullable),
