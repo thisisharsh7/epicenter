@@ -19,7 +19,7 @@
  * │         ┌───────────┴───────────┐                                           │
  * │         │                       │                                           │
  * │         ▼                       ▼                                           │
- * │   .withDefinition(schema)  .withExtensions({})                              │
+ * │   .withDefinition(definition)  .withExtensions({})                          │
  * │         │                       │                                           │
  * │         ▼                       ▼                                           │
  * │   .withExtensions({})       WorkspaceDoc                                    │
@@ -86,9 +86,9 @@ import type {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Workspace schema containing just tables and KV definitions.
+ * Workspace definition containing tables and KV definitions.
  *
- * This is the minimal schema needed for `withDefinition()`. It does NOT include
+ * This is the input type for `.withDefinition()`. It does NOT include
  * workspace identity (id, name, icon, description) which now lives in Head Doc.
  *
  * @example
@@ -102,7 +102,7 @@ import type {
  *   .withExtensions({ persistence });
  * ```
  */
-export type WorkspaceSchema<
+export type WorkspaceDefinition<
 	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
 	TKvDefinitionMap extends KvDefinitionMap = KvDefinitionMap,
 > = {
@@ -113,12 +113,12 @@ export type WorkspaceSchema<
 };
 
 /**
- * Type alias for WorkspaceSchema, used as input to `.withDefinition()`.
+ * @deprecated Use `WorkspaceDefinition` instead.
  */
-export type WorkspaceDefinitionInput<
+export type WorkspaceSchema<
 	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
 	TKvDefinitionMap extends KvDefinitionMap = KvDefinitionMap,
-> = WorkspaceSchema<TTableDefinitionMap, TKvDefinitionMap>;
+> = WorkspaceDefinition<TTableDefinitionMap, TKvDefinitionMap>;
 
 /**
  * Builder for creating workspace clients with proper type inference.
@@ -136,19 +136,19 @@ export type WorkspaceDefinitionInput<
  *               ┌───────────────┴───────────────┐
  *               │                               │
  *               ▼                               ▼
- *      .withDefinition(schema)           .withExtensions({})
+ *      .withDefinition(definition)      .withExtensions({})
  *               │                               │
  *               │                               │
  *               ▼                               ▼
  *      .withExtensions({})               WorkspaceClient
- *               │                        (dynamic schema)
+ *               │                        (dynamic definition)
  *               │
  *               ▼
  *        WorkspaceClient
- *        (static schema)
+ *        (static definition)
  * ```
  *
- * **Path 1: Static Schema (Code-Defined)**
+ * **Path 1: Static Definition (Code-Defined)**
  *
  * For apps like Whispering where schema is defined in code:
  *
@@ -209,11 +209,11 @@ export type ClientBuilder<
 	 * ```
 	 */
 	withDefinition<
-		TSchemaTables extends TableDefinitionMap,
-		TSchemaKv extends KvDefinitionMap,
+		TDefinitionTables extends TableDefinitionMap,
+		TDefinitionKv extends KvDefinitionMap,
 	>(
-		schema: WorkspaceSchema<TSchemaTables, TSchemaKv>,
-	): ClientBuilder<TSchemaTables, TSchemaKv>;
+		definition: WorkspaceDefinition<TDefinitionTables, TDefinitionKv>,
+	): ClientBuilder<TDefinitionTables, TDefinitionKv>;
 
 	/**
 	 * Attach extensions and create the workspace.
@@ -256,81 +256,6 @@ export type ClientBuilder<
 		TKvDefinitionMap,
 		InferExtensionExports<TExtensionFactories>
 	>;
-};
-
-/**
- * A workspace definition describes the full configuration for a workspace.
- *
- * This type is fully JSON-serializable and contains no methods or runtime behavior.
- * It includes both the schema (tables, kv) and identity (id, name).
- *
- * ## Initial Values vs Live State
- *
- * When you call `createClient()`, the `tables` and `kv` values are **merged**
- * into the Y.Doc's CRDT state for schema tracking.
- *
- * - `id` — Immutable identity, baked into Y.Doc GUID. Never changes.
- * - `name` — Display name for the workspace.
- * - `tables`, `kv` — Schema definitions; merged into Y.Doc schema map.
- *
- * **Note**: Workspace identity (name, icon, description) now lives in the Head Doc,
- * not in the definition. Use `head.getMeta()` for identity.
- *
- * @example
- * ```typescript
- * const definition = defineWorkspace({
- *   tables: { posts: table({ name: 'Posts', fields: { id: id(), title: text() } }) },
- *   kv: {},
- * });
- *
- * const head = createHeadDoc({ workspaceId: 'epicenter.blog', providers: {} });
- * const client = createClient(head)
- *   .withDefinition(definition)
- *   .withExtensions({ persistence });
- *
- * // Identity comes from Head Doc
- * console.log(head.getMeta().name);  // "My Blog"
- * ```
- */
-export type WorkspaceDefinition<
-	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
-	TKvDefinitionMap extends KvDefinitionMap = KvDefinitionMap,
-> = {
-	/**
-	 * Human-readable workspace identifier used for URLs, paths, and sync.
-	 * Baked into the Y.Doc GUID — never changes after creation.
-	 *
-	 * Format: lowercase alphanumeric with dots and hyphens (e.g., "my-notes", "epicenter.whispering").
-	 * Epicenter apps use the convention `epicenter.{appname}`.
-	 */
-	id: string;
-	/**
-	 * Display name shown in UI.
-	 */
-	name: string;
-	/**
-	 * Initial table definitions with metadata (name, icon, cover, description, fields).
-	 * Merged into Y.Doc definition map on creation.
-	 *
-	 * @example
-	 * ```typescript
-	 * tables: {
-	 *   posts: {
-	 *     name: 'Posts',
-	 *     icon: { type: 'emoji', value: '📝' },
-	 *     cover: null,
-	 *     description: 'Blog posts',
-	 *     fields: { id: id(), title: text() },
-	 *   },
-	 * }
-	 * ```
-	 */
-	tables: TTableDefinitionMap;
-	/**
-	 * Initial key-value store definitions with metadata.
-	 * Merged into Y.Doc definition map on creation.
-	 */
-	kv: TKvDefinitionMap;
 };
 
 /**
@@ -389,7 +314,9 @@ export type Workspace<
 export function defineWorkspace<
 	const TTables extends TableDefinitionMap,
 	const TKv extends KvDefinitionMap = Record<string, never>,
->(definition: WorkspaceSchema<TTables, TKv>): WorkspaceSchema<TTables, TKv> {
+>(
+	definition: WorkspaceDefinition<TTables, TKv>,
+): WorkspaceDefinition<TTables, TKv> {
 	return definition;
 }
 
@@ -412,21 +339,21 @@ export function defineWorkspace<
  *               ┌───────────────┴───────────────┐
  *               │                               │
  *               ▼                               ▼
- *      .withDefinition(schema)           .withExtensions({})
+ *      .withDefinition(definition)      .withExtensions({})
  *               │                               │
  *               │                               │
  *               ▼                               ▼
  *      .withExtensions({})               WorkspaceClient
- *               │                        (dynamic schema)
+ *               │                        (dynamic definition)
  *               │
  *               ▼
  *        WorkspaceClient
- *        (static schema)
+ *        (static definition)
  * ```
  *
- * ## Path 1: Static Schema (Code-Defined)
+ * ## Path 1: Static Definition (Code-Defined)
  *
- * For apps like Whispering where schema is defined in code:
+ * For apps like Whispering where definition is defined in code:
  *
  * ```typescript
  * const head = createHeadDoc({ workspaceId: 'whispering', providers: {} });
@@ -501,16 +428,16 @@ function createClientBuilder<
 }): ClientBuilder<TTableDefinitionMap, TKvDefinitionMap> {
 	return {
 		withDefinition<
-			TSchemaTables extends TableDefinitionMap,
-			TSchemaKv extends KvDefinitionMap,
+			TDefinitionTables extends TableDefinitionMap,
+			TDefinitionKv extends KvDefinitionMap,
 		>(
-			schema: WorkspaceSchema<TSchemaTables, TSchemaKv>,
-		): ClientBuilder<TSchemaTables, TSchemaKv> {
+			definition: WorkspaceDefinition<TDefinitionTables, TDefinitionKv>,
+		): ClientBuilder<TDefinitionTables, TDefinitionKv> {
 			return createClientBuilder({
 				id: config.id,
 				epoch: config.epoch,
-				tables: schema.tables,
-				kv: schema.kv,
+				tables: definition.tables,
+				kv: definition.kv,
 			});
 		},
 

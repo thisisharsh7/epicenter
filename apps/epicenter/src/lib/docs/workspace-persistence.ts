@@ -76,7 +76,7 @@ const FILE_NAMES = {
  * @example
  * ```typescript
  * const client = createClient(head)
- *   .withDefinition(schema)
+ *   .withDefinition(definition)
  *   .withExtensions({
  *     persistence: (ctx) => workspacePersistence(ctx),
  *   });

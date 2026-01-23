@@ -300,7 +300,7 @@ export function createWorkspaceDoc<
 	const mergeDefinition = <
 		TMergeTables extends TableDefinitionMap,
 		TMergeKv extends KvDefinitionMap,
-	>(schema: {
+	>(definition: {
 		tables: TMergeTables;
 		kv: TMergeKv;
 	}) => {
@@ -311,7 +311,9 @@ export function createWorkspaceDoc<
 			definitionMap.set('tables', tablesYMap);
 		}
 
-		for (const [tableName, tableDefinition] of Object.entries(schema.tables)) {
+		for (const [tableName, tableDefinition] of Object.entries(
+			definition.tables,
+		)) {
 			let tableSchemaMap = tablesYMap.get(tableName) as
 				| Y.Map<unknown>
 				| undefined;
@@ -347,7 +349,7 @@ export function createWorkspaceDoc<
 			definitionMap.set('kv', kvDefinitionMap);
 		}
 
-		for (const [keyName, kvDefinition] of Object.entries(schema.kv)) {
+		for (const [keyName, kvDefinition] of Object.entries(definition.kv)) {
 			let kvEntryMap = kvDefinitionMap.get(keyName) as
 				| Y.Map<unknown>
 				| undefined;
@@ -452,7 +454,7 @@ export function createWorkspaceDoc<
  * @example
  * ```typescript
  * const workspace: WorkspaceDoc<MyTables, MyKv, MyExtensions> = createClient('blog')
- *   .withDefinition(schema)
+ *   .withDefinition(definition)
  *   .withExtensions({ persistence, sqlite });
  *
  * await workspace.whenSynced;

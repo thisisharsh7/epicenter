@@ -21,7 +21,7 @@
  * ┌─────────────────────────────────────────────────────────────────────┐
  * │  @epicenter/hq (browser)                                            │
  * │                                                                     │
- * │    createClient(head).withDefinition(schema).withExtensions({})      │
+ * │    createClient(head).withDefinition(definition).withExtensions({})  │
  * │         │                              │                            │
  * │         │                              └── UI awaits client.whenSynced
  * │         │                                                           │
@@ -32,7 +32,7 @@
  * ┌─────────────────────────────────────────────────────────────────────┐
  * │  @epicenter/hq/node (this module)                                   │
  * │                                                                     │
- * │    createClient(head).withDefinition(schema).withExtensions({})      │
+ * │    createClient(head).withDefinition(definition).withExtensions({}) │
  * │         │                              │                            │
  * │         │                              └── Promise<WorkspaceDoc>
  * │         │                                   whenSynced already resolved
@@ -129,7 +129,7 @@ import type { KvDefinitionMap, TableDefinitionMap } from '../schema';
 import {
 	type ClientBuilder as ClientBuilderSync,
 	createClient as createClientSync,
-	type WorkspaceSchema,
+	type WorkspaceDefinition,
 } from './workspace';
 
 /**
@@ -205,16 +205,16 @@ export type WorkspaceDoc<
  *               ┌───────────────┴───────────────┐
  *               │                               │
  *               ▼                               ▼
- *      .withDefinition(schema)           .withExtensions({})
+ *      .withDefinition(definition)       .withExtensions({})
  *               │                               │
  *               │                               │
  *               ▼                               ▼
  *      .withExtensions({})          Promise<WorkspaceDoc>
- *               │                        (dynamic schema)
+ *               │                        (dynamic definition)
  *               │
  *               ▼
  *     Promise<WorkspaceDoc>
- *        (static schema)
+ *        (static definition)
  * ```
  *
  * ## Why async methods?
@@ -245,11 +245,11 @@ export type ClientBuilder<
 	 * ```
 	 */
 	withDefinition<
-		TSchemaTables extends TableDefinitionMap,
-		TSchemaKv extends KvDefinitionMap,
+		TDefinitionTables extends TableDefinitionMap,
+		TDefinitionKv extends KvDefinitionMap,
 	>(
-		schema: WorkspaceSchema<TSchemaTables, TSchemaKv>,
-	): ClientBuilder<TSchemaTables, TSchemaKv>;
+		definition: WorkspaceDefinition<TDefinitionTables, TDefinitionKv>,
+	): ClientBuilder<TDefinitionTables, TDefinitionKv>;
 
 	/**
 	 * Attach extensions and create the client.
@@ -316,19 +316,19 @@ export type ClientBuilder<
  *               ┌───────────────┴───────────────┐
  *               │                               │
  *               ▼                               ▼
- *      .withDefinition(schema)           .withExtensions({})
+ *      .withDefinition(definition)       .withExtensions({})
  *               │                               │
  *               │                               │
  *               ▼                               ▼
  *      .withExtensions({})          Promise<WorkspaceDoc>
- *               │                        (dynamic schema)
+ *               │                        (dynamic definition)
  *               │
  *               ▼
  *     Promise<WorkspaceDoc>
- *        (static schema)
+ *        (static definition)
  * ```
  *
- * ## Path 1: Static Schema (Code-Defined)
+ * ## Path 1: Static Definition (Code-Defined)
  *
  * For apps like Whispering where schema is defined in code:
  *
@@ -400,12 +400,12 @@ function createAsyncClientBuilder<
 ): ClientBuilder<TTableDefinitionMap, TKvDefinitionMap> {
 	return {
 		withDefinition<
-			TSchemaTables extends TableDefinitionMap,
-			TSchemaKv extends KvDefinitionMap,
+			TDefinitionTables extends TableDefinitionMap,
+			TDefinitionKv extends KvDefinitionMap,
 		>(
-			schema: WorkspaceSchema<TSchemaTables, TSchemaKv>,
-		): ClientBuilder<TSchemaTables, TSchemaKv> {
-			const newSyncBuilder = syncBuilder.withDefinition(schema);
+			definition: WorkspaceDefinition<TDefinitionTables, TDefinitionKv>,
+		): ClientBuilder<TDefinitionTables, TDefinitionKv> {
+			const newSyncBuilder = syncBuilder.withDefinition(definition);
 			return createAsyncClientBuilder(newSyncBuilder);
 		},
 

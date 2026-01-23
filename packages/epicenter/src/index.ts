@@ -171,7 +171,6 @@ export type {
 	ClientBuilder,
 	Workspace,
 	WorkspaceDefinition,
-	WorkspaceDefinitionInput,
 	WorkspaceSchema,
 } from './core/workspace/workspace';
 export { createClient, defineWorkspace } from './core/workspace/workspace';

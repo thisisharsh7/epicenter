@@ -1,4 +1,4 @@
-import type { WorkspaceSchema } from '@epicenter/hq';
+import type { WorkspaceDefinition } from '@epicenter/hq';
 import { appLocalDataDir, join } from '@tauri-apps/api/path';
 import { revealItemInDir } from '@tauri-apps/plugin-opener';
 import { createTaggedError } from 'wellcrafted/error';
@@ -96,15 +96,15 @@ export const workspaces = {
 				// Get definition from Workspace Doc
 				const client = createWorkspaceClient(head);
 				await client.whenSynced;
-				const schema = client.definition.get();
+				const definition = client.definition.get();
 				await client.destroy();
 				await head.destroy();
 
 				return Ok({
 					id: workspaceId,
 					name: meta.name || workspaceId,
-					...schema,
-				} as unknown as WorkspaceDefinition);
+					...definition,
+				});
 			},
 		}),
 
@@ -130,8 +130,8 @@ export const workspaces = {
 			id: string;
 			template: WorkspaceTemplate | null;
 		}) => {
-			// Create schema using template if provided
-			const schema: WorkspaceSchema = {
+			// Create definition using template if provided
+			const definition: WorkspaceDefinition = {
 				tables: input.template?.tables ?? {},
 				kv: input.template?.kv ?? {},
 			};
@@ -144,10 +144,10 @@ export const workspaces = {
 			await head.whenSynced;
 			head.setMeta({ name: input.name, icon: null, description: '' });
 
-			// Create workspace client with schema - this will:
+			// Create workspace client with definition - this will:
 			// 1. Merge definition into Y.Map('definition')
 			// 2. Persist to {epoch}/definition.json via unified persistence
-			const client = createWorkspaceClient(head, schema);
+			const client = createWorkspaceClient(head, definition);
 
 			// Wait for persistence to finish saving initial state to disk
 			await client.whenSynced;
@@ -162,7 +162,7 @@ export const workspaces = {
 			// Invalidate list query
 			queryClient.invalidateQueries({ queryKey: workspaceKeys.list() });
 
-			return Ok({ id: input.id, name: input.name, ...schema });
+			return Ok({ id: input.id, name: input.name, ...definition });
 		},
 	}),
 
@@ -193,7 +193,7 @@ export const workspaces = {
 			// Get the workspace definition (tables, kv) from workspace client
 			const client = createWorkspaceClient(head);
 			await client.whenSynced;
-			const schema = client.definition.get();
+			const definition = client.definition.get();
 			await client.destroy();
 
 			// Clean up head doc (it's been modified, changes auto-persist)
@@ -213,8 +213,8 @@ export const workspaces = {
 			return Ok({
 				id: input.workspaceId,
 				name: input.name,
-				...schema,
-			} as unknown as WorkspaceDefinition);
+				...definition,
+			});
 		},
 	}),
 
