@@ -286,7 +286,6 @@ export function createWorkspaceDoc<
 	// gc: false is required for revision history snapshots to work
 	const ydoc = new Y.Doc({ guid: docId, gc: false });
 
-	// Get definitionMap for internal use (mergeDefinition needs it)
 	const definitionMap = ydoc.getMap(
 		WORKSPACE_DOC_MAPS.DEFINITION,
 	) as DefinitionMap;
@@ -296,74 +295,6 @@ export function createWorkspaceDoc<
 	const tables = createTables(ydoc, tableDefinitions);
 	const kv = createKv(ydoc, kvDefinitions);
 	const definition = createDefinition(definitionMap);
-
-	const mergeDefinition = <
-		TMergeTables extends TableDefinitionMap,
-		TMergeKv extends KvDefinitionMap,
-	>(definition: {
-		tables: TMergeTables;
-		kv: TMergeKv;
-	}) => {
-		// Merge tables definition
-		let tablesYMap = definitionMap.get('tables') as Y.Map<unknown> | undefined;
-		if (!tablesYMap) {
-			tablesYMap = new Y.Map();
-			definitionMap.set('tables', tablesYMap);
-		}
-
-		for (const [tableName, tableDefinition] of Object.entries(
-			definition.tables,
-		)) {
-			let tableSchemaMap = tablesYMap.get(tableName) as
-				| Y.Map<unknown>
-				| undefined;
-			if (!tableSchemaMap) {
-				tableSchemaMap = new Y.Map();
-				tablesYMap.set(tableName, tableSchemaMap);
-			}
-
-			tableSchemaMap.set('name', tableDefinition.name);
-			tableSchemaMap.set('icon', tableDefinition.icon ?? null);
-			tableSchemaMap.set('description', tableDefinition.description ?? '');
-
-			// Store fields as a nested Y.Map
-			let fieldsMap = tableSchemaMap.get('fields') as
-				| Y.Map<unknown>
-				| undefined;
-			if (!fieldsMap) {
-				fieldsMap = new Y.Map();
-				tableSchemaMap.set('fields', fieldsMap);
-			}
-
-			for (const [fieldName, fieldSchema] of Object.entries(
-				tableDefinition.fields,
-			)) {
-				fieldsMap.set(fieldName, fieldSchema);
-			}
-		}
-
-		// Merge KV definition
-		let kvDefinitionMap = definitionMap.get('kv') as Y.Map<unknown> | undefined;
-		if (!kvDefinitionMap) {
-			kvDefinitionMap = new Y.Map();
-			definitionMap.set('kv', kvDefinitionMap);
-		}
-
-		for (const [keyName, kvDefinition] of Object.entries(definition.kv)) {
-			let kvEntryMap = kvDefinitionMap.get(keyName) as
-				| Y.Map<unknown>
-				| undefined;
-			if (!kvEntryMap) {
-				kvEntryMap = new Y.Map();
-				kvDefinitionMap.set(keyName, kvEntryMap);
-			}
-
-			kvEntryMap.set('name', kvDefinition.name);
-			kvEntryMap.set('icon', kvDefinition.icon ?? null);
-			kvEntryMap.set('description', kvDefinition.description ?? '');
-			kvEntryMap.set('field', kvDefinition.field);
-		}
-	};
 
 	// ─────────────────────────────────────────────────────────────────────────
 	// Extension Initialization
@@ -414,7 +345,7 @@ export function createWorkspaceDoc<
 			Object.keys(tableDefinitions).length > 0 ||
 			Object.keys(kvDefinitions).length > 0;
 		if (hasDefinition) {
-			mergeDefinition({ tables: tableDefinitions, kv: kvDefinitions });
+			definition.merge({ tables: tableDefinitions, kv: kvDefinitions });
 		}
 	});
 
