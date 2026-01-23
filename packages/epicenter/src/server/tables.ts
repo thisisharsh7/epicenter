@@ -13,8 +13,8 @@ export function createTablesPlugin(
 	const app = new Elysia();
 
 	for (const [workspaceId, workspaceDoc] of Object.entries(workspaceDocs)) {
-		for (const tableHelper of workspaceDoc.tables.defined()) {
-			const tableName = tableHelper.name;
+		for (const tableName of Object.keys(workspaceDoc.tables.definitions)) {
+			const tableHelper = workspaceDoc.tables(tableName);
 			const basePath = `/workspaces/${workspaceId}/tables/${tableName}`;
 			const tags = [workspaceId, 'tables'];
 

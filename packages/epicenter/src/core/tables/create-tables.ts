@@ -73,18 +73,6 @@ export type TablesFunction<TTableDefinitionMap extends TableDefinitionMap> = {
 	 */
 	names(): string[];
 
-	/**
-	 * Get names of only definition-declared tables.
-	 */
-	definedNames(): (keyof TTableDefinitionMap & string)[];
-
-	/**
-	 * Get table helpers for only definition-declared tables.
-	 */
-	defined(): TableHelper<
-		TTableDefinitionMap[keyof TTableDefinitionMap]['fields']
-	>[];
-
 	// ════════════════════════════════════════════════════════════════════
 	// BULK OPERATIONS
 	// ════════════════════════════════════════════════════════════════════
@@ -111,25 +99,6 @@ export type TablesFunction<TTableDefinitionMap extends TableDefinitionMap> = {
 	 * Serialize all tables to JSON.
 	 */
 	toJSON(): Record<string, unknown[]>;
-
-	/**
-	 * Zip defined tables with a configs object, returning type-safe paired entries.
-	 */
-	zip<
-		TConfigs extends {
-			[K in keyof TTableDefinitionMap & string]: unknown;
-		},
-	>(
-		configs: TConfigs,
-	): Array<
-		{
-			[K in keyof TTableDefinitionMap & string]: {
-				name: K;
-				table: TableHelper<TTableDefinitionMap[K]['fields']>;
-				paired: TConfigs[K];
-			};
-		}[keyof TTableDefinitionMap & string]
-	>;
 };
 
 /**
@@ -200,10 +169,6 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 		return helper;
 	};
 
-	const definedTableNames = Object.keys(tableDefinitions) as Array<
-		keyof TTableDefinitionMap & string
-	>;
-
 	// ════════════════════════════════════════════════════════════════════
 	// BUILD CALLABLE FUNCTION WITH PROPERTIES
 	// ════════════════════════════════════════════════════════════════════
@@ -263,39 +228,6 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 			return Array.from(ytables.keys());
 		},
 
-		/**
-		 * Get names of only definition-declared tables.
-		 *
-		 * @example
-		 * ```typescript
-		 * tables.definedNames()  // ['posts', 'users']
-		 * ```
-		 */
-		definedNames(): (keyof TTableDefinitionMap & string)[] {
-			return [...definedTableNames];
-		},
-
-		/**
-		 * Get table helpers for only definition-declared tables.
-		 *
-		 * Returns only tables that were declared in the workspace definition,
-		 * with full type information preserved.
-		 *
-		 * @example
-		 * ```typescript
-		 * for (const helper of tables.defined()) {
-		 *   console.log(helper.name)  // 'posts' | 'users'
-		 * }
-		 * ```
-		 */
-		defined(): TableHelper<
-			TTableDefinitionMap[keyof TTableDefinitionMap]['fields']
-		>[] {
-			return Object.values(tableHelpers) as TableHelper<
-				TTableDefinitionMap[keyof TTableDefinitionMap]['fields']
-			>[];
-		},
-
 		// ════════════════════════════════════════════════════════════════════
 		// BULK OPERATIONS
 		// ════════════════════════════════════════════════════════════════════
@@ -308,7 +240,7 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 		 */
 		clear(): void {
 			ydoc.transact(() => {
-				for (const tableName of definedTableNames) {
+				for (const tableName of Object.keys(tableDefinitions)) {
 					tableHelpers[tableName as keyof typeof tableHelpers].clear();
 				}
 			});
@@ -357,41 +289,6 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 				result[name] = helper.getAllValid();
 			}
 			return result;
-		},
-
-		/**
-		 * Zip defined tables with a configs object, returning type-safe paired entries.
-		 *
-		 * This solves TypeScript's "correlated record types" limitation where
-		 * union types are evaluated independently during iteration.
-		 *
-		 * @example
-		 * ```typescript
-		 * for (const { name, table, paired: config } of tables.zip(configs)) {
-		 *   config.serialize({ row, table })  // Fully typed!
-		 * }
-		 * ```
-		 *
-		 * @see https://github.com/microsoft/TypeScript/issues/35101
-		 */
-		zip<
-			TConfigs extends {
-				[K in keyof TTableDefinitionMap & string]: unknown;
-			},
-		>(configs: TConfigs) {
-			return definedTableNames.map((name) => ({
-				name,
-				table: tableHelpers[name],
-				paired: configs[name],
-			})) as Array<
-				{
-					[K in keyof TTableDefinitionMap & string]: {
-						name: K;
-						table: TableHelper<TTableDefinitionMap[K]['fields']>;
-						paired: TConfigs[K];
-					};
-				}[keyof TTableDefinitionMap & string]
-			>;
 		},
 	}) as TablesFunction<TTableDefinitionMap>;
 }

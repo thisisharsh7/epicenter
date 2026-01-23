@@ -338,21 +338,17 @@ export const markdown = async <
 	const tracking: Record<string, RowToFilenameMap> = {};
 
 	/**
-	 * Build resolved configs by merging user configs with defaults.
+	 * Resolve user table configs into internal format
 	 *
-	 * User configs have two optional fields:
-	 * - `directory?`: WHERE files go (defaults to table name)
-	 * - `serializer?`: HOW rows are encoded/decoded (defaults to all-frontmatter)
+	 * User configs use the Serializer interface (composable serialize/deserialize functions).
 	 *
 	 * We resolve these to a flat internal structure for efficient runtime access.
-	 * The result mirrors the tables structure key-for-key, enabling type-safe
-	 * iteration via tables.zip(resolvedConfigs).
 	 */
 	// Cast is correct: Object.fromEntries loses key specificity (returns { [k: string]: V }),
-	// but we know keys are exactly keyof TTableDefinitionMap since we iterate tables.defined().
+	// but we know keys are exactly keyof TTableDefinitionMap since we iterate tables.definitions.
 	const resolvedConfigs = Object.fromEntries(
-		tables.defined().map((table) => {
-			const userConfig = userTableConfigs[table.name] ?? {};
+		Object.keys(tables.definitions).map((tableName) => {
+			const userConfig = userTableConfigs[tableName] ?? {};
 
 			// Resolve serializer: user-provided or default
 			const serializer = userConfig.serializer ?? defaultSerializer();
@@ -360,7 +356,7 @@ export const markdown = async <
 			// Resolve directory: user-provided or table name
 			const directory = path.resolve(
 				absoluteWorkspaceDir,
-				userConfig.directory ?? table.name,
+				userConfig.directory ?? tableName,
 			) as AbsolutePath;
 
 			// Flatten for internal use
@@ -373,7 +369,7 @@ export const markdown = async <
 				deserialize: serializer.deserialize.fromContent,
 			};
 
-			return [table.name, config];
+			return [tableName, config];
 		}),
 	) as unknown as {
 		[K in keyof TTableDefinitionMap & string]: ResolvedTableConfig<
@@ -391,10 +387,11 @@ export const markdown = async <
 	const registerYJSObservers = () => {
 		const unsubscribers: Array<() => void> = [];
 
-		for (const { table, paired: tableConfig } of tables.zip(resolvedConfigs)) {
+		for (const [tableName, tableConfig] of Object.entries(resolvedConfigs)) {
+			const table = tables(tableName);
 			// Initialize tracking map for this table
-			if (!tracking[table.name]) {
-				tracking[table.name] = {};
+			if (!tracking[tableName]) {
+				tracking[tableName] = {};
 			}
 
 			/**
@@ -539,7 +536,8 @@ export const markdown = async <
 	const registerFileWatchers = () => {
 		const watchers: FSWatcher[] = [];
 
-		for (const { table, paired: tableConfig } of tables.zip(resolvedConfigs)) {
+		for (const [tableName, tableConfig] of Object.entries(resolvedConfigs)) {
+			const table = tables(tableName);
 			// Ensure table directory exists
 			const { error: mkdirError } = trySync({
 				try: () => {
@@ -549,7 +547,7 @@ export const markdown = async <
 					ExtensionErr({
 						message: `Failed to create table directory: ${extractErrorMessage(error)}`,
 						context: {
-							tableName: table.name,
+							tableName,
 							directory: tableConfig.directory,
 						},
 					}),
@@ -861,7 +859,8 @@ export const markdown = async <
 
 		diagnostics.clear();
 
-		for (const { table, paired: tableConfig } of tables.zip(resolvedConfigs)) {
+		for (const [tableName, tableConfig] of Object.entries(resolvedConfigs)) {
+			const table = tables(tableName);
 			const filePaths = await listMarkdownFiles(tableConfig.directory);
 
 			await Promise.all(
@@ -874,7 +873,7 @@ export const markdown = async <
 					if (readError) {
 						diagnostics.add({
 							filePath,
-							tableName: table.name,
+							tableName,
 							filename,
 							error: MarkdownExtensionError({
 								message: `Failed to read markdown file at ${filePath}: ${readError.message}`,
@@ -882,8 +881,8 @@ export const markdown = async <
 						});
 						logger.log(
 							ExtensionError({
-								message: `${operationPrefix}failed to read ${table.name}/${filename}`,
-								context: { filePath, tableName: table.name, filename },
+								message: `${operationPrefix}failed to read ${tableName}/${filename}`,
+								context: { filePath, tableName, filename },
 							}),
 						);
 						return;
@@ -1010,10 +1009,11 @@ export const markdown = async <
 	 *
 	 * Cost: O(n × serialize) where n = row count. ~1ms per 100 rows.
 	 */
-	for (const { table, paired: tableConfig } of tables.zip(resolvedConfigs)) {
+	for (const [tableName, tableConfig] of Object.entries(resolvedConfigs)) {
+		const table = tables(tableName);
 		// Initialize tracking map for this table
-		if (!tracking[table.name]) {
-			tracking[table.name] = {};
+		if (!tracking[tableName]) {
+			tracking[tableName] = {};
 		}
 
 		// Get all valid rows from YJS
@@ -1028,7 +1028,7 @@ export const markdown = async <
 
 			// Store rowId → filename mapping
 			// biome-ignore lint/style/noNonNullAssertion: tracking is initialized at loop start for each table
-			tracking[table.name]![row.id] = filename;
+			tracking[tableName]![row.id] = filename;
 		}
 	}
 
@@ -1044,7 +1044,8 @@ export const markdown = async <
 	 *
 	 * Cost: O(n) where n = file count. ~10ms per 100 files (mostly I/O).
 	 */
-	for (const { table, paired: tableConfig } of tables.zip(resolvedConfigs)) {
+	for (const [tableName, tableConfig] of Object.entries(resolvedConfigs)) {
+		const table = tables(tableName);
 		const filePaths = await listMarkdownFiles(tableConfig.directory);
 
 		for (const filePath of filePaths) {
@@ -1058,8 +1059,8 @@ export const markdown = async <
 				// Orphan file: no valid row ID or row doesn't exist in Y.js
 				logger.log(
 					ExtensionError({
-						message: `Startup cleanup: deleting orphan file ${table.name}/${filename}`,
-						context: { tableName: table.name, filename, filePath },
+						message: `Startup cleanup: deleting orphan file ${tableName}/${filename}`,
+						context: { tableName, filename, filePath },
 					}),
 				);
 				await deleteMarkdownFile({ filePath: filePath as AbsolutePath });
@@ -1123,10 +1124,10 @@ export const markdown = async <
 					syncCoordination.yjsWriteCount++;
 
 					await Promise.all(
-						tables
-							.zip(resolvedConfigs)
-							.map(async ({ table, paired: tableConfig }) => {
-								const tableTracking = tracking[table.name];
+						Object.entries(resolvedConfigs).map(
+							async ([tableName, tableConfig]) => {
+								const table = tables(tableName);
+								const tableTracking = tracking[tableName];
 								const filePaths = await listMarkdownFiles(
 									tableConfig.directory,
 								);
@@ -1239,7 +1240,8 @@ export const markdown = async <
 										}
 									}),
 								);
-							}),
+							},
+						),
 					);
 
 					syncCoordination.yjsWriteCount--;
@@ -1297,141 +1299,136 @@ export const markdown = async <
 					};
 
 					const allTableData = await Promise.all(
-						tables
-							.zip(resolvedConfigs)
-							.map(
-								async ({
+						Object.entries(resolvedConfigs).map(
+							async ([tableName, tableConfig]): Promise<TableSyncData> => {
+								const table = tables(tableName);
+								const yjsIds = new Set(
+									table
+										.getAll()
+										.map((result) =>
+											result.status === 'valid' ? result.row.id : result.id,
+										),
+								);
+
+								const filePaths = await listMarkdownFiles(
+									tableConfig.directory,
+								);
+
+								const fileExistsIds = new Set(
+									filePaths
+										.map(
+											(filePath) =>
+												tableConfig.parseFilename(path.basename(filePath))?.id,
+										)
+										.filter((id): id is string => Boolean(id)),
+								);
+
+								const markdownRows = new Map<
+									string,
+									Row<
+										TTableDefinitionMap[keyof TTableDefinitionMap &
+											string]['fields']
+									>
+								>();
+								const markdownFilenames = new Map<string, string>();
+
+								await Promise.all(
+									filePaths.map(async (filePath) => {
+										const filename = path.basename(filePath);
+
+										const parsed = tableConfig.parseFilename(filename);
+										if (!parsed) {
+											diagnostics.add({
+												filePath,
+												tableName: table.name,
+												filename,
+												error: MarkdownExtensionError({
+													message: `Failed to parse filename: ${filename}`,
+												}),
+											});
+											logger.log(
+												ExtensionError({
+													message: `pushFromMarkdown: failed to parse filename ${table.name}/${filename}`,
+													context: {
+														filePath,
+														tableName: table.name,
+														filename,
+													},
+												}),
+											);
+											return;
+										}
+
+										const { data: fileContent, error: readError } =
+											await readMarkdownFile(filePath);
+
+										if (readError) {
+											diagnostics.add({
+												filePath,
+												tableName: table.name,
+												filename,
+												error: MarkdownExtensionError({
+													message: `Failed to read markdown file at ${filePath}: ${readError.message}`,
+												}),
+											});
+											logger.log(
+												ExtensionError({
+													message: `pushFromMarkdown: failed to read ${table.name}/${filename}`,
+													context: {
+														filePath,
+														tableName: table.name,
+														filename,
+													},
+												}),
+											);
+											return;
+										}
+
+										const { data: frontmatter, body } = fileContent;
+
+										const { data: row, error: deserializeError } =
+											tableConfig.deserialize({
+												frontmatter,
+												body,
+												filename,
+												parsed,
+												table,
+											});
+
+										if (deserializeError) {
+											diagnostics.add({
+												filePath,
+												tableName: table.name,
+												filename,
+												error: deserializeError,
+											});
+											logger.log(
+												ExtensionError({
+													message: `pushFromMarkdown: validation failed for ${table.name}/${filename}`,
+													context: {
+														filePath,
+														tableName: table.name,
+														filename,
+													},
+												}),
+											);
+											return;
+										}
+
+										markdownRows.set(row.id, row);
+										markdownFilenames.set(row.id, filename);
+									}),
+								);
+
+								return {
 									table,
-									paired: tableConfig,
-								}): Promise<TableSyncData> => {
-									const yjsIds = new Set(
-										table
-											.getAll()
-											.map((result) =>
-												result.status === 'valid' ? result.row.id : result.id,
-											),
-									);
-
-									const filePaths = await listMarkdownFiles(
-										tableConfig.directory,
-									);
-
-									const fileExistsIds = new Set(
-										filePaths
-											.map(
-												(filePath) =>
-													tableConfig.parseFilename(path.basename(filePath))
-														?.id,
-											)
-											.filter((id): id is string => Boolean(id)),
-									);
-
-									const markdownRows = new Map<
-										string,
-										Row<
-											TTableDefinitionMap[keyof TTableDefinitionMap &
-												string]['fields']
-										>
-									>();
-									const markdownFilenames = new Map<string, string>();
-
-									await Promise.all(
-										filePaths.map(async (filePath) => {
-											const filename = path.basename(filePath);
-
-											const parsed = tableConfig.parseFilename(filename);
-											if (!parsed) {
-												diagnostics.add({
-													filePath,
-													tableName: table.name,
-													filename,
-													error: MarkdownExtensionError({
-														message: `Failed to parse filename: ${filename}`,
-													}),
-												});
-												logger.log(
-													ExtensionError({
-														message: `pushFromMarkdown: failed to parse filename ${table.name}/${filename}`,
-														context: {
-															filePath,
-															tableName: table.name,
-															filename,
-														},
-													}),
-												);
-												return;
-											}
-
-											const { data: fileContent, error: readError } =
-												await readMarkdownFile(filePath);
-
-											if (readError) {
-												diagnostics.add({
-													filePath,
-													tableName: table.name,
-													filename,
-													error: MarkdownExtensionError({
-														message: `Failed to read markdown file at ${filePath}: ${readError.message}`,
-													}),
-												});
-												logger.log(
-													ExtensionError({
-														message: `pushFromMarkdown: failed to read ${table.name}/${filename}`,
-														context: {
-															filePath,
-															tableName: table.name,
-															filename,
-														},
-													}),
-												);
-												return;
-											}
-
-											const { data: frontmatter, body } = fileContent;
-
-											const { data: row, error: deserializeError } =
-												tableConfig.deserialize({
-													frontmatter,
-													body,
-													filename,
-													parsed,
-													table,
-												});
-
-											if (deserializeError) {
-												diagnostics.add({
-													filePath,
-													tableName: table.name,
-													filename,
-													error: deserializeError,
-												});
-												logger.log(
-													ExtensionError({
-														message: `pushFromMarkdown: validation failed for ${table.name}/${filename}`,
-														context: {
-															filePath,
-															tableName: table.name,
-															filename,
-														},
-													}),
-												);
-												return;
-											}
-
-											markdownRows.set(row.id, row);
-											markdownFilenames.set(row.id, filename);
-										}),
-									);
-
-									return {
-										table,
-										yjsIds,
-										fileExistsIds,
-										markdownRows,
-										markdownFilenames,
-									};
-								},
-							),
+									yjsIds,
+									fileExistsIds,
+									markdownRows,
+									markdownFilenames,
+								};
+							},
+						),
 					);
 
 					ydoc.transact(() => {
