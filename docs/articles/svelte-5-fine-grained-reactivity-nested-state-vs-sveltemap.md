@@ -203,6 +203,64 @@ For more surgical debugging, use `$effect` to track exactly which properties tri
 
 When you update `row-1.title`, you should **only** see `[row-1.title]` in the console. If other effects fire, you have a reactivity leak somewhere.
 
+## Visual Debugging: Flash on Re-render
+
+Console logs are fine, but sometimes you want to _see_ what's re-rendering. Use `{#key}` with a CSS animation:
+
+```svelte
+<script>
+	let rows = $state({
+		'row-1': { title: 'First', published: false },
+		'row-2': { title: 'Second', published: true },
+	});
+
+	function updateGranular() {
+		rows['row-1'].title = 'Updated ' + Date.now();
+	}
+
+	function replaceWholeRow() {
+		rows['row-1'] = { ...rows['row-1'], title: 'Replaced ' + Date.now() };
+	}
+</script>
+
+{#each Object.entries(rows) as [rowId, row] (rowId)}
+	<div class="row">
+		{#key row.title}
+			<span class="cell flash">{row.title}</span>
+		{/key}
+		{#key row.published}
+			<span class="cell flash">{row.published}</span>
+		{/key}
+	</div>
+{/each}
+
+<button onclick={updateGranular}>Granular update</button>
+<button onclick={replaceWholeRow}>Replace whole row</button>
+
+<style>
+	.cell {
+		padding: 4px 8px;
+		margin: 2px;
+		display: inline-block;
+	}
+
+	.flash {
+		animation: flash 0.5s ease-out;
+	}
+
+	@keyframes flash {
+		0% {
+			background: red;
+		}
+		100% {
+			background: transparent;
+		}
+	}
+</style>
+```
+
+The `{#key value}` block remounts its contents when `value` changes, retriggering the CSS animation. Cells flash red when they re-render.
+
 ## Summary: Which Should You Use?
 
 | Aspect            | `$state` Nested Objects     | `SvelteMap` of `SvelteMap`                                                           |
