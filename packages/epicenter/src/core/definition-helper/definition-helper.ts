@@ -74,11 +74,28 @@ function createFieldsHelper(
 
 	return {
 		/**
+		 * Serialize all field schemas to a plain JSON object.
+		 *
+		 * @example
+		 * ```typescript
+		 * const fields = definition.tables('posts')?.fields.toJSON();
+		 * for (const [name, schema] of Object.entries(fields)) {
+		 *   console.log(name, schema.type);
+		 * }
+		 * ```
+		 */
+		toJSON(): Record<string, FieldSchema> {
+			const fieldsMap = getFieldsMap();
+			if (!fieldsMap) return {};
+			return fieldsMap.toJSON() as Record<string, FieldSchema>;
+		},
+
+		/**
 		 * Get a field schema by name.
 		 *
 		 * @example
 		 * ```typescript
-		 * const titleSchema = definition.tables.posts.fields.get('title');
+		 * const titleSchema = definition.tables('posts')?.fields.get('title');
 		 * if (titleSchema) {
 		 *   console.log(titleSchema.type); // 'text'
 		 * }
@@ -86,23 +103,6 @@ function createFieldsHelper(
 		 */
 		get(fieldName: string): FieldSchema | undefined {
 			return getFieldsMap()?.get(fieldName);
-		},
-
-		/**
-		 * Get all field schemas for this table.
-		 *
-		 * @example
-		 * ```typescript
-		 * const fields = definition.tables.posts.fields.getAll();
-		 * for (const [name, schema] of Object.entries(fields)) {
-		 *   console.log(name, schema.type);
-		 * }
-		 * ```
-		 */
-		getAll(): Record<string, FieldSchema> {
-			const fieldsMap = getFieldsMap();
-			if (!fieldsMap) return {};
-			return fieldsMap.toJSON() as Record<string, FieldSchema>;
 		},
 
 		/**
@@ -303,8 +303,8 @@ export type TablesDefinitionHelper = {
 	(tableName: string): TableDefinitionHelper | undefined;
 
 	// Properties
+	toJSON(): Record<string, TableDefinition>;
 	get(tableName: string): TableDefinition | undefined;
-	getAll(): Record<string, TableDefinition>;
 	set(tableName: string, definition: TableDefinition): void;
 	delete(tableName: string): boolean;
 	has(tableName: string): boolean;
@@ -381,42 +381,17 @@ function createTablesDefinitionHelper(
 	// the tables Y.Map eagerly, breaking the "empty schema" test case).
 	const result = Object.assign(tablesAccessor, {
 		/**
-		 * Get a table's schema by name (as a snapshot, not a helper).
+		 * Serialize all table definitions to a plain JSON object.
 		 *
 		 * @example
 		 * ```typescript
-		 * const postsSchema = definition.tables.get('posts');
-		 * ```
-		 */
-		get(tableName: string): TableDefinition | undefined {
-			const tablesMap = getTablesMap();
-			if (!tablesMap) return undefined;
-
-			const tableDefinitionMap = tablesMap.get(tableName);
-			if (!tableDefinitionMap) return undefined;
-
-			return {
-				name: (tableDefinitionMap.get('name') as string) ?? '',
-				icon: (tableDefinitionMap.get('icon') as IconDefinition | null) ?? null,
-				description: (tableDefinitionMap.get('description') as string) ?? '',
-				fields:
-					(tableDefinitionMap.get('fields') as Y.Map<FieldSchema>)?.toJSON() ??
-					{},
-			} as TableDefinition;
-		},
-
-		/**
-		 * Get all table schemas.
-		 *
-		 * @example
-		 * ```typescript
-		 * const allTables = definition.tables.getAll();
-		 * for (const [name, schema] of Object.entries(allTables)) {
-		 *   console.log(name, schema.fields);
+		 * const allTables = definition.tables.toJSON();
+		 * for (const [name, def] of Object.entries(allTables)) {
+		 *   console.log(name, def.fields);
 		 * }
 		 * ```
 		 */
-		getAll(): Record<string, TableDefinition> {
+		toJSON(): Record<string, TableDefinition> {
 			const tablesMap = getTablesMap();
 			if (!tablesMap) return {};
 
@@ -437,7 +412,32 @@ function createTablesDefinitionHelper(
 		},
 
 		/**
-		 * Set (add or update) a table schema.
+		 * Get a table's definition by name (as a snapshot, not a helper).
+		 *
+		 * @example
+		 * ```typescript
+		 * const postsDef = definition.tables.get('posts');
+		 * ```
+		 */
+		get(tableName: string): TableDefinition | undefined {
+			const tablesMap = getTablesMap();
+			if (!tablesMap) return undefined;
+
+			const tableDefinitionMap = tablesMap.get(tableName);
+			if (!tableDefinitionMap) return undefined;
+
+			return {
+				name: (tableDefinitionMap.get('name') as string) ?? '',
+				icon: (tableDefinitionMap.get('icon') as IconDefinition | null) ?? null,
+				description: (tableDefinitionMap.get('description') as string) ?? '',
+				fields:
+					(tableDefinitionMap.get('fields') as Y.Map<FieldSchema>)?.toJSON() ??
+					{},
+			} as TableDefinition;
+		},
+
+		/**
+		 * Set (add or update) a table definition.
 		 *
 		 * Use the `table()` helper to create a normalized TableDefinition:
 		 *
@@ -579,11 +579,38 @@ function createKvDefinitionHelper(definitionMap: DefinitionMap) {
 
 	return {
 		/**
-		 * Get a KV key's schema by name.
+		 * Serialize all KV definitions to a plain JSON object.
 		 *
 		 * @example
 		 * ```typescript
-		 * const themeSchema = definition.kv.get('theme');
+		 * const allKv = definition.kv.toJSON();
+		 * for (const [name, def] of Object.entries(allKv)) {
+		 *   console.log(name, def.field.type);
+		 * }
+		 * ```
+		 */
+		toJSON(): Record<string, KvDefinition> {
+			const kvMap = getKvMap();
+			if (!kvMap) return {};
+
+			const result: Record<string, KvDefinition> = {};
+			for (const [keyName, kvEntryMap] of kvMap.entries()) {
+				result[keyName] = {
+					name: (kvEntryMap.get('name') as string) ?? '',
+					icon: (kvEntryMap.get('icon') as IconDefinition | null) ?? null,
+					description: (kvEntryMap.get('description') as string) ?? '',
+					field: kvEntryMap.get('field'),
+				} as KvDefinition;
+			}
+			return result;
+		},
+
+		/**
+		 * Get a KV key's definition by name.
+		 *
+		 * @example
+		 * ```typescript
+		 * const themeDef = definition.kv.get('theme');
 		 * ```
 		 */
 		get(keyName: string): KvDefinition | undefined {
@@ -602,34 +629,7 @@ function createKvDefinitionHelper(definitionMap: DefinitionMap) {
 		},
 
 		/**
-		 * Get all KV schemas.
-		 *
-		 * @example
-		 * ```typescript
-		 * const allKv = definition.kv.getAll();
-		 * for (const [name, def] of Object.entries(allKv)) {
-		 *   console.log(name, def.field.type);
-		 * }
-		 * ```
-		 */
-		getAll(): Record<string, KvDefinition> {
-			const kvMap = getKvMap();
-			if (!kvMap) return {};
-
-			const result: Record<string, KvDefinition> = {};
-			for (const [keyName, kvEntryMap] of kvMap.entries()) {
-				result[keyName] = {
-					name: (kvEntryMap.get('name') as string) ?? '',
-					icon: (kvEntryMap.get('icon') as IconDefinition | null) ?? null,
-					description: (kvEntryMap.get('description') as string) ?? '',
-					field: kvEntryMap.get('field'),
-				} as KvDefinition;
-			}
-			return result;
-		},
-
-		/**
-		 * Set (add or update) a KV schema.
+		 * Set (add or update) a KV definition.
 		 *
 		 * Use the `setting()` helper to create a normalized KvDefinition:
 		 *
@@ -773,15 +773,15 @@ export type KvDefinitionHelper = ReturnType<typeof createKvDefinitionHelper>;
 export function createDefinition(definitionMap: DefinitionMap) {
 	return {
 		/**
-		 * Get the entire definition as a snapshot (plain object).
+		 * Serialize the entire definition to a plain JSON object.
 		 *
 		 * @example
 		 * ```typescript
-		 * const snapshot = definition.get();
+		 * const snapshot = definition.toJSON();
 		 * console.log(snapshot.tables, snapshot.kv);
 		 * ```
 		 */
-		get(): WorkspaceDefinitionMap {
+		toJSON(): WorkspaceDefinitionMap {
 			return definitionMap.toJSON() as WorkspaceDefinitionMap;
 		},
 
@@ -827,12 +827,12 @@ export function createDefinition(definitionMap: DefinitionMap) {
 		 * Observe any definition changes (tables or KV).
 		 *
 		 * Uses observeDeep to catch all nested changes. Just notifies that something changed;
-		 * consumer calls `definition.get()` to retrieve the current state.
+		 * consumer calls `definition.toJSON()` to retrieve the current state.
 		 *
 		 * @example
 		 * ```typescript
 		 * definition.observe(() => {
-		 *   const snapshot = definition.get();
+		 *   const snapshot = definition.toJSON();
 		 *   console.log('Definition changed:', snapshot);
 		 * });
 		 * ```

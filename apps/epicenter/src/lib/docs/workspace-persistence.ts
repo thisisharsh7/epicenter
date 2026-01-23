@@ -147,7 +147,7 @@ export function workspacePersistence<
 	const saveDefinitionJson = async () => {
 		const { definitionJsonPath } = await pathsPromise;
 		try {
-			const definitionSnapshot = definition.get();
+			const definitionSnapshot = definition.toJSON();
 			const json = JSON.stringify(definitionSnapshot, null, '\t');
 			await writeFile(definitionJsonPath, new TextEncoder().encode(json));
 			console.log(

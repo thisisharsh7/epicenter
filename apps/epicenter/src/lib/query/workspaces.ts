@@ -96,7 +96,7 @@ export const workspaces = {
 				// Get definition from Workspace Doc
 				const client = createWorkspaceClient(head);
 				await client.whenSynced;
-				const definition = client.definition.get();
+				const definition = client.definition.toJSON();
 				await client.destroy();
 				await head.destroy();
 
