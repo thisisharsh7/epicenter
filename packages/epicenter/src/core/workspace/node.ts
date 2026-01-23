@@ -227,9 +227,9 @@ export type ClientBuilder<
 	TKvDefinitionMap extends KvDefinitionMap,
 > = {
 	/**
-	 * Attach a workspace schema for static schema mode.
+	 * Attach a workspace definition for static definition mode.
 	 *
-	 * This locks in the table/kv types from the schema, enabling
+	 * This locks in the table/kv types from the definition, enabling
 	 * proper type inference for extensions.
 	 *
 	 * @example
@@ -330,7 +330,7 @@ export type ClientBuilder<
  *
  * ## Path 1: Static Definition (Code-Defined)
  *
- * For apps like Whispering where schema is defined in code:
+ * For apps like Whispering where definition is defined in code:
  *
  * ```typescript
  * const definition = defineWorkspace({
@@ -352,9 +352,9 @@ export type ClientBuilder<
  * Note: Workspace identity (name, icon, description) is separate from definition
  * and should be managed via Head Doc.
  *
- * ## Path 2: Dynamic Schema (Y.Doc-Defined)
+ * ## Path 2: Dynamic Definition (Y.Doc-Defined)
  *
- * For the Epicenter app where schema lives in the Y.Doc:
+ * For the Epicenter app where definition lives in the Y.Doc:
  *
  * ```typescript
  * const head = createHeadDoc({ workspaceId: 'my-workspace', providers: {} });
@@ -493,7 +493,7 @@ export {
  *
  * @see {@link ./workspace.ts} - Where these types are defined
  */
-export type { WorkspaceDefinition, WorkspaceSchema } from './workspace';
+export type { WorkspaceDefinition } from './workspace';
 
 /**
  * Re-export defineWorkspace from workspace.ts.

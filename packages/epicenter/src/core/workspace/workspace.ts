@@ -5,7 +5,7 @@
  * - {@link defineWorkspace} - Type inference helper for workspace schemas (pass-through)
  * - {@link createClient} - Factory to create workspaces with builder pattern
  * - {@link WorkspaceDoc} - The unified workspace abstraction (from workspace-doc.ts)
- * - {@link WorkspaceSchema} - Schema type for `.withDefinition()` (tables + kv only)
+ * - {@link WorkspaceDefinition} - Definition type for `.withDefinition()` (tables + kv only)
  *
  * ## Architecture Overview
  *
@@ -113,14 +113,6 @@ export type WorkspaceDefinition<
 };
 
 /**
- * @deprecated Use `WorkspaceDefinition` instead.
- */
-export type WorkspaceSchema<
-	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
-	TKvDefinitionMap extends KvDefinitionMap = KvDefinitionMap,
-> = WorkspaceDefinition<TTableDefinitionMap, TKvDefinitionMap>;
-
-/**
  * Builder for creating workspace clients with proper type inference.
  *
  * The builder pattern solves TypeScript's limitation with simultaneous generic
@@ -150,7 +142,7 @@ export type WorkspaceSchema<
  *
  * **Path 1: Static Definition (Code-Defined)**
  *
- * For apps like Whispering where schema is defined in code:
+ * For apps like Whispering where definition is defined in code:
  *
  * ```typescript
  * const head = createHeadDoc({ workspaceId: 'whispering', providers: {} });
@@ -161,9 +153,9 @@ export type WorkspaceSchema<
  *   });
  * ```
  *
- * **Path 2: Dynamic Schema (Y.Doc-Defined)**
+ * **Path 2: Dynamic Definition (Y.Doc-Defined)**
  *
- * For the Epicenter app where schema lives in the Y.Doc:
+ * For the Epicenter app where definition lives in the Y.Doc:
  *
  * ```typescript
  * const head = createHeadDoc({ workspaceId: 'my-workspace', providers: {} });
@@ -190,13 +182,13 @@ export type ClientBuilder<
 	TKvDefinitionMap extends KvDefinitionMap,
 > = {
 	/**
-	 * Attach a workspace schema for static schema mode.
+	 * Attach a workspace definition for static definition mode.
 	 *
-	 * This locks in the table/kv types from the schema, enabling
+	 * This locks in the table/kv types from the definition, enabling
 	 * proper type inference for extensions.
 	 *
 	 * Note: Workspace identity (id, name, icon, description) is now separate
-	 * from schema and lives in the Head Doc.
+	 * from definition and lives in the Head Doc.
 	 *
 	 * @example
 	 * ```typescript
@@ -257,25 +249,6 @@ export type ClientBuilder<
 		InferExtensionExports<TExtensionFactories>
 	>;
 };
-
-/**
- * @deprecated Use `WorkspaceDefinition` instead.
- *
- * Migration:
- * ```typescript
- * // Old API
- * const workspace = defineWorkspace({ id, tables, kv });
- * const client = workspace.create({ epoch, extensions });
- *
- * // New API
- * const definition = defineWorkspace({ tables, kv });
- * const client = createClient(head).withDefinition(definition).withExtensions({});
- * ```
- */
-export type Workspace<
-	TTableDefinitionMap extends TableDefinitionMap = TableDefinitionMap,
-	TKvDefinitionMap extends KvDefinitionMap = KvDefinitionMap,
-> = WorkspaceDefinition<TTableDefinitionMap, TKvDefinitionMap>;
 
 // WorkspaceClient type has been consolidated into WorkspaceDoc
 // See: workspace-doc.ts for the unified WorkspaceDoc type
@@ -415,7 +388,7 @@ export function createClient(
  *
  * The builder accumulates `tables` and `kv` definitions through `.withDefinition()`.
  * When `.withExtensions()` is called, these are passed to `createWorkspaceDoc()`
- * which handles both creating typed helpers AND merging schema after sync.
+ * which handles both creating typed helpers AND merging definition after sync.
  */
 function createClientBuilder<
 	TTableDefinitionMap extends TableDefinitionMap,
