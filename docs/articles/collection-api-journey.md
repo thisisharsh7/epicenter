@@ -118,3 +118,4 @@ Then maybe. But for library APIs, configuration, or anything users read more tha
 
 - [Collection API Patterns](./collection-api-patterns.md): Comparison of all three approaches
 - [The Callable Collection Pattern](./callable-collection-pattern.md): Technical reference if you still want to use it
+- [PR #1275](https://github.com/EpicenterHQ/epicenter/pull/1275): The migration PR with before/after examples

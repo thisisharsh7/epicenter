@@ -75,3 +75,4 @@ tables.toJSON(); // utility method
 
 - [Collection API Patterns](./collection-api-patterns.md): Comparison of all three approaches
 - [My Journey Through Collection APIs](./collection-api-journey.md): Why we moved away from this pattern
+- [PR #1275](https://github.com/EpicenterHQ/epicenter/pull/1275): The migration PR with before/after examples

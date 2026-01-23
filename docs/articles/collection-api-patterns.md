@@ -164,3 +164,4 @@ function createTables(): TablesCollection {
 
 - [The Callable Collection Pattern](./callable-collection-pattern.md): Deep dive into the callable approach
 - [My Journey Through Collection APIs](./collection-api-journey.md): Why we chose `.get()`
+- [PR #1275](https://github.com/EpicenterHQ/epicenter/pull/1275): The migration PR with before/after examples
