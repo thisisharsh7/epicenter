@@ -171,8 +171,8 @@ rowsYMap.observeDeep(() => syncToSqlite()); // Data only
 ### API: Optimized for Ergonomics
 
 ```typescript
-// EXTERNAL: Unified TableHelper bridges both trees
-const posts = workspace.tables('posts');
+// EXTERNAL: Unified TableHelper bridges both trees (use explicit .get())
+const posts = workspace.tables.get('posts');
 
 // Everything about "posts" is RIGHT HERE
 posts.name;                    // reads from definition.tables.posts.name
@@ -384,7 +384,7 @@ Following the codebase convention established in the recent refactor:
 Despite internal separation, the API presents a unified view:
 
 ```typescript
-const posts = workspace.tables('posts');
+const posts = workspace.tables.get('posts');
 
 // These read from definition.tables.posts
 posts.name;
@@ -722,8 +722,8 @@ workspace.setName('New Name');
 workspace.icon;                         // 'emoji:📝'
 workspace.setIcon('lucide:book');
 
-// Tables (callable collection)
-workspace.tables('posts');              // TableHelper | undefined
+// Tables (use explicit .get() for access)
+workspace.tables.get('posts');          // TableHelper | undefined
 workspace.tables.keys();                // ['posts', 'users']
 workspace.tables.has('posts');          // true
 workspace.tables.create('comments', { name: 'Comments', fields: {...} });
@@ -733,7 +733,7 @@ workspace.tables.delete('oldTable');
 ### Table Access
 
 ```typescript
-const posts = workspace.tables('posts');
+const posts = workspace.tables.get('posts');
 
 // Metadata (reads from definition.tables.posts)
 posts.name; // 'Posts'
@@ -758,18 +758,20 @@ posts.delete({ id: '1' });
 ### KV Access
 
 ```typescript
-// KV (callable collection)
-workspace.kv('theme'); // KvHelper | undefined
+// KV (use explicit .get() for access)
+workspace.kv.get('theme'); // KvHelper | undefined
 workspace.kv.keys(); // ['theme', 'fontSize']
 workspace.kv.has('theme'); // true
 
 // Single KV entry
-const theme = workspace.kv('theme');
+const theme = workspace.kv.get('theme');
 theme.name; // 'Theme' (from definition.kv.theme)
 theme.field; // { type: 'select', ... } (from definition.kv.theme)
 theme.value; // 'dark' (from kv.theme)
-theme.set('light');
-theme.reset(); // Back to default
+
+// Setting/observing KV values directly
+workspace.kv.set('theme', 'light');
+workspace.kv.observeKey('theme', () => applyTheme());
 ```
 
 ### Observation Patterns
@@ -777,7 +779,7 @@ theme.reset(); // Back to default
 The separated internal structure enables **precise observation**:
 
 ```typescript
-const posts = workspace.tables('posts');
+const posts = workspace.tables.get('posts');
 
 // Watch table metadata (name, icon, description)
 // Internally: definition.tables.posts.observe()
@@ -799,7 +801,7 @@ posts.observeRows((changes) => {
 
 // KV value changes
 // Internally: kv.observe()
-workspace.kv('theme').observe(() => {
+workspace.kv.observeKey('theme', () => {
 	applyTheme();
 });
 

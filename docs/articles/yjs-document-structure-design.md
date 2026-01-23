@@ -182,7 +182,7 @@ This maps cleanly to:
 Despite the internal separation, developers see a unified interface:
 
 ```typescript
-const posts = workspace.tables('posts');
+const posts = workspace.tables.get('posts');
 
 // These read from definition.tables.posts (cold)
 posts.name;

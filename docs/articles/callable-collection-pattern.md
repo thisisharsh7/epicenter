@@ -4,7 +4,7 @@ A pattern for type-safe collection APIs that avoids namespace collisions and sup
 
 > **TL;DR**: The core insight is simple: lift `.get()` to be the call signature itself. See [The Callable Collection Insight](./callable-collection-insight.md) for the 30-second version.
 
-> **Update**: After consideration, we now recommend **preferring `.get()` over the callable pattern** in most cases. The callable pattern is documented here for completeness, but explicit method calls are more discoverable, familiar, and consistent with standard library conventions. See the [insight article](./callable-collection-insight.md#our-recommendation-prefer-get) for reasoning.
+> **⚠️ Historical Note**: This article documents the callable pattern for reference. **We now recommend using `.get()` as the primary API** because it's more discoverable, familiar, and consistent with standard library conventions. Examples below show both patterns for comparison, with the recommended `.get()` approach marked. See the [insight article](./callable-collection-insight.md#our-recommendation-prefer-get) for full reasoning.
 
 ## The Problem
 
@@ -60,14 +60,17 @@ Verbose. Awkward nested access.
 Make the collection itself a **function**. Item access goes through the call, utilities go on properties.
 
 ```
-tables('posts')     -> item helper (or undefined if missing)
-tables.get('posts') -> item snapshot (when you don't need the helper)
-tables.has('posts') -> check existence
-tables.toJSON()     -> all items as JSON
-tables.keys()       -> list of keys
+# Old pattern (callable)           # New pattern (recommended)
+tables('posts')                    tables.get('posts')
+tables.get('posts')                tables.get('posts')
+tables.has('posts')                tables.has('posts')
+tables.toJSON()                    tables.toJSON()
+tables.keys()                      tables.keys()
 ```
 
 **No collision possible.** `tables('toJSON')` and `tables.toJSON()` are syntactically distinct.
+
+> **Recommendation**: Use `.get()` for all item access. The callable pattern is preserved for backward compatibility but `.get()` is clearer and more consistent.
 
 ## The Key Heuristic: Callable Only Where Nesting Is Needed
 
@@ -78,22 +81,27 @@ Not everything should be callable. The decision procedure:
 
 Callable access returns a **capability-bearing helper** (with methods, observation, nested collections), not just data. If the item has no nested structure, a helper adds no value.
 
-| Item Type              | Pattern                                            | Reason                                     |
-| ---------------------- | -------------------------------------------------- | ------------------------------------------ |
-| Has nested collections | **Callable** `collection('key')` _and_ `.get(key)` | Callable for helper, `.get()` for snapshot |
-| Leaf node (no nesting) | **Collection-style** `.get(key)` only              | Just returns the data, no helper needed    |
+| Item Type              | Old Pattern (callable)                | New Pattern (recommended)    |
+| ---------------------- | ------------------------------------- | ---------------------------- |
+| Has nested collections | `collection('key')` _and_ `.get(key)` | `.get(key)` for everything   |
+| Leaf node (no nesting) | `.get(key)` only                      | `.get(key)` only (unchanged) |
 
 ```typescript
-// Tables ARE callable: the helper has nested .fields collection
+// OLD PATTERN (callable): tables('posts') returns a helper
 const posts = definition.tables('posts');
 posts?.fields.set('dueDate', date()); // Helper enables nested access
 posts?.setName('Blog Posts'); // Helper has methods
 
-// But tables ALSO have .get() for when you just want the snapshot
+// NEW PATTERN (recommended): tables.get('posts') returns the same helper
+const posts = definition.tables.get('posts');
+posts?.fields.set('dueDate', date()); // Same capabilities
+posts?.setName('Blog Posts'); // Same methods
+
+// For snapshots (plain data), both patterns use .get()
 const postsSnapshot = definition.tables.get('posts'); // Plain TableDefinition
 
-// Fields are NOT callable: they're leaf nodes, just data
-const titleSchema = definition.tables('posts')?.fields.get('title');
+// Fields use .get() - they're leaf nodes, just data
+const titleSchema = definition.tables.get('posts')?.fields.get('title');
 // titleSchema is a FieldSchema object; no nested collections, no helper needed
 ```
 
@@ -130,8 +138,8 @@ definition
 ├── .merge({ tables?, kv? })        -> void
 ├── .observe(cb)                    -> unsubscribe
 │
-├── .tables(name)                   -> TableHelper | undefined (callable)
-├── .tables.get(name)               -> TableDefinition | undefined
+├── .tables(name)                   -> TableHelper | undefined (OLD: callable)
+├── .tables.get(name)               -> TableHelper | undefined (NEW: recommended)
 ├── .tables.has(name)               -> boolean
 ├── .tables.toJSON()                -> Record<string, TableDefinition>
 ├── .tables.keys()                  -> string[]
@@ -140,7 +148,9 @@ definition
 ├── .tables.delete(name)            -> boolean
 └── .tables.observe(cb)             -> unsubscribe
 
-definition.tables('posts')          -> TableHelper
+# OLD: definition.tables('posts')   -> TableHelper
+# NEW: definition.tables.get('posts') -> TableHelper (recommended)
+TableHelper
 ├── .name                           -> string (property getter)
 ├── .icon                           -> IconDefinition | null (property getter)
 ├── .description                    -> string (property getter)
@@ -151,7 +161,7 @@ definition.tables('posts')          -> TableHelper
 ├── .set(def)                       -> void
 ├── .delete()                       -> boolean
 ├── .observe(cb)                    -> unsubscribe
-└── .fields                         -> FieldsCollection (NOT callable)
+└── .fields                         -> FieldsCollection
     ├── .get(name)                  -> FieldSchema | undefined
     ├── .has(name)                  -> boolean
     ├── .toJSON()                   -> Record<string, FieldSchema>
@@ -257,20 +267,16 @@ function createTablesCollection(store: Y.Map<unknown>): TablesCollection {
 
 ## Usage Examples
 
+### Recommended Pattern (using `.get()`)
+
 ```typescript
-// Check existence (two ways)
+// Check existence
 if (definition.tables.has('posts')) {
 	/* ... */
 }
-if (definition.tables('posts')) {
-	/* ... */
-}
 
-// Get snapshot without helper
-const postsSnapshot = definition.tables.get('posts');
-
-// Get helper for nested access
-const postsHelper = definition.tables('posts');
+// Get helper for nested access (NEW: use .get())
+const postsHelper = definition.tables.get('posts');
 if (postsHelper) {
 	// Read fixed properties (property getters)
 	console.log(postsHelper.name); // "Posts"
@@ -281,7 +287,7 @@ if (postsHelper) {
 	postsHelper.setName('Blog Posts');
 	postsHelper.setIcon({ type: 'emoji', value: '✍️' });
 
-	// Access fields (collection-style, NOT callable)
+	// Access fields (collection-style)
 	const titleSchema = postsHelper.fields.get('title');
 	if (postsHelper.fields.has('dueDate')) {
 		postsHelper.fields.delete('dueDate');
@@ -310,36 +316,54 @@ const unsubscribe = definition.tables.observe((changes) => {
 });
 ```
 
-## Design Decisions
-
-### `.get()` vs Callable
-
-Use both:
-
-- **Callable** when you need the helper object for further operations
-- **`.get()`** when you just want the data snapshot
+### Old Pattern (callable) - for reference
 
 ```typescript
-// Get helper to access nested .fields
-const helper = definition.tables('posts');
-helper?.fields.set('newField', text());
-
-// Get snapshot when you just need the data
-const snapshot = definition.tables.get('posts');
-console.log(snapshot?.name);
-```
-
-### `.has()` for Explicit Existence Checks
-
-While you can check existence with `if (collection('key'))`, `.has()` is more explicit:
-
-```typescript
-// Explicit
+// OLD: Check existence via callable (creates helper unnecessarily)
+if (definition.tables('posts')) {
+	/* ... */
+}
+// NEW: Use .has() instead
 if (definition.tables.has('posts')) {
 	/* ... */
 }
 
-// Also works, but creates a helper unnecessarily
+// OLD: Get helper via callable
+const postsHelper = definition.tables('posts');
+// NEW: Get helper via .get() (recommended)
+const postsHelper = definition.tables.get('posts');
+```
+
+## Design Decisions
+
+### `.get()` vs Callable
+
+**Current recommendation**: Use `.get()` for everything.
+
+```typescript
+// NEW (recommended): Use .get() for all item access
+const helper = definition.tables.get('posts');
+helper?.fields.set('newField', text());
+console.log(helper?.name);
+
+// OLD (callable): Still works, but not recommended
+const helper = definition.tables('posts');
+helper?.fields.set('newField', text());
+```
+
+The callable pattern was originally designed to distinguish between "get helper" (callable) and "get snapshot" (`.get()`), but in practice `.get()` can serve both purposes and is more consistent with standard APIs.
+
+### `.has()` for Explicit Existence Checks
+
+Always use `.has()` for existence checks:
+
+```typescript
+// NEW (recommended): Use .has() for existence checks
+if (definition.tables.has('posts')) {
+	/* ... */
+}
+
+// OLD (callable): Works but creates a helper unnecessarily
 if (definition.tables('posts')) {
 	/* ... */
 }
@@ -350,11 +374,11 @@ if (definition.tables('posts')) {
 Fields are leaf nodes. There's no `.subfields` or nested structure. Making them callable would add complexity without benefit:
 
 ```typescript
-// This would be redundant
-definition.tables('posts')?.fields('title')?.toJSON(); // Just to get the schema?
+// This would be redundant (hypothetical callable fields)
+definition.tables.get('posts')?.fields('title')?.toJSON(); // Just to get the schema?
 
 // Collection-style is cleaner for leaf nodes
-definition.tables('posts')?.fields.get('title'); // Returns FieldSchema directly
+definition.tables.get('posts')?.fields.get('title'); // Returns FieldSchema directly
 ```
 
 ### Why Property Getters for Fixed Keys
@@ -375,17 +399,18 @@ The asymmetric setter (`setName()` instead of `name =`) makes mutation deliberat
 
 ## When to Use This Pattern
 
-**Use callable pattern when:**
+**Recommendation**: Use `.get()` for all item access. The callable pattern is preserved for backward compatibility.
 
-- Collection items have nested collections or complex operations
-- You need both helper objects AND snapshot access
-- Keys are dynamic strings that could collide with method names
+**Use `.get()` (recommended) when:**
 
-**Use collection-style when:**
+- Accessing any item from a collection
+- You want consistent, discoverable APIs
+- You're writing new code
 
-- Items are leaf nodes (no further nesting needed)
-- Simple get/set/delete semantics suffice
-- No need for per-item helpers
+**Use callable pattern (legacy) when:**
+
+- Maintaining existing code that uses it
+- You specifically want the syntactic distinction (rare)
 
 **Use property getters for:**
 
@@ -406,18 +431,18 @@ The callable pattern is simpler, explicit, and has excellent TypeScript support.
 
 ## Summary
 
-| Want to...                    | Pattern                        |
-| ----------------------------- | ------------------------------ |
-| Get item helper (for nesting) | `collection('key')`            |
-| Get item snapshot             | `collection.get('key')`        |
-| Check existence               | `collection.has('key')`        |
-| Get all snapshots             | `collection.toJSON()`          |
-| Get all entries               | `collection.entries()`         |
-| Set item                      | `collection.set('key', value)` |
-| Delete item                   | `collection.delete('key')`     |
-| List keys                     | `collection.keys()`            |
-| Read fixed property           | `helper.name`                  |
-| Write fixed property          | `helper.setName(value)`        |
-| Observe changes               | `collection.observe(cb)`       |
+| Want to...                    | Old Pattern (callable)          | New Pattern (recommended)      |
+| ----------------------------- | ------------------------------- | ------------------------------ |
+| Get item helper (for nesting) | `collection('key')`             | `collection.get('key')`        |
+| Get item snapshot             | `collection.get('key')`         | `collection.get('key')`        |
+| Check existence               | `collection('key')` or `.has()` | `collection.has('key')`        |
+| Get all snapshots             | `collection.toJSON()`           | `collection.toJSON()`          |
+| Get all entries               | `collection.entries()`          | `collection.entries()`         |
+| Set item                      | `collection.set('key', value)`  | `collection.set('key', value)` |
+| Delete item                   | `collection.delete('key')`      | `collection.delete('key')`     |
+| List keys                     | `collection.keys()`             | `collection.keys()`            |
+| Read fixed property           | `helper.name`                   | `helper.name`                  |
+| Write fixed property          | `helper.setName(value)`         | `helper.setName(value)`        |
+| Observe changes               | `collection.observe(cb)`        | `collection.observe(cb)`       |
 
-The Callable Collection Pattern provides a clean, type-safe API for hierarchical data structures while avoiding namespace collisions and maintaining excellent developer ergonomics.
+The Callable Collection Pattern provides a clean, type-safe API for hierarchical data structures while avoiding namespace collisions. **We now recommend using `.get()` as the primary access pattern** for better discoverability and consistency with standard library conventions. The callable syntax is preserved for backward compatibility.

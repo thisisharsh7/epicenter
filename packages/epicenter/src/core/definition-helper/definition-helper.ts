@@ -159,7 +159,7 @@ function createFieldsCollection(
  *
  * @example
  * ```typescript
- * const posts = definition.tables('posts');
+ * const posts = definition.tables.get('posts');
  * if (posts) {
  *   // Read fixed properties
  *   console.log(posts.name);        // 'Posts'
@@ -466,7 +466,7 @@ function createTablesCollection(
  *
  * @example
  * ```typescript
- * const theme = definition.kv('theme');
+ * const theme = definition.kv.get('theme');
  * if (theme) {
  *   // Read properties
  *   console.log(theme.name);        // 'Theme'
@@ -741,8 +741,8 @@ function createKvCollection(definitionMap: DefinitionYMap): KvCollection {
  *
  * ## Design Principles
  *
- * 1. **Callable for dynamic keys**: `tables('posts')` returns a helper for nested access
- * 2. **Collection methods for bulk ops**: `tables.get()`, `tables.toJSON()`, `tables.entries()`
+ * 1. **`.get()` for dynamic keys**: `tables.get('posts')` returns a helper for nested access
+ * 2. **Collection methods for bulk ops**: `tables.toJSON()`, `tables.entries()`, `tables.keys()`
  * 3. **Property getters for fixed keys**: `table.name`, `table.icon` (not methods)
  * 4. **Asymmetric setters**: `table.setName()`, `table.setIcon()` (explicit mutation)
  *
@@ -764,7 +764,7 @@ function createKvCollection(definitionMap: DefinitionYMap): KvCollection {
  * ├── .tables.delete(name)            → boolean
  * └── .tables.observe(cb)             → unsubscribe
  *
- * definition.tables('posts')          → TableHelper
+ * definition.tables.get('posts')      → TableHelper
  * ├── .name                           → string (getter)
  * ├── .icon                           → Icon | null (getter)
  * ├── .description                    → string (getter)
