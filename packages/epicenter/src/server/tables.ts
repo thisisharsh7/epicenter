@@ -48,7 +48,7 @@ export function createTablesPlugin(
 					return Ok({ id: (body as Row<FieldSchemaMap>).id });
 				},
 				{
-					body: tableSchemaToArktype(tableHelper.schema),
+					body: tableSchemaToArktype(tableHelper.fields),
 					detail: { description: `Create or update ${tableName}`, tags },
 				},
 			);
@@ -63,7 +63,7 @@ export function createTablesPlugin(
 					return Ok(result);
 				},
 				{
-					body: tableSchemaToArktype(tableHelper.schema)
+					body: tableSchemaToArktype(tableHelper.fields)
 						.partial()
 						.merge({ id: type.string }),
 					detail: { description: `Update ${tableName} by ID`, tags },

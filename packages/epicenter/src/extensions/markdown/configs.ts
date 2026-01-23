@@ -337,7 +337,7 @@ export function defaultSerializer(): MarkdownSerializer<FieldSchemaMap> {
 			const data = { id, ...frontmatter };
 
 			// Validate using direct arktype pattern
-			const validator = tableSchemaToArktype(table.schema);
+			const validator = tableSchemaToArktype(table.fields);
 			const result = validator(data);
 
 			if (result instanceof type.errors) {
@@ -422,7 +422,7 @@ export function bodyFieldSerializer(
 
 			// Create validator that omits the body field and filename field
 			// Nullable fields that were stripped during serialize are restored via .default(null)
-			const FrontMatter = tableSchemaToArktype(table.schema)
+			const FrontMatter = tableSchemaToArktype(table.fields)
 				// eslint-disable-next-line @typescript-eslint/no-explicit-any
 				.omit(filenameField as any, bodyField as any);
 
@@ -568,7 +568,7 @@ export function titleFilenameSerializer(
 			const data = { id, ...frontmatter };
 
 			// Validate using direct arktype pattern
-			const validator = tableSchemaToArktype(table.schema);
+			const validator = tableSchemaToArktype(table.fields);
 			const result = validator(data);
 
 			if (result instanceof type.errors) {
@@ -729,7 +729,7 @@ export function domainTitleFilenameSerializer(
 			const data = { id, ...frontmatter };
 
 			// Validate using direct arktype pattern
-			const validator = tableSchemaToArktype(table.schema);
+			const validator = tableSchemaToArktype(table.fields);
 			const result = validator(data);
 
 			if (result instanceof type.errors) {
