@@ -135,17 +135,17 @@ export type WebsocketSyncConfig = {
  *
  * @example Single extension (browser to local server)
  * ```typescript
- * import { defineSchema, createClient } from '@epicenter/hq';
+ * import { defineWorkspace, createClient } from '@epicenter/hq';
  * import { websocketSync } from '@epicenter/hq/extensions/websocket-sync';
  *
  * // Browser connects to its own local Elysia server
- * const schema = defineSchema({
+ * const definition = defineWorkspace({
  *   tables: { ... },
  *   kv: {},
  * });
  *
  * const client = createClient('blog', { epoch })
- *   .withDefinition(schema)
+ *   .withDefinition(definition)
  *   .withExtensions({
  *     sync: websocketSync({ url: 'ws://localhost:3913/sync' }),
  *   });
@@ -153,7 +153,7 @@ export type WebsocketSyncConfig = {
  *
  * @example Multi-extension (phone connecting to all nodes)
  * ```typescript
- * import { defineSchema, createClient } from '@epicenter/hq';
+ * import { defineWorkspace, createClient } from '@epicenter/hq';
  * import { websocketSync } from '@epicenter/hq/extensions/websocket-sync';
  *
  * const SYNC_NODES = {
@@ -163,13 +163,13 @@ export type WebsocketSyncConfig = {
  * } as const;
  *
  * // Phone browser connects to ALL available sync nodes
- * const schema = defineSchema({
+ * const definition = defineWorkspace({
  *   tables: { ... },
  *   kv: {},
  * });
  *
  * const client = createClient('blog', { epoch })
- *   .withDefinition(schema)
+ *   .withDefinition(definition)
  *   .withExtensions({
  *     // Create an extension for each sync node
  *     syncDesktop: websocketSync({ url: SYNC_NODES.desktop }),
@@ -188,13 +188,13 @@ export type WebsocketSyncConfig = {
  *   cloud: 'wss://sync.myapp.com/sync',
  * } as const;
  *
- * const schema = defineSchema({
+ * const definition = defineWorkspace({
  *   tables: { ... },
  *   kv: {},
  * });
  *
  * const client = createClient('blog', { epoch })
- *   .withDefinition(schema)
+ *   .withDefinition(definition)
  *   .withExtensions({
  *     // Server acts as both:
  *     // 1. A sync server (via createSyncPlugin in server.ts)

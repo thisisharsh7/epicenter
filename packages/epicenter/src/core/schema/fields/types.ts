@@ -563,8 +563,8 @@ export type KvDefinitionMap = Record<string, KvDefinition>;
  *   fontSize: integer({ default: 14 }),
  * };
  *
- * // Use in defineSchema:
- * const schema = defineSchema({
+ * // Use in defineWorkspace:
+ * const definition = defineWorkspace({
  *   tables: { posts: table({ name: 'Posts', fields: { id: id(), title: text() } }) },
  *   kv,  // KvSchemaMap
  * });

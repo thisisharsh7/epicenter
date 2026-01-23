@@ -27,15 +27,15 @@ type AnyWorkspaceDoc = WorkspaceDoc<any, any, any>;
  *
  * @example
  * ```typescript
- * import { defineSchema, createClient, id, text, table } from '@epicenter/hq';
+ * import { defineWorkspace, createClient, id, text, table } from '@epicenter/hq';
  *
- * const schema = defineSchema({
+ * const definition = defineWorkspace({
  *   tables: { posts: table({ name: 'Posts', fields: { id: id(), title: text() } }) },
  *   kv: {},
  * });
  *
  * const client = createClient('blog', { epoch })
- *   .withDefinition(schema)
+ *   .withDefinition(definition)
  *   .withExtensions({ ... });
  *
  * const server = createServer(client, { port: 3913 });

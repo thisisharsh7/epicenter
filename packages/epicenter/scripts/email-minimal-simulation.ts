@@ -15,7 +15,7 @@ import { persistence } from '../src/extensions/persistence/desktop';
 import {
 	createClient,
 	createHeadDoc,
-	defineSchema,
+	defineWorkspace,
 	generateId,
 	id,
 	integer,
@@ -75,8 +75,8 @@ console.log(`Output path: ${YJS_PATH}`);
 console.log('='.repeat(70));
 console.log('');
 
-// Minimal email schema
-const emailSchema = defineSchema({
+// Minimal email definition
+const emailDefinition = defineWorkspace({
 	tables: {
 		emails: table({
 			name: 'Emails',
@@ -97,7 +97,7 @@ console.log('Creating client...');
 const totalStart = performance.now();
 const head = createHeadDoc({ workspaceId: 'emails-minimal', providers: {} });
 await using client = await createClient(head)
-	.withDefinition(emailSchema)
+	.withDefinition(emailDefinition)
 	.withExtensions({
 		persistence: (ctx) =>
 			persistence(ctx, {
