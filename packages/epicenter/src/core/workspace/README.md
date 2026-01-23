@@ -1,6 +1,6 @@
 # Workspace
 
-A workspace is a self-contained domain module with its own schema and capabilities.
+A workspace is a self-contained domain module with its own definition and capabilities.
 
 ## Two-Phase Initialization
 
@@ -15,20 +15,20 @@ A workspace is a self-contained domain module with its own schema and capabiliti
 │   │                 │           ┌─────────────┴─────────────┐               │
 │   │ - id            │           │                           │               │
 │   │ - name          │           ▼                           ▼               │
-│   │ - tables schema │    .withDefinition(def)        .withExtensions({})    │
-│   │ - kv schema     │           │                           │               │
+│   │ - tables        │    .withDefinition(def)        .withExtensions({})    │
+│   │ - kv            │           │                           │               │
 │   └─────────────────┘           ▼                           ▼               │
 │                          .withExtensions({})         WorkspaceClient        │
-│   Static (no I/O)               │                    (dynamic schema)       │
+│   Static (no I/O)               │                    (dynamic definition)   │
 │                                 ▼                                           │
 │                          WorkspaceClient                                    │
-│                          (static schema)                                    │
+│                          (static definition)                                │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-- **`defineWorkspace()`**: Pure schema definition. No I/O. Just describes the shape.
-- **`createClient()`**: Returns a builder. Chain `.withDefinition()` for static schema, then `.withExtensions()` to create the client.
+- **`defineWorkspace()`**: Pure definition. No I/O. Just describes the shape.
+- **`createClient()`**: Returns a builder. Chain `.withDefinition()` for static definition, then `.withExtensions()` to create the client.
 
 ## Minimal vs Full Definition
 
@@ -177,7 +177,7 @@ When you call `createClient(workspaceId, { epoch }).withDefinition(definition).w
    └── Ready to use!
 ```
 
-**Key design decision**: The Y.Doc contains only data (table rows, kv values). The definition/schema is static and comes from code or a `definition.json` file.
+**Key design decision**: The Y.Doc contains only data (table rows, kv values). The definition is static and comes from code or a `definition.json` file.
 
 ## Writing Functions
 
@@ -381,7 +381,7 @@ The workspace data is stored separately from the definition:
     └── {workspace-guid}/
         │
         │   # Static definition (not in Y.Doc)
-        ├── definition.json         # WorkspaceDefinition (name, tables, kv schema)
+        ├── definition.json         # WorkspaceDefinition (name, tables, kv)
         │
         │   # Epoch management
         ├── head.yjs                # Current epoch number

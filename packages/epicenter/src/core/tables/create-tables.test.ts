@@ -819,7 +819,7 @@ describe('createTables', () => {
 				}),
 			});
 
-			// Access a table not in schema
+			// Access a table not in definition
 			const customTable = tables('custom_data');
 			customTable.upsert({ id: '1', foo: 'bar', count: 42 });
 
@@ -882,41 +882,6 @@ describe('createTables', () => {
 	});
 
 	describe('iteration methods', () => {
-		test('all() returns helpers for all tables in YJS', () => {
-			const ydoc = new Y.Doc({ guid: 'test-workspace' });
-			const tables = createTables(ydoc, {
-				posts: table({
-					name: 'Posts',
-					description: '',
-					fields: {
-						id: id(),
-						title: text(),
-					},
-				}),
-				users: table({
-					name: 'Users',
-					description: '',
-					fields: {
-						id: id(),
-						name: text(),
-					},
-				}),
-			});
-
-			// Initially empty
-			expect(tables.all()).toHaveLength(0);
-
-			// After creating some data
-			tables('posts').upsert({ id: '1', title: 'Hello' });
-			tables('custom').upsert({ id: '1', foo: 'bar' });
-
-			const allHelpers = tables.all();
-			expect(allHelpers).toHaveLength(2);
-
-			const names = allHelpers.map((h) => h.name).sort();
-			expect(names).toEqual(['custom', 'posts']);
-		});
-
 		test('names() returns all table names in YJS', () => {
 			const ydoc = new Y.Doc({ guid: 'test-workspace' });
 			const tables = createTables(ydoc, {
@@ -938,127 +903,10 @@ describe('createTables', () => {
 			const names = tables.names().sort();
 			expect(names).toEqual(['custom', 'posts']);
 		});
-
-		test('defined() returns only schema-defined table helpers', () => {
-			const ydoc = new Y.Doc({ guid: 'test-workspace' });
-			const tables = createTables(ydoc, {
-				posts: table({
-					name: 'Posts',
-					description: '',
-					fields: {
-						id: id(),
-						title: text(),
-					},
-				}),
-				users: table({
-					name: 'Users',
-					description: '',
-					fields: {
-						id: id(),
-						name: text(),
-					},
-				}),
-			});
-
-			const definedHelpers = tables.defined();
-			expect(definedHelpers).toHaveLength(2);
-
-			const names = definedHelpers.map((h) => h.name).sort();
-			expect(names).toEqual(['posts', 'users']);
-
-			// Adding dynamic tables doesn't affect defined()
-			tables('custom').upsert({ id: '1', data: 'test' });
-			expect(tables.defined()).toHaveLength(2);
-		});
-
-		test('definedNames() returns only schema-defined table names', () => {
-			const ydoc = new Y.Doc({ guid: 'test-workspace' });
-			const tables = createTables(ydoc, {
-				posts: table({
-					name: 'Posts',
-					description: '',
-					fields: {
-						id: id(),
-						title: text(),
-					},
-				}),
-				users: table({
-					name: 'Users',
-					description: '',
-					fields: {
-						id: id(),
-						name: text(),
-					},
-				}),
-			});
-
-			const names = tables.definedNames().sort();
-			expect(names).toEqual(['posts', 'users']);
-		});
-	});
-
-	describe('drop()', () => {
-		test('drop() removes a table from YJS', () => {
-			const ydoc = new Y.Doc({ guid: 'test-workspace' });
-			const tables = createTables(ydoc, {
-				posts: table({
-					name: 'Posts',
-					description: '',
-					fields: {
-						id: id(),
-						title: text(),
-					},
-				}),
-			});
-
-			tables('posts').upsert({ id: '1', title: 'Hello' });
-			expect(tables.has('posts')).toBe(true);
-
-			const result = tables.drop('posts');
-			expect(result).toBe(true);
-			expect(tables.has('posts')).toBe(false);
-		});
-
-		test('drop() returns false for non-existent table', () => {
-			const ydoc = new Y.Doc({ guid: 'test-workspace' });
-			const tables = createTables(ydoc, {
-				posts: table({
-					name: 'Posts',
-					description: '',
-					fields: {
-						id: id(),
-						title: text(),
-					},
-				}),
-			});
-
-			const result = tables.drop('nonexistent');
-			expect(result).toBe(false);
-		});
-
-		test('drop() works for dynamic tables', () => {
-			const ydoc = new Y.Doc({ guid: 'test-workspace' });
-			const tables = createTables(ydoc, {
-				posts: table({
-					name: 'Posts',
-					description: '',
-					fields: {
-						id: id(),
-						title: text(),
-					},
-				}),
-			});
-
-			tables('custom').upsert({ id: '1', data: 'test' });
-			expect(tables.has('custom')).toBe(true);
-
-			tables.drop('custom');
-			expect(tables.has('custom')).toBe(false);
-		});
 	});
 
 	describe('new property names (non-$ prefixed)', () => {
-		test('definitions property provides schema definitions', () => {
+		test('definitions property provides table definitions', () => {
 			const ydoc = new Y.Doc({ guid: 'test-workspace' });
 			const tables = createTables(ydoc, {
 				posts: table({
@@ -1074,41 +922,6 @@ describe('createTables', () => {
 			expect(tables.definitions.posts.name).toBe('Posts');
 			expect(tables.definitions.posts.description).toBe('Blog posts');
 			expect(tables.definitions.posts.fields.id).toBeDefined();
-		});
-
-		test('zip() pairs tables with configs', () => {
-			const ydoc = new Y.Doc({ guid: 'test-workspace' });
-			const tables = createTables(ydoc, {
-				posts: table({
-					name: 'Posts',
-					description: '',
-					fields: {
-						id: id(),
-						title: text(),
-					},
-				}),
-				users: table({
-					name: 'Users',
-					description: '',
-					fields: {
-						id: id(),
-						name: text(),
-					},
-				}),
-			});
-
-			const configs = {
-				posts: { label: 'Blog Posts' },
-				users: { label: 'User Accounts' },
-			};
-
-			const zipped = tables.zip(configs);
-			expect(zipped).toHaveLength(2);
-
-			for (const { name, table: helper, paired } of zipped) {
-				expect(helper.name).toBe(name);
-				expect(paired.label).toBeDefined();
-			}
 		});
 	});
 });

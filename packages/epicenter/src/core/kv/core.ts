@@ -1,12 +1,9 @@
-import { regex } from 'arkregex';
 import type * as Y from 'yjs';
 
 import type { KvDefinitionMap, KvValue } from '../schema';
 
 import type { KvHelper } from './kv-helper';
 import { createKvHelpers } from './kv-helper';
-
-const KV_KEY_PATTERN = regex('^[a-z][a-z0-9_]*$');
 
 /** Y.Map storing all KV values, keyed by key name. */
 export type KvMap = Y.Map<KvValue>;
@@ -17,7 +14,7 @@ export type { KvHelper } from './kv-helper';
  * Callable function type for accessing KV entries.
  *
  * The kv object is a callable function: `kv('theme')` returns a KvHelper.
- * It also has properties for utility methods: `kv.has()`, `kv.names()`, etc.
+ * It also has properties for utility methods: `kv.has()`, `kv.definitions`, etc.
  *
  * This pattern eliminates collision risk between user-defined key names and
  * utility methods, since user names only appear as function arguments.
@@ -49,22 +46,12 @@ export type KvFunction<TKvDefinitionMap extends KvDefinitionMap> = {
 	 */
 	has(name: string): boolean;
 
-	/**
-	 * Get all defined KV key names.
-	 */
-	names(): (keyof TKvDefinitionMap & string)[];
-
-	/**
-	 * Get all KV helpers as an array.
-	 */
-	all(): KvHelper<TKvDefinitionMap[keyof TKvDefinitionMap]['field']>[];
-
 	// ════════════════════════════════════════════════════════════════════
 	// BULK OPERATIONS
 	// ════════════════════════════════════════════════════════════════════
 
 	/**
-	 * Clear all KV values, resetting them to their schema defaults.
+	 * Clear all KV values, resetting them to their definition defaults.
 	 */
 	clear(): void;
 
@@ -143,25 +130,8 @@ export function createKv<TKvDefinitionMap extends KvDefinitionMap>(
 	ydoc: Y.Doc,
 	definitions: TKvDefinitionMap,
 ): KvFunction<TKvDefinitionMap> {
-	for (const keyName of Object.keys(definitions)) {
-		if (keyName.startsWith('$')) {
-			throw new Error(
-				`KV key "${keyName}" is invalid: cannot start with "$" (reserved for utilities)`,
-			);
-		}
-		if (!KV_KEY_PATTERN.test(keyName)) {
-			throw new Error(
-				`KV key "${keyName}" is invalid: must start with a lowercase letter and contain only lowercase letters, numbers, and underscores (e.g., "theme", "last_sync", "count2")`,
-			);
-		}
-	}
-
 	const ykvMap = ydoc.getMap<KvValue>('kv');
 	const kvHelpers = createKvHelpers({ ydoc, definitions });
-
-	const definedKeyNames = Object.keys(definitions) as Array<
-		keyof TKvDefinitionMap & string
-	>;
 
 	// ════════════════════════════════════════════════════════════════════
 	// BUILD CALLABLE FUNCTION WITH PROPERTIES
@@ -199,51 +169,12 @@ export function createKv<TKvDefinitionMap extends KvDefinitionMap>(
 			return ykvMap.has(name);
 		},
 
-		/**
-		 * Get all defined KV key names.
-		 *
-		 * @example
-		 * ```typescript
-		 * kv.names()  // ['theme', 'fontSize', ...]
-		 * ```
-		 */
-		names(): (keyof TKvDefinitionMap & string)[] {
-			return [...definedKeyNames];
-		},
-
-		/**
-		 * Get all KV helpers as an array.
-		 *
-		 * Useful for providers and initializers that need to iterate over all keys.
-		 *
-		 * @example
-		 * ```typescript
-		 * // Log all current values
-		 * for (const helper of kv.all()) {
-		 *   const result = helper.get();
-		 *   if (result.status === 'valid') {
-		 *     console.log(helper.name, result.value);
-		 *   }
-		 * }
-		 *
-		 * // Reset all keys to defaults
-		 * for (const helper of kv.all()) {
-		 *   helper.reset();
-		 * }
-		 * ```
-		 */
-		all(): KvHelper<TKvDefinitionMap[keyof TKvDefinitionMap]['field']>[] {
-			return Object.values(kvHelpers) as KvHelper<
-				TKvDefinitionMap[keyof TKvDefinitionMap]['field']
-			>[];
-		},
-
 		// ════════════════════════════════════════════════════════════════════
 		// BULK OPERATIONS
 		// ════════════════════════════════════════════════════════════════════
 
 		/**
-		 * Clear all KV values, resetting them to their schema defaults.
+		 * Clear all KV values, resetting them to their definition defaults.
 		 *
 		 * Deletes all keys from the underlying Y.Map. After clearing,
 		 * `get()` will return defaults (if defined), `null` (if nullable),

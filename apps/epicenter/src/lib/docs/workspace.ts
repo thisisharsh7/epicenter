@@ -1,7 +1,7 @@
 import {
 	createClient,
 	type HeadDoc,
-	type WorkspaceSchema,
+	type WorkspaceDefinition,
 } from '@epicenter/hq';
 import { workspacePersistence } from './workspace-persistence';
 
@@ -22,17 +22,17 @@ import { workspacePersistence } from './workspace-persistence';
  * await client.whenSynced;
  * ```
  *
- * ## Static Schema Mode (Creating New Workspaces)
+ * ## Static Definition Mode (Creating New Workspaces)
  *
- * When called with a schema, the schema is merged into Y.Map('schema').
- * Use this for creating new workspaces with a known schema.
+ * When called with a definition, it is merged into Y.Map('definition').
+ * Use this for creating new workspaces with a known definition.
  *
  * ```typescript
- * const schema: WorkspaceSchema = { tables: {}, kv: {} };
+ * const definition: WorkspaceDefinition = { tables: {}, kv: {} };
  * const head = createHead(workspaceId);
  * await head.whenSynced;
  * head.setMeta({ name: 'My Workspace', icon: null, description: '' });
- * const client = createWorkspaceClient(head, schema);
+ * const client = createWorkspaceClient(head, definition);
  * await client.whenSynced;
  * ```
  *
@@ -41,7 +41,7 @@ import { workspacePersistence } from './workspace-persistence';
  * ```
  * {appLocalDataDir}/workspaces/{workspaceId}/{epoch}/
  * ├── workspace.yjs      # Full Y.Doc binary (sync source of truth)
- * ├── schema.json        # Table/KV schemas from Y.Map('schema')
+ * ├── definition.json    # Table/KV definitions from Y.Map('definition')
  * └── kv.json            # Settings from Y.Map('kv')
  * ```
  *
@@ -49,14 +49,19 @@ import { workspacePersistence } from './workspace-persistence';
  * Y.Map('meta'), not in the Workspace Doc.
  *
  * @param head - The HeadDoc containing workspace identity and current epoch
- * @param schema - Optional workspace schema (tables, kv) to seed. If omitted, schema loads from Y.Doc.
+ * @param definition - Optional workspace definition (tables, kv) to seed. If omitted, definition loads from Y.Doc.
  * @returns A workspace client with persistence pre-configured
  */
-export function createWorkspaceClient(head: HeadDoc, schema?: WorkspaceSchema) {
+export function createWorkspaceClient(
+	head: HeadDoc,
+	definition?: WorkspaceDefinition,
+) {
 	const builder = createClient(head);
 
-	// If schema provided, use static schema mode; otherwise dynamic schema mode
-	const configuredBuilder = schema ? builder.withSchema(schema) : builder;
+	// If definition provided, use static definition mode; otherwise dynamic definition mode
+	const configuredBuilder = definition
+		? builder.withDefinition(definition)
+		: builder;
 
 	return configuredBuilder.withExtensions({
 		persistence: (ctx) => workspacePersistence(ctx),

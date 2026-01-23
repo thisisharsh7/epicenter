@@ -14,7 +14,7 @@ import type { IconDefinition } from './workspace-doc.js';
 /**
  * Workspace identity metadata stored in the Head Doc.
  *
- * This is separate from the schema/data (which lives in Workspace Docs)
+ * This is separate from the definition/data (which lives in Workspace Docs)
  * because renaming a workspace should apply to all epochs immediately.
  */
 export type WorkspaceMeta = {
@@ -262,7 +262,7 @@ export function createHeadDoc<T extends ProviderFactoryMap>(options: {
 		 * const actualEpoch = head.setOwnEpoch(2);
 		 * await oldClient.destroy();
 		 * const newClient = createClient(id, { epoch: actualEpoch })
-		 *   .withSchema(schema)
+		 *   .withDefinition(definition)
 		 *   .withExtensions({});
 		 * ```
 		 *
@@ -282,7 +282,7 @@ export function createHeadDoc<T extends ProviderFactoryMap>(options: {
 		 * // Recreate client at the actual epoch
 		 * const epoch = head.setOwnEpoch(2);
 		 * const client = createClient(id, { epoch })
-		 *   .withSchema(schema)
+		 *   .withDefinition(definition)
 		 *   .withExtensions({});
 		 * ```
 		 */

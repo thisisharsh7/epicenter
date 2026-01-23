@@ -16,7 +16,7 @@ import { persistence } from '../src/extensions/persistence/desktop';
 import {
 	createClient,
 	createHeadDoc,
-	defineSchema,
+	defineWorkspace,
 	generateId,
 	id,
 	integer,
@@ -161,7 +161,7 @@ console.log('');
 console.log('--- YJS Test ---');
 const yjsStart = performance.now();
 
-const emailSchema = defineSchema({
+const emailDefinition = defineWorkspace({
 	tables: {
 		emails: table({
 			name: 'Emails',
@@ -184,7 +184,7 @@ const emailSchema = defineSchema({
 
 const head = createHeadDoc({ workspaceId: 'emails-compare', providers: {} });
 await using client = await createClient(head)
-	.withSchema(emailSchema)
+	.withDefinition(emailDefinition)
 	.withExtensions({
 		persistence: (ctx) =>
 			persistence(ctx, {

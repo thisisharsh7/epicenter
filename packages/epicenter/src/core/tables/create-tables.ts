@@ -1,4 +1,3 @@
-import { regex } from 'arkregex';
 import type * as Y from 'yjs';
 import type { TableDefinitionMap } from '../schema';
 import {
@@ -8,46 +7,6 @@ import {
 	type TablesMap,
 	type UntypedTableHelper,
 } from './table-helper';
-
-/**
- * Valid table name pattern: lowercase letters, numbers, and underscores, starting with a letter.
- *
- * Table names must satisfy constraints across three systems:
- *
- * **File System** (markdown index creates directories from table names):
- * - Cross-platform safety: Windows, macOS, and Linux all handle these characters
- * - Case-insensitivity: Windows/macOS treat "Posts" and "posts" as the same directory
- * - Avoids reserved names: No risk of collision with CON, PRN, AUX, NUL, etc.
- *
- * **SQLite** (sqlite index creates tables from table names):
- * - Valid unquoted identifier: No need for "quoted" table names in SQL
- * - Avoids reserved words: Starting with letter + limited charset avoids most conflicts
- * - Case-insensitive by default: Lowercase-only prevents subtle bugs
- *
- * **JavaScript** (table names become object properties for `db.tableName` access):
- * - Valid identifier: Enables dot notation instead of bracket notation
- * - No leading numbers: JS identifiers can't start with digits
- *
- * The pattern `/^[a-z][a-z0-9_]*$/` is the intersection of all three constraint sets.
- *
- * **Why not hyphens?** SQLite requires quoting (`"my-table"`), JS needs brackets (`db['my-table']`)
- * **Why not uppercase?** Case-sensitivity varies; lowercase-only is predictable everywhere
- * **Why start with letter?** SQL/JS identifiers starting with numbers need special handling
- */
-const TABLE_NAME_PATTERN = regex('^[a-z][a-z0-9_]*$');
-
-/**
- * Valid column name pattern: camelCase allowed.
- *
- * Column names must satisfy:
- * - **SQLite**: Valid unquoted column identifier (camelCase works)
- * - **JavaScript**: `row.columnName` dot notation access
- * - **YAML frontmatter**: Markdown index serializes columns to frontmatter keys
- *
- * Unlike table names (which affect file system paths), column names don't need
- * to be lowercase-only. camelCase is idiomatic JavaScript and works everywhere.
- */
-const COLUMN_NAME_PATTERN = regex('^[a-z][a-zA-Z0-9_]*$');
 
 // Re-export types for public API
 export type {
@@ -114,23 +73,6 @@ export type TablesFunction<TTableDefinitionMap extends TableDefinitionMap> = {
 	 */
 	names(): string[];
 
-	/**
-	 * Get all table helpers that exist in YJS (defined + dynamic).
-	 */
-	all(): UntypedTableHelper[];
-
-	/**
-	 * Get names of only schema-defined tables.
-	 */
-	definedNames(): (keyof TTableDefinitionMap & string)[];
-
-	/**
-	 * Get table helpers for only schema-defined tables.
-	 */
-	defined(): TableHelper<
-		TTableDefinitionMap[keyof TTableDefinitionMap]['fields']
-	>[];
-
 	// ════════════════════════════════════════════════════════════════════
 	// BULK OPERATIONS
 	// ════════════════════════════════════════════════════════════════════
@@ -139,11 +81,6 @@ export type TablesFunction<TTableDefinitionMap extends TableDefinitionMap> = {
 	 * Clear all rows in defined tables.
 	 */
 	clear(): void;
-
-	/**
-	 * Delete a table entirely from YJS storage.
-	 */
-	drop(name: string): boolean;
 
 	// ════════════════════════════════════════════════════════════════════
 	// METADATA
@@ -162,25 +99,6 @@ export type TablesFunction<TTableDefinitionMap extends TableDefinitionMap> = {
 	 * Serialize all tables to JSON.
 	 */
 	toJSON(): Record<string, unknown[]>;
-
-	/**
-	 * Zip defined tables with a configs object, returning type-safe paired entries.
-	 */
-	zip<
-		TConfigs extends {
-			[K in keyof TTableDefinitionMap & string]: unknown;
-		},
-	>(
-		configs: TConfigs,
-	): Array<
-		{
-			[K in keyof TTableDefinitionMap & string]: {
-				name: K;
-				table: TableHelper<TTableDefinitionMap[K]['fields']>;
-				paired: TConfigs[K];
-			};
-		}[keyof TTableDefinitionMap & string]
-	>;
 };
 
 /**
@@ -233,35 +151,10 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 	ydoc: Y.Doc,
 	tableDefinitions: TTableDefinitionMap,
 ): TablesFunction<TTableDefinitionMap> {
-	// Validate table names
-	for (const tableName of Object.keys(tableDefinitions)) {
-		if (tableName.startsWith('$')) {
-			throw new Error(
-				`Table name "${tableName}" is invalid: cannot start with "$" (reserved for utilities)`,
-			);
-		}
-		if (!TABLE_NAME_PATTERN.test(tableName)) {
-			throw new Error(
-				`Table name "${tableName}" is invalid: must start with a lowercase letter and contain only lowercase letters, numbers, and underscores (e.g., "posts", "user_sessions", "items2")`,
-			);
-		}
-	}
-
-	// Validate column names for each table
-	for (const [tableName, tableDefinition] of Object.entries(tableDefinitions)) {
-		for (const columnName of Object.keys(tableDefinition.fields)) {
-			if (!COLUMN_NAME_PATTERN.test(columnName)) {
-				throw new Error(
-					`Column name "${columnName}" in table "${tableName}" is invalid: must start with a lowercase letter and contain only letters, numbers, and underscores (e.g., "title", "createdAt", "count2")`,
-				);
-			}
-		}
-	}
-
 	const tableHelpers = createTableHelpers({ ydoc, tableDefinitions });
 	const ytables: TablesMap = ydoc.getMap('tables');
 
-	// Cache for dynamically-created table helpers (tables not in schema)
+	// Cache for dynamically-created table helpers (tables not in definition)
 	const dynamicTableHelpers = new Map<string, UntypedTableHelper>();
 
 	/**
@@ -275,10 +168,6 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 		}
 		return helper;
 	};
-
-	const definedTableNames = Object.keys(tableDefinitions) as Array<
-		keyof TTableDefinitionMap & string
-	>;
 
 	// ════════════════════════════════════════════════════════════════════
 	// BUILD CALLABLE FUNCTION WITH PROPERTIES
@@ -328,7 +217,7 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 		 * Get all table names that exist in YJS storage.
 		 *
 		 * Returns names of every table that has been created, including both
-		 * schema-defined tables and dynamically-created tables.
+		 * definition-declared tables and dynamically-created tables.
 		 *
 		 * @example
 		 * ```typescript
@@ -339,68 +228,6 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 			return Array.from(ytables.keys());
 		},
 
-		/**
-		 * Get all table helpers that exist in YJS (defined + undefined).
-		 *
-		 * Returns helpers for every table that has been created in YJS storage,
-		 * including both schema-defined tables and dynamically-created tables.
-		 *
-		 * @example
-		 * ```typescript
-		 * for (const helper of tables.all()) {
-		 *   console.log(helper.name, helper.count())
-		 * }
-		 * ```
-		 */
-		all(): UntypedTableHelper[] {
-			const helpers: UntypedTableHelper[] = [];
-			for (const name of ytables.keys()) {
-				if (name in tableHelpers) {
-					helpers.push(
-						tableHelpers[
-							name as keyof typeof tableHelpers
-						] as UntypedTableHelper,
-					);
-				} else {
-					helpers.push(getOrCreateDynamicHelper(name));
-				}
-			}
-			return helpers;
-		},
-
-		/**
-		 * Get names of only schema-defined tables.
-		 *
-		 * @example
-		 * ```typescript
-		 * tables.definedNames()  // ['posts', 'users']
-		 * ```
-		 */
-		definedNames(): (keyof TTableDefinitionMap & string)[] {
-			return [...definedTableNames];
-		},
-
-		/**
-		 * Get table helpers for only schema-defined tables.
-		 *
-		 * Returns only tables that were declared in the schema definition,
-		 * with full type information preserved.
-		 *
-		 * @example
-		 * ```typescript
-		 * for (const helper of tables.defined()) {
-		 *   console.log(helper.name)  // 'posts' | 'users'
-		 * }
-		 * ```
-		 */
-		defined(): TableHelper<
-			TTableDefinitionMap[keyof TTableDefinitionMap]['fields']
-		>[] {
-			return Object.values(tableHelpers) as TableHelper<
-				TTableDefinitionMap[keyof TTableDefinitionMap]['fields']
-			>[];
-		},
-
 		// ════════════════════════════════════════════════════════════════════
 		// BULK OPERATIONS
 		// ════════════════════════════════════════════════════════════════════
@@ -408,36 +235,15 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 		/**
 		 * Clear all rows in defined tables.
 		 *
-		 * Only clears tables that are in the schema definition.
+		 * Only clears tables that are in the workspace definition.
 		 * Does not affect dynamically-created tables.
 		 */
 		clear(): void {
 			ydoc.transact(() => {
-				for (const tableName of definedTableNames) {
+				for (const tableName of Object.keys(tableDefinitions)) {
 					tableHelpers[tableName as keyof typeof tableHelpers].clear();
 				}
 			});
-		},
-
-		/**
-		 * Delete a table entirely from YJS storage.
-		 *
-		 * Removes the table and all its rows. Use with caution.
-		 *
-		 * @returns true if the table existed and was deleted, false otherwise
-		 *
-		 * @example
-		 * ```typescript
-		 * tables.drop('temporary_data')  // true if deleted
-		 * ```
-		 */
-		drop(name: string): boolean {
-			if (!ytables.has(name)) {
-				return false;
-			}
-			ytables.delete(name);
-			dynamicTableHelpers.delete(name);
-			return true;
 		},
 
 		// ════════════════════════════════════════════════════════════════════
@@ -447,7 +253,7 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 		/**
 		 * The raw table definitions passed to createTables.
 		 *
-		 * Provides access to the schema definition including metadata
+		 * Provides access to the table definitions including metadata
 		 * (name, icon, description) and field schemas.
 		 *
 		 * @example
@@ -483,41 +289,6 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 				result[name] = helper.getAllValid();
 			}
 			return result;
-		},
-
-		/**
-		 * Zip defined tables with a configs object, returning type-safe paired entries.
-		 *
-		 * This solves TypeScript's "correlated record types" limitation where
-		 * union types are evaluated independently during iteration.
-		 *
-		 * @example
-		 * ```typescript
-		 * for (const { name, table, paired: config } of tables.zip(configs)) {
-		 *   config.serialize({ row, table })  // Fully typed!
-		 * }
-		 * ```
-		 *
-		 * @see https://github.com/microsoft/TypeScript/issues/35101
-		 */
-		zip<
-			TConfigs extends {
-				[K in keyof TTableDefinitionMap & string]: unknown;
-			},
-		>(configs: TConfigs) {
-			return definedTableNames.map((name) => ({
-				name,
-				table: tableHelpers[name],
-				paired: configs[name],
-			})) as Array<
-				{
-					[K in keyof TTableDefinitionMap & string]: {
-						name: K;
-						table: TableHelper<TTableDefinitionMap[K]['fields']>;
-						paired: TConfigs[K];
-					};
-				}[keyof TTableDefinitionMap & string]
-			>;
 		},
 	}) as TablesFunction<TTableDefinitionMap>;
 }

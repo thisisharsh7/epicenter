@@ -12,8 +12,8 @@ import type { LayoutLoad } from './$types';
  * 2. Create head doc via createHead(workspaceId)
  * 3. Create client via createWorkspaceClient(head)
  *
- * This eliminates the need to read schema.json from disk.
- * The schema lives in Y.Map('schema') inside the Y.Doc itself.
+ * This eliminates the need to read definition.json from disk.
+ * The definition lives in Y.Map('definition') inside the Y.Doc itself.
  * Workspace identity (name, icon) comes from Head Doc's Y.Map('meta').
  */
 export const load: LayoutLoad = async ({ params }) => {
@@ -33,8 +33,8 @@ export const load: LayoutLoad = async ({ params }) => {
 	const epoch = head.getEpoch();
 	console.log(`[Layout] Workspace epoch: ${epoch}`);
 
-	// Step 3: Create client (dynamic schema mode)
-	// Schema comes from Y.Doc, not from schema.json file
+	// Step 3: Create client (dynamic definition mode)
+	// Definition comes from Y.Doc, not from definition.json file
 	const client = createWorkspaceClient(head);
 	await client.whenSynced;
 

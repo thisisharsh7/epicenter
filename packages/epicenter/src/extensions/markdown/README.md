@@ -468,7 +468,7 @@ The provider prevents infinite loops between file changes and database changes u
 Parse and validation errors are handled gracefully:
 
 - **Invalid YAML**: Errors are logged, the file is skipped, and the system continues running
-- **Schema mismatches**: If a markdown file doesn't match your table schema, an error is logged and the file is skipped
+- **Definition mismatches**: If a markdown file doesn't match your table definition, an error is logged and the file is skipped
 - **File system errors**: Missing directories are created automatically, and file deletion failures are treated as warnings
 
 The system is designed to be resilient to errors in individual files rather than crashing the entire application.

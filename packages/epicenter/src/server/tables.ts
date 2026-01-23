@@ -13,8 +13,9 @@ export function createTablesPlugin(
 	const app = new Elysia();
 
 	for (const [workspaceId, workspaceDoc] of Object.entries(workspaceDocs)) {
-		for (const tableHelper of workspaceDoc.tables.defined()) {
-			const tableName = tableHelper.name;
+		for (const tableName of Object.keys(workspaceDoc.tables.definitions)) {
+			const tableHelper = workspaceDoc.tables(tableName);
+			const fields = workspaceDoc.tables.definitions[tableName]!.fields;
 			const basePath = `/workspaces/${workspaceId}/tables/${tableName}`;
 			const tags = [workspaceId, 'tables'];
 
@@ -48,7 +49,7 @@ export function createTablesPlugin(
 					return Ok({ id: (body as Row<FieldSchemaMap>).id });
 				},
 				{
-					body: tableSchemaToArktype(tableHelper.schema),
+					body: tableSchemaToArktype(fields),
 					detail: { description: `Create or update ${tableName}`, tags },
 				},
 			);
@@ -63,7 +64,7 @@ export function createTablesPlugin(
 					return Ok(result);
 				},
 				{
-					body: tableSchemaToArktype(tableHelper.schema)
+					body: tableSchemaToArktype(fields)
 						.partial()
 						.merge({ id: type.string }),
 					detail: { description: `Update ${tableName} by ID`, tags },

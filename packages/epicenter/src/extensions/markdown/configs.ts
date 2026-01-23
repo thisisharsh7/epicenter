@@ -51,7 +51,6 @@ import filenamify from 'filenamify';
 import { Ok, type Result } from 'wellcrafted/result';
 import type { FieldSchemaMap, Row } from '../../core/schema';
 import { tableSchemaToArktype } from '../../core/schema';
-import type { TableHelper } from '../../core/tables/table-helper';
 import { MarkdownExtensionErr, type MarkdownExtensionError } from './markdown';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -80,7 +79,7 @@ export type MarkdownSerializer<
 	 */
 	serialize: (params: {
 		row: Row<TFieldSchemaMap>;
-		table: TableHelper<TFieldSchemaMap>;
+		fields: TFieldSchemaMap;
 	}) => {
 		frontmatter: Record<string, unknown>;
 		body: string;
@@ -108,7 +107,7 @@ export type MarkdownSerializer<
 			body: string;
 			filename: string;
 			parsed: TParsed;
-			table: TableHelper<TFieldSchemaMap>;
+			fields: TFieldSchemaMap;
 		}) => Result<Row<TFieldSchemaMap>, MarkdownExtensionError>;
 	};
 };
@@ -169,7 +168,7 @@ type SerializerBuilderWithParser<
 	serialize(
 		serializeFn: (params: {
 			row: Row<TFieldSchemaMap>;
-			table: TableHelper<TFieldSchemaMap>;
+			fields: TFieldSchemaMap;
 		}) => {
 			frontmatter: Record<string, unknown>;
 			body: string;
@@ -201,7 +200,7 @@ type SerializerBuilderWithSerialize<
 			body: string;
 			filename: TFilename;
 			parsed: TParsed;
-			table: TableHelper<TFieldSchemaMap>;
+			fields: TFieldSchemaMap;
 		}) => Result<Row<TFieldSchemaMap>, MarkdownExtensionError>,
 	): MarkdownSerializer<TFieldSchemaMap, TParsed>;
 };
@@ -319,10 +318,8 @@ export function defineSerializer<TFieldSchemaMap extends FieldSchemaMap>(): {
  * })
  * ```
  */
-export function defaultSerializer<
-	TFieldSchemaMap extends FieldSchemaMap = FieldSchemaMap,
->(): MarkdownSerializer<TFieldSchemaMap> {
-	return defineSerializer<TFieldSchemaMap>()
+export function defaultSerializer(): MarkdownSerializer<FieldSchemaMap> {
+	return defineSerializer<FieldSchemaMap>()
 		.parseFilename((filename: `${string}.md`) => {
 			const id = path.basename(filename, '.md');
 			return { id };
@@ -332,14 +329,14 @@ export function defaultSerializer<
 			body: '',
 			filename: `${id}.md`,
 		}))
-		.deserialize(({ frontmatter, parsed, table }) => {
+		.deserialize(({ frontmatter, parsed, fields }) => {
 			const { id } = parsed;
 
 			// Combine id with frontmatter
 			const data = { id, ...frontmatter };
 
 			// Validate using direct arktype pattern
-			const validator = tableSchemaToArktype(table.schema);
+			const validator = tableSchemaToArktype(fields);
 			const result = validator(data);
 
 			if (result instanceof type.errors) {
@@ -349,16 +346,14 @@ export function defaultSerializer<
 				});
 			}
 
-			return Ok(result as Row<TFieldSchemaMap>);
+			return Ok(result);
 		});
 }
 
 /**
  * Options for the bodyFieldSerializer factory function
  */
-export type BodyFieldSerializerOptions<
-	TFieldSchemaMap extends FieldSchemaMap = FieldSchemaMap,
-> = {
+export type BodyFieldSerializerOptions = {
 	/**
 	 * Strip null values from frontmatter for cleaner YAML output.
 	 * Nullable fields are restored via arktype's .default(null) during deserialization.
@@ -370,7 +365,7 @@ export type BodyFieldSerializerOptions<
 	 * Field to use for the filename (without .md extension).
 	 * @default 'id'
 	 */
-	filenameField?: keyof TFieldSchemaMap & string;
+	filenameField?: string;
 };
 
 /**
@@ -393,16 +388,13 @@ export type BodyFieldSerializerOptions<
  * })
  * ```
  */
-export function bodyFieldSerializer<TFieldSchemaMap extends FieldSchemaMap>(
-	bodyField: keyof TFieldSchemaMap & string,
-	options: BodyFieldSerializerOptions<TFieldSchemaMap> = {},
-): MarkdownSerializer<TFieldSchemaMap> {
-	const {
-		stripNulls = true,
-		filenameField = 'id' as keyof TFieldSchemaMap & string,
-	} = options;
+export function bodyFieldSerializer(
+	bodyField: string,
+	options: BodyFieldSerializerOptions = {},
+): MarkdownSerializer<FieldSchemaMap> {
+	const { stripNulls = true, filenameField = 'id' } = options;
 
-	return defineSerializer<TFieldSchemaMap>()
+	return defineSerializer<FieldSchemaMap>()
 		.parseFilename((filename: `${string}.md`) => {
 			const id = path.basename(filename, '.md');
 			return { id };
@@ -424,12 +416,12 @@ export function bodyFieldSerializer<TFieldSchemaMap extends FieldSchemaMap>(
 				filename: `${filename}.md`,
 			};
 		})
-		.deserialize(({ frontmatter, body, parsed, table }) => {
+		.deserialize(({ frontmatter, body, parsed, fields }) => {
 			const { id: rowId } = parsed;
 
 			// Create validator that omits the body field and filename field
 			// Nullable fields that were stripped during serialize are restored via .default(null)
-			const FrontMatter = tableSchemaToArktype(table.schema)
+			const FrontMatter = tableSchemaToArktype(fields)
 				// eslint-disable-next-line @typescript-eslint/no-explicit-any
 				.omit(filenameField as any, bodyField as any);
 
@@ -451,7 +443,7 @@ export function bodyFieldSerializer<TFieldSchemaMap extends FieldSchemaMap>(
 				[filenameField]: rowId,
 				[bodyField]: body,
 				...(validatedFrontmatter as Record<string, unknown>),
-			} as Row<TFieldSchemaMap>;
+			} as Row<FieldSchemaMap>;
 
 			return Ok(row);
 		});
@@ -521,16 +513,16 @@ export type DomainTitleFilenameSerializerOptions = {
  * })
  * ```
  */
-export function titleFilenameSerializer<TFieldSchemaMap extends FieldSchemaMap>(
-	titleField: keyof TFieldSchemaMap & string,
+export function titleFilenameSerializer(
+	titleField: string,
 	options: TitleFilenameSerializerOptions = {},
 ): MarkdownSerializer<
-	TFieldSchemaMap,
+	FieldSchemaMap,
 	ParsedFilename & { titleFromFilename: string }
 > {
 	const { stripNulls = true, maxTitleLength = 80 } = options;
 
-	return defineSerializer<TFieldSchemaMap>()
+	return defineSerializer<FieldSchemaMap>()
 		.parseFilename((filename: `${string}-${string}.md`) => {
 			const basename = path.basename(filename, '.md');
 			const lastDashIndex = basename.lastIndexOf('-');
@@ -568,14 +560,14 @@ export function titleFilenameSerializer<TFieldSchemaMap extends FieldSchemaMap>(
 				filename: `${sanitizedTitle}-${id}.md`,
 			};
 		})
-		.deserialize(({ frontmatter, parsed, table }) => {
+		.deserialize(({ frontmatter, parsed, fields }) => {
 			const { id } = parsed;
 
 			// Combine id with frontmatter
 			const data = { id, ...frontmatter };
 
 			// Validate using direct arktype pattern
-			const validator = tableSchemaToArktype(table.schema);
+			const validator = tableSchemaToArktype(fields);
 			const result = validator(data);
 
 			if (result instanceof type.errors) {
@@ -589,7 +581,7 @@ export function titleFilenameSerializer<TFieldSchemaMap extends FieldSchemaMap>(
 				});
 			}
 
-			return Ok(result as Row<TFieldSchemaMap>);
+			return Ok(result);
 		});
 }
 
@@ -651,14 +643,12 @@ function extractDomain(url: string): string {
  * })
  * ```
  */
-export function domainTitleFilenameSerializer<
-	TFieldSchemaMap extends FieldSchemaMap,
->(
-	urlField: keyof TFieldSchemaMap & string,
-	titleField: keyof TFieldSchemaMap & string,
+export function domainTitleFilenameSerializer(
+	urlField: string,
+	titleField: string,
 	options: DomainTitleFilenameSerializerOptions = {},
 ): MarkdownSerializer<
-	TFieldSchemaMap,
+	FieldSchemaMap,
 	ParsedFilename & { domainFromFilename: string; titleFromFilename: string }
 > {
 	const {
@@ -667,7 +657,7 @@ export function domainTitleFilenameSerializer<
 		maxDomainLength = 30,
 	} = options;
 
-	return defineSerializer<TFieldSchemaMap>()
+	return defineSerializer<FieldSchemaMap>()
 		.parseFilename((filename: `${string} - ${string}-${string}.md`) => {
 			const basename = path.basename(filename, '.md');
 
@@ -731,14 +721,14 @@ export function domainTitleFilenameSerializer<
 				filename: `${sanitizedDomain} - ${sanitizedTitle}-${id}.md`,
 			};
 		})
-		.deserialize(({ frontmatter, parsed, table }) => {
+		.deserialize(({ frontmatter, parsed, fields }) => {
 			const { id } = parsed;
 
 			// Combine id with frontmatter
 			const data = { id, ...frontmatter };
 
 			// Validate using direct arktype pattern
-			const validator = tableSchemaToArktype(table.schema);
+			const validator = tableSchemaToArktype(fields);
 			const result = validator(data);
 
 			if (result instanceof type.errors) {
@@ -752,6 +742,6 @@ export function domainTitleFilenameSerializer<
 				});
 			}
 
-			return Ok(result as Row<TFieldSchemaMap>);
+			return Ok(result as Row<FieldSchemaMap>);
 		});
 }

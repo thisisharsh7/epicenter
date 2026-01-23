@@ -73,8 +73,37 @@ export type CoverDefinition = { type: 'external'; url: string };
 // ============================================================================
 
 /**
- * Field metadata for display purposes.
- * Always present on field schemas (factories provide defaults).
+ * Metadata for individual fields (columns) in a table.
+ *
+ * Every field schema includes these properties for Notion-like UI display,
+ * where each column can have its own display name, icon, and description.
+ * Factory functions provide sensible defaults (empty string, null icon).
+ *
+ * ```
+ * TableDefinition
+ * ├── name, icon, description    ← TableMetadata (table-level)
+ * └── fields
+ *     ├── "id"
+ *     │   ├── name, icon, description  ← FieldMetadata (column-level)
+ *     │   └── type: "id"
+ *     └── "title"
+ *         ├── name, icon, description  ← FieldMetadata (column-level)
+ *         ├── type: "text"
+ *         └── nullable: false
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Field with custom metadata
+ * const titleField = text({
+ *   name: 'Post Title',
+ *   icon: { type: 'emoji', value: '📝' },
+ *   description: 'The main title displayed on the blog',
+ * });
+ *
+ * // Field with defaults (name: '', icon: null, description: '')
+ * const simpleField = text();
+ * ```
  */
 export type FieldMetadata = {
 	/** Display name shown in UI. Empty string if not provided. */
@@ -563,8 +592,8 @@ export type KvDefinitionMap = Record<string, KvDefinition>;
  *   fontSize: integer({ default: 14 }),
  * };
  *
- * // Use in defineSchema:
- * const schema = defineSchema({
+ * // Use in defineWorkspace:
+ * const definition = defineWorkspace({
  *   tables: { posts: table({ name: 'Posts', fields: { id: id(), title: text() } }) },
  *   kv,  // KvSchemaMap
  * });

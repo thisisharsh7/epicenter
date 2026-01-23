@@ -62,10 +62,10 @@ export type SqliteConfig = {
  *
  * @example
  * ```typescript
- * import { defineSchema, createClient, id, text, table } from '@epicenter/hq';
+ * import { defineWorkspace, createClient, id, text, table } from '@epicenter/hq';
  * import { join } from 'node:path';
  *
- * const schema = defineSchema({
+ * const definition = defineWorkspace({
  *   tables: { posts: table({ name: 'Posts', fields: { id: id(), title: text() } }) },
  *   kv: {},
  * });
@@ -74,7 +74,7 @@ export type SqliteConfig = {
  * const epicenterDir = join(projectDir, '.epicenter');
  *
  * const client = createClient('blog', { epoch })
- *   .withSchema(schema)
+ *   .withDefinition(definition)
  *   .withExtensions({
  *     sqlite: (ctx) => sqlite(ctx, {
  *       dbPath: join(epicenterDir, 'sqlite', `${ctx.id}.db`),
@@ -172,18 +172,18 @@ export const sqlite = async <
 		await recreateTables();
 
 		// Insert all valid rows from YJS into SQLite
-		for (const { table, paired: drizzleTable } of tables.zip(drizzleTables)) {
+		for (const [tableName, drizzleTable] of Object.entries(drizzleTables)) {
+			const table = tables(tableName);
 			const rows = table.getAllValid();
 
 			if (rows.length > 0) {
 				const { error } = await tryAsync({
 					try: async () => {
-						// @ts-expect-error Row<TSchema[keyof TSchema]>[] is not assignable to InferInsertModel<DrizzleTable>[] due to union type limitation
 						await sqliteDb.insert(drizzleTable).values(rows);
 					},
 					catch: (e) =>
 						ExtensionErr({
-							message: `Failed to sync ${rows.length} rows to table "${table.name}" in SQLite: ${extractErrorMessage(e)}`,
+							message: `Failed to sync ${rows.length} rows to table "${tableName}" in SQLite: ${extractErrorMessage(e)}`,
 						}),
 				});
 
@@ -212,7 +212,8 @@ export const sqlite = async <
 	// =========================================================================
 	const unsubscribers: Array<() => void> = [];
 
-	for (const { table } of tables.zip(drizzleTables)) {
+	for (const tableName of Object.keys(tables.definitions)) {
+		const table = tables(tableName);
 		const unsub = table.observe((changedIds) => {
 			if (isPushingFromSqlite) return;
 
@@ -225,7 +226,7 @@ export const sqlite = async <
 				if (result.status === 'invalid') {
 					logger.log(
 						ExtensionError({
-							message: `SQLite extension: validation failed for ${table.name}`,
+							message: `SQLite extension: validation failed for ${tableName}`,
 						}),
 					);
 				}
@@ -243,18 +244,18 @@ export const sqlite = async <
 	await recreateTables();
 
 	// Insert all valid rows from YJS into SQLite
-	for (const { table, paired: drizzleTable } of tables.zip(drizzleTables)) {
+	for (const [tableName, drizzleTable] of Object.entries(drizzleTables)) {
+		const table = tables(tableName);
 		const rows = table.getAllValid();
 
 		if (rows.length > 0) {
 			const { error } = await tryAsync({
 				try: async () => {
-					// @ts-expect-error Row<TSchema[keyof TSchema]>[] is not assignable to InferInsertModel<DrizzleTable>[] due to union type limitation
 					await sqliteDb.insert(drizzleTable).values(rows);
 				},
 				catch: (e) =>
 					ExtensionErr({
-						message: `Failed to sync ${rows.length} rows to table "${table.name}" in SQLite during init: ${extractErrorMessage(e)}`,
+						message: `Failed to sync ${rows.length} rows to table "${tableName}" in SQLite during init: ${extractErrorMessage(e)}`,
 					}),
 			});
 
@@ -298,12 +299,13 @@ export const sqlite = async <
 					isPushingFromSqlite = true;
 					tables.clear();
 
-					for (const { table, paired: drizzleTable } of tables.zip(
+					for (const [tableName, drizzleTable] of Object.entries(
 						drizzleTables,
 					)) {
+						const table = tables(tableName);
 						const rows = await sqliteDb.select().from(drizzleTable);
 						for (const row of rows) {
-							// Cast is safe: Drizzle schema is derived from workspace schema
+							// Cast is safe: Drizzle schema is derived from workspace definition
 							table.upsert(
 								row as Row<
 									TTableDefinitionMap[keyof TTableDefinitionMap &

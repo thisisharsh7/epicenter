@@ -33,28 +33,28 @@ import type { KvDefinitionMap, TableDefinitionMap } from '../../core/schema';
  *
  * @example Basic usage in a browser app
  * ```typescript
- * import { defineSchema, createClient } from '@epicenter/hq';
+ * import { defineWorkspace, createClient } from '@epicenter/hq';
  * import { persistence } from '@epicenter/hq/extensions/persistence';
  *
- * const schema = defineSchema({
+ * const definition = defineWorkspace({
  *   tables: { ... },
  *   kv: {},
  * });
  *
  * // 'blog' becomes the IndexedDB database name
  * const client = createClient('blog', { epoch })
- *   .withSchema(schema)
+ *   .withDefinition(definition)
  *   .withExtensions({ persistence });
  * ```
  *
  * @example In a Svelte/React component
  * ```typescript
- * import { schema } from './workspace-config';
+ * import { definition } from './workspace-config';
  * import { createClient } from '@epicenter/hq';
  *
  * // Inside component setup/onMount:
- * const client = createClient(schema.id, { epoch })
- *   .withSchema(schema)
+ * const client = createClient(definition.id, { epoch })
+ *   .withDefinition(definition)
  *   .withExtensions({ persistence });
  *
  * // Data persists across page refreshes!
@@ -64,24 +64,24 @@ import type { KvDefinitionMap, TableDefinitionMap } from '../../core/schema';
  * @example Multi-workspace setup
  * ```typescript
  * // Each workspace gets its own IndexedDB database
- * const blogSchema = defineSchema({
+ * const blogDefinition = defineWorkspace({
  *   tables: { ... },
  *   kv: {},
  * });
  *
- * const notesSchema = defineSchema({
+ * const notesDefinition = defineWorkspace({
  *   tables: { ... },
  *   kv: {},
  * });
  *
  * // 'blog' → IndexedDB database named 'blog'
  * const blogClient = createClient('blog', { epoch })
- *   .withSchema(blogSchema)
+ *   .withDefinition(blogDefinition)
  *   .withExtensions({ persistence });
  *
  * // 'notes' → IndexedDB database named 'notes'
  * const notesClient = createClient('notes', { epoch })
- *   .withSchema(notesSchema)
+ *   .withDefinition(notesDefinition)
  *   .withExtensions({ persistence });
  *
  * // Workspaces are isolated, each with separate IndexedDB storage

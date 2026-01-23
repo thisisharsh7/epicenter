@@ -26,8 +26,8 @@ export type WorkspacePersistenceConfig = {
 const FILE_NAMES = {
 	/** Full Y.Doc binary - sync source of truth */
 	WORKSPACE_YJS: 'workspace.yjs',
-	/** Schema metadata from Y.Map('schema') */
-	SCHEMA_JSON: 'schema.json',
+	/** Definition metadata from Y.Map('definition') */
+	DEFINITION_JSON: 'definition.json',
 	/** Settings values from Y.Map('kv') */
 	KV_JSON: 'kv.json',
 	/** Snapshots directory */
@@ -47,8 +47,8 @@ const FILE_NAMES = {
  *    - Saved immediately on every Y.Doc update
  *    - Loaded on startup to restore state
  *
- * 2. **Schema JSON (schema.json)**: Human-readable table/KV schemas
- *    - Extracted from Y.Map('schema')
+ * 2. **Definition JSON (definition.json)**: Human-readable table/KV definitions
+ *    - Extracted from Y.Map('definition')
  *    - Debounced writes (default 500ms)
  *    - Git-friendly for version control
  *
@@ -60,7 +60,7 @@ const FILE_NAMES = {
  * ```
  * {appLocalDataDir}/workspaces/{workspaceId}/{epoch}/
  * ├── workspace.yjs
- * ├── schema.json
+ * ├── definition.json
  * ├── kv.json
  * └── snapshots/
  *     └── {unix-ms}.ysnap
@@ -76,7 +76,7 @@ const FILE_NAMES = {
  * @example
  * ```typescript
  * const client = createClient(head)
- *   .withSchema(schema)
+ *   .withDefinition(definition)
  *   .withExtensions({
  *     persistence: (ctx) => workspacePersistence(ctx),
  *   });
@@ -89,7 +89,7 @@ export function workspacePersistence<
 	ctx: ExtensionContext<TTableDefinitionMap, TKvDefinitionMap>,
 	config: WorkspacePersistenceConfig = {},
 ): ProviderExports {
-	const { ydoc, workspaceId, epoch, schema, kv } = ctx;
+	const { ydoc, workspaceId, epoch, definition, kv } = ctx;
 	const { jsonDebounceMs = 500 } = config;
 
 	// For logging
@@ -105,14 +105,14 @@ export function workspacePersistence<
 			epoch.toString(),
 		);
 		const workspaceYjsPath = await join(epochDir, FILE_NAMES.WORKSPACE_YJS);
-		const schemaJsonPath = await join(epochDir, FILE_NAMES.SCHEMA_JSON);
+		const definitionJsonPath = await join(epochDir, FILE_NAMES.DEFINITION_JSON);
 		const kvJsonPath = await join(epochDir, FILE_NAMES.KV_JSON);
 		const snapshotsDir = await join(epochDir, FILE_NAMES.SNAPSHOTS_DIR);
 
 		return {
 			epochDir,
 			workspaceYjsPath,
-			schemaJsonPath,
+			definitionJsonPath,
 			kvJsonPath,
 			snapshotsDir,
 		};
@@ -139,38 +139,38 @@ export function workspacePersistence<
 	ydoc.on('update', saveYDoc);
 
 	// =========================================================================
-	// 2. Schema JSON Persistence (schema.json)
+	// 2. Definition JSON Persistence (definition.json)
 	// =========================================================================
 
-	let schemaDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+	let definitionDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-	const saveSchemaJson = async () => {
-		const { schemaJsonPath } = await pathsPromise;
+	const saveDefinitionJson = async () => {
+		const { definitionJsonPath } = await pathsPromise;
 		try {
-			const schemaSnapshot = schema.get();
-			const json = JSON.stringify(schemaSnapshot, null, '\t');
-			await writeFile(schemaJsonPath, new TextEncoder().encode(json));
+			const definitionSnapshot = definition.toJSON();
+			const json = JSON.stringify(definitionSnapshot, null, '\t');
+			await writeFile(definitionJsonPath, new TextEncoder().encode(json));
 			console.log(
-				`[WorkspacePersistence] Saved schema.json for ${workspaceId}`,
+				`[WorkspacePersistence] Saved definition.json for ${workspaceId}`,
 			);
 		} catch (error) {
 			console.error(
-				`[WorkspacePersistence] Failed to save schema.json:`,
+				`[WorkspacePersistence] Failed to save definition.json:`,
 				error,
 			);
 		}
 	};
 
-	const scheduleSchemaSave = () => {
-		if (schemaDebounceTimer) clearTimeout(schemaDebounceTimer);
-		schemaDebounceTimer = setTimeout(async () => {
-			schemaDebounceTimer = null;
-			await saveSchemaJson();
+	const scheduleDefinitionSave = () => {
+		if (definitionDebounceTimer) clearTimeout(definitionDebounceTimer);
+		definitionDebounceTimer = setTimeout(async () => {
+			definitionDebounceTimer = null;
+			await saveDefinitionJson();
 		}, jsonDebounceMs);
 	};
 
-	// Observe schema changes using the schema helper's observe method
-	const unsubscribeSchema = schema.observe(scheduleSchemaSave);
+	// Observe definition changes using the definition helper's observe method
+	const unsubscribeDefinition = definition.observe(scheduleDefinitionSave);
 
 	// =========================================================================
 	// 3. KV JSON Persistence (kv.json)
@@ -234,15 +234,15 @@ export function workspacePersistence<
 			}
 
 			// Initial JSON saves
-			await saveSchemaJson();
+			await saveDefinitionJson();
 			await saveKvJson();
 		})(),
 
 		destroy() {
 			// Clear debounce timers
-			if (schemaDebounceTimer) {
-				clearTimeout(schemaDebounceTimer);
-				schemaDebounceTimer = null;
+			if (definitionDebounceTimer) {
+				clearTimeout(definitionDebounceTimer);
+				definitionDebounceTimer = null;
 			}
 			if (kvDebounceTimer) {
 				clearTimeout(kvDebounceTimer);
@@ -253,7 +253,7 @@ export function workspacePersistence<
 			ydoc.off('update', saveYDoc);
 
 			// Remove map observers via unsubscribe functions
-			unsubscribeSchema();
+			unsubscribeDefinition();
 			unsubscribeKv();
 		},
 	});

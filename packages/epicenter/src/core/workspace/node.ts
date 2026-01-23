@@ -21,7 +21,7 @@
  * ┌─────────────────────────────────────────────────────────────────────┐
  * │  @epicenter/hq (browser)                                            │
  * │                                                                     │
- * │    createClient(head).withSchema(schema).withExtensions({})         │
+ * │    createClient(head).withDefinition(definition).withExtensions({})  │
  * │         │                              │                            │
  * │         │                              └── UI awaits client.whenSynced
  * │         │                                                           │
@@ -32,7 +32,7 @@
  * ┌─────────────────────────────────────────────────────────────────────┐
  * │  @epicenter/hq/node (this module)                                   │
  * │                                                                     │
- * │    createClient(head).withSchema(schema).withExtensions({})         │
+ * │    createClient(head).withDefinition(definition).withExtensions({}) │
  * │         │                              │                            │
  * │         │                              └── Promise<WorkspaceDoc>
  * │         │                                   whenSynced already resolved
@@ -48,20 +48,20 @@
  * ## Implementation details
  *
  * The actual workspace creation logic lives in {@link ./workspace.ts | workspace.ts}:
- * - {@link defineSchema} - Type inference helper for workspace schemas (pass-through)
+ * - {@link defineWorkspace} - Type inference helper for workspace definitions (pass-through)
  * - {@link createClient} - Creates a runtime client builder (sync)
  * - {@link WorkspaceDoc} - The full client type with `whenSynced`
  *
  * This module simply:
- * 1. Re-exports `defineSchema` (pure pass-through for type inference)
+ * 1. Re-exports `defineWorkspace` (pure pass-through for type inference)
  * 2. Wraps `createClient` so `.withExtensions()` returns a Promise
  * 3. Returns the client without the `whenSynced` property
  *
  * @example Basic usage
  * ```typescript
- * import { defineSchema, createClient, createHeadDoc, id, text, table } from '@epicenter/hq/node';
+ * import { defineWorkspace, createClient, createHeadDoc, id, text, table } from '@epicenter/hq/node';
  *
- * const schema = defineSchema({
+ * const definition = defineWorkspace({
  *   tables: {
  *     posts: table({ name: 'Posts', fields: { id: id(), title: text() } }),
  *   },
@@ -73,7 +73,7 @@
  *
  * // Async - awaits initialization internally
  * const client = await createClient(head)
- *   .withSchema(schema)
+ *   .withDefinition(definition)
  *   .withExtensions({ persistence });
  *
  * // Ready to use immediately
@@ -83,22 +83,22 @@
  *
  * @example Migration script
  * ```typescript
- * import { defineSchema, createClient, createHeadDoc } from '@epicenter/hq/node';
+ * import { defineWorkspace, createClient, createHeadDoc } from '@epicenter/hq/node';
  *
  * async function migrate() {
- *   const schema = defineSchema({ tables: {...}, kv: {} });
+ *   const definition = defineWorkspace({ tables: {...}, kv: {} });
  *
  *   // Create separate head docs for each epoch
  *   const oldHead = createHeadDoc({ workspaceId: 'blog', providers: {} });
  *   oldHead.setOwnEpoch(1);
  *   const oldClient = await createClient(oldHead)
- *     .withSchema(schema)
+ *     .withDefinition(definition)
  *     .withExtensions({});
  *
  *   const newHead = createHeadDoc({ workspaceId: 'blog', providers: {} });
  *   newHead.setOwnEpoch(2);
  *   const newClient = await createClient(newHead)
- *     .withSchema(schema)
+ *     .withDefinition(definition)
  *     .withExtensions({});
  *
  *   for (const post of oldClient.tables.posts.getAllValid()) {
@@ -110,7 +110,7 @@
  * }
  * ```
  *
- * @see {@link defineSchema} - Type inference helper for schema definitions
+ * @see {@link defineWorkspace} - Type inference helper for workspace definitions
  *
  * @see {@link ./workspace.ts} - The sync implementation that powers this wrapper
  * @see {@link ../lifecycle.ts} - The Lifecycle protocol (`whenSynced`, `destroy`)
@@ -129,7 +129,7 @@ import type { KvDefinitionMap, TableDefinitionMap } from '../schema';
 import {
 	type ClientBuilder as ClientBuilderSync,
 	createClient as createClientSync,
-	type WorkspaceSchema,
+	type WorkspaceDefinition,
 } from './workspace';
 
 /**
@@ -205,16 +205,16 @@ export type WorkspaceDoc<
  *               ┌───────────────┴───────────────┐
  *               │                               │
  *               ▼                               ▼
- *      .withSchema(schema)               .withExtensions({})
+ *      .withDefinition(definition)       .withExtensions({})
  *               │                               │
  *               │                               │
  *               ▼                               ▼
  *      .withExtensions({})          Promise<WorkspaceDoc>
- *               │                        (dynamic schema)
+ *               │                        (dynamic definition)
  *               │
  *               ▼
  *     Promise<WorkspaceDoc>
- *        (static schema)
+ *        (static definition)
  * ```
  *
  * ## Why async methods?
@@ -227,29 +227,29 @@ export type ClientBuilder<
 	TKvDefinitionMap extends KvDefinitionMap,
 > = {
 	/**
-	 * Attach a workspace schema for static schema mode.
+	 * Attach a workspace definition for static definition mode.
 	 *
-	 * This locks in the table/kv types from the schema, enabling
+	 * This locks in the table/kv types from the definition, enabling
 	 * proper type inference for extensions.
 	 *
 	 * @example
 	 * ```typescript
-	 * const schema = defineSchema({ tables: {...}, kv: {} });
+	 * const definition = defineWorkspace({ tables: {...}, kv: {} });
 	 * const head = createHeadDoc({ workspaceId: 'blog', providers: {} });
 	 *
 	 * const client = await createClient(head)
-	 *   .withSchema(schema)
+	 *   .withDefinition(definition)
 	 *   .withExtensions({
 	 *     persistence: (ctx) => persistence(ctx, { filePath }),
 	 *   });
 	 * ```
 	 */
-	withSchema<
-		TSchemaTables extends TableDefinitionMap,
-		TSchemaKv extends KvDefinitionMap,
+	withDefinition<
+		TDefinitionTables extends TableDefinitionMap,
+		TDefinitionKv extends KvDefinitionMap,
 	>(
-		schema: WorkspaceSchema<TSchemaTables, TSchemaKv>,
-	): ClientBuilder<TSchemaTables, TSchemaKv>;
+		definition: WorkspaceDefinition<TDefinitionTables, TDefinitionKv>,
+	): ClientBuilder<TDefinitionTables, TDefinitionKv>;
 
 	/**
 	 * Attach extensions and create the client.
@@ -262,11 +262,11 @@ export type ClientBuilder<
 	 * @example
 	 * ```typescript
 	 * // With extensions
-	 * const schema = defineSchema({ tables: {...}, kv: {} });
+	 * const definition = defineWorkspace({ tables: {...}, kv: {} });
 	 * const head = createHeadDoc({ workspaceId: 'blog', providers: {} });
 	 *
 	 * const client = await createClient(head)
-	 *   .withSchema(schema)
+	 *   .withDefinition(definition)
 	 *   .withExtensions({
 	 *     persistence: (ctx) => persistence(ctx, { filePath }),
 	 *     sqlite: (ctx) => sqlite(ctx, { dbPath }),
@@ -277,7 +277,7 @@ export type ClientBuilder<
 	 * // Without extensions
 	 * const head = createHeadDoc({ workspaceId: 'blog', providers: {} });
 	 * const client = await createClient(head)
-	 *   .withSchema(schema)
+	 *   .withDefinition(definition)
 	 *   .withExtensions({});
 	 * ```
 	 */
@@ -304,7 +304,7 @@ export type ClientBuilder<
 /**
  * Create an async client builder for a workspace.
  *
- * Returns a {@link ClientBuilder} for chaining `.withSchema()` and `.withExtensions()`.
+ * Returns a {@link ClientBuilder} for chaining `.withDefinition()` and `.withExtensions()`.
  * The client is only created when you call `.withExtensions()` (the terminal operation).
  *
  * ## Two Paths
@@ -316,31 +316,31 @@ export type ClientBuilder<
  *               ┌───────────────┴───────────────┐
  *               │                               │
  *               ▼                               ▼
- *      .withSchema(schema)               .withExtensions({})
+ *      .withDefinition(definition)       .withExtensions({})
  *               │                               │
  *               │                               │
  *               ▼                               ▼
  *      .withExtensions({})          Promise<WorkspaceDoc>
- *               │                        (dynamic schema)
+ *               │                        (dynamic definition)
  *               │
  *               ▼
  *     Promise<WorkspaceDoc>
- *        (static schema)
+ *        (static definition)
  * ```
  *
- * ## Path 1: Static Schema (Code-Defined)
+ * ## Path 1: Static Definition (Code-Defined)
  *
- * For apps like Whispering where schema is defined in code:
+ * For apps like Whispering where definition is defined in code:
  *
  * ```typescript
- * const schema = defineSchema({
+ * const definition = defineWorkspace({
  *   tables: { recordings: table({ name: 'Recordings', fields: { id: id(), title: text() } }) },
  *   kv: {},
  * });
  *
  * const head = createHeadDoc({ workspaceId: 'epicenter.whispering', providers: {} });
  * const client = await createClient(head)
- *   .withSchema(schema)
+ *   .withDefinition(definition)
  *   .withExtensions({
  *     persistence: (ctx) => persistence(ctx, { filePath }),
  *   });
@@ -349,12 +349,12 @@ export type ClientBuilder<
  * client.tables.recordings.upsert({ ... });
  * ```
  *
- * Note: Workspace identity (name, icon, description) is separate from schema
+ * Note: Workspace identity (name, icon, description) is separate from definition
  * and should be managed via Head Doc.
  *
- * ## Path 2: Dynamic Schema (Y.Doc-Defined)
+ * ## Path 2: Dynamic Definition (Y.Doc-Defined)
  *
- * For the Epicenter app where schema lives in the Y.Doc:
+ * For the Epicenter app where definition lives in the Y.Doc:
  *
  * ```typescript
  * const head = createHeadDoc({ workspaceId: 'my-workspace', providers: {} });
@@ -370,10 +370,10 @@ export type ClientBuilder<
  * Pass an empty object to `.withExtensions()`:
  *
  * ```typescript
- * const schema = defineSchema({ tables: {...}, kv: {} });
+ * const definition = defineWorkspace({ tables: {...}, kv: {} });
  * const head = createHeadDoc({ workspaceId: 'blog', providers: {} });
  * const client = await createClient(head)
- *   .withSchema(schema)
+ *   .withDefinition(definition)
  *   .withExtensions({});
  * ```
  *
@@ -399,13 +399,13 @@ function createAsyncClientBuilder<
 	syncBuilder: ClientBuilderSync<TTableDefinitionMap, TKvDefinitionMap>,
 ): ClientBuilder<TTableDefinitionMap, TKvDefinitionMap> {
 	return {
-		withSchema<
-			TSchemaTables extends TableDefinitionMap,
-			TSchemaKv extends KvDefinitionMap,
+		withDefinition<
+			TDefinitionTables extends TableDefinitionMap,
+			TDefinitionKv extends KvDefinitionMap,
 		>(
-			schema: WorkspaceSchema<TSchemaTables, TSchemaKv>,
-		): ClientBuilder<TSchemaTables, TSchemaKv> {
-			const newSyncBuilder = syncBuilder.withSchema(schema);
+			definition: WorkspaceDefinition<TDefinitionTables, TDefinitionKv>,
+		): ClientBuilder<TDefinitionTables, TDefinitionKv> {
+			const newSyncBuilder = syncBuilder.withDefinition(definition);
 			return createAsyncClientBuilder(newSyncBuilder);
 		},
 
@@ -436,14 +436,14 @@ function createAsyncClientBuilder<
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Re-export schema field factories for defining workspace tables.
+ * Re-export field schema factories for defining workspace tables.
  *
  * These are the building blocks for table definitions:
  *
  * ```typescript
- * import { defineSchema, createClient, createHeadDoc, id, text, boolean, date, table } from '@epicenter/hq/node';
+ * import { defineWorkspace, createClient, createHeadDoc, id, text, boolean, date, table } from '@epicenter/hq/node';
  *
- * const schema = defineSchema({
+ * const definition = defineWorkspace({
  *   tables: {
  *     posts: table({
  *       name: 'Posts',
@@ -460,7 +460,7 @@ function createAsyncClientBuilder<
  *
  * const head = createHeadDoc({ workspaceId: 'epicenter.blog', providers: {} });
  * const client = await createClient(head)
- *   .withSchema(schema)
+ *   .withDefinition(definition)
  *   .withExtensions({ persistence });
  * ```
  *
@@ -493,12 +493,12 @@ export {
  *
  * @see {@link ./workspace.ts} - Where these types are defined
  */
-export type { WorkspaceDefinition, WorkspaceSchema } from './workspace';
+export type { WorkspaceDefinition } from './workspace';
 
 /**
- * Re-export defineSchema from workspace.ts.
+ * Re-export defineWorkspace from workspace.ts.
  *
- * `defineSchema` is a pure pass-through for type inference. It performs no
+ * `defineWorkspace` is a pure pass-through for type inference. It performs no
  * normalization or transformation.
  */
-export { defineSchema } from './workspace';
+export { defineWorkspace } from './workspace';

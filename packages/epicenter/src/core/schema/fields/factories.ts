@@ -71,8 +71,8 @@ function normalizeIcon(
  *   fields: { id: id(), title: text(), published: boolean() },
  * });
  *
- * // In defineSchema
- * defineSchema({
+ * // In defineWorkspace
+ * defineWorkspace({
  *   tables: {
  *     posts: table({ name: 'Posts', fields: { id: id(), title: text() } }),
  *   },
