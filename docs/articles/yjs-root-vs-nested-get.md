@@ -184,6 +184,46 @@ The root level is special. The nested level is normal. Don't confuse them.
 | Safe for concurrent setup | Yes                   | Only if keys are unique |
 | Identity                  | By name               | By client ID + clock    |
 
+## Try It Yourself
+
+Copy this into a file and run with `bun run demo.ts` (requires `yjs` installed):
+
+```typescript
+import * as Y from 'yjs';
+
+// Two separate clients
+const docA = new Y.Doc();
+const docB = new Y.Doc();
+
+// ROOT LEVEL: Both get the "tables" map
+const tablesA = docA.getMap('tables');
+const tablesB = docB.getMap('tables');
+
+// Each adds different keys
+tablesA.set('fromA', 'Alice');
+tablesB.set('fromB', 'Bob');
+
+// NESTED LEVEL: Both create a NEW Y.Map at the same key
+tablesA.set('posts', new Y.Map([['data', "Alice's posts"]]));
+tablesB.set('posts', new Y.Map([['data', "Bob's posts"]]));
+
+// Sync both ways
+Y.applyUpdate(docA, Y.encodeStateAsUpdate(docB));
+Y.applyUpdate(docB, Y.encodeStateAsUpdate(docA));
+
+// Check results
+console.log('Root-level keys:', [...tablesA.keys()]);
+// → ["fromA", "fromB", "posts"] — MERGED!
+
+console.log(
+	'Nested Y.Map data:',
+	(tablesA.get('posts') as Y.Map<string>).get('data'),
+);
+// → Either "Alice's posts" OR "Bob's posts" — ONE WINS, other is GONE
+```
+
+Run it a few times. The root-level keys always merge. The nested Y.Map is always one or the other—never both.
+
 ## Summary
 
 1. **`doc.getMap('name')`** is a get-or-create singleton identified by name

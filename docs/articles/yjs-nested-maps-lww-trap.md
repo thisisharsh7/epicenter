@@ -281,6 +281,44 @@ But if you're building something where:
 
 Then you need one of the solutions above.
 
+## Try It Yourself
+
+See the data loss with your own eyes. Run with `bun run demo.ts`:
+
+```typescript
+import * as Y from 'yjs';
+
+const docA = new Y.Doc();
+const docB = new Y.Doc();
+
+const tablesA = docA.getMap('tables');
+const tablesB = docB.getMap('tables');
+
+// Both clients create "posts" with different data
+tablesA.set(
+	'posts',
+	new Y.Map([
+		['rows', 10],
+		['owner', 'Alice'],
+	]),
+);
+tablesB.set(
+	'posts',
+	new Y.Map([
+		['rows', 5],
+		['config', "Bob's config"],
+	]),
+);
+
+// Sync
+Y.applyUpdate(docA, Y.encodeStateAsUpdate(docB));
+Y.applyUpdate(docB, Y.encodeStateAsUpdate(docA));
+
+const posts = tablesA.get('posts') as Y.Map<unknown>;
+console.log("Winner's data:", Object.fromEntries(posts.entries()));
+// One client's ENTIRE Y.Map is gone. No merge. No warning.
+```
+
 ## TL;DR
 
 1. **Root-level `doc.getMap()` is safe**: named singleton, merges across clients
@@ -295,5 +333,6 @@ The structure of your Yjs document isn't just about convenience; it's about conf
 
 _See also:_
 
-- [The Surprising Truth About "Last Write Wins" in CRDTs](./crdt-last-write-wins-surprise.md) - Why "last" doesn't mean what you think
-- [Yjs Internals](https://github.com/yjs/yjs/blob/main/INTERNALS.md) - How Yjs actually resolves conflicts
+- [Root vs Nested: The Two Worlds of `.get()` in Yjs](./yjs-root-vs-nested-get.md) — Why root-level and nested behave completely differently
+- [The Surprising Truth About "Last Write Wins" in CRDTs](./crdt-last-write-wins-surprise.md) — Why "last" doesn't mean what you think
+- [Yjs Internals](https://github.com/yjs/yjs/blob/main/INTERNALS.md) — How Yjs actually resolves conflicts
