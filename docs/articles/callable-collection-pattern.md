@@ -1,6 +1,6 @@
 # The Callable Collection Pattern in TypeScript
 
-A pattern for type-safe collection APIs that avoids namespace collisions.
+A pattern for type-safe collection APIs that avoids namespace collisions and supports nested structures.
 
 ## The Problem
 
@@ -57,27 +57,105 @@ Make the collection itself a **function**. Item access goes through the call, ut
 
 ```
 tables('posts')     -> item helper (or undefined if missing)
+tables.get('posts') -> item snapshot (when you don't need the helper)
+tables.has('posts') -> check existence
 tables.toJSON()     -> all items as JSON
 tables.keys()       -> list of keys
 ```
 
 **No collision possible.** `tables('toJSON')` and `tables.toJSON()` are syntactically distinct.
 
-## The Pattern
+## The Key Heuristic: Callable Only Where Nesting Is Needed
+
+Not everything should be callable. The decision procedure:
+
+1. **Will the returned thing have nested collections or methods?** → Make it callable
+2. **Is the returned thing just data (a leaf node)?** → Use `.get()` only
+
+Callable access returns a **capability-bearing helper** (with methods, observation, nested collections), not just data. If the item has no nested structure, a helper adds no value.
+
+| Item Type              | Pattern                                            | Reason                                     |
+| ---------------------- | -------------------------------------------------- | ------------------------------------------ |
+| Has nested collections | **Callable** `collection('key')` _and_ `.get(key)` | Callable for helper, `.get()` for snapshot |
+| Leaf node (no nesting) | **Collection-style** `.get(key)` only              | Just returns the data, no helper needed    |
+
+```typescript
+// Tables ARE callable: the helper has nested .fields collection
+const posts = definition.tables('posts');
+posts?.fields.set('dueDate', date()); // Helper enables nested access
+posts?.setName('Blog Posts'); // Helper has methods
+
+// But tables ALSO have .get() for when you just want the snapshot
+const postsSnapshot = definition.tables.get('posts'); // Plain TableDefinition
+
+// Fields are NOT callable: they're leaf nodes, just data
+const titleSchema = definition.tables('posts')?.fields.get('title');
+// titleSchema is a FieldSchema object; no nested collections, no helper needed
+```
+
+## Fixed Keys vs Dynamic Keys
+
+Use different patterns based on whether keys are known at compile time:
+
+| Key Type                            | Read                                                     | Write                       |
+| ----------------------------------- | -------------------------------------------------------- | --------------------------- |
+| **Dynamic + nested** (tables, kv)   | `collection('key')` for helper, `.get(key)` for snapshot | `.set(key, value)`          |
+| **Dynamic + leaf** (fields)         | `.get(key)` only                                         | `.set(key, value)`          |
+| **Fixed** (name, icon, description) | Property getter: `.name`                                 | Method setter: `.setName()` |
+
+### Why Property Getters for Fixed Keys?
+
+```typescript
+// Property getters feel natural for known fields
+table.name; // "Posts"
+table.icon; // { type: 'emoji', value: '📝' }
+table.description; // "Blog posts"
+
+// Asymmetric setters make mutation explicit
+table.setName('Blog Posts');
+table.setIcon({ type: 'emoji', value: '✍️' });
+```
+
+The asymmetry is intentional: reads are frequent, writes are deliberate.
+
+## The Complete API Shape
 
 ```
-collection
-├── (key)              -> ItemHelper | undefined    [call]
-├── .toJSON()          -> Record<string, T>         [property]
-├── .keys()            -> string[]                  [property]
-├── .set(key, value)   -> void                      [property]
-└── .observe(cb)       -> unsubscribe               [property]
+definition
+├── .toJSON()                       -> WorkspaceDefinitionMap
+├── .merge({ tables?, kv? })        -> void
+├── .observe(cb)                    -> unsubscribe
+│
+├── .tables(name)                   -> TableHelper | undefined (callable)
+├── .tables.get(name)               -> TableDefinition | undefined
+├── .tables.has(name)               -> boolean
+├── .tables.toJSON()                -> Record<string, TableDefinition>
+├── .tables.keys()                  -> string[]
+├── .tables.entries()               -> [string, TableDefinition][]
+├── .tables.set(name, def)          -> void
+├── .tables.delete(name)            -> boolean
+└── .tables.observe(cb)             -> unsubscribe
 
-collection('posts')    -> ItemHelper
-├── .toJSON()          -> T
-├── .set(value)        -> void
-├── .delete()          -> boolean
-└── .observe(cb)       -> unsubscribe
+definition.tables('posts')          -> TableHelper
+├── .name                           -> string (property getter)
+├── .icon                           -> IconDefinition | null (property getter)
+├── .description                    -> string (property getter)
+├── .setName(v)                     -> void (method setter)
+├── .setIcon(v)                     -> void
+├── .setDescription(v)              -> void
+├── .toJSON()                       -> TableDefinition
+├── .set(def)                       -> void
+├── .delete()                       -> boolean
+├── .observe(cb)                    -> unsubscribe
+└── .fields                         -> FieldsCollection (NOT callable)
+    ├── .get(name)                  -> FieldSchema | undefined
+    ├── .has(name)                  -> boolean
+    ├── .toJSON()                   -> Record<string, FieldSchema>
+    ├── .keys()                     -> string[]
+    ├── .entries()                  -> [string, FieldSchema][]
+    ├── .set(name, schema)          -> void
+    ├── .delete(name)               -> boolean
+    └── .observe(cb)                -> unsubscribe
 ```
 
 ## Implementation
@@ -85,38 +163,83 @@ collection('posts')    -> ItemHelper
 TypeScript supports callable objects via call signatures in type definitions:
 
 ```typescript
-type Collection<T> = {
+// Callable collection type
+type TablesCollection = {
 	// Call signature: makes the object callable
-	(key: string): ItemHelper<T> | undefined;
+	(tableName: string): TableHelper | undefined;
 
 	// Properties: utilities on the collection
-	toJSON(): Record<string, T>;
+	get(tableName: string): TableDefinition | undefined;
+	has(tableName: string): boolean;
+	toJSON(): Record<string, TableDefinition>;
 	keys(): string[];
-	set(key: string, value: T): void;
-	observe(callback: () => void): () => void;
+	entries(): [string, TableDefinition][];
+	set(tableName: string, definition: TableDefinition): void;
+	delete(tableName: string): boolean;
+	observe(
+		callback: (changes: Map<string, 'add' | 'delete'>) => void,
+	): () => void;
+};
+
+// Collection-style type (for leaf nodes like fields)
+type FieldsCollection = {
+	get(fieldName: string): FieldSchema | undefined;
+	has(fieldName: string): boolean;
+	toJSON(): Record<string, FieldSchema>;
+	keys(): string[];
+	entries(): [string, FieldSchema][];
+	set(fieldName: string, schema: FieldSchema): void;
+	delete(fieldName: string): boolean;
+	observe(
+		callback: (changes: Map<string, 'add' | 'update' | 'delete'>) => void,
+	): () => void;
 };
 ```
 
-Create it using `Object.assign`:
+Create callable collections using `Object.assign`:
 
 ```typescript
-function createCollection<T>(store: Map<string, T>): Collection<T> {
+function createTablesCollection(store: Y.Map<unknown>): TablesCollection {
 	// The accessor function
-	const accessor = (key: string): ItemHelper<T> | undefined => {
+	const accessor = (key: string): TableHelper | undefined => {
 		if (!store.has(key)) return undefined;
-		return createItemHelper(store, key);
+		return createTableHelper(store, key);
 	};
 
 	// Attach properties
 	return Object.assign(accessor, {
+		get(key: string) {
+			const map = store.get(key);
+			if (!map) return undefined;
+			return serializeTableDefinition(map);
+		},
+		has(key: string) {
+			return store.has(key);
+		},
 		toJSON() {
-			return Object.fromEntries(store.entries());
+			return Object.fromEntries(
+				Array.from(store.entries()).map(([k, v]) => [
+					k,
+					serializeTableDefinition(v),
+				]),
+			);
 		},
 		keys() {
 			return Array.from(store.keys());
 		},
-		set(key: string, value: T) {
-			store.set(key, value);
+		entries() {
+			return Array.from(store.entries()).map(([k, v]) => [
+				k,
+				serializeTableDefinition(v),
+			]);
+		},
+		set(key: string, value: TableDefinition) {
+			// ... set logic
+		},
+		delete(key: string) {
+			if (!store.has(key)) return false;
+			store.delete(key);
+			return true;
 		},
 		observe(callback) {
 			// ... observation logic
@@ -128,108 +251,143 @@ function createCollection<T>(store: Map<string, T>): Collection<T> {
 }
 ```
 
-## Key Design Decisions
-
-### No `.get()` Method
-
-Instead of `collection.get('posts')`, use `collection('posts')?.toJSON()`.
-
-Why? Two reasons:
-
-1. **Consistency**: The call always returns a helper, `.toJSON()` always returns data
-2. **Clarity**: No confusion between "get helper" vs "get snapshot"
-
-### No `.has()` Method
-
-Instead of `collection.has('posts')`, use `if (collection('posts'))`.
-
-The accessor returns `undefined` for missing items. Checking existence is just checking truthiness.
+## Usage Examples
 
 ```typescript
-// Check existence
-if (collection('posts')) {
-	// exists
+// Check existence (two ways)
+if (definition.tables.has('posts')) {
+	/* ... */
+}
+if (definition.tables('posts')) {
+	/* ... */
 }
 
-// Get with existence check
-const posts = collection('posts');
-if (posts) {
-	console.log(posts.toJSON());
+// Get snapshot without helper
+const postsSnapshot = definition.tables.get('posts');
+
+// Get helper for nested access
+const postsHelper = definition.tables('posts');
+if (postsHelper) {
+	// Read fixed properties (property getters)
+	console.log(postsHelper.name); // "Posts"
+	console.log(postsHelper.icon); // { type: 'emoji', value: '📝' }
+	console.log(postsHelper.description); // "Blog posts"
+
+	// Write fixed properties (method setters)
+	postsHelper.setName('Blog Posts');
+	postsHelper.setIcon({ type: 'emoji', value: '✍️' });
+
+	// Access fields (collection-style, NOT callable)
+	const titleSchema = postsHelper.fields.get('title');
+	if (postsHelper.fields.has('dueDate')) {
+		postsHelper.fields.delete('dueDate');
+	}
+	postsHelper.fields.set('publishedAt', date({ nullable: true }));
+
+	// Iterate fields
+	for (const [name, schema] of postsHelper.fields.entries()) {
+		console.log(name, schema.type);
+	}
 }
 
-// Or with optional chaining
-const data = collection('posts')?.toJSON();
+// Bulk operations on tables
+const allTables = definition.tables.toJSON();
+const tableNames = definition.tables.keys();
+for (const [name, def] of definition.tables.entries()) {
+	console.log(name, Object.keys(def.fields).length, 'fields');
+}
+
+// Observe changes
+const unsubscribe = definition.tables.observe((changes) => {
+	for (const [name, action] of changes) {
+		// action is 'add' or 'delete'
+		console.log(`Table ${name}: ${action}`);
+	}
+});
 ```
 
-### Item Helpers Return Undefined When Missing
+## Design Decisions
+
+### `.get()` vs Callable
+
+Use both:
+
+- **Callable** when you need the helper object for further operations
+- **`.get()`** when you just want the data snapshot
 
 ```typescript
-const posts = tables('posts'); // undefined if "posts" doesn't exist
+// Get helper to access nested .fields
+const helper = definition.tables('posts');
+helper?.fields.set('newField', text());
+
+// Get snapshot when you just need the data
+const snapshot = definition.tables.get('posts');
+console.log(snapshot?.name);
 ```
 
-This is intentional. It forces explicit handling of missing items and avoids "phantom" helpers that don't correspond to real data.
+### `.has()` for Explicit Existence Checks
 
-## Nesting
-
-The pattern composes naturally:
+While you can check existence with `if (collection('key'))`, `.has()` is more explicit:
 
 ```typescript
-definition
-├── .tables(name)                   -> TableHelper | undefined
-│   ├── .fields(name)               -> FieldHelper | undefined
-│   │   ├── .toJSON()               -> FieldSchema
-│   │   └── .set(schema)            -> void
-│   └── .metadata
-│       ├── .toJSON()               -> { name, icon, description }
-│       └── .set({ name?, ... })    -> void
-└── .kv(name)                       -> KvHelper | undefined
+// Explicit
+if (definition.tables.has('posts')) {
+	/* ... */
+}
+
+// Also works, but creates a helper unnecessarily
+if (definition.tables('posts')) {
+	/* ... */
+}
 ```
 
-Usage:
+### Why Fields Aren't Callable
+
+Fields are leaf nodes. There's no `.subfields` or nested structure. Making them callable would add complexity without benefit:
 
 ```typescript
-// Deep access with optional chaining
-const titleSchema = definition.tables('posts')?.fields('title')?.toJSON();
+// This would be redundant
+definition.tables('posts')?.fields('title')?.toJSON(); // Just to get the schema?
 
-// Modify nested item
-definition
-	.tables('posts')
-	?.fields('title')
-	?.set(text({ default: 'Untitled' }));
-
-// Delete nested item
-definition.tables('posts')?.fields('title')?.delete();
+// Collection-style is cleaner for leaf nodes
+definition.tables('posts')?.fields.get('title'); // Returns FieldSchema directly
 ```
 
-## The Complete API
+### Why Property Getters for Fixed Keys
 
-| Want to...                  | Pattern                          |
-| --------------------------- | -------------------------------- |
-| Check if exists             | `if (collection('key'))`         |
-| Get item helper             | `collection('key')`              |
-| Get item snapshot           | `collection('key')?.toJSON()`    |
-| Get all snapshots           | `collection.toJSON()`            |
-| Set item (collection level) | `collection.set('key', value)`   |
-| Set item (helper level)     | `collection('key')?.set(value)`  |
-| Delete item                 | `collection('key')?.delete()`    |
-| List keys                   | `collection.keys()`              |
-| Observe collection          | `collection.observe(cb)`         |
-| Observe item                | `collection('key')?.observe(cb)` |
+Fixed keys like `name`, `icon`, `description` are known at compile time and commonly accessed:
 
-## When to Use
+```typescript
+// Natural syntax for frequent reads
+table.name;
+table.icon;
 
-**Good fit:**
+// vs clunky method calls
+table.getName();
+table.getIcon();
+```
 
-- Dynamic string keys not known at compile time
-- Need utility methods that could collide with keys
-- Want clear separation between helpers and data
-- Building nested/hierarchical accessors
+The asymmetric setter (`setName()` instead of `name =`) makes mutation deliberate.
 
-**Not needed:**
+## When to Use This Pattern
 
-- Fixed, known keys (use regular object)
-- No utility methods (use Map)
-- Simple get/set without per-item operations (use `.get(key)`)
+**Use callable pattern when:**
+
+- Collection items have nested collections or complex operations
+- You need both helper objects AND snapshot access
+- Keys are dynamic strings that could collide with method names
+
+**Use collection-style when:**
+
+- Items are leaf nodes (no further nesting needed)
+- Simple get/set/delete semantics suffice
+- No need for per-item helpers
+
+**Use property getters for:**
+
+- Fixed, known keys (name, icon, description)
+- Fields that are frequently read but rarely written
+- Cleaner syntax for common access patterns
 
 ## Why Not Proxies?
 
@@ -244,10 +402,18 @@ The callable pattern is simpler, explicit, and has excellent TypeScript support.
 
 ## Summary
 
-The Callable Collection Pattern solves namespace collisions by making collections callable:
+| Want to...                    | Pattern                        |
+| ----------------------------- | ------------------------------ |
+| Get item helper (for nesting) | `collection('key')`            |
+| Get item snapshot             | `collection.get('key')`        |
+| Check existence               | `collection.has('key')`        |
+| Get all snapshots             | `collection.toJSON()`          |
+| Get all entries               | `collection.entries()`         |
+| Set item                      | `collection.set('key', value)` |
+| Delete item                   | `collection.delete('key')`     |
+| List keys                     | `collection.keys()`            |
+| Read fixed property           | `helper.name`                  |
+| Write fixed property          | `helper.setName(value)`        |
+| Observe changes               | `collection.observe(cb)`       |
 
-- **Call** `collection('key')` to get an item helper
-- **Access properties** `collection.toJSON()` for utilities
-- No collision, no prefixes, no proxies
-- Excellent TypeScript inference
-- Natural composition for nested structures
+The Callable Collection Pattern provides a clean, type-safe API for hierarchical data structures while avoiding namespace collisions and maintaining excellent developer ergonomics.
