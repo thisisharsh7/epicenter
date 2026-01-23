@@ -802,26 +802,6 @@ describe('KV Helpers', () => {
 			}
 		});
 
-		test('defined() returns all helpers', () => {
-			const ydoc = new Y.Doc({ guid: 'test-kv' });
-			const kv = createKv(ydoc, {
-				theme: setting({
-					name: '',
-					field: select({ options: ['light', 'dark'], default: 'light' }),
-				}),
-				count: setting({ name: '', field: integer({ default: 0 }) }),
-				enabled: setting({ name: '', field: boolean({ default: true }) }),
-			});
-
-			const all = kv.all();
-			expect(all).toHaveLength(3);
-			expect(all.map((h) => h.name).sort()).toEqual([
-				'count',
-				'enabled',
-				'theme',
-			]);
-		});
-
 		test('toJSON() serializes all values', () => {
 			const ydoc = new Y.Doc({ guid: 'test-kv' });
 			const kv = createKv(ydoc, {

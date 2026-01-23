@@ -14,7 +14,7 @@ export type { KvHelper } from './kv-helper';
  * Callable function type for accessing KV entries.
  *
  * The kv object is a callable function: `kv('theme')` returns a KvHelper.
- * It also has properties for utility methods: `kv.has()`, `kv.names()`, etc.
+ * It also has properties for utility methods: `kv.has()`, `kv.definitions`, etc.
  *
  * This pattern eliminates collision risk between user-defined key names and
  * utility methods, since user names only appear as function arguments.
@@ -45,16 +45,6 @@ export type KvFunction<TKvDefinitionMap extends KvDefinitionMap> = {
 	 * Check if a KV key has a value set in YJS storage.
 	 */
 	has(name: string): boolean;
-
-	/**
-	 * Get all defined KV key names.
-	 */
-	names(): (keyof TKvDefinitionMap & string)[];
-
-	/**
-	 * Get all KV helpers as an array.
-	 */
-	all(): KvHelper<TKvDefinitionMap[keyof TKvDefinitionMap]['field']>[];
 
 	// ════════════════════════════════════════════════════════════════════
 	// BULK OPERATIONS
@@ -143,10 +133,6 @@ export function createKv<TKvDefinitionMap extends KvDefinitionMap>(
 	const ykvMap = ydoc.getMap<KvValue>('kv');
 	const kvHelpers = createKvHelpers({ ydoc, definitions });
 
-	const definedKeyNames = Object.keys(definitions) as Array<
-		keyof TKvDefinitionMap & string
-	>;
-
 	// ════════════════════════════════════════════════════════════════════
 	// BUILD CALLABLE FUNCTION WITH PROPERTIES
 	// ════════════════════════════════════════════════════════════════════
@@ -181,45 +167,6 @@ export function createKv<TKvDefinitionMap extends KvDefinitionMap>(
 		 */
 		has(name: string): boolean {
 			return ykvMap.has(name);
-		},
-
-		/**
-		 * Get all defined KV key names.
-		 *
-		 * @example
-		 * ```typescript
-		 * kv.names()  // ['theme', 'fontSize', ...]
-		 * ```
-		 */
-		names(): (keyof TKvDefinitionMap & string)[] {
-			return [...definedKeyNames];
-		},
-
-		/**
-		 * Get all KV helpers as an array.
-		 *
-		 * Useful for providers and initializers that need to iterate over all keys.
-		 *
-		 * @example
-		 * ```typescript
-		 * // Log all current values
-		 * for (const helper of kv.all()) {
-		 *   const result = helper.get();
-		 *   if (result.status === 'valid') {
-		 *     console.log(helper.name, result.value);
-		 *   }
-		 * }
-		 *
-		 * // Reset all keys to defaults
-		 * for (const helper of kv.all()) {
-		 *   helper.reset();
-		 * }
-		 * ```
-		 */
-		all(): KvHelper<TKvDefinitionMap[keyof TKvDefinitionMap]['field']>[] {
-			return Object.values(kvHelpers) as KvHelper<
-				TKvDefinitionMap[keyof TKvDefinitionMap]['field']
-			>[];
 		},
 
 		// ════════════════════════════════════════════════════════════════════

@@ -74,11 +74,6 @@ export type TablesFunction<TTableDefinitionMap extends TableDefinitionMap> = {
 	names(): string[];
 
 	/**
-	 * Get all table helpers that exist in YJS (defined + dynamic).
-	 */
-	all(): UntypedTableHelper[];
-
-	/**
 	 * Get names of only definition-declared tables.
 	 */
 	definedNames(): (keyof TTableDefinitionMap & string)[];
@@ -98,11 +93,6 @@ export type TablesFunction<TTableDefinitionMap extends TableDefinitionMap> = {
 	 * Clear all rows in defined tables.
 	 */
 	clear(): void;
-
-	/**
-	 * Delete a table entirely from YJS storage.
-	 */
-	drop(name: string): boolean;
 
 	// ════════════════════════════════════════════════════════════════════
 	// METADATA
@@ -274,35 +264,6 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 		},
 
 		/**
-		 * Get all table helpers that exist in YJS (defined + undefined).
-		 *
-		 * Returns helpers for every table that has been created in YJS storage,
-		 * including both definition-declared tables and dynamically-created tables.
-		 *
-		 * @example
-		 * ```typescript
-		 * for (const helper of tables.all()) {
-		 *   console.log(helper.name, helper.count())
-		 * }
-		 * ```
-		 */
-		all(): UntypedTableHelper[] {
-			const helpers: UntypedTableHelper[] = [];
-			for (const name of ytables.keys()) {
-				if (name in tableHelpers) {
-					helpers.push(
-						tableHelpers[
-							name as keyof typeof tableHelpers
-						] as UntypedTableHelper,
-					);
-				} else {
-					helpers.push(getOrCreateDynamicHelper(name));
-				}
-			}
-			return helpers;
-		},
-
-		/**
 		 * Get names of only definition-declared tables.
 		 *
 		 * @example
@@ -351,27 +312,6 @@ export function createTables<TTableDefinitionMap extends TableDefinitionMap>(
 					tableHelpers[tableName as keyof typeof tableHelpers].clear();
 				}
 			});
-		},
-
-		/**
-		 * Delete a table entirely from YJS storage.
-		 *
-		 * Removes the table and all its rows. Use with caution.
-		 *
-		 * @returns true if the table existed and was deleted, false otherwise
-		 *
-		 * @example
-		 * ```typescript
-		 * tables.drop('temporary_data')  // true if deleted
-		 * ```
-		 */
-		drop(name: string): boolean {
-			if (!ytables.has(name)) {
-				return false;
-			}
-			ytables.delete(name);
-			dynamicTableHelpers.delete(name);
-			return true;
 		},
 
 		// ════════════════════════════════════════════════════════════════════
