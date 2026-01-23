@@ -92,6 +92,38 @@ If multiple clients might create the same key concurrently, don't assign a fresh
 
 For detailed solutions, see [The Nested Y.Map Trap](./yjs-nested-maps-lww-trap.md).
 
+## Try It Yourself
+
+Copy this into a file and run with `bun` or `tsx` to see the behavior:
+
+```typescript
+import * as Y from 'yjs';
+
+// Simulate two clients syncing
+const sync = (a: Y.Doc, b: Y.Doc) => {
+	Y.applyUpdate(a, Y.encodeStateAsUpdate(b));
+	Y.applyUpdate(b, Y.encodeStateAsUpdate(a));
+};
+
+const docA = new Y.Doc();
+const docB = new Y.Doc();
+
+// Both clients create "posts" with different data BEFORE syncing
+docA.getMap('tables').set('posts', new Y.Map([['from', 'A']]));
+docB.getMap('tables').set('posts', new Y.Map([['from', 'B']]));
+
+console.log('Before sync:');
+console.log('  A:', docA.getMap('tables').get('posts')?.toJSON()); // { from: 'A' }
+console.log('  B:', docB.getMap('tables').get('posts')?.toJSON()); // { from: 'B' }
+
+sync(docA, docB);
+
+console.log('After sync:');
+console.log('  A:', docA.getMap('tables').get('posts')?.toJSON()); // One of them
+console.log('  B:', docB.getMap('tables').get('posts')?.toJSON()); // Same as A
+// One client's data is gone!
+```
+
 ## TL;DR
 
 - `doc.getMap('name')` → singleton by name, always safe
