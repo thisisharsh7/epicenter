@@ -436,7 +436,7 @@ function createAsyncClientBuilder<
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Re-export schema field factories for defining workspace tables.
+ * Re-export field schema factories for defining workspace tables.
  *
  * These are the building blocks for table definitions:
  *

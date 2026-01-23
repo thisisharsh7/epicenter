@@ -2,7 +2,7 @@
  * Workspace definition and creation for YJS-first collaborative workspaces.
  *
  * This module provides the core workspace API:
- * - {@link defineWorkspace} - Type inference helper for workspace schemas (pass-through)
+ * - {@link defineWorkspace} - Type inference helper for workspace definitions (pass-through)
  * - {@link createClient} - Factory to create workspaces with builder pattern
  * - {@link WorkspaceDoc} - The unified workspace abstraction (from workspace-doc.ts)
  * - {@link WorkspaceDefinition} - Definition type for `.withDefinition()` (tables + kv only)
@@ -23,10 +23,10 @@
  * │         │                       │                                           │
  * │         ▼                       ▼                                           │
  * │   .withExtensions({})       WorkspaceDoc                                    │
- * │         │                   (dynamic schema)                                │
+ * │         │                   (dynamic definition)                            │
  * │         ▼                                                                   │
  * │   WorkspaceDoc                                                              │
- * │   (static schema)                                                           │
+ * │   (static definition)                                                       │
  * └─────────────────────────────────────────────────────────────────────────────┘
  * ```
  *
@@ -343,9 +343,9 @@ export function defineWorkspace<
  * client.tables.recordings.upsert({ ... });
  * ```
  *
- * ## Path 2: Dynamic Schema (Y.Doc-Defined)
+ * ## Path 2: Dynamic Definition (Y.Doc-Defined)
  *
- * For the Epicenter app where schema lives in the Y.Doc:
+ * For the Epicenter app where definition lives in the Y.Doc:
  *
  * ```typescript
  * const head = createHeadDoc({ workspaceId: 'my-workspace', providers: {} });
@@ -356,7 +356,7 @@ export function defineWorkspace<
  *   });
  *
  * await client.whenSynced;
- * // Schema is read from Y.Doc after persistence loads
+ * // Definition is read from Y.Doc after persistence loads
  * ```
  *
  * ## Without Extensions
@@ -428,7 +428,7 @@ function createClientBuilder<
 		> {
 			// createWorkspaceDoc handles both:
 			// 1. Creating typed table/kv helpers from definitions
-			// 2. Merging schema into Y.Doc after extensions sync
+			// 2. Merging definition into Y.Doc after extensions sync
 			return createWorkspaceDoc({
 				workspaceId: config.id,
 				epoch: config.epoch,
