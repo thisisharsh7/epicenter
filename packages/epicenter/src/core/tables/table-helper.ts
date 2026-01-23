@@ -159,7 +159,7 @@ export function createTableHelpers<
 					ydoc,
 					tableName,
 					ytables,
-					schema: tableDefinition.fields,
+					fields: tableDefinition.fields,
 				}),
 			];
 		}),
@@ -186,16 +186,16 @@ function createTableHelper<TFieldMap extends FieldMap>({
 	ydoc,
 	tableName,
 	ytables,
-	schema,
+	fields,
 }: {
 	ydoc: Y.Doc;
 	tableName: string;
 	ytables: TablesMap;
-	schema: TFieldMap;
+	fields: TFieldMap;
 }) {
 	type TRow = Row<TFieldMap>;
 
-	const typeboxSchema = fieldsToTypebox(schema);
+	const typeboxSchema = fieldsToTypebox(fields);
 	const rowValidator = Compile(typeboxSchema);
 
 	/**

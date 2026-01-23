@@ -96,11 +96,9 @@ function convertTableToDrizzle<
 >(tableName: TTableName, fieldsSchema: TFieldMap) {
 	const columns = Object.fromEntries(
 		Object.keys(fieldsSchema).map((fieldKey) => {
-			const schema = fieldsSchema[fieldKey as keyof TFieldMap]!;
-			const sqlColumnName = schema.name
-				? toSqlIdentifier(schema.name)
-				: fieldKey;
-			return [fieldKey, convertFieldToDrizzle(sqlColumnName, schema)];
+			const field = fieldsSchema[fieldKey as keyof TFieldMap]!;
+			const sqlColumnName = field.name ? toSqlIdentifier(field.name) : fieldKey;
+			return [fieldKey, convertFieldToDrizzle(sqlColumnName, field)];
 		}),
 	) as {
 		[Key in keyof TFieldMap]: FieldToDrizzle<TFieldMap[Key]>;

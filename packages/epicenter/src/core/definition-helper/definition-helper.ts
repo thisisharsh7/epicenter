@@ -120,8 +120,8 @@ function createFieldsCollection(
 			return Array.from(fieldsMap.entries());
 		},
 
-		set(fieldName, schema) {
-			getOrCreateFieldsMap().set(fieldName, schema);
+		set(fieldName, field) {
+			getOrCreateFieldsMap().set(fieldName, field);
 		},
 
 		delete(fieldName) {
@@ -834,7 +834,7 @@ function createKvCollection(definitionMap: DefinitionYMap): KvCollection {
  *     ├── .toJSON()                   → Record<string, Field>
  *     ├── .keys()                     → string[]
  *     ├── .entries()                  → [string, Field][]
- *     ├── .set(name, schema)          → void
+ *     ├── .set(name, field)           → void
  *     ├── .delete(name)               → boolean
  *     └── .observe(cb)                → unsubscribe
  * ```

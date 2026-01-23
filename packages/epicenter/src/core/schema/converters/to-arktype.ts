@@ -88,7 +88,7 @@ export type FieldToArktype<C extends Field> = C extends IdField
  * available (.partial(), .merge(), .array(), etc.). Use this for validating
  * complete row objects.
  *
- * @param fieldsSchema - The table schema to convert
+ * @param fields - The table schema to convert
  * @returns Complete arktype Type instance with composition methods
  *
  * @example
@@ -113,11 +113,11 @@ export type FieldToArktype<C extends Field> = C extends IdField
  * ```
  */
 export function tableToArktype<TFieldMap extends FieldMap>(
-	fieldsSchema: TFieldMap,
+	fields: TFieldMap,
 ): ObjectType<Row<TFieldMap>> {
 	return type(
 		Object.fromEntries(
-			Object.entries(fieldsSchema).map(([fieldName, fieldDefinition]) => [
+			Object.entries(fields).map(([fieldName, fieldDefinition]) => [
 				fieldName,
 				fieldToArktype(fieldDefinition),
 			]),

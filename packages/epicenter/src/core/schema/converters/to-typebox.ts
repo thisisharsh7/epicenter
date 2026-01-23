@@ -91,7 +91,7 @@ export type FieldToTypebox<C extends Field> = C extends IdField
  * Use this when you need to validate entire row objects. The resulting schema
  * can be compiled to a JIT validator for high-performance validation.
  *
- * @param fieldsSchema - The table schema containing all field definitions
+ * @param fields - The table schema containing all field definitions
  * @returns A TypeBox TObject schema representing the table structure
  *
  * @example
@@ -113,11 +113,11 @@ export type FieldToTypebox<C extends Field> = C extends IdField
  * ```
  */
 export function fieldsToTypebox<TFieldMap extends FieldMap>(
-	fieldsSchema: TFieldMap,
+	fields: TFieldMap,
 ): TObject {
 	const properties: Record<string, TSchema> = {};
 
-	for (const [fieldName, fieldDefinition] of Object.entries(fieldsSchema)) {
+	for (const [fieldName, fieldDefinition] of Object.entries(fields)) {
 		properties[fieldName] = fieldToTypebox(fieldDefinition);
 	}
 

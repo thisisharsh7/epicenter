@@ -88,7 +88,7 @@ export type FieldToYjsArktype<C extends Field> = C extends IdField
  * correctly-typed values. Unlike `tableToArktype`, this is designed
  * for validating live YJS data before returning it to consumers.
  *
- * @param fieldsSchema - The table schema to convert
+ * @param fields - The table schema to convert
  * @returns Complete arktype Type instance that validates Row objects
  *
  * @example
@@ -112,11 +112,11 @@ export type FieldToYjsArktype<C extends Field> = C extends IdField
  * ```
  */
 export function tableToYjsArktype<TFieldMap extends FieldMap>(
-	fieldsSchema: TFieldMap,
+	fields: TFieldMap,
 ): ObjectType<Row<TFieldMap>> {
 	return type(
 		Object.fromEntries(
-			Object.entries(fieldsSchema).map(([fieldName, fieldDefinition]) => [
+			Object.entries(fields).map(([fieldName, fieldDefinition]) => [
 				fieldName,
 				fieldToYjsArktype(fieldDefinition),
 			]),
