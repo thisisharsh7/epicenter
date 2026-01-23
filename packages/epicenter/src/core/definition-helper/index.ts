@@ -6,8 +6,6 @@ export {
 	type FieldsMap,
 	type KvDefinitionHelper,
 	type KvDefinitionMap,
-	type StoredKvDefinition,
-	type StoredTableDefinition,
 	type TableDefinitionHelper,
 	type TableMetadata,
 	type TablesDefinitionHelper,

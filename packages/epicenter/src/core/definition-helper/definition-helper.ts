@@ -4,6 +4,7 @@ import type {
 	WorkspaceDefinitionMap,
 } from '../docs/workspace-doc';
 import type {
+	FieldMetadata,
 	FieldSchema,
 	IconDefinition,
 	KvDefinition,
@@ -29,28 +30,8 @@ export type ChangeAction = 'add' | 'delete';
 /** Change action for leaf Y.Map observation (fields can be updated). */
 export type FieldChangeAction = 'add' | 'update' | 'delete';
 
-/** Table metadata (name, icon, description). */
-export type TableMetadata = {
-	name: string;
-	icon: IconDefinition | null;
-	description: string;
-};
-
-/** Stored table definition in Y.Map format. */
-export type StoredTableDefinition = {
-	name: string;
-	icon: IconDefinition | null;
-	description: string;
-	fields: Record<string, FieldSchema>;
-};
-
-/** Stored KV definition in Y.Map format. */
-export type StoredKvDefinition = {
-	name: string;
-	icon: IconDefinition | null;
-	description: string;
-	field: FieldSchema;
-};
+/** Table metadata (name, icon, description). Alias for FieldMetadata. */
+export type TableMetadata = FieldMetadata;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper: Fields sub-helper for a single table
@@ -262,16 +243,15 @@ function createTableDefinitionHelper(
 		/**
 		 * Get the full table definition.
 		 */
-		get(): StoredTableDefinition {
+		get(): TableDefinition {
 			return {
 				name: (tableDefinitionMap.get('name') as string) ?? '',
 				icon: (tableDefinitionMap.get('icon') as IconDefinition | null) ?? null,
 				description: (tableDefinitionMap.get('description') as string) ?? '',
 				fields:
-					((
-						tableDefinitionMap.get('fields') as Y.Map<FieldSchema>
-					)?.toJSON() as Record<string, FieldSchema>) ?? {},
-			};
+					(tableDefinitionMap.get('fields') as Y.Map<FieldSchema>)?.toJSON() ??
+					{},
+			} as TableDefinition;
 		},
 
 		/**
@@ -305,8 +285,8 @@ export type TablesDefinitionHelper = {
 	(tableName: string): TableDefinitionHelper | undefined;
 
 	// Properties
-	get(tableName: string): StoredTableDefinition | undefined;
-	getAll(): Record<string, StoredTableDefinition>;
+	get(tableName: string): TableDefinition | undefined;
+	getAll(): Record<string, TableDefinition>;
 	set(tableName: string, definition: TableDefinition): void;
 	delete(tableName: string): boolean;
 	has(tableName: string): boolean;
@@ -390,7 +370,7 @@ function createTablesDefinitionHelper(
 		 * const postsSchema = definition.tables.get('posts');
 		 * ```
 		 */
-		get(tableName: string): StoredTableDefinition | undefined {
+		get(tableName: string): TableDefinition | undefined {
 			const tablesMap = getTablesMap();
 			if (!tablesMap) return undefined;
 
@@ -402,10 +382,9 @@ function createTablesDefinitionHelper(
 				icon: (tableDefinitionMap.get('icon') as IconDefinition | null) ?? null,
 				description: (tableDefinitionMap.get('description') as string) ?? '',
 				fields:
-					((
-						tableDefinitionMap.get('fields') as Y.Map<FieldSchema>
-					)?.toJSON() as Record<string, FieldSchema>) ?? {},
-			};
+					(tableDefinitionMap.get('fields') as Y.Map<FieldSchema>)?.toJSON() ??
+					{},
+			} as TableDefinition;
 		},
 
 		/**
@@ -419,11 +398,11 @@ function createTablesDefinitionHelper(
 		 * }
 		 * ```
 		 */
-		getAll(): Record<string, StoredTableDefinition> {
+		getAll(): Record<string, TableDefinition> {
 			const tablesMap = getTablesMap();
 			if (!tablesMap) return {};
 
-			const result: Record<string, StoredTableDefinition> = {};
+			const result: Record<string, TableDefinition> = {};
 			for (const [tableName, tableDefinitionMap] of tablesMap.entries()) {
 				result[tableName] = {
 					name: (tableDefinitionMap.get('name') as string) ?? '',
@@ -431,10 +410,10 @@ function createTablesDefinitionHelper(
 						(tableDefinitionMap.get('icon') as IconDefinition | null) ?? null,
 					description: (tableDefinitionMap.get('description') as string) ?? '',
 					fields:
-						((
+						(
 							tableDefinitionMap.get('fields') as Y.Map<FieldSchema>
-						)?.toJSON() as Record<string, FieldSchema>) ?? {},
-				};
+						)?.toJSON() ?? {},
+				} as TableDefinition;
 			}
 			return result;
 		},
@@ -589,7 +568,7 @@ function createKvDefinitionHelper(definitionMap: DefinitionMap) {
 		 * const themeSchema = definition.kv.get('theme');
 		 * ```
 		 */
-		get(keyName: string): StoredKvDefinition | undefined {
+		get(keyName: string): KvDefinition | undefined {
 			const kvMap = getKvMap();
 			if (!kvMap) return undefined;
 
@@ -600,8 +579,8 @@ function createKvDefinitionHelper(definitionMap: DefinitionMap) {
 				name: (kvEntryMap.get('name') as string) ?? '',
 				icon: (kvEntryMap.get('icon') as IconDefinition | null) ?? null,
 				description: (kvEntryMap.get('description') as string) ?? '',
-				field: kvEntryMap.get('field') as FieldSchema,
-			};
+				field: kvEntryMap.get('field'),
+			} as KvDefinition;
 		},
 
 		/**
@@ -615,18 +594,18 @@ function createKvDefinitionHelper(definitionMap: DefinitionMap) {
 		 * }
 		 * ```
 		 */
-		getAll(): Record<string, StoredKvDefinition> {
+		getAll(): Record<string, KvDefinition> {
 			const kvMap = getKvMap();
 			if (!kvMap) return {};
 
-			const result: Record<string, StoredKvDefinition> = {};
+			const result: Record<string, KvDefinition> = {};
 			for (const [keyName, kvEntryMap] of kvMap.entries()) {
 				result[keyName] = {
 					name: (kvEntryMap.get('name') as string) ?? '',
 					icon: (kvEntryMap.get('icon') as IconDefinition | null) ?? null,
 					description: (kvEntryMap.get('description') as string) ?? '',
-					field: kvEntryMap.get('field') as FieldSchema,
-				};
+					field: kvEntryMap.get('field'),
+				} as KvDefinition;
 			}
 			return result;
 		},
