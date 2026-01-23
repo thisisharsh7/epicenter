@@ -5,9 +5,9 @@ import type {
 } from '../docs/workspace-doc';
 import type {
 	FieldSchema,
-	FieldSchemaMap,
 	IconDefinition,
-	KvFieldSchema,
+	KvDefinition,
+	TableDefinition,
 } from '../schema';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -22,28 +22,6 @@ export type KvDefinitionMap = Y.Map<Y.Map<unknown>>;
 
 /** Y.Map storing fields for a single table, keyed by field name. */
 export type FieldsMap = Y.Map<FieldSchema>;
-
-/**
- * Input type for setting a table definition.
- * Allows optional metadata fields (icon, description) that will default.
- */
-export type TableDefinitionInput = {
-	name: string;
-	icon?: IconDefinition | null;
-	description?: string;
-	fields: FieldSchemaMap;
-};
-
-/**
- * Input type for setting a KV definition.
- * Allows optional metadata fields (icon, description) that will default.
- */
-export type KvDefinitionInput = {
-	name: string;
-	icon?: IconDefinition | null;
-	description?: string;
-	field: KvFieldSchema;
-};
 
 /** Change action for nested Y.Map observation. */
 export type ChangeAction = 'add' | 'delete';
@@ -329,7 +307,7 @@ export type TablesDefinitionHelper = {
 	// Properties
 	get(tableName: string): StoredTableDefinition | undefined;
 	getAll(): Record<string, StoredTableDefinition>;
-	set(tableName: string, definition: TableDefinitionInput): void;
+	set(tableName: string, definition: TableDefinition): void;
 	delete(tableName: string): boolean;
 	has(tableName: string): boolean;
 	keys(): string[];
@@ -464,25 +442,25 @@ function createTablesDefinitionHelper(
 		/**
 		 * Set (add or update) a table schema.
 		 *
-		 * Icon and description are optional and will default to null and '' respectively.
+		 * Use the `table()` helper to create a normalized TableDefinition:
 		 *
 		 * @example
 		 * ```typescript
-		 * definition.tables.set('tasks', {
+		 * definition.tables.set('tasks', table({
 		 *   name: 'Tasks',
-		 *   icon: { type: 'emoji', value: '✅' },
+		 *   icon: '✅',
 		 *   description: 'Project tasks',
 		 *   fields: { id: id(), title: text() },
-		 * });
+		 * }));
 		 *
-		 * // Minimal form (icon and description optional)
-		 * definition.tables.set('posts', {
+		 * // Minimal form
+		 * definition.tables.set('posts', table({
 		 *   name: 'Posts',
 		 *   fields: { id: id(), title: text() },
-		 * });
+		 * }));
 		 * ```
 		 */
-		set(tableName: string, definition: TableDefinitionInput): void {
+		set(tableName: string, definition: TableDefinition): void {
 			const tablesMap = getOrCreateTablesMap();
 
 			let tableDefinitionMap = tablesMap.get(tableName);
@@ -492,8 +470,8 @@ function createTablesDefinitionHelper(
 			}
 
 			tableDefinitionMap.set('name', definition.name);
-			tableDefinitionMap.set('icon', definition.icon ?? null);
-			tableDefinitionMap.set('description', definition.description ?? '');
+			tableDefinitionMap.set('icon', definition.icon);
+			tableDefinitionMap.set('description', definition.description);
 
 			// Set fields
 			let fieldsMap = tableDefinitionMap.get('fields') as FieldsMap | undefined;
@@ -656,25 +634,25 @@ function createKvDefinitionHelper(definitionMap: DefinitionMap) {
 		/**
 		 * Set (add or update) a KV schema.
 		 *
-		 * Icon and description are optional and will default to null and '' respectively.
+		 * Use the `setting()` helper to create a normalized KvDefinition:
 		 *
 		 * @example
 		 * ```typescript
-		 * definition.kv.set('theme', {
+		 * definition.kv.set('theme', setting({
 		 *   name: 'Theme',
 		 *   icon: { type: 'emoji', value: '🎨' },
 		 *   description: 'Application color theme',
 		 *   field: select({ options: ['light', 'dark'], default: 'light' }),
-		 * });
+		 * }));
 		 *
-		 * // Minimal form (icon and description optional)
-		 * definition.kv.set('count', {
+		 * // Minimal form
+		 * definition.kv.set('count', setting({
 		 *   name: 'Count',
 		 *   field: integer({ default: 0 }),
-		 * });
+		 * }));
 		 * ```
 		 */
-		set(keyName: string, definition: KvDefinitionInput): void {
+		set(keyName: string, definition: KvDefinition): void {
 			const kvMap = getOrCreateKvMap();
 
 			let kvEntryMap = kvMap.get(keyName);
@@ -684,8 +662,8 @@ function createKvDefinitionHelper(definitionMap: DefinitionMap) {
 			}
 
 			kvEntryMap.set('name', definition.name);
-			kvEntryMap.set('icon', definition.icon ?? null);
-			kvEntryMap.set('description', definition.description ?? '');
+			kvEntryMap.set('icon', definition.icon);
+			kvEntryMap.set('description', definition.description);
 			kvEntryMap.set('field', definition.field);
 		},
 
@@ -824,14 +802,14 @@ export function createDefinition(definitionMap: DefinitionMap) {
 		 *     users: table({ name: 'Users', fields: { id: id(), name: text() } }),
 		 *   },
 		 *   kv: {
-		 *     theme: { name: 'Theme', field: select({ options: ['light', 'dark'] }) },
+		 *     theme: setting({ name: 'Theme', field: select({ options: ['light', 'dark'] }) }),
 		 *   },
 		 * });
 		 * ```
 		 */
 		merge(input: {
-			tables?: Record<string, TableDefinitionInput>;
-			kv?: Record<string, KvDefinitionInput>;
+			tables?: Record<string, TableDefinition>;
+			kv?: Record<string, KvDefinition>;
 		}): void {
 			if (input.tables) {
 				for (const [tableName, tableDefinition] of Object.entries(
