@@ -14,7 +14,7 @@ I tried several approaches:
 
 **Copy and delete**: Set the new key, delete the old key. But if an old client writes to the old key after deletion, that write can "win" and resurrect the old key. Now you have data in both places.
 
-**Legacy key fallback**: Read from new key, fall back to old key if missing. This works, but you accumulate legacy keys forever. Every field rename adds another fallback. The read logic gets ugly.
+**Legacy key fallback**: Read from new key, fall back to old key if missing. I tried this pattern extensively. It works, but you accumulate legacy keys forever. Every field rename adds another fallback. Your read logic becomes a graveyard of `legacyKeys: ['oldName', 'olderName', 'ancientName']`. And you still have edge cases where old clients write to old keys after you've "migrated."
 
 **Migration markers**: Track which clients have migrated. Coordinate somehow. This gets complex fast and still doesn't solve the offline client problem.
 
@@ -57,6 +57,18 @@ const recordings = defineTable({
 ```
 
 No migration. No data changes. No legacy fallbacks. The internal ID stays the same; only the mapping changes.
+
+## What This Eliminates
+
+By committing to "internal keys never change," you eliminate an entire category of bugs:
+
+- **Data resurrection**: Old client writes to deleted key? Can't happen. The key was never deleted.
+- **Split-brain data**: Data in both old and new keys? Can't happen. There's only one key.
+- **Legacy key accumulation**: Read logic checking five fallback keys? Gone. One key, one read.
+- **Migration race conditions**: Two clients migrating simultaneously? Not a thing. Nothing to migrate.
+- **Version coordination**: Tracking who's migrated? Unnecessary. The schema handles interpretation.
+
+The pattern doesn't just make renaming easier. It makes renaming a non-operation at the data layer. You're not "handling" renames; you're making them structurally impossible to get wrong.
 
 ## The Trade-off
 
