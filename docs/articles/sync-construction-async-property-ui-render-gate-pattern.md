@@ -2,7 +2,7 @@
 
 > The initialization of the client is synchronous. The async work is stored as a property you can await, while passing the reference around.
 
-**Related**: [Skill reference](/skills/sync-construction-async-property-ui-render-gate-pattern/SKILL.md)
+**Related**: [Skill reference](/.claude/skills/sync-construction-async-property-ui-render-gate-pattern/SKILL.md)
 
 A common pattern in UI frameworks: make client initialization synchronous. The async work is stored as a property you can await, while passing the reference around.
 

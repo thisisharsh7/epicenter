@@ -2,7 +2,7 @@
 
 ## Skills
 
-Skills are located in `skills/` and are automatically discovered by their `SKILL.md` files. Each skill has a `description` field that explains when to use it. Load skills on-demand based on the task at hand.
+Skills are located in `.claude/skills/` and are automatically discovered by their `SKILL.md` files. Each skill has a `description` field that explains when to use it. Load skills on-demand based on the task at hand.
 
 ### Available Skills
 

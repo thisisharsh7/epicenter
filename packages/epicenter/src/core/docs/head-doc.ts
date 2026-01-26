@@ -111,7 +111,7 @@ export type WorkspaceMeta = {
  * ```
  *
  * @see https://learn.yjs.dev/lessons/02-counter/ - The counter pattern this is based on
- * @see skills/yjs/SKILL.md - Single-Writer Keys pattern documentation
+ * @see .claude/skills/yjs/SKILL.md - Single-Writer Keys pattern documentation
  */
 export function createHeadDoc<T extends ProviderFactoryMap>(options: {
 	workspaceId: string;

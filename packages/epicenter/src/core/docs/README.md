@@ -408,4 +408,4 @@ const client = createClient(definition.id, { epoch })
 ## References
 
 - [learn.yjs.dev Counter Lesson](https://learn.yjs.dev/lessons/02-counter/) - The per-client key pattern
-- [skills/yjs/SKILL.md](../../../../skills/yjs/SKILL.md) - Single-Writer Keys pattern documentation
+- [.claude/skills/yjs/SKILL.md](../../../../.claude/skills/yjs/SKILL.md) - Single-Writer Keys pattern documentation

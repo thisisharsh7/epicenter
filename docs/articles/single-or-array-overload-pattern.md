@@ -117,4 +117,4 @@ Skip overloads when the union type is clear enough.
 
 ## Related
 
-- [Skill reference](../../skills/single-or-array-pattern/SKILL.md)
+- [Skill reference](../../.claude/skills/single-or-array-pattern/SKILL.md)
