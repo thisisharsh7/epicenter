@@ -85,19 +85,34 @@ const posts = defineTable('posts')
 
 ## How Validation Works
 
-Internally, Epicenter creates a union of all your schemas:
+Internally, Epicenter creates a union of all your schemas using Standard Schema:
 
 ```typescript
-// Conceptually:
-const unionSchema = schema1 | schema2 | schema3;
+function createUnionStandardSchema(schemas: StandardSchemaV1[]): StandardSchemaV1 {
+  return {
+    '~standard': {
+      version: 1,
+      vendor: 'epicenter',
+      validate: (value) => {
+        for (const schema of schemas) {
+          const result = schema['~standard'].validate(value);
+          if (!result.issues) return result;  // Found a match
+        }
+        return { issues: [{ message: 'No schema version matched' }] };
+      }
+    }
+  };
+}
 ```
 
 When you read data:
-1. Validate against the union (any version is valid)
+1. Validate against the union (tries each schema until one matches)
 2. Run the migration function to normalize to latest
 3. Return strongly-typed latest version
 
-This uses Standard Schema, so you can use any validation library: ArkType, Zod, TypeBox, Valibot.
+**Library-agnostic by design.** Because we use Standard Schema (the common interface implemented by validation libraries), you can use ArkType, Zod, TypeBox, or Valibot. Mix and match if you want - they all work.
+
+Note: ArkType automatically discriminates unions for O(1) performance. For other libraries, validation is O(n) where n = number of versions. For typical apps with 3-5 versions, this is negligible.
 
 ## The Discriminator Pattern
 
@@ -129,6 +144,52 @@ Without a discriminator, you have to check for field presence, which is fragile:
   return row;
 })
 ```
+
+## Migration Strategy: Incremental vs Direct
+
+Your migration function receives any version and must return the latest. You have two choices:
+
+**Incremental (v1→v2→v3):**
+```typescript
+.migrate((row) => {
+  let current = row;
+  if (current._v === '1') current = { ...current, views: 0, _v: '2' as const };
+  if (current._v === '2') current = { ...current, tags: [], _v: '3' as const };
+  return current;
+})
+```
+
+**Direct (v1→v3):**
+```typescript
+.migrate((row) => {
+  switch (row._v) {
+    case '1': return { ...row, views: 0, tags: [], _v: '3' as const };
+    case '2': return { ...row, tags: [], _v: '3' as const };
+    case '3': return row;
+  }
+})
+```
+
+Both work. Direct is slightly more efficient (fewer object spreads) but incremental is easier to maintain as you add versions. The choice is yours - Epicenter doesn't enforce either pattern.
+
+## Why a Single `.migrate()` Function?
+
+We considered putting migrations on each `.version()` call:
+
+```typescript
+// Alternative API we didn't choose
+.version(v1Schema)
+.version(v2Schema, (v1) => ({ ...v1, views: 0 }))
+.version(v3Schema, (v2) => ({ ...v2, tags: [] }))
+```
+
+We chose a single `.migrate()` at the end because:
+
+1. **Full control** - You can implement incremental, direct, or hybrid strategies
+2. **Simpler types** - The function receives a union and returns the latest
+3. **Easier refactoring** - All migration logic in one place
+
+The trade-off is you must handle all versions yourself, but TypeScript helps ensure you don't miss any.
 
 ## KV Storage
 

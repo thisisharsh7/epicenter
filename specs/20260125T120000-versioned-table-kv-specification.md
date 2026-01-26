@@ -86,6 +86,26 @@ const posts = defineTable('posts')
 
 **Both patterns are fully supported**, but Pattern 1 is the recommended approach for production use.
 
+### Design Decision: Why User-Defined Discriminator?
+
+We considered having the library automatically inject a `__v` field:
+
+```typescript
+// Alternative: Library-managed version field (NOT chosen)
+.version(schema1)  // Library adds __v: 1
+.version(schema2)  // Library adds __v: 2
+```
+
+**We chose user-defined discriminators instead because:**
+
+1. **No magic** - Users see exactly what's in their data
+2. **Flexibility** - Users can name it `_v`, `version`, `schemaVersion`, whatever fits their domain
+3. **Value flexibility** - Users can use numbers (`1, 2, 3`), strings (`'v1', 'v2'`), or anything else
+4. **Simpler implementation** - Library doesn't need to inject/strip fields
+5. **Debugging clarity** - When you look at raw data, you see the version field you defined
+
+The trade-off is users must remember to add the discriminator. We mitigate this by strongly recommending it in documentation.
+
 ### Standard Schema Union
 
 Internally, schemas are combined into a Standard Schema union:
@@ -111,6 +131,25 @@ function createUnionStandardSchema<TSchemas extends StandardSchemaV1[]>(
 ```
 
 This works with any Standard Schema-compatible library (Zod, ArkType, TypeBox, Valibot).
+
+### Design Decision: Why Standard Schema Union?
+
+We considered several validation strategies:
+
+| Strategy | How It Works | Performance | Pros | Cons |
+|----------|--------------|-------------|------|------|
+| **Try schemas newest-first** | Iterate and try each schema until one passes | O(n) | No discriminator needed | Schemas can overlap (v2 data might pass v1 validation) |
+| **Check discriminator, then validate** | Read `_v` field, validate against that schema | O(1) | Fast, precise | Requires discriminator in data |
+| **Standard Schema union** | Create union schema, let library handle it | O(n) or O(1)* | Library-agnostic, works with any validation library | Depends on library implementation |
+
+*ArkType auto-discriminates unions for O(1). Other libraries are O(n).
+
+**We chose Standard Schema union because:**
+
+1. **Library-agnostic** - Users can use Zod, ArkType, TypeBox, Valibot, or mix
+2. **No data requirements** - Works even without a discriminator field
+3. **Simple implementation** - Just wrap schemas in a union
+4. **Future-proof** - As validation libraries improve, we get the benefits automatically
 
 ---
 
@@ -196,6 +235,44 @@ const simpleTable = defineTable('simple')
   .version(type({ id: 'string', name: 'string' }))
   .migrate((row) => row);
 ```
+
+### Design Decision: Why `.version().migrate()` API Shape?
+
+We considered several API patterns:
+
+**Option A: Explicit version numbers (not chosen)**
+```typescript
+defineTable('posts')
+  .v1(schema1)
+  .v2(schema2)
+  .v3(schema3)
+  .migrate(fn);
+```
+Rejected: Verbose, limits to predefined version count.
+
+**Option B: Migration per version (not chosen)**
+```typescript
+defineTable('posts')
+  .version(schema1)
+  .version(schema2, (v1) => ({ ...v1, views: 0 }))
+  .version(schema3, (v2) => ({ ...v2, author: null }));
+```
+Rejected: Couples migration to version definition, harder to do direct jumps (v1→v3).
+
+**Option C: `.version().migrate()` (chosen)**
+```typescript
+defineTable('posts')
+  .version(schema1)
+  .version(schema2)
+  .version(schema3)
+  .migrate(fn);
+```
+
+**Why we chose this:**
+1. **Clean separation** - Schema definitions separate from migration logic
+2. **Full control** - User implements migration however they want (incremental, direct, hybrid)
+3. **Simpler types** - Migration function is `(V1 | V2 | V3) => V3`
+4. **Familiar pattern** - Builder pattern with terminal `.migrate()` is intuitive
 
 ### Table Helper Methods
 
