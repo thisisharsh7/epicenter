@@ -26,9 +26,9 @@ import type { Field } from './types';
  * ```
  */
 export function isNullableField(
-	schema: Pick<Field, 'type'> & { nullable?: boolean },
+	field: Pick<Field, 'type'> & { nullable?: boolean },
 ): boolean {
-	if (schema.type === 'id') return false;
-	if (schema.type === 'richtext') return true;
-	return schema.nullable === true;
+	if (field.type === 'id') return false;
+	if (field.type === 'richtext') return true;
+	return field.nullable === true;
 }

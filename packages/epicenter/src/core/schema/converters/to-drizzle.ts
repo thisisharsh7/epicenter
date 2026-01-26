@@ -210,19 +210,19 @@ type FieldToDrizzle<C extends Field> = C extends IdField
 
 function convertFieldToDrizzle<C extends Field>(
 	columnName: string,
-	schema: C,
+	field: C,
 ): FieldToDrizzle<C> {
-	const isNullable = isNullableField(schema);
+	const isNullable = isNullableField(field);
 
-	switch (schema.type) {
+	switch (field.type) {
 		case 'id':
 			return text(columnName).primaryKey().notNull() as FieldToDrizzle<C>;
 
 		case 'text': {
 			let column = text(columnName);
 			if (!isNullable) column = column.notNull();
-			if (schema.default !== undefined) {
-				column = column.default(schema.default);
+			if (field.default !== undefined) {
+				column = column.default(field.default);
 			}
 			return column as FieldToDrizzle<C>;
 		}
@@ -236,8 +236,8 @@ function convertFieldToDrizzle<C extends Field>(
 		case 'integer': {
 			let column = integer(columnName);
 			if (!isNullable) column = column.notNull();
-			if (schema.default !== undefined) {
-				column = column.default(schema.default);
+			if (field.default !== undefined) {
+				column = column.default(field.default);
 			}
 			return column as FieldToDrizzle<C>;
 		}
@@ -245,8 +245,8 @@ function convertFieldToDrizzle<C extends Field>(
 		case 'real': {
 			let column = real(columnName);
 			if (!isNullable) column = column.notNull();
-			if (schema.default !== undefined) {
-				column = column.default(schema.default);
+			if (field.default !== undefined) {
+				column = column.default(field.default);
 			}
 			return column as FieldToDrizzle<C>;
 		}
@@ -254,8 +254,8 @@ function convertFieldToDrizzle<C extends Field>(
 		case 'boolean': {
 			let column = integer(columnName, { mode: 'boolean' });
 			if (!isNullable) column = column.notNull();
-			if (schema.default !== undefined) {
-				column = column.default(schema.default);
+			if (field.default !== undefined) {
+				column = column.default(field.default);
 			}
 			return column as FieldToDrizzle<C>;
 		}
@@ -263,39 +263,39 @@ function convertFieldToDrizzle<C extends Field>(
 		case 'date': {
 			const column = date({
 				nullable: isNullable,
-				default: schema.default,
+				default: field.default,
 			});
 			return column as unknown as FieldToDrizzle<C>;
 		}
 
 		case 'select': {
-			let column = text(columnName, { enum: [...schema.options] });
+			let column = text(columnName, { enum: [...field.options] });
 			if (!isNullable) column = column.notNull();
-			if (schema.default !== undefined) {
-				column = column.default(schema.default);
+			if (field.default !== undefined) {
+				column = column.default(field.default);
 			}
 			return column as FieldToDrizzle<C>;
 		}
 
 		case 'tags': {
 			const column = tags({
-				options: schema.options,
+				options: field.options,
 				nullable: isNullable,
-				default: schema.default,
+				default: field.default,
 			});
 			return column as FieldToDrizzle<C>;
 		}
 
 		case 'json': {
 			const column = json({
-				schema: schema.schema,
+				schema: field.schema,
 				nullable: isNullable,
-				default: schema.default,
+				default: field.default,
 			});
 			return column as FieldToDrizzle<C>;
 		}
 
 		default:
-			throw new Error(`Unknown field type: ${(schema as Field).type}`);
+			throw new Error(`Unknown field type: ${(field as Field).type}`);
 	}
 }

@@ -6,26 +6,26 @@ import { tableToArktype } from './to-arktype';
 
 describe('tableToArktype', () => {
 	test('returns a complete arktype Type instance', () => {
-		const schema = {
+		const fields = {
 			id: id(),
 			title: text(),
 			count: integer(),
 		};
 
-		const validator = tableToArktype(schema);
+		const validator = tableToArktype(fields);
 
 		expect(validator).toBeDefined();
 		expect(typeof validator).toBe('function');
 	});
 
 	test('validates complete objects correctly', () => {
-		const schema = {
+		const fields = {
 			id: id(),
 			title: text(),
 			count: integer(),
 		};
 
-		const validator = tableToArktype(schema);
+		const validator = tableToArktype(fields);
 
 		const valid = validator({
 			id: 'test-123',
@@ -37,13 +37,13 @@ describe('tableToArktype', () => {
 	});
 
 	test('rejects invalid objects', () => {
-		const schema = {
+		const fields = {
 			id: id(),
 			title: text(),
 			count: integer(),
 		};
 
-		const validator = tableToArktype(schema);
+		const validator = tableToArktype(fields);
 
 		const invalid = validator({
 			id: 'test-123',
@@ -55,13 +55,13 @@ describe('tableToArktype', () => {
 	});
 
 	test('supports .partial() composition', () => {
-		const schema = {
+		const fields = {
 			id: id(),
 			title: text(),
 			count: integer(),
 		};
 
-		const validator = tableToArktype(schema);
+		const validator = tableToArktype(fields);
 		const partialValidator = validator.partial().merge({ id: type.string });
 
 		// Should allow partial objects
@@ -75,12 +75,12 @@ describe('tableToArktype', () => {
 	});
 
 	test('supports .array() composition', () => {
-		const schema = {
+		const fields = {
 			id: id(),
 			title: text(),
 		};
 
-		const validator = tableToArktype(schema);
+		const validator = tableToArktype(fields);
 		const arrayValidator = validator.array();
 
 		const valid = arrayValidator([
@@ -92,12 +92,12 @@ describe('tableToArktype', () => {
 	});
 
 	test('supports .merge() composition', () => {
-		const schema = {
+		const fields = {
 			id: id(),
 			title: text(),
 		};
 
-		const validator = tableToArktype(schema);
+		const validator = tableToArktype(fields);
 		const merged = validator.merge({ extra: type.boolean });
 
 		const valid = merged({
@@ -110,7 +110,7 @@ describe('tableToArktype', () => {
 	});
 
 	test('handles complex nested schema', () => {
-		const schema = {
+		const fields = {
 			id: id(),
 			title: text(),
 			metadata: json({
@@ -122,7 +122,7 @@ describe('tableToArktype', () => {
 			status: select({ options: ['draft', 'published'] }),
 		};
 
-		const validator = tableToArktype(schema);
+		const validator = tableToArktype(fields);
 
 		const valid = validator({
 			id: 'post-123',
@@ -145,7 +145,7 @@ describe('tableToArktype', () => {
 	});
 
 	test('nullable fields with .default(null) can be omitted and default to null', () => {
-		const schema = {
+		const fields = {
 			id: id(),
 			title: text(),
 			subtitle: text({ nullable: true }),
@@ -156,7 +156,7 @@ describe('tableToArktype', () => {
 			}),
 		};
 
-		const validator = tableToArktype(schema);
+		const validator = tableToArktype(fields);
 
 		// Missing nullable fields should default to null
 		const result = validator({
@@ -174,13 +174,13 @@ describe('tableToArktype', () => {
 	});
 
 	test('required fields must be present even when nullable fields are omitted', () => {
-		const schema = {
+		const fields = {
 			id: id(),
 			title: text(), // required
 			subtitle: text({ nullable: true }), // optional, defaults to null
 		};
 
-		const validator = tableToArktype(schema);
+		const validator = tableToArktype(fields);
 
 		// Missing required field should fail validation
 		const invalid = validator({
@@ -193,13 +193,13 @@ describe('tableToArktype', () => {
 	});
 
 	test('nullable fields accept null explicitly', () => {
-		const schema = {
+		const fields = {
 			id: id(),
 			title: text(),
 			subtitle: text({ nullable: true }),
 		};
 
-		const validator = tableToArktype(schema);
+		const validator = tableToArktype(fields);
 
 		const result = validator({
 			id: 'test-123',
