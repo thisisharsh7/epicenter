@@ -338,7 +338,7 @@ export type ClientBuilder<
  *   kv: {},
  * });
  *
- * const head = createHeadDoc({ workspaceId: 'epicenter.whispering', providers: {} });
+ * const head = createHeadDoc({ workspaceId: 'epicenter-whispering', providers: {} });
  * const client = await createClient(head)
  *   .withDefinition(definition)
  *   .withExtensions({
@@ -458,7 +458,7 @@ function createAsyncClientBuilder<
  *   kv: {},
  * });
  *
- * const head = createHeadDoc({ workspaceId: 'epicenter.blog', providers: {} });
+ * const head = createHeadDoc({ workspaceId: 'epicenter-blog', providers: {} });
  * const client = await createClient(head)
  *   .withDefinition(definition)
  *   .withExtensions({ persistence });

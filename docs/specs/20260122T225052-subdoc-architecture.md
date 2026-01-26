@@ -66,7 +66,7 @@ Separate Y.Docs for each table, plus shared docs for metadata and KV.
                               │  Workspace Doc contains all data
                               ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│  WORKSPACE DOC (guid: "{workspaceId}:{epoch}")                          │
+│  WORKSPACE DOC (guid: "{workspaceId}-{epoch}")                          │
 │  Scope: Shared with all collaborators                                   │
 │  Loaded: When user opens workspace                                      │
 ├─────────────────────────────────────────────────────────────────────────┤
@@ -385,9 +385,9 @@ If we hit scale limits, the migration path to multi-doc:
 
 1. **Add DocManager**: Orchestrates loading/caching of multiple docs
 2. **Split Workspace Doc**:
-   - `{workspaceId}:{epoch}:tables` → schemas only
-   - `{workspaceId}:{epoch}:tables:{tableId}` → row data per table
-   - `{workspaceId}:{epoch}:kv` → settings
+   - `{workspaceId}-{epoch}-tables` → schemas only
+   - `{workspaceId}-{epoch}-tables-{tableId}` → row data per table
+   - `{workspaceId}-{epoch}-kv` → settings
 3. **Update table helpers**: Accept DocManager, lazy-load table docs
 4. **Epoch bump**: Existing workspaces migrate on next epoch bump
 

@@ -105,7 +105,7 @@ export type WorkspaceMeta = {
  *
  * // Observe epoch changes (for reconnecting to new Workspace Doc)
  * const unsubscribe = head.observeEpoch((newEpoch) => {
- *   const workspaceDocId = `${head.workspaceId}:${newEpoch}`;
+ *   const workspaceDocId = `${head.workspaceId}-${newEpoch}`;
  *   // Reconnect to new Workspace Doc
  * });
  * ```
@@ -333,7 +333,7 @@ export function createHeadDoc<T extends ProviderFactoryMap>(options: {
 		 * ```typescript
 		 * const unsubscribe = head.observeEpoch((newEpoch) => {
 		 *   console.log(`Epoch changed to ${newEpoch}`);
-		 *   const workspaceDocId = `${head.workspaceId}:${newEpoch}`;
+		 *   const workspaceDocId = `${head.workspaceId}-${newEpoch}`;
 		 *   // Reconnect to new Workspace Doc...
 		 * });
 		 *

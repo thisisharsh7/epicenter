@@ -207,7 +207,7 @@ export type ExtensionContext<
  * - Extension initialization and lifecycle management
  * - Definition merge and observation capabilities
  *
- * Y.Doc ID: `{workspaceId}:{epoch}`
+ * Y.Doc ID: `{workspaceId}-{epoch}`
  *
  * ## Structure
  *
@@ -276,7 +276,7 @@ export function createWorkspaceDoc<
 	TKvDefinitionMap,
 	InferExtensionExports<TExtensionFactories>
 > {
-	const docId = `${workspaceId}:${epoch}`;
+	const docId = `${workspaceId}-${epoch}`;
 	// gc: false is required for revision history snapshots to work
 	const ydoc = new Y.Doc({ guid: docId, gc: false });
 
