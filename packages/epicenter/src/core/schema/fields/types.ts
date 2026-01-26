@@ -1,219 +1,328 @@
 /**
- * @fileoverview Core schema type definitions
+ * @fileoverview Core field type definitions
  *
  * Contains the foundational types for the schema system:
- * - Field schema types (IdFieldSchema, TextFieldSchema, etc.)
+ * - Field types (IdField, TextField, etc.)
  * - Table and workspace schemas
- * - Row value types (CellValue, SerializedRow, Row)
+ * - Row value types (CellValue, Row, PartialRow)
  *
- * ## Schema Structure
+ * ## Field Structure
  *
- * Each field schema is a pure JSON Schema object with an `x-component` discriminant:
- * - `x-component`: UI component hint (e.g., 'text', 'select', 'tags')
- * - `type`: JSON Schema type, encodes nullability as `['string', 'null']`
+ * Each field is a minimal object with `type` as the discriminant:
+ * - `type`: Field type ('text', 'select', 'tags', etc.)
+ * - `nullable`: Optional boolean for nullability
+ * - Type-specific fields (e.g., `options` for select/tags)
  *
- * Validation is handled by converters (to-arktype, to-standard) rather than
- * being embedded in the schema itself.
+ * This is a Notion-like format optimized for user configuration and storage.
+ * JSON Schema can be derived on-demand for MCP/OpenAPI export.
  *
  * ## Nullability
  *
- * Nullability is encoded in the JSON Schema `type` field:
- * - Non-nullable: `type: 'string'`
- * - Nullable: `type: ['string', 'null']`
+ * Nullability is encoded in a simple boolean `nullable` field:
+ * - Non-nullable: `nullable` omitted or `false`
+ * - Nullable: `nullable: true`
  *
- * This follows JSON Schema conventions and enables round-trip serialization.
+ * Special cases:
+ * - `id`: Never nullable (implicit)
+ * - `richtext`: Always nullable (implicit)
  *
  * ## Related Files
  *
- * - `factories.ts` - Factory functions for creating field schemas
- * - `../converters/` - Converters for arktype, drizzle, json-schema
- * - `nullability.ts` - isNullableFieldSchema helper
+ * - `factories.ts` - Factory functions for creating fields
+ * - `../converters/` - Converters for arktype, drizzle, typebox
+ * - `helpers.ts` - isNullableField helper
  */
 
-import type * as Y from 'yjs';
-import type { YRow } from '../../db/table-helper';
-import type {
-	DateWithTimezone,
-	DateWithTimezoneString,
-} from '../runtime/date-with-timezone';
-import type {
-	StandardSchemaV1,
-	StandardSchemaWithJSONSchema,
-} from '../standard/types';
+import type { Static, TSchema } from 'typebox';
+import type { DateTimeString } from './datetime';
 
 // ============================================================================
-// Column Schema Types
+// Icon Type (Tagged String)
 // ============================================================================
 
 /**
- * ID column schema - auto-generated primary key.
- * Always NOT NULL, always type 'string'.
+ * Icon as a tagged string format: `{type}:{value}`
+ *
+ * Uses template literal types for compile-time safety. Tagged strings are
+ * LWW-safe in YJS (concurrent edits produce valid icons) and require no
+ * encode/decode layer.
+ *
+ * @example
+ * ```typescript
+ * // Emoji icon
+ * const icon: Icon = 'emoji:📝';
+ *
+ * // Lucide icon
+ * const icon: Icon = 'lucide:file-text';
+ *
+ * // External URL
+ * const icon: Icon = 'url:https://example.com/icon.png';
+ *
+ * // Parsing when needed
+ * const [type, value] = icon.split(':') as [IconType, string];
+ * ```
  */
-export type IdFieldSchema = {
-	'x-component': 'id';
-	type: 'string';
+export type Icon = `emoji:${string}` | `lucide:${string}` | `url:${string}`;
+
+/**
+ * Icon type discriminator.
+ */
+export type IconType = 'emoji' | 'lucide' | 'url';
+
+/**
+ * Parse an Icon tagged string into its components.
+ *
+ * @example
+ * ```typescript
+ * const { type, value } = parseIcon('emoji:📝');
+ * // type: 'emoji', value: '📝'
+ * ```
+ */
+export function parseIcon(icon: Icon): { type: IconType; value: string } {
+	const colonIndex = icon.indexOf(':');
+	return {
+		type: icon.slice(0, colonIndex) as IconType,
+		value: icon.slice(colonIndex + 1),
+	};
+}
+
+/**
+ * Create an Icon tagged string from type and value.
+ *
+ * @example
+ * ```typescript
+ * const icon = createIcon('emoji', '📝'); // 'emoji:📝'
+ * ```
+ */
+export function createIcon(type: IconType, value: string): Icon {
+	return `${type}:${value}` as Icon;
+}
+
+/**
+ * Check if a string is a valid Icon format.
+ */
+export function isIcon(value: string): value is Icon {
+	return (
+		value.startsWith('emoji:') ||
+		value.startsWith('lucide:') ||
+		value.startsWith('url:')
+	);
+}
+
+// ============================================================================
+// Field Metadata
+// ============================================================================
+
+/**
+ * Metadata for individual fields (columns) in a table.
+ *
+ * Every field schema includes these properties for Notion-like UI display,
+ * where each column can have its own display name, icon, and description.
+ * Factory functions provide sensible defaults (empty string, null icon).
+ *
+ * ```
+ * TableDefinition
+ * ├── name, icon, description    ← TableMetadata (table-level)
+ * └── fields
+ *     ├── "id"
+ *     │   ├── name, icon, description  ← FieldMetadata (column-level)
+ *     │   └── type: "id"
+ *     └── "title"
+ *         ├── name, icon, description  ← FieldMetadata (column-level)
+ *         ├── type: "text"
+ *         └── nullable: false
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Field with custom metadata
+ * const titleField = text({
+ *   name: 'Post Title',
+ *   icon: 'emoji:📝',
+ *   description: 'The main title displayed on the blog',
+ * });
+ *
+ * // Field with defaults (name: '', icon: null, description: '')
+ * const simpleField = text();
+ * ```
+ */
+export type FieldMetadata = {
+	/** Display name shown in UI. Empty string if not provided. */
+	name: string;
+	/** Description shown in tooltips/docs. Empty string if not provided. */
+	description: string;
+	/** Icon for the field - tagged string format 'type:value'. */
+	icon: Icon | null;
 };
 
 /**
- * Text column schema - single-line string input.
- * Nullability encoded in `type`: `'string'` or `['string', 'null']`.
+ * Options for field factory functions.
+ * All metadata fields are optional; factories provide defaults.
  */
-export type TextFieldSchema<TNullable extends boolean = boolean> = {
-	'x-component': 'text';
-	type: TNullable extends true ? readonly ['string', 'null'] : 'string';
+export type FieldOptions = {
+	/** Display name shown in UI. Defaults to empty string. */
+	name?: string;
+	/** Description shown in tooltips/docs. Defaults to empty string. */
+	description?: string;
+	/** Icon for the field - tagged string format 'type:value'. Defaults to null. */
+	icon?: Icon | null;
+};
+
+// ============================================================================
+// Field Schema Types
+// ============================================================================
+
+/**
+ * ID field - auto-generated primary key.
+ * Always NOT NULL (implicit, no nullable field needed).
+ */
+export type IdField = FieldMetadata & {
+	type: 'id';
+};
+
+/**
+ * Text field - single-line string input.
+ */
+export type TextField<TNullable extends boolean = boolean> = FieldMetadata & {
+	type: 'text';
+	nullable?: TNullable;
 	default?: string;
 };
 
 /**
- * Y.Text column schema - collaborative text using YJS.
- * Stored as Y.Text for real-time collaboration, serializes to string.
- * Ideal for code editors (Monaco, CodeMirror) and rich text (Quill).
+ * Rich text reference field - stores ID pointing to separate rich content document.
+ * The ID references a separate Y.Doc for collaborative editing.
+ * The row itself just stores the string ID (JSON-serializable).
+ *
+ * Always nullable - Y.Docs are created lazily when user first edits.
+ * No need to specify nullable or default; they're implicit.
  */
-export type YtextFieldSchema<TNullable extends boolean = boolean> = {
-	'x-component': 'ytext';
-	type: TNullable extends true ? readonly ['string', 'null'] : 'string';
+export type RichtextField = FieldMetadata & {
+	type: 'richtext';
 };
 
 /**
- * Integer column schema - whole numbers.
- * JSON Schema type is 'integer', not 'number'.
+ * Integer field - whole numbers.
  */
-export type IntegerFieldSchema<TNullable extends boolean = boolean> = {
-	'x-component': 'integer';
-	type: TNullable extends true ? readonly ['integer', 'null'] : 'integer';
+export type IntegerField<TNullable extends boolean = boolean> =
+	FieldMetadata & {
+		type: 'integer';
+		nullable?: TNullable;
+		default?: number;
+	};
+
+/**
+ * Real/float field - decimal numbers.
+ */
+export type RealField<TNullable extends boolean = boolean> = FieldMetadata & {
+	type: 'real';
+	nullable?: TNullable;
 	default?: number;
 };
 
 /**
- * Real/float column schema - decimal numbers.
- * JSON Schema type is 'number'.
+ * Boolean field - true/false values.
  */
-export type RealFieldSchema<TNullable extends boolean = boolean> = {
-	'x-component': 'real';
-	type: TNullable extends true ? readonly ['number', 'null'] : 'number';
-	default?: number;
+export type BooleanField<TNullable extends boolean = boolean> =
+	FieldMetadata & {
+		type: 'boolean';
+		nullable?: TNullable;
+		default?: boolean;
+	};
+
+/**
+ * Date field - timezone-aware dates.
+ * Stored as DateTimeString format: `{iso}|{timezone}`.
+ */
+export type DateField<TNullable extends boolean = boolean> = FieldMetadata & {
+	type: 'date';
+	nullable?: TNullable;
+	default?: DateTimeString;
 };
 
 /**
- * Boolean column schema - true/false values.
- */
-export type BooleanFieldSchema<TNullable extends boolean = boolean> = {
-	'x-component': 'boolean';
-	type: TNullable extends true ? readonly ['boolean', 'null'] : 'boolean';
-	default?: boolean;
-};
-
-/**
- * Date column schema - timezone-aware dates.
- * Stored as DateWithTimezoneString format: `{iso}|{timezone}`.
- * Uses `pattern` for JSON Schema validation (not `format: 'date'` which implies RFC 3339).
- */
-export type DateFieldSchema<TNullable extends boolean = boolean> = {
-	'x-component': 'date';
-	type: TNullable extends true ? readonly ['string', 'null'] : 'string';
-	description: string;
-	pattern: string;
-	default?: DateWithTimezone;
-};
-
-/**
- * Select column schema - single choice from predefined options.
- * Uses JSON Schema `enum` for option validation.
+ * Select field - single choice from predefined options.
  *
  * @example
  * ```typescript
  * {
- *   'x-component': 'select',
- *   type: 'string',
- *   enum: ['draft', 'published', 'archived'],
+ *   type: 'select',
+ *   options: ['draft', 'published', 'archived'],
  *   default: 'draft'
  * }
  * ```
  */
-export type SelectFieldSchema<
+export type SelectField<
 	TOptions extends readonly [string, ...string[]] = readonly [
 		string,
 		...string[],
 	],
 	TNullable extends boolean = boolean,
-> = {
-	'x-component': 'select';
-	type: TNullable extends true ? readonly ['string', 'null'] : 'string';
-	enum: TOptions;
+> = FieldMetadata & {
+	type: 'select';
+	options: TOptions;
+	nullable?: TNullable;
 	default?: TOptions[number];
 };
 
 /**
- * Tags column schema - array of strings with optional validation.
- * Stored as Y.Array for real-time collaboration.
+ * Tags field - array of strings with optional validation.
+ * Stored as plain arrays (JSON-serializable).
  *
  * Two modes:
- * - With `items.enum`: Only values from options are allowed
- * - Without `items.enum`: Any string array is allowed
+ * - With `options`: Only values from options are allowed
+ * - Without `options`: Any string array is allowed
  *
  * @example
  * ```typescript
  * // Validated tags
- * {
- *   'x-component': 'tags',
- *   type: 'array',
- *   items: { type: 'string', enum: ['urgent', 'normal', 'low'] },
- *   uniqueItems: true
- * }
+ * { type: 'tags', options: ['urgent', 'normal', 'low'] }
  *
  * // Unconstrained tags
- * {
- *   'x-component': 'tags',
- *   type: 'array',
- *   items: { type: 'string' },
- *   uniqueItems: true
- * }
+ * { type: 'tags' }
  * ```
  */
-export type TagsFieldSchema<
+export type TagsField<
 	TOptions extends readonly [string, ...string[]] = readonly [
 		string,
 		...string[],
 	],
 	TNullable extends boolean = boolean,
-> = {
-	'x-component': 'tags';
-	type: TNullable extends true ? readonly ['array', 'null'] : 'array';
-	items: { type: 'string'; enum?: TOptions };
-	uniqueItems: true;
+> = FieldMetadata & {
+	type: 'tags';
+	options?: TOptions;
+	nullable?: TNullable;
 	default?: TOptions[number][];
 };
 
 /**
- * JSON column schema - arbitrary JSON validated by a Standard Schema.
+ * JSON field - arbitrary JSON validated by a TypeBox schema.
  *
- * The `schema` property holds a Standard Schema (ArkType, Zod v4.2+, Valibot)
- * that validates the JSON value. The schema must support JSON Schema conversion
- * for MCP/OpenAPI compatibility.
- *
- * **Avoid in schema property:**
- * - Transforms: `.pipe()`, `.transform()`
- * - Custom validation: `.filter()`, `.refine()`
- * - Non-JSON types: `bigint`, `symbol`, `Date`, `Map`, `Set`
+ * The `schema` property holds a TypeBox schema (TSchema), which IS JSON Schema.
+ * TypeBox schemas are plain JSON objects that can be:
+ * - Stored directly in Y.Doc (no conversion needed)
+ * - Compiled to JIT validators using `Compile()` from `typebox/compile`
+ * - Used for TypeScript type inference via `Static<typeof schema>`
  *
  * @example
  * ```typescript
+ * import { Type } from 'typebox';
+ *
  * {
- *   'x-component': 'json',
- *   type: 'object',
- *   schema: type({ theme: 'string', darkMode: 'boolean' }),
+ *   type: 'json',
+ *   schema: Type.Object({ theme: Type.String(), darkMode: Type.Boolean() }),
  *   default: { theme: 'dark', darkMode: true }
  * }
  * ```
  */
-export type JsonFieldSchema<
-	TSchema extends StandardSchemaWithJSONSchema = StandardSchemaWithJSONSchema,
+export type JsonField<
+	T extends TSchema = TSchema,
 	TNullable extends boolean = boolean,
-> = {
-	'x-component': 'json';
-	type: TNullable extends true ? readonly ['object', 'null'] : 'object';
-	schema: TSchema;
-	default?: StandardSchemaV1.InferOutput<TSchema>;
+> = FieldMetadata & {
+	type: 'json';
+	schema: T;
+	nullable?: TNullable;
+	default?: Static<T>;
 };
 
 // ============================================================================
@@ -221,211 +330,303 @@ export type JsonFieldSchema<
 // ============================================================================
 
 /**
- * Discriminated union of all column schema types.
- * Use `x-component` to narrow to a specific type.
+ * Discriminated union of all field definition types.
+ * Use `type` to narrow to a specific type.
  */
-export type FieldSchema =
-	| IdFieldSchema
-	| TextFieldSchema
-	| YtextFieldSchema
-	| IntegerFieldSchema
-	| RealFieldSchema
-	| BooleanFieldSchema
-	| DateFieldSchema
-	| SelectFieldSchema
-	| TagsFieldSchema
-	| JsonFieldSchema;
+export type Field =
+	| IdField
+	| TextField
+	| RichtextField
+	| IntegerField
+	| RealField
+	| BooleanField
+	| DateField
+	| SelectField
+	| TagsField
+	| JsonField;
 
 /**
- * Extract the component name from a column schema.
- * One of: 'id', 'text', 'ytext', 'integer', 'real', 'boolean', 'date', 'select', 'tags', 'json'
+ * Extract the type name from a field definition.
+ * One of: 'id', 'text', 'richtext', 'integer', 'real', 'boolean', 'date', 'select', 'tags', 'json'
  */
-export type FieldComponent = FieldSchema['x-component'];
-
-/**
- * Helper type to check if a JSON Schema type array includes 'null'.
- * Used internally to derive nullability from the `type` field.
- */
-type IsNullableType<T> = T extends readonly [unknown, 'null'] ? true : false;
+export type FieldType = Field['type'];
 
 // ============================================================================
 // Value Types
 // ============================================================================
 
 /**
- * Maps a field schema to its runtime value type (Y.js types or primitives).
+ * Helper type to check if a field definition is nullable.
  *
- * - YtextFieldSchema → Y.Text
- * - TagsFieldSchema → Y.Array
- * - DateFieldSchema → DateWithTimezoneString
+ * Uses optional property check `{ nullable?: true }` because field definitions
+ * define `nullable?: TNullable` (optional). When `TNullable = true`, the type
+ * is `nullable?: true` which doesn't extend `{ nullable: true }` (required).
+ *
+ * This also correctly handles RichtextField (no nullable property)
+ * because optional properties can be absent.
+ */
+type IsNullable<C extends Field> = C extends { nullable?: true } ? true : false;
+
+/**
+ * Maps a field definition to its runtime value type.
+ *
+ * - RichtextField → string | null (always nullable)
+ * - TagsField → string[] (plain array)
+ * - DateField → DateTimeString
  * - Other fields → primitive types
  *
- * Nullability is derived from the schema's `type` field.
+ * Nullability is derived from the definition's `nullable` field.
  */
-export type CellValue<C extends FieldSchema = FieldSchema> =
-	C extends IdFieldSchema
-		? string
-		: C extends TextFieldSchema
-			? IsNullableType<C['type']> extends true
-				? string | null
-				: string
-			: C extends YtextFieldSchema
-				? IsNullableType<C['type']> extends true
-					? Y.Text | null
-					: Y.Text
-				: C extends IntegerFieldSchema
-					? IsNullableType<C['type']> extends true
+export type CellValue<C extends Field = Field> = C extends IdField
+	? string
+	: C extends TextField
+		? IsNullable<C> extends true
+			? string | null
+			: string
+		: C extends RichtextField
+			? string | null // always nullable
+			: C extends IntegerField
+				? IsNullable<C> extends true
+					? number | null
+					: number
+				: C extends RealField
+					? IsNullable<C> extends true
 						? number | null
 						: number
-					: C extends RealFieldSchema
-						? IsNullableType<C['type']> extends true
-							? number | null
-							: number
-						: C extends BooleanFieldSchema
-							? IsNullableType<C['type']> extends true
-								? boolean | null
-								: boolean
-							: C extends DateFieldSchema
-								? IsNullableType<C['type']> extends true
-									? DateWithTimezoneString | null
-									: DateWithTimezoneString
-								: C extends SelectFieldSchema<infer TOptions>
-									? IsNullableType<C['type']> extends true
-										? TOptions[number] | null
-										: TOptions[number]
-									: C extends TagsFieldSchema<infer TOptions>
-										? IsNullableType<C['type']> extends true
-											? Y.Array<TOptions[number]> | null
-											: Y.Array<TOptions[number]>
-										: C extends JsonFieldSchema<
-													infer TSchema extends StandardSchemaWithJSONSchema
-												>
-											? IsNullableType<C['type']> extends true
-												? StandardSchemaV1.InferOutput<TSchema> | null
-												: StandardSchemaV1.InferOutput<TSchema>
-											: never;
-
-/**
- * Maps a column schema to its JSON-serializable value type.
- *
- * Converts Y.js types to plain values:
- * - Y.Text → string
- * - Y.Array → array
- * - DateWithTimezone → DateWithTimezoneString
- */
-export type SerializedCellValue<C extends FieldSchema = FieldSchema> =
-	CellValue<C> extends infer T
-		? T extends Y.Text
-			? string
-			: T extends Y.Array<infer U>
-				? U[]
-				: T extends DateWithTimezone
-					? DateWithTimezoneString
-					: T
-		: never;
+					: C extends BooleanField
+						? IsNullable<C> extends true
+							? boolean | null
+							: boolean
+						: C extends DateField
+							? IsNullable<C> extends true
+								? DateTimeString | null
+								: DateTimeString
+							: C extends SelectField<infer TOptions>
+								? IsNullable<C> extends true
+									? TOptions[number] | null
+									: TOptions[number]
+								: C extends TagsField<infer TOptions>
+									? IsNullable<C> extends true
+										? TOptions[number][] | null
+										: TOptions[number][]
+									: C extends JsonField<infer T extends TSchema>
+										? IsNullable<C> extends true
+											? Static<T> | null
+											: Static<T>
+										: never;
 
 // ============================================================================
-// Table and Workspace Schemas
+// Table Schema Types
 // ============================================================================
 
 /**
- * Table schema - maps field names to field schemas.
- * Must always include an 'id' field with IdFieldSchema.
+ * Field definitions - maps field names to field definitions.
+ * Must always include an 'id' field with IdField.
  *
  * @example
  * ```typescript
- * const postsSchema = {
+ * const postsFields = {
  *   id: id(),
  *   title: text(),
  *   status: select({ options: ['draft', 'published'] }),
- * } satisfies TableSchema;
+ * } satisfies FieldMap;
  * ```
  */
-export type TableSchema = { id: IdFieldSchema } & Record<string, FieldSchema>;
+export type FieldMap = { id: IdField } & Record<string, Field>;
 
 /**
- * Tables schema - maps table names to table schemas.
- * Represents all tables in a workspace.
+ * Table definition with metadata for UI display.
+ * This is the **normalized** output type created by the `table()` factory function.
  *
  * @example
  * ```typescript
- * const blogTables = {
- *   posts: postsTableSchema,
- *   authors: authorsTableSchema,
- * } satisfies TablesSchema;
+ * const postsTable: TableDefinition = {
+ *   name: 'Posts',
+ *   description: 'Blog posts and articles',
+ *   icon: 'emoji:📝',
+ *   fields: {
+ *     id: id(),
+ *     title: text(),
+ *     status: select({ options: ['draft', 'published'] }),
+ *   },
+ * };
  * ```
  */
-export type TablesSchema = Record<string, TableSchema>;
+export type TableDefinition<TFields extends FieldMap = FieldMap> = {
+	/** Required display name shown in UI (e.g., "Blog Posts") */
+	name: string;
+	/** Required description shown in tooltips/docs */
+	description: string;
+	/** Icon for the table - tagged string format 'type:value' or null */
+	icon: Icon | null;
+	/** Field schema map for this table */
+	fields: TFields;
+};
 
 /**
- * @deprecated Use `TablesSchema` instead. This type will be removed in a future version.
+ * Map of table names to their full definitions (metadata + fields).
  *
- * Previously named "WorkspaceSchema" but renamed to "TablesSchema" for clarity,
- * since a workspace conceptually includes both tables AND KV storage.
+ * This is the normalized format that flows through the entire system
+ * (capabilities, table helpers, etc.). Created using the `table()` factory
+ * function for each table.
+ *
+ * @example
+ * ```typescript
+ * const blogTables: TableDefinitionMap = {
+ *   posts: {
+ *     name: 'Posts',
+ *     description: 'Blog posts',
+ *     icon: 'emoji:📝',
+ *     fields: { id: id(), title: text() },
+ *   },
+ * };
+ * ```
  */
-export type WorkspaceSchema = TablesSchema;
+export type TableDefinitionMap = Record<string, TableDefinition>;
 
 // ============================================================================
 // Row Types
 // ============================================================================
 
 /**
- * Runtime row type with Y.js types and utility methods.
+ * Plain object representing a complete table row.
  *
- * Properties are readonly and typed according to their column schemas.
- * Includes:
- * - `toJSON()`: Serialize to plain JSON (converts Y.js types)
- * - `$yRow`: Access to the underlying Y.Map
+ * Row is the unified type for both reads and writes. All values are plain
+ * JSON-serializable primitives (no Y.js types, no methods, no proxy behavior).
+ *
+ * @example
+ * ```typescript
+ * // Write: pass a Row to upsert
+ * tables.get('posts').upsert({
+ *   id: generateId(),
+ *   title: 'Hello World',
+ *   published: false,
+ * });
+ *
+ * // Read: get returns a Row (wrapped in RowResult for validation)
+ * const result = tables.get('posts').get({ id: '1' });
+ * if (result.status === 'valid') {
+ *   const row: Row = result.row;
+ *   console.log(row.title);
+ * }
+ *
+ * // Rows are JSON-serializable
+ * const json = JSON.stringify(row);
+ * ```
  */
-export type Row<TTableSchema extends TableSchema = TableSchema> = {
-	readonly [K in keyof TTableSchema]: CellValue<TTableSchema[K]>;
-} & {
-	toJSON(): SerializedRow<TTableSchema>;
-	readonly $yRow: YRow;
+export type Row<TFieldMap extends FieldMap = FieldMap> = {
+	[K in keyof TFieldMap]: CellValue<TFieldMap[K]>;
 };
 
 /**
- * JSON-serializable row type.
- * All values are plain primitives/objects (no Y.js types).
+ * Partial row for updates. ID is required, all other fields are optional.
+ *
+ * Use PartialRow with `update()` when you only want to change specific fields
+ * without providing the entire row. Fields not included are left unchanged.
+ *
+ * @example
+ * ```typescript
+ * // Update only the title, leave other fields unchanged
+ * tables.get('posts').update({ id: '1', title: 'New Title' });
+ *
+ * // Update multiple fields
+ * tables.get('posts').update({
+ *   id: '1',
+ *   title: 'Updated',
+ *   published: true,
+ * });
+ * ```
  */
-export type SerializedRow<TTableSchema extends TableSchema = TableSchema> = {
-	[K in keyof TTableSchema]: K extends 'id'
-		? string
-		: SerializedCellValue<TTableSchema[K]>;
-};
-
-/**
- * Partial serialized row for updates.
- * ID is required, all other fields are optional.
- */
-export type PartialSerializedRow<
-	TTableSchema extends TableSchema = TableSchema,
-> = {
+export type PartialRow<TFieldMap extends FieldMap = FieldMap> = {
 	id: string;
-} & Partial<Omit<SerializedRow<TTableSchema>, 'id'>>;
+} & Partial<Omit<Row<TFieldMap>, 'id'>>;
 
 // ============================================================================
 // Key-Value Schema Types
 // ============================================================================
 
 /**
- * Field schema for KV stores (excludes IdFieldSchema).
+ * Field definition for KV stores (excludes IdField).
  * KV entries don't have IDs; they're keyed by string.
  */
-export type KvFieldSchema = Exclude<FieldSchema, IdFieldSchema>;
-
-/**
- * KV schema - maps key names to column schemas.
- */
-export type KvSchema = Record<string, KvFieldSchema>;
+export type KvField = Exclude<Field, IdField>;
 
 /**
  * Runtime value type for a KV entry.
  */
-export type KvValue<C extends KvFieldSchema = KvFieldSchema> = CellValue<C>;
+export type KvValue<C extends KvField = KvField> = CellValue<C>;
 
 /**
- * Serialized value type for a KV entry.
+ * KV entry definition with metadata for UI display.
+ *
+ * Parallel to TableDefinition, but wraps a single field instead of a fields map.
+ * Conceptually, a KV store is like a single row where each key is a column.
+ *
+ * @example
+ * ```typescript
+ * const themeKv: KvDefinition = {
+ *   name: 'Theme',
+ *   icon: 'emoji:🎨',
+ *   description: 'Application color theme',
+ *   field: select({ options: ['light', 'dark'] }),
+ * };
+ * ```
  */
-export type SerializedKvValue<C extends KvFieldSchema = KvFieldSchema> =
-	SerializedCellValue<C>;
+export type KvDefinition<TField extends KvField = KvField> = {
+	/** Display name shown in UI (e.g., "Theme") */
+	name: string;
+	/** Icon for this KV entry - tagged string format 'type:value' or null */
+	icon: Icon | null;
+	/** Description shown in tooltips/docs */
+	description: string;
+	/** The field schema for this KV entry */
+	field: TField;
+};
+
+/**
+ * Map of KV key names to their full definitions (metadata + field).
+ *
+ * This is the normalized format that flows through the entire system.
+ * Created using the `kv()` factory function for each key-value entry.
+ *
+ * @example
+ * ```typescript
+ * const settingsKv: KvDefinitionMap = {
+ *   theme: {
+ *     name: 'Theme',
+ *     icon: 'emoji:🎨',
+ *     description: 'Application color theme',
+ *     field: select({ options: ['light', 'dark'], default: 'light' }),
+ *   },
+ *   fontSize: {
+ *     name: 'Font Size',
+ *     icon: 'emoji:🔤',
+ *     description: 'Editor font size in pixels',
+ *     field: integer({ default: 14 }),
+ *   },
+ * };
+ * ```
+ */
+export type KvDefinitionMap = Record<string, KvDefinition>;
+
+/**
+ * Map of KV keys to their field schemas (no metadata).
+ *
+ * This is a minimal input format for KV definitions where metadata
+ * (name, icon, etc.) is auto-generated.
+ *
+ * @example
+ * ```typescript
+ * const kv: KvMap = {
+ *   theme: select({ options: ['light', 'dark'] as const, default: 'light' }),
+ *   fontSize: integer({ default: 14 }),
+ * };
+ *
+ * // Use in defineWorkspace:
+ * const definition = defineWorkspace({
+ *   tables: { posts: table({ name: 'Posts', fields: { id: id(), title: text() } }) },
+ *   kv,  // KvMap
+ * });
+ * ```
+ */
+export type KvMap = Record<string, KvField>;

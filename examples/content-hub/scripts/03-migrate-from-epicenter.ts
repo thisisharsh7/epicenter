@@ -14,7 +14,7 @@ import { createClient, type SerializedRow } from '@epicenter/hq';
 import {
 	listMarkdownFiles,
 	readMarkdownFile,
-} from '@epicenter/hq/providers/markdown';
+} from '@epicenter/hq/extensions/markdown';
 import { type } from 'arktype';
 import { extractErrorMessage } from 'wellcrafted/error';
 import { Err, tryAsync } from 'wellcrafted/result';

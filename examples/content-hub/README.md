@@ -106,7 +106,7 @@ Query called → Read from SQLite index → Return data
 
 - Desktop: YJS state in `.epicenter/{workspace}.yjs`, index logs in `.epicenter/{workspace}/`
 - Browser: YJS files stored in IndexedDB
-- Both: Universal `setupPersistence` provider handles platform detection
+- Both: Universal `persistence` capability handles platform detection
 
 ## Platforms & Schemas
 
@@ -416,16 +416,16 @@ For content that doesn't fit the posts model, create a new workspace:
 
    ```typescript
    import { defineWorkspace, sqliteIndex, ... } from '@epicenter/hq';
-   import { setupPersistence } from '@epicenter/hq/providers/persistence';
+   import { persistence } from '@epicenter/hq/extensions/persistence';
 
    export const newWorkspace = defineWorkspace({
      id: 'new-workspace',
      tables: { items: { /* your table definitions */ } },
-     providers: {
-       sqlite: (c) => sqliteProvider(c),
-       persistence: setupPersistence,
+     extensions: {
+       sqlite: (c) => sqlite(c),
+       persistence,
      },
-     actions: ({ tables, providers }) => ({
+     actions: ({ tables, extensions }) => ({
        // Implement actions...
      }),
    });
@@ -451,7 +451,7 @@ For content that doesn't fit the posts model, create a new workspace:
 Each workspace can have custom actions beyond the standard CRUD:
 
 ```typescript
-actions: ({ tables, providers }) => ({
+actions: ({ tables, capabilities }) => ({
   // Standard actions...
   getPosts: defineQuery({ ... }),
 
@@ -459,10 +459,10 @@ actions: ({ tables, providers }) => ({
   getRecentPosts: defineQuery({
     input: type({ limit: "number" }),
     handler: async ({ limit }) => {
-      const posts = await providers.sqlite.db
+      const posts = await capabilities.sqlite.db
         .select()
-        .from(providers.sqlite.posts)
-        .orderBy(desc(providers.sqlite.posts.postedAt))
+        .from(capabilities.sqlite.posts)
+        .orderBy(desc(capabilities.sqlite.posts.postedAt))
         .limit(limit);
       return Ok(posts);
     },
@@ -539,7 +539,7 @@ console.log(`Total posts: ${totalPosts}`);
 
 **Issue**: Data not persisting
 
-- **Solution**: Check that `.epicenter/` directory is writable and `setupPersistence` provider is configured
+- **Solution**: Check that `.epicenter/` directory is writable and `persistence` capability is configured
 
 **Issue**: CLI commands not found
 

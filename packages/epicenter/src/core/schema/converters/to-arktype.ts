@@ -1,92 +1,94 @@
 /**
- * @fileoverview Converts FieldSchema to arktype Type definitions
+ * Converts Field to arktype Type definitions for runtime validation.
  *
- * This converter transforms epicenter FieldSchema definitions into arktype types
- * for runtime validation and schema composition. Unlike raw arktype definitions,
- * this maintains proper TypeScript inference for object methods like .partial() and .merge().
- *
- * **Key Design Decision**: Returns raw arktype definition strings/objects (not Type instances)
- * to enable proper type inference when passed to `type()`. This allows arktype to correctly
- * infer ObjectType with composition methods available.
+ * Returns raw arktype definitions to enable proper type inference for
+ * object methods like .partial() and .merge().
  */
 
-import type { StandardSchemaV1 } from '../standard/types';
+import { jsonSchemaToType } from '@ark/json-schema';
 import { type Type, type } from 'arktype';
 import type { ObjectType } from 'arktype/internal/variants/object.ts';
+import type { Static, TSchema } from 'typebox';
+import type { DateTimeString } from '../fields/datetime';
+import { isNullableField } from '../fields/helpers';
+import { DATE_TIME_STRING_REGEX } from '../fields/regex';
 import type {
-	BooleanFieldSchema,
-	FieldSchema,
-	DateFieldSchema,
-	IdFieldSchema,
-	IntegerFieldSchema,
-	JsonFieldSchema,
-	RealFieldSchema,
-	SelectFieldSchema,
-	SerializedRow,
-	TableSchema,
-	TagsFieldSchema,
-	TextFieldSchema,
-	YtextFieldSchema,
+	BooleanField,
+	DateField,
+	Field,
+	FieldMap,
+	IdField,
+	IntegerField,
+	JsonField,
+	RealField,
+	RichtextField,
+	Row,
+	SelectField,
+	TagsField,
+	TextField,
 } from '../fields/types';
-import type { DateWithTimezoneString } from '../runtime/date-with-timezone';
-import { isNullableFieldSchema } from '../fields/nullability';
-import { DATE_WITH_TIMEZONE_STRING_REGEX } from '../runtime/regex';
 
 /**
- * Maps a FieldSchema to its corresponding arktype Type.
- * Similar to FieldToDrizzle in drizzle.ts, but for arktype.
+ * Maps a Field to its corresponding arktype Type.
  *
  * This type mapping ensures proper TypeScript inference when building
- * schema fields, preserving exact key information from TSchema.
+ * schema validators, preserving exact type information from the schema.
+ *
+ * @example
+ * ```typescript
+ * type TextType = FieldToArktype<{ type: 'text' }>; // Type<string>
+ * type NullableInt = FieldToArktype<{ type: 'integer', nullable: true }>; // Type<number | null>
+ * ```
  */
-export type FieldSchemaToArktype<C extends FieldSchema> =
-	C extends IdFieldSchema
-		? Type<string>
-		: C extends TextFieldSchema<infer TNullable>
-			? TNullable extends true
-				? Type<string | null>
-				: Type<string>
-			: C extends YtextFieldSchema<infer TNullable>
+export type FieldToArktype<C extends Field> = C extends IdField
+	? Type<string>
+	: C extends TextField<infer TNullable>
+		? TNullable extends true
+			? Type<string | null>
+			: Type<string>
+		: C extends RichtextField
+			? Type<string | null>
+			: C extends IntegerField<infer TNullable>
 				? TNullable extends true
-					? Type<string | null>
-					: Type<string>
-				: C extends IntegerFieldSchema<infer TNullable>
+					? Type<number | null>
+					: Type<number>
+				: C extends RealField<infer TNullable>
 					? TNullable extends true
 						? Type<number | null>
 						: Type<number>
-					: C extends RealFieldSchema<infer TNullable>
+					: C extends BooleanField<infer TNullable>
 						? TNullable extends true
-							? Type<number | null>
-							: Type<number>
-						: C extends BooleanFieldSchema<infer TNullable>
+							? Type<boolean | null>
+							: Type<boolean>
+						: C extends DateField<infer TNullable>
 							? TNullable extends true
-								? Type<boolean | null>
-								: Type<boolean>
-							: C extends DateFieldSchema<infer TNullable>
+								? Type<DateTimeString | null>
+								: Type<DateTimeString>
+							: C extends SelectField<infer TOptions, infer TNullable>
 								? TNullable extends true
-									? Type<DateWithTimezoneString | null>
-									: Type<DateWithTimezoneString>
-								: C extends SelectFieldSchema<infer TOptions, infer TNullable>
+									? Type<TOptions[number] | null>
+									: Type<TOptions[number]>
+								: C extends TagsField<infer TOptions, infer TNullable>
 									? TNullable extends true
-										? Type<TOptions[number] | null>
-										: Type<TOptions[number]>
-									: C extends TagsFieldSchema<infer TOptions, infer TNullable>
+										? Type<TOptions[number][] | null>
+										: Type<TOptions[number][]>
+									: C extends JsonField<
+												infer T extends TSchema,
+												infer TNullable
+											>
 										? TNullable extends true
-											? Type<TOptions[number][] | null>
-											: Type<TOptions[number][]>
-										: C extends JsonFieldSchema<infer TSchema, infer TNullable>
-											? TNullable extends true
-												? Type<StandardSchemaV1.InferOutput<TSchema> | null>
-												: Type<StandardSchemaV1.InferOutput<TSchema>>
-											: never;
+											? Type<Static<T> | null>
+											: Type<Static<T>>
+										: never;
 
 /**
- * Converts a TableSchema to a fully instantiated arktype Type.
+ * Converts a table schema to a fully instantiated arktype Type.
  *
- * Returns a ready-to-use arktype Type instance with all composition methods available
- * (.partial(), .merge(), .array(), etc.).
+ * Returns a ready-to-use arktype Type instance with all composition methods
+ * available (.partial(), .merge(), .array(), etc.). Use this for validating
+ * complete row objects.
  *
- * @param tableSchema - The table schema to convert
+ * @param fields - The table schema to convert
  * @returns Complete arktype Type instance with composition methods
  *
  * @example
@@ -94,60 +96,77 @@ export type FieldSchemaToArktype<C extends FieldSchema> =
  * const schema = {
  *   id: id(),
  *   title: text(),
- *   count: integer({ nullable: true })
+ *   count: integer({ nullable: true }),
  * };
  *
- * const validator = tableSchemaToArktype(schema);
+ * const validator = tableToArktype(schema);
  *
  * // Use immediately for validation
  * const result = validator({ id: '123', title: 'Test', count: 42 });
+ * if (result instanceof type.errors) {
+ *   console.error('Validation failed:', result.summary);
+ * }
  *
  * // Or compose with other operations
- * const partialValidator = validator.partial().merge({ id: type.string });
+ * const partialValidator = validator.partial();
  * const arrayValidator = validator.array();
  * ```
  */
-export function tableSchemaToArktype<TTableSchema extends TableSchema>(
-	tableSchema: TTableSchema,
-): ObjectType<SerializedRow<TTableSchema>> {
+export function tableToArktype<TFieldMap extends FieldMap>(
+	fields: TFieldMap,
+): ObjectType<Row<TFieldMap>> {
 	return type(
 		Object.fromEntries(
-			Object.entries(tableSchema).map(([fieldName, fieldSchema]) => [
+			Object.entries(fields).map(([fieldName, fieldDefinition]) => [
 				fieldName,
-				fieldSchemaToArktype(fieldSchema),
+				fieldToArktype(fieldDefinition),
 			]),
 		),
-	) as ObjectType<SerializedRow<TTableSchema>>;
+	) as ObjectType<Row<TFieldMap>>;
 }
 
 /**
- * Converts a single FieldSchema to an arktype Type for runtime validation.
+ * Converts a single Field to an arktype Type for runtime validation.
  *
- * Each field type maps to its corresponding arktype validator:
- * - `id`, `text`, `ytext` → `type.string`
+ * Use this when you need to validate individual field values. For nullable
+ * fields, automatically wraps with `.or(type.null).default(null)` so that
+ * missing fields are defaulted to `null` during validation.
+ *
+ * Field type mappings:
+ * - `id`, `text`, `richtext` → `type.string`
  * - `integer` → `type.number.divisibleBy(1)`
  * - `real` → `type.number`
  * - `boolean` → `type.boolean`
- * - `date` → `type.string.matching(DATE_WITH_TIMEZONE_STRING_REGEX)`
+ * - `date` → `type.string.matching(DATE_TIME_STRING_REGEX)`
  * - `select` → `type.enumerated(...options)`
- * - `tags` → `type.enumerated(...options).array()`
- * - `json` → uses the schema's arktype definition directly
+ * - `tags` → `type.enumerated(...options).array()` or `type.string.array()`
+ * - `json` → uses the embedded arktype schema directly
  *
- * For nullable fields, wraps with `.or(type.null).default(null)` so that
- * missing fields are automatically defaulted to `null` during validation.
- *
- * @param fieldSchema - The field schema to convert
+ * @param fieldDefinition - The field definition to convert
  * @returns arktype Type suitable for validation and composition
+ *
+ * @example
+ * ```typescript
+ * const textValidator = fieldToArktype({ type: 'text' });
+ * const selectValidator = fieldToArktype({
+ *   type: 'select',
+ *   options: ['draft', 'published'],
+ * });
+ *
+ * textValidator('hello'); // 'hello'
+ * selectValidator('draft'); // 'draft'
+ * selectValidator('invalid'); // type.errors
+ * ```
  */
-export function fieldSchemaToArktype<C extends FieldSchema>(
-	fieldSchema: C,
-): FieldSchemaToArktype<C> {
+export function fieldToArktype<C extends Field>(
+	fieldDefinition: C,
+): FieldToArktype<C> {
 	let baseType: Type;
 
-	switch (fieldSchema['x-component']) {
+	switch (fieldDefinition.type) {
 		case 'id':
 		case 'text':
-		case 'ytext':
+		case 'richtext':
 			baseType = type.string;
 			break;
 		case 'integer':
@@ -164,23 +183,27 @@ export function fieldSchemaToArktype<C extends FieldSchema>(
 				.describe(
 					'ISO 8601 date with timezone (e.g., 2024-01-01T20:00:00.000Z|America/New_York)',
 				)
-				.matching(DATE_WITH_TIMEZONE_STRING_REGEX);
+				.matching(DATE_TIME_STRING_REGEX);
 			break;
 		case 'select':
-			baseType = type.enumerated(...fieldSchema.enum);
+			baseType = type.enumerated(...fieldDefinition.options);
 			break;
 		case 'tags':
-			baseType = fieldSchema.items.enum
-				? type.enumerated(...fieldSchema.items.enum).array()
+			baseType = fieldDefinition.options
+				? type.enumerated(...fieldDefinition.options).array()
 				: type.string.array();
 			break;
 		case 'json':
-			baseType = fieldSchema.schema as unknown as Type<unknown, {}>;
+			// TypeBox schemas ARE JSON Schema - convert to ArkType at runtime.
+			// TODO: Remove cast when @ark/json-schema updates to arktype >=2.1.29
+			// Type cast needed due to @ark/json-schema using older arktype version (2.1.23 vs 2.1.29).
+			// Runtime behavior is correct; only TS types differ.
+			baseType = jsonSchemaToType(fieldDefinition.schema) as unknown as Type;
 			break;
 	}
 
-	const isNullable = isNullableFieldSchema(fieldSchema);
+	const isNullable = isNullableField(fieldDefinition);
 	return (
 		isNullable ? baseType.or(type.null).default(null) : baseType
-	) as FieldSchemaToArktype<C>;
+	) as FieldToArktype<C>;
 }

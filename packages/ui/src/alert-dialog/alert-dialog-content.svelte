@@ -5,7 +5,7 @@
 		cn,
 		type WithoutChild,
 		type WithoutChildrenOrChild,
-	} from '#/utils/utils.js';
+	} from '#/utils.js';
 
 	let {
 		ref = $bindable(null),

@@ -5,7 +5,7 @@
  * The popup reads directly from Chrome APIs, not from Y.Doc.
  */
 
-import type { Tables } from '@epicenter/hq';
+import type { ExtractTablesSchema, Tables } from '@epicenter/hq';
 import {
 	DEVICES_SCHEMA,
 	TAB_GROUPS_SCHEMA,
@@ -19,13 +19,33 @@ import {
  * Note: Table names use snake_case per Epicenter naming conventions.
  */
 export const BROWSER_SCHEMA = {
-	devices: DEVICES_SCHEMA,
-	tabs: TABS_SCHEMA,
-	windows: WINDOWS_SCHEMA,
-	tab_groups: TAB_GROUPS_SCHEMA,
+	devices: {
+		name: 'Devices',
+		description: 'Browser installations for multi-device sync',
+		icon: 'emoji:💻',
+		fields: DEVICES_SCHEMA,
+	},
+	tabs: {
+		name: 'Tabs',
+		description: 'Browser tab state',
+		icon: 'emoji:📑',
+		fields: TABS_SCHEMA,
+	},
+	windows: {
+		name: 'Windows',
+		description: 'Browser window state',
+		icon: 'emoji:🪟',
+		fields: WINDOWS_SCHEMA,
+	},
+	tab_groups: {
+		name: 'Tab Groups',
+		description: 'Chrome tab groups (Chrome 88+)',
+		icon: 'emoji:📁',
+		fields: TAB_GROUPS_SCHEMA,
+	},
 } as const;
 
 /**
  * Type-safe database instance for browser state.
  */
-export type BrowserDb = Tables<typeof BROWSER_SCHEMA>;
+export type BrowserDb = Tables<ExtractTablesSchema<typeof BROWSER_SCHEMA>>;

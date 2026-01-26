@@ -72,12 +72,99 @@ description: Git commit and pull request guidelines using conventional commits. 
 
 ## Commit Messages Best Practices
 
+### The "Why" is More Important Than the "What"
+
+The commit message subject line describes WHAT changed. The commit body explains WHY.
+
+**Good commit** (explains motivation):
+
+```
+fix(auth): prevent session timeout during file upload
+
+Users were getting logged out mid-upload on large files because the
+session refresh only triggered on navigation, not background activity.
+```
+
+**Bad commit** (only describes what):
+
+```
+fix(auth): add keepalive call to upload handler
+```
+
+The first commit tells future developers WHY the code exists. The second makes them dig through the code to understand the purpose.
+
+### Other Best Practices
+
 - NEVER include Claude Code or opencode watermarks or attribution
 - Each commit should represent a single, atomic change
 - Write commits for future developers (including yourself)
 - If you need more than one line to describe what you did, consider splitting the commit
 
 ## Pull Request Guidelines
+
+### Motivation First
+
+Every PR description MUST start with WHY this change exists. Not what files changed, not how it works—WHY.
+
+**Good PR opening**:
+
+> Users were getting logged out mid-upload on large files. The session refresh only triggered on navigation, not during background activity like uploads.
+
+**Bad PR opening**:
+
+> This PR adds a keepalive call to the upload handler and updates the session refresh logic.
+
+The reader should understand the PROBLEM before they see the SOLUTION.
+
+### Code Examples Are Mandatory for API Changes
+
+If the PR introduces or modifies APIs, you MUST include code examples showing how to use them. No exceptions.
+
+**What requires code examples:**
+
+- New functions, types, or exports
+- Changes to function signatures
+- New CLI commands or flags
+- New HTTP endpoints
+- Configuration changes
+
+**Good API PR** (shows the actual usage):
+
+```typescript
+// Define actions once
+const actions = {
+	posts: {
+		create: defineMutation({
+			input: type({ title: 'string' }),
+			handler: ({ title }) => client.tables.posts.create({ title }),
+		}),
+	},
+};
+
+// Pass to adapters - they generate CLI commands and HTTP routes
+const cli = createCLI(client, { actions });
+const server = createServer(client, { actions });
+```
+
+**Bad API PR** (only describes without showing):
+
+> This PR adds an action system that generates CLI commands and HTTP routes from action definitions.
+
+The first version lets reviewers understand the API at a glance. The second forces them to dig through the code to understand the call sites.
+
+### Diagrams for Architecture Changes
+
+For PRs that change how components interact, include ASCII flow diagrams:
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   Actions   │ ──> │  Adapters   │ ──> │  CLI/HTTP   │
+└─────────────┘     └─────────────┘     └─────────────┘
+```
+
+This immediately communicates the data flow without walls of text.
+
+### Other Guidelines
 
 - NEVER include Claude Code or opencode watermarks or attribution in PR titles/descriptions
 - PR title should follow same conventional commit format as commits

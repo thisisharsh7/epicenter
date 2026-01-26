@@ -25,9 +25,10 @@ Pass `onSuccess` and `onError` as the second argument to `.mutate()` to get maxi
 	import { createMutation } from '@tanstack/svelte-query';
 	import * as rpc from '$lib/query';
 
-	// Create mutation with just .options (no parentheses!)
-	const deleteSessionMutation = createMutation(
-		rpc.sessions.deleteSession.options,
+	// Wrap .options in accessor function, no parentheses on .options
+	// Name it after what it does, NOT with a "Mutation" suffix (redundant)
+	const deleteSession = createMutation(
+		() => rpc.sessions.deleteSession.options,
 	);
 
 	// Local state that we can access in callbacks
@@ -37,7 +38,7 @@ Pass `onSuccess` and `onError` as the second argument to `.mutate()` to get maxi
 <Button
 	onclick={() => {
 		// Pass callbacks as second argument to .mutate()
-		deleteSessionMutation.mutate(
+		deleteSession.mutate(
 			{ sessionId },
 			{
 				onSuccess: () => {
@@ -52,9 +53,9 @@ Pass `onSuccess` and `onError` as the second argument to `.mutate()` to get maxi
 			},
 		);
 	}}
-	disabled={deleteSessionMutation.isPending}
+	disabled={deleteSession.isPending}
 >
-	{#if deleteSessionMutation.isPending}
+	{#if deleteSession.isPending}
 		Deleting...
 	{:else}
 		Delete
@@ -94,22 +95,31 @@ Only use `.execute()` in Svelte files when:
 2. You're performing a one-off operation
 3. You need fine-grained control over async flow
 
-## Inline Simple Handler Functions
+## No `handle*` Functions - Always Inline
 
-When a handler function only calls `.mutate()`, inline it directly:
+Never create functions prefixed with `handle` in the script tag. If the function is used only once and the logic isn't deeply nested, inline it directly in the template:
 
 ```svelte
-<!-- Avoid: Unnecessary wrapper function -->
+<!-- BAD: Unnecessary wrapper function -->
 <script>
 	function handleShare() {
-		shareMutation.mutate({ id });
+		share.mutate({ id });
+	}
+
+	function handleSelectItem(itemId: string) {
+		goto(`/items/${itemId}`);
 	}
 </script>
 
-<!-- Good: Inline simple handlers -->
-<Button onclick={() => shareMutation.mutate({ id })}>Share</Button>
 <Button onclick={handleShare}>Share</Button>
+<Item onclick={() => handleSelectItem(item.id)} />
+
+<!-- GOOD: Inline the logic directly -->
+<Button onclick={() => share.mutate({ id })}>Share</Button>
+<Item onclick={() => goto(`/items/${item.id}`)} />
 ```
+
+This keeps related logic co-located with the UI element that triggers it, making the code easier to follow.
 
 # Styling
 
@@ -187,6 +197,56 @@ Use proper component composition following shadcn-svelte patterns:
 - Ensure custom components follow the same organizational patterns
 - Consider semantic appropriateness (e.g., use section headers instead of cards for page sections)
 
+# Props Pattern
+
+## Always Inline Props Types
+
+Never create a separate `type Props = {...}` declaration. Always inline the type directly in `$props()`:
+
+```svelte
+<!-- BAD: Separate Props type -->
+<script lang="ts">
+	type Props = {
+		selectedWorkspaceId: string | undefined;
+		onSelect: (id: string) => void;
+	};
+
+	let { selectedWorkspaceId, onSelect }: Props = $props();
+</script>
+
+<!-- GOOD: Inline props type -->
+<script lang="ts">
+	let { selectedWorkspaceId, onSelect }: {
+		selectedWorkspaceId: string | undefined;
+		onSelect: (id: string) => void;
+	} = $props();
+</script>
+```
+
+## Children Prop Never Needs Type Annotation
+
+The `children` prop is implicitly typed in Svelte. Never annotate it:
+
+```svelte
+<!-- BAD: Annotating children -->
+<script lang="ts">
+	let { children }: { children: Snippet } = $props();
+</script>
+
+<!-- GOOD: children is implicitly typed -->
+<script lang="ts">
+	let { children } = $props();
+</script>
+
+<!-- GOOD: Other props need types, but children does not -->
+<script lang="ts">
+	let { children, title, onClose }: {
+		title: string;
+		onClose: () => void;
+	} = $props();
+</script>
+```
+
 # Self-Contained Component Pattern
 
 ## Prefer Component Composition Over Parent State Management
@@ -199,11 +259,6 @@ When building interactive components (especially with dialogs/modals), create se
 <!-- Parent component -->
 <script>
 	let deletingItem = $state(null);
-
-	function handleDelete(item) {
-		// delete logic
-		deletingItem = null;
-	}
 </script>
 
 {#each items as item}
@@ -219,13 +274,14 @@ When building interactive components (especially with dialogs/modals), create se
 
 ```svelte
 <!-- DeleteItemButton.svelte -->
-<script>
-	let { item } = $props();
+<script lang="ts">
+	import { createMutation } from '@tanstack/svelte-query';
+	import { rpc } from '$lib/query';
+
+	let { item }: { item: Item } = $props();
 	let open = $state(false);
 
-	function handleDelete() {
-		// delete logic directly in component
-	}
+	const deleteItem = createMutation(() => rpc.items.delete.options);
 </script>
 
 <AlertDialog.Root bind:open>
@@ -233,7 +289,9 @@ When building interactive components (especially with dialogs/modals), create se
 		<Button>Delete</Button>
 	</AlertDialog.Trigger>
 	<AlertDialog.Content>
-		<!-- Dialog content -->
+		<Button onclick={() => deleteItem.mutate({ id: item.id })}>
+			Confirm Delete
+		</Button>
 	</AlertDialog.Content>
 </AlertDialog.Root>
 

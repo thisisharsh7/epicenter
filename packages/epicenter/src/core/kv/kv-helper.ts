@@ -1,209 +1,217 @@
-import * as Y from 'yjs';
+import { type ArkErrors, type } from 'arktype';
+import { createTaggedError } from 'wellcrafted/error';
+import type * as Y from 'yjs';
 
-import type {
-	KvFieldSchema,
-	KvSchema,
-	KvValue,
-	SerializedKvValue,
-} from '../schema';
-import {
-	isDateWithTimezoneString,
-	isNullableFieldSchema,
-	serializeCellValue,
-} from '../schema';
-import { updateYArrayFromArray, updateYTextFromString } from '../utils/yjs';
-
-export type YKvMap = Y.Map<KvValue>;
+import type { KvDefinitionMap, KvField, KvValue } from '../schema';
+import { fieldToYjsArktype, isNullableField } from '../schema';
 
 /**
- * Creates a collection of typed KV helpers for all keys in a schema.
+ * Change event for a KV value.
  *
- * Each key in the schema gets its own helper with get/set operations
- * that handle YJS synchronization and type validation.
+ * Matches the same semantics as the old YKeyValue change events:
+ * - `add`: Key was set for the first time
+ * - `update`: Key's value was changed
+ * - `delete`: Key was removed
  */
-export function createKvHelpers<TKvSchema extends KvSchema>({
+export type KvChange<T> =
+	| { action: 'add'; newValue: T }
+	| { action: 'update'; oldValue: T; newValue: T }
+	| { action: 'delete'; oldValue: T };
+
+type KvValidationContext = {
+	key: string;
+	errors: ArkErrors;
+	summary: string;
+};
+
+export const { KvValidationError } =
+	createTaggedError('KvValidationError').withContext<KvValidationContext>();
+
+export type KvValidationError = ReturnType<typeof KvValidationError>;
+
+/**
+ * Result of getting a KV value.
+ * Uses a status-based discriminated union for explicit handling of all cases.
+ */
+export type KvGetResult<TValue> =
+	| { status: 'valid'; value: TValue }
+	| { status: 'invalid'; key: string; error: KvValidationError }
+	| { status: 'not_found'; key: string };
+
+/**
+ * Creates a collection of typed KV helpers for all keys in a definition map.
+ *
+ * Uses native Y.Map for efficient storage. KV data is stored directly
+ * as key-value pairs in the map.
+ */
+export function createKvHelpers<TKvDefinitionMap extends KvDefinitionMap>({
 	ydoc,
-	schema,
-	ykvMap,
+	definitions,
 }: {
 	ydoc: Y.Doc;
-	schema: TKvSchema;
-	ykvMap: YKvMap;
+	definitions: TKvDefinitionMap;
 }) {
+	const ykvMap = ydoc.getMap<KvValue>('kv');
+
 	return Object.fromEntries(
-		Object.entries(schema).map(([keyName, columnSchema]) => [
+		Object.entries(definitions).map(([keyName, definition]) => [
 			keyName,
 			createKvHelper({
-				ydoc,
 				keyName,
 				ykvMap,
-				schema: columnSchema,
+				field: definition.field,
 			}),
 		]),
 	) as {
-		[K in keyof TKvSchema]: KvHelper<TKvSchema[K]>;
+		[K in keyof TKvDefinitionMap]: KvHelper<TKvDefinitionMap[K]['field']>;
 	};
 }
 
-export function createKvHelper<TFieldSchema extends KvFieldSchema>({
-	ydoc,
+export function createKvHelper<TField extends KvField>({
 	keyName,
 	ykvMap,
-	schema,
+	field,
 }: {
-	ydoc: Y.Doc;
 	keyName: string;
-	ykvMap: YKvMap;
-	schema: TFieldSchema;
+	ykvMap: Y.Map<KvValue>;
+	field: TField;
 }) {
-	type TValue = KvValue<TFieldSchema>;
-	type TSerializedValue = SerializedKvValue<TFieldSchema>;
+	type TValue = KvValue<TField>;
 
-	const nullable = isNullableFieldSchema(schema);
-
-	const getOrCreateYjsValue = (): TValue => {
-		const existing = ykvMap.get(keyName);
-		if (existing !== undefined) {
-			return existing as TValue;
-		}
-
-		if (schema['x-component'] === 'ytext') {
-			const ytext = new Y.Text();
-			ykvMap.set(keyName, ytext);
-			return ytext as TValue;
-		}
-
-		if (schema['x-component'] === 'tags') {
-			const yarray = new Y.Array<string>();
-			ykvMap.set(keyName, yarray);
-			return yarray as TValue;
-		}
-
-		return undefined as unknown as TValue;
-	};
-
-	const getDefaultValue = (): TValue | undefined => {
-		if ('default' in schema && schema.default !== undefined) {
-			return schema.default as TValue;
-		}
-		return undefined;
-	};
-
-	const getCurrentValue = (): TValue => {
-		const value = ykvMap.get(keyName);
-
-		if (value === undefined) {
-			const defaultVal = getDefaultValue();
-			if (defaultVal !== undefined) {
-				return defaultVal;
-			}
-			if (nullable) {
-				return null as TValue;
-			}
-		}
-
-		if (schema['x-component'] === 'ytext' || schema['x-component'] === 'tags') {
-			return getOrCreateYjsValue();
-		}
-
-		return value as TValue;
-	};
-
-	const setValueFromSerialized = (input: TSerializedValue): void => {
-		ydoc.transact(() => {
-			if (input === null) {
-				ykvMap.set(keyName, null);
-				return;
-			}
-
-			if (schema['x-component'] === 'ytext' && typeof input === 'string') {
-				const ytext = getOrCreateYjsValue() as Y.Text;
-				updateYTextFromString(ytext, input);
-				return;
-			}
-
-			if (schema['x-component'] === 'tags' && Array.isArray(input)) {
-				const yarray = getOrCreateYjsValue() as Y.Array<string>;
-				updateYArrayFromArray(yarray, input);
-				return;
-			}
-
-			if (schema['x-component'] === 'date' && isDateWithTimezoneString(input)) {
-				ykvMap.set(keyName, input);
-				return;
-			}
-
-			ykvMap.set(keyName, input as KvValue);
-		});
-	};
+	const nullable = isNullableField(field);
+	const validator = fieldToYjsArktype(field);
 
 	return {
-		/** The name of this KV key */
-		name: keyName,
-
-		/** The schema definition for this KV field */
-		schema,
-
 		/**
 		 * Get the current value for this KV key.
 		 *
-		 * Returns the stored value, or the default value if not set,
-		 * or null if nullable and no default exists.
+		 * Returns a discriminated union with status:
+		 * - `{ status: 'valid', value }` if value exists and passes validation
+		 * - `{ status: 'invalid', key, error }` if value exists but fails validation
+		 * - `{ status: 'not_found', key }` if value is unset (no default, not nullable)
 		 *
-		 * @returns The current value
+		 * For unset values: returns default if defined, null if nullable.
 		 *
 		 * @example
 		 * ```typescript
-		 * const theme = kv.theme.get(); // 'dark' | 'light'
+		 * const result = kv.get('theme');
+		 * if (result.status === 'valid') {
+		 *   console.log(result.value); // 'dark' | 'light'
+		 * } else if (result.status === 'invalid') {
+		 *   console.error(result.error.context.summary);
+		 * } else {
+		 *   console.log('Key not set:', result.key);
+		 * }
 		 * ```
 		 */
-		get(): TValue {
-			return getCurrentValue();
+		get(): KvGetResult<TValue> {
+			const rawValue = ykvMap.get(keyName);
+
+			// Handle undefined: default → null → not_found
+			if (rawValue === undefined) {
+				if ('default' in field && field.default !== undefined) {
+					return { status: 'valid', value: field.default as TValue };
+				}
+				if (nullable) {
+					return { status: 'valid', value: null as TValue };
+				}
+				return { status: 'not_found', key: keyName };
+			}
+
+			// Validate existing value
+			const validationResult = validator(rawValue);
+			if (validationResult instanceof type.errors) {
+				return {
+					status: 'invalid',
+					key: keyName,
+					error: KvValidationError({
+						message: `KV key '${keyName}' failed validation`,
+						context: {
+							key: keyName,
+							errors: validationResult,
+							summary: validationResult.summary,
+						},
+					}),
+				};
+			}
+
+			return { status: 'valid', value: rawValue as TValue };
 		},
 
 		/**
 		 * Set the value for this KV key.
 		 *
-		 * For Y.js-backed values (ytext, tags), provide plain JavaScript values
-		 * which will be synced to the underlying Y.Text/Y.Array.
+		 * All field types (text, select, boolean, integer, real, date, richtext, tags)
+		 * accept plain JavaScript values. The value is stored directly in YJS.
 		 *
 		 * @param value - The value to set
 		 *
 		 * @example
 		 * ```typescript
-		 * kv.theme.set('dark');
-		 * kv.tags.set(['urgent', 'review']);
+		 * kv.set('theme', 'dark');
+		 * kv.set('count', 42);
+		 * kv.set('categories', ['tech', 'blog']);
 		 * ```
 		 */
-		set(value: TSerializedValue): void {
-			setValueFromSerialized(value);
+		set(value: TValue): void {
+			ykvMap.set(keyName, value as KvValue);
 		},
 
 		/**
 		 * Watch for changes to this KV value.
 		 *
-		 * The callback fires whenever this specific key changes, whether from
-		 * local updates or sync from other peers.
-		 *
-		 * @param callback - Function called with the new value on each change
-		 * @returns Unsubscribe function to stop watching
+		 * Callback receives the raw change from YJS with:
+		 * - `action`: 'add' | 'update' | 'delete'
+		 * - `newValue`: the new value (for add/update)
+		 * - `oldValue`: the previous value (for update/delete)
 		 *
 		 * @example
 		 * ```typescript
-		 * const unsubscribe = kv.theme.observe((value) => {
-		 *   document.body.className = value;
+		 * const unsubscribe = kv.observeKey('theme', (change, transaction) => {
+		 *   switch (change.action) {
+		 *     case 'add':
+		 *     case 'update':
+		 *       document.body.className = String(change.newValue);
+		 *       break;
+		 *     case 'delete':
+		 *       document.body.className = '';
+		 *       break;
+		 *   }
 		 * });
-		 *
-		 * // Later: stop watching
-		 * unsubscribe();
+		 * unsubscribe(); // Stop watching
 		 * ```
 		 */
-		observe(callback: (value: TValue) => void) {
-			const handler = (event: Y.YMapEvent<KvValue>) => {
-				if (event.keysChanged.has(keyName)) {
-					callback(getCurrentValue());
+		observe(
+			callback: (change: KvChange<TValue>, transaction: Y.Transaction) => void,
+		): () => void {
+			const handler = (
+				event: Y.YMapEvent<KvValue>,
+				transaction: Y.Transaction,
+			) => {
+				const keyChange = event.changes.keys.get(keyName);
+				if (!keyChange) return;
+
+				const newValue = ykvMap.get(keyName) as TValue;
+
+				if (keyChange.action === 'add') {
+					callback({ action: 'add', newValue }, transaction);
+				} else if (keyChange.action === 'update') {
+					callback(
+						{
+							action: 'update',
+							oldValue: keyChange.oldValue as TValue,
+							newValue,
+						},
+						transaction,
+					);
+				} else if (keyChange.action === 'delete') {
+					callback(
+						{ action: 'delete', oldValue: keyChange.oldValue as TValue },
+						transaction,
+					);
 				}
 			};
+
 			ykvMap.observe(handler);
 			return () => ykvMap.unobserve(handler);
 		},
@@ -213,36 +221,36 @@ export function createKvHelper<TFieldSchema extends KvFieldSchema>({
 		 *
 		 * If a default is defined in the schema, sets to that value.
 		 * If nullable with no default, sets to null.
-		 * Otherwise, deletes the key entirely.
+		 * Otherwise, deletes the key entirely (subsequent `get()` returns `not_found`).
 		 *
 		 * @example
 		 * ```typescript
-		 * kv.theme.reset(); // Back to schema default
+		 * kv.reset('theme'); // Back to schema default
 		 * ```
 		 */
 		reset(): void {
-			ydoc.transact(() => {
-				const defaultVal = getDefaultValue();
-				if (defaultVal !== undefined) {
-					setValueFromSerialized(
-						serializeCellValue(defaultVal) as TSerializedValue,
-					);
-				} else if (nullable) {
-					ykvMap.set(keyName, null);
-				} else {
-					ykvMap.delete(keyName);
-				}
-			});
+			if ('default' in field && field.default !== undefined) {
+				this.set(field.default as TValue);
+			} else if (nullable) {
+				this.set(null as TValue);
+			} else {
+				ykvMap.delete(keyName);
+			}
 		},
 
-		/** Type inference helper for the runtime value type */
-		$inferValue: null as unknown as TValue,
-
-		/** Type inference helper for the serialized value type */
-		$inferSerializedValue: null as unknown as TSerializedValue,
+		/**
+		 * Type inference helper for the runtime value type.
+		 *
+		 * @example
+		 * ```typescript
+		 * type Theme = typeof kv.definitions.theme.field extends SelectField<infer O> ? O[number] : never;
+		 * // Or use the schema directly for type inference
+		 * ```
+		 */
+		inferValue: null as unknown as TValue,
 	};
 }
 
-export type KvHelper<TFieldSchema extends KvFieldSchema> = ReturnType<
-	typeof createKvHelper<TFieldSchema>
+export type KvHelper<TField extends KvField> = ReturnType<
+	typeof createKvHelper<TField>
 >;

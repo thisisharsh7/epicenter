@@ -1,37 +1,27 @@
 import { type } from 'arktype';
 import { Elysia } from 'elysia';
 import { Ok } from 'wellcrafted/result';
-import type { ActionContracts } from '../core/actions';
-import type { SerializedRow, TableSchema } from '../core/schema';
-import { tableSchemaToArktype } from '../core/schema';
-import type { BoundWorkspaceClient } from '../core/workspace/contract';
+import type { WorkspaceDoc } from '../core/docs/workspace-doc';
+import type { FieldMap, Row } from '../core/schema';
+import { tableToArktype } from '../core/schema';
+
+type AnyWorkspaceDoc = WorkspaceDoc<any, any, any>;
 
 export function createTablesPlugin(
-	workspaceClients: Record<
-		string,
-		BoundWorkspaceClient<string, ActionContracts>
-	>,
+	workspaceDocs: Record<string, AnyWorkspaceDoc>,
 ) {
 	const app = new Elysia();
 
-	for (const [workspaceId, workspaceClient] of Object.entries(
-		workspaceClients,
-	)) {
-		for (const tableHelper of workspaceClient.tables.$all()) {
-			const tableName = tableHelper.name;
+	for (const [workspaceId, workspaceDoc] of Object.entries(workspaceDocs)) {
+		for (const tableName of Object.keys(workspaceDoc.tables.definitions)) {
+			const tableHelper = workspaceDoc.tables(tableName);
+			const fields = workspaceDoc.tables.definitions[tableName]!.fields;
 			const basePath = `/workspaces/${workspaceId}/tables/${tableName}`;
 			const tags = [workspaceId, 'tables'];
 
-			app.get(
-				basePath,
-				() => {
-					const rows = tableHelper.getAllValid();
-					return rows.map((row) => row.toJSON());
-				},
-				{
-					detail: { description: `List all ${tableName}`, tags },
-				},
-			);
+			app.get(basePath, () => tableHelper.getAllValid(), {
+				detail: { description: `List all ${tableName}`, tags },
+			});
 
 			app.get(
 				`${basePath}/:id`,
@@ -40,9 +30,9 @@ export function createTablesPlugin(
 
 					switch (result.status) {
 						case 'valid':
-							return result.row.toJSON();
+							return result.row;
 						case 'invalid':
-							return status(422, { error: result.error.message });
+							return status(422, { errors: result.errors });
 						case 'not_found':
 							return status(404, { error: 'Not found' });
 					}
@@ -55,11 +45,11 @@ export function createTablesPlugin(
 			app.post(
 				basePath,
 				({ body }) => {
-					tableHelper.upsert(body as SerializedRow<TableSchema>);
-					return Ok({ id: (body as SerializedRow<TableSchema>).id });
+					tableHelper.upsert(body as Row<FieldMap>);
+					return Ok({ id: (body as Row<FieldMap>).id });
 				},
 				{
-					body: tableSchemaToArktype(tableHelper.schema),
+					body: tableToArktype(fields),
 					detail: { description: `Create or update ${tableName}`, tags },
 				},
 			);
@@ -69,14 +59,12 @@ export function createTablesPlugin(
 				({ params, body }) => {
 					const result = tableHelper.update({
 						id: params.id,
-						...(body as Partial<SerializedRow<TableSchema>>),
+						...(body as Partial<Row<FieldMap>>),
 					});
 					return Ok(result);
 				},
 				{
-					body: tableSchemaToArktype(tableHelper.schema)
-						.partial()
-						.merge({ id: type.string }),
+					body: tableToArktype(fields).partial().merge({ id: type.string }),
 					detail: { description: `Update ${tableName} by ID`, tags },
 				},
 			);
