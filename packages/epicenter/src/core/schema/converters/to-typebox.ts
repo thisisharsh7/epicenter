@@ -140,7 +140,7 @@ export function fieldsToTypebox<TFieldMap extends FieldMap>(
  * - `tags` → `Type.Array(...)` with uniqueItems constraint
  * - `json` → JSON Schema from embedded StandardSchema (fully JIT-compiled)
  *
- * @param fieldDefinition - The field definition to convert
+ * @param field - The field definition to convert
  * @returns A TypeBox TSchema suitable for validation
  *
  * @example
@@ -153,11 +153,11 @@ export function fieldsToTypebox<TFieldMap extends FieldMap>(
  * ```
  */
 export function fieldToTypebox<C extends Field>(
-	fieldDefinition: C,
+	field: C,
 ): FieldToTypebox<C> {
 	let baseType: TSchema;
 
-	switch (fieldDefinition.type) {
+	switch (field.type) {
 		case 'id':
 		case 'text':
 		case 'richtext':
@@ -185,7 +185,7 @@ export function fieldToTypebox<C extends Field>(
 			break;
 
 		case 'select': {
-			const literals = fieldDefinition.options.map((value) =>
+			const literals = field.options.map((value) =>
 				Type.Literal(value),
 			);
 			baseType = Type.Union(literals);
@@ -193,8 +193,8 @@ export function fieldToTypebox<C extends Field>(
 		}
 
 		case 'tags': {
-			if (fieldDefinition.options) {
-				const literals = fieldDefinition.options.map((value) =>
+			if (field.options) {
+				const literals = field.options.map((value) =>
 					Type.Literal(value),
 				);
 				baseType = Type.Array(Type.Union(literals), { uniqueItems: true });
@@ -206,12 +206,12 @@ export function fieldToTypebox<C extends Field>(
 
 		case 'json': {
 			// TypeBox schemas ARE JSON Schema - use directly
-			baseType = fieldDefinition.schema;
+			baseType = field.schema;
 			break;
 		}
 	}
 
-	const isNullable = isNullableField(fieldDefinition);
+	const isNullable = isNullableField(field);
 	if (isNullable) {
 		baseType = Type.Union([baseType, Type.Null()]);
 	}

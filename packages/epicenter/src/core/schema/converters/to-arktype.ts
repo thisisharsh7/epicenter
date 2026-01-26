@@ -142,7 +142,7 @@ export function tableToArktype<TFieldMap extends FieldMap>(
  * - `tags` → `type.enumerated(...options).array()` or `type.string.array()`
  * - `json` → uses the embedded arktype schema directly
  *
- * @param fieldDefinition - The field definition to convert
+ * @param field - The field definition to convert
  * @returns arktype Type suitable for validation and composition
  *
  * @example
@@ -159,11 +159,11 @@ export function tableToArktype<TFieldMap extends FieldMap>(
  * ```
  */
 export function fieldToArktype<C extends Field>(
-	fieldDefinition: C,
+	field: C,
 ): FieldToArktype<C> {
 	let baseType: Type;
 
-	switch (fieldDefinition.type) {
+	switch (field.type) {
 		case 'id':
 		case 'text':
 		case 'richtext':
@@ -186,11 +186,11 @@ export function fieldToArktype<C extends Field>(
 				.matching(DATE_TIME_STRING_REGEX);
 			break;
 		case 'select':
-			baseType = type.enumerated(...fieldDefinition.options);
+			baseType = type.enumerated(...field.options);
 			break;
 		case 'tags':
-			baseType = fieldDefinition.options
-				? type.enumerated(...fieldDefinition.options).array()
+			baseType = field.options
+				? type.enumerated(...field.options).array()
 				: type.string.array();
 			break;
 		case 'json':
@@ -198,11 +198,11 @@ export function fieldToArktype<C extends Field>(
 			// TODO: Remove cast when @ark/json-schema updates to arktype >=2.1.29
 			// Type cast needed due to @ark/json-schema using older arktype version (2.1.23 vs 2.1.29).
 			// Runtime behavior is correct; only TS types differ.
-			baseType = jsonSchemaToType(fieldDefinition.schema) as unknown as Type;
+			baseType = jsonSchemaToType(field.schema) as unknown as Type;
 			break;
 	}
 
-	const isNullable = isNullableField(fieldDefinition);
+	const isNullable = isNullableField(field);
 	return (
 		isNullable ? baseType.or(type.null).default(null) : baseType
 	) as FieldToArktype<C>;
