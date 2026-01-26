@@ -1,9 +1,9 @@
 # YKeyValue: The Most Interesting Meta Data Structure in Yjs
 
-> **Deprecated (2026-01-08)**: We reverted YKeyValue in favor of native Y.Map of Y.Maps.
-> The storage gains were dubious in practice (~6% difference with epoch compaction, not 1935x),
-> and the unpredictable LWW conflict resolution was a footgun. Native Y.Map is simpler and
-> more battle-tested. See [PR #1226](https://github.com/EpicenterHQ/epicenter/pull/1226) for details.
+> **Note**: YKeyValue uses the same clientID-based conflict resolution as Y.Map under the hood.
+> The original deprecation claimed "unpredictable LWW" behavior, but this was misleading—both
+> Y.Map and YKeyValue resolve conflicts using Yjs's deterministic clientID ordering.
+> YKeyValue remains useful for long-lived collaborative documents without epoch compaction.
 
 YKeyValue is one of the most interesting meta Yjs data structures I've encountered.
 
