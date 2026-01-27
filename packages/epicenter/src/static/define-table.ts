@@ -49,7 +49,7 @@ type TableBuilder<TVersions extends StandardSchemaV1[]> = {
 	migrate(
 		fn: (
 			row: StandardSchemaV1.InferOutput<TVersions[number]>,
-		) => StandardSchemaV1.InferOutput<LastSchema<TVersions>> & { id: string },
+		) => StandardSchemaV1.InferOutput<LastSchema<TVersions>>,
 	): TableDefinition<TVersions>;
 };
 
