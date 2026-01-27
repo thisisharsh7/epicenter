@@ -34,7 +34,7 @@ import type {
  * Binds KV definitions to an existing Y.Doc.
  *
  * Creates a KVHelper with dictionary-style access methods.
- * All KV values are stored in a shared Y.Array at `static:kv`.
+ * All KV values are stored in a shared Y.Array at `kv`.
  *
  * @param ydoc - The Y.Doc to bind KV to
  * @param definitions - Map of key name to KVDefinition
@@ -45,7 +45,7 @@ export function createKV<TKV extends KVDefinitionMap>(
 	definitions: TKV,
 ): KVHelper<TKV> {
 	// All KV values share a single YKeyValue store
-	const yarray = ydoc.getArray<{ key: string; val: unknown }>('static:kv');
+	const yarray = ydoc.getArray<{ key: string; val: unknown }>('kv');
 	const ykv = new YKeyValue(yarray);
 
 	// Create internal helpers for each key

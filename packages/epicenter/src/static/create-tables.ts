@@ -33,7 +33,7 @@ import type {
  * Binds table definitions to an existing Y.Doc.
  *
  * Creates a TablesHelper object with a TableHelper for each table definition.
- * Tables are stored in the Y.Doc under `static:tables:{tableName}` arrays.
+ * Tables are stored in the Y.Doc under `table:{tableName}` arrays.
  *
  * @param ydoc - The Y.Doc to bind tables to
  * @param definitions - Map of table name to TableDefinition
@@ -47,9 +47,7 @@ export function createTables<TTables extends TableDefinitionMap>(
 
 	for (const [name, definition] of Object.entries(definitions)) {
 		// Each table gets its own Y.Array for isolation
-		const yarray = ydoc.getArray<{ key: string; val: unknown }>(
-			`static:tables:${name}`,
-		);
+		const yarray = ydoc.getArray<{ key: string; val: unknown }>(`table:${name}`);
 		const ykv = new YKeyValue(yarray);
 
 		helpers[name] = createTableHelper(
