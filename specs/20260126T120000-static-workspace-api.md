@@ -1,0 +1,990 @@
+# Static Workspace API Specification
+
+## Overview
+
+This specification defines the **Static Workspace API** for Epicenter - a composable, type-safe API for defining and creating workspaces with versioned tables and KV stores.
+
+"Static" refers to the schema being defined at compile-time with full TypeScript inference, as opposed to dynamic/runtime schemas (like grids - see Related Specs).
+
+**Location**: `packages/epicenter/src/static/` (proposed)
+
+### Related Specs
+
+- `specs/20260125T120000-versioned-table-kv-specification.md` - Versioned schema internals (YKeyValue, migrate-on-read)
+- `specs/20260126T103000-table-api-split.md` - Tables vs Grids distinction
+- `specs/20260108T001900-workspace-create-accepts-capabilities.md` - Capabilities API
+
+---
+
+## Design Principles
+
+### 1. Composability at Every Level
+
+The API is designed in layers. Each layer is independently usable:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  defineWorkspace() + workspace.create()                     │  ← High-level
+│    Creates Y.Doc internally, binds tables/kv/capabilities   │
+├─────────────────────────────────────────────────────────────┤
+│  createTables(ydoc, {...}) / createKV(ydoc, {...})          │  ← Mid-level
+│    Binds to existing Y.Doc                                  │
+├─────────────────────────────────────────────────────────────┤
+│  defineTable() / defineKV()                                 │  ← Low-level
+│    Pure schema definitions                                  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 2. Naming Convention: `define` vs `create`
+
+| Prefix | Meaning | Side Effects | Example |
+|--------|---------|--------------|---------|
+| `define*` | Pure schema declaration | None | `defineTable()`, `defineKV()`, `defineWorkspace()` |
+| `create*` | Instantiation | Creates Y.Doc, binds data | `createTables()`, `createKV()`, `workspace.create()` |
+
+### 3. No Wrapper Functions for Composition
+
+Plain objects are used for composition instead of wrapper functions:
+
+```typescript
+// ✓ Good - plain object
+const workspace = defineWorkspace({
+  tables: { posts, users },
+  kv: { theme },
+});
+
+// ✗ Avoid - unnecessary wrapper
+const tablesDef = defineTables({ posts, users });  // Don't do this
+```
+
+### 4. Progressive Disclosure
+
+Simple use cases are simple. Advanced use cases are possible:
+
+```typescript
+// Simple: High-level API (synchronous)
+const client = defineWorkspace({ id, tables, kv }).create();
+
+// Advanced: Bring your own Y.Doc
+const ydoc = new Y.Doc();
+const tables = createTables(ydoc, { posts });
+new IndexeddbPersistence('my-doc', ydoc);
+```
+
+---
+
+## API Reference
+
+### Level 1: Schema Definitions (Pure)
+
+#### `defineTable()`
+
+Defines a versioned table schema with migration support.
+
+```typescript
+import { defineTable } from 'epicenter/static';
+import { type } from 'arktype';
+
+const posts = defineTable()
+  .version(type({ id: 'string', title: 'string', _v: '"1"' }))
+  .version(type({ id: 'string', title: 'string', views: 'number', _v: '"2"' }))
+  .migrate((row) => {
+    if (row._v === '1') return { ...row, views: 0, _v: '2' as const };
+    return row;
+  });
+```
+
+**Type Signature:**
+
+```typescript
+function defineTable(): TableBuilder<[], never>;
+
+type TableBuilder<TVersions extends StandardSchemaV1[], TLatest> = {
+  version<TSchema extends StandardSchemaV1>(
+    schema: StandardSchemaV1.InferOutput<TSchema> extends { id: string }
+      ? TSchema
+      : never
+  ): TableBuilder<[...TVersions, TSchema], StandardSchemaV1.InferOutput<TSchema>>;
+
+  migrate(
+    fn: (row: StandardSchemaV1.InferOutput<TVersions[number]>) => TLatest
+  ): TableDefinition<TLatest>;
+};
+
+type TableDefinition<TRow extends { id: string }> = {
+  readonly versions: readonly StandardSchemaV1[];
+  readonly unionSchema: StandardSchemaV1;
+  readonly migrate: (row: unknown) => TRow;
+};
+```
+
+**Rules:**
+- Schema must include `{ id: string }` (enforced at type level)
+- Last `.version()` defines the "latest" schema shape
+- `.migrate()` must return the latest schema shape
+- Schemas are validated against a union of all versions on read
+
+---
+
+#### `defineKV()`
+
+Defines a versioned KV schema with migration support.
+
+```typescript
+import { defineKV } from 'epicenter/static';
+import { type } from 'arktype';
+
+const theme = defineKV()
+  .version(type({ mode: "'light' | 'dark'" }))
+  .version(type({ mode: "'light' | 'dark' | 'system'", fontSize: 'number' }))
+  .migrate((v) => {
+    if (!('fontSize' in v)) return { ...v, fontSize: 14 };
+    return v;
+  });
+```
+
+**Type Signature:**
+
+```typescript
+function defineKV(): KVBuilder<[], never>;
+
+type KVBuilder<TVersions extends StandardSchemaV1[], TLatest> = {
+  version<TSchema extends StandardSchemaV1>(
+    schema: TSchema
+  ): KVBuilder<[...TVersions, TSchema], StandardSchemaV1.InferOutput<TSchema>>;
+
+  migrate(
+    fn: (value: StandardSchemaV1.InferOutput<TVersions[number]>) => TLatest
+  ): KVDefinition<TLatest>;
+};
+
+type KVDefinition<TValue> = {
+  readonly versions: readonly StandardSchemaV1[];
+  readonly unionSchema: StandardSchemaV1;
+  readonly migrate: (value: unknown) => TValue;
+};
+```
+
+---
+
+#### `defineWorkspace()`
+
+Combines table and KV definitions into a workspace schema.
+
+```typescript
+import { defineWorkspace } from 'epicenter/static';
+
+const workspace = defineWorkspace({
+  id: 'epicenter.whispering',
+  tables: { posts, users },
+  kv: { theme, sidebar },
+});
+```
+
+**Type Signature:**
+
+```typescript
+function defineWorkspace<
+  TId extends string,
+  TTables extends Record<string, TableDefinition<any>>,
+  TKV extends Record<string, KVDefinition<any>>,
+>(config: {
+  id: TId;
+  tables?: TTables;
+  kv?: TKV;
+}): Workspace<TId, TTables, TKV>;
+
+type Workspace<TId, TTables, TKV> = {
+  readonly id: TId;
+  readonly tableDefinitions: TTables;
+  readonly kvDefinitions: TKV;
+
+  /** Synchronous - returns immediately. Use capability.whenSynced for async initialization. */
+  create<TCapabilities extends CapabilityMap = {}>(
+    capabilities?: TCapabilities
+  ): WorkspaceClient<TId, TTables, TKV, TCapabilities>;
+};
+```
+
+**Parameters:**
+- `id` - Workspace identifier (used as Y.Doc guid, provider keys, etc.)
+- `tables` - Map of table definitions (optional)
+- `kv` - Map of KV definitions (optional)
+
+---
+
+### Level 2: Workspace Client
+
+#### `workspace.create()`
+
+Creates a workspace client with Y.Doc, tables, KV, and capabilities. **Synchronous**.
+
+```typescript
+// No capabilities (in-memory only)
+const client = workspace.create();
+
+// With capabilities
+const client = workspace.create({
+  sqlite,
+  persistence,
+  websocketSync: websocketSync({ url }),
+});
+
+// Wait for capabilities to be ready (optional)
+await client.capabilities.persistence.whenSynced;
+```
+
+**Returns `WorkspaceClient`:**
+
+```typescript
+type WorkspaceClient<TId, TTables, TKV, TCapabilities> = {
+  readonly id: TId;
+  readonly ydoc: Y.Doc;
+  readonly tables: TablesHelper<TTables>;
+  readonly kv: KVHelper<TKV>;
+  readonly capabilities: InferCapabilityExports<TCapabilities>;
+
+  destroy(): Promise<void>;
+  [Symbol.asyncDispose](): Promise<void>;
+};
+```
+
+**Usage:**
+
+```typescript
+const client = workspace.create({ sqlite, persistence });
+
+// Client is immediately usable (sync construction)
+client.tables.posts.set({ id: '1', title: 'Hello', views: 0, _v: '2' });
+client.tables.posts.get('1');  // GetResult<Post>
+
+// Type-safe KV access
+client.kv.theme.set({ mode: 'dark', fontSize: 16 });
+client.kv.theme.get();  // KVGetResult<Theme>
+
+// Wait for capabilities if needed (async property pattern)
+await client.capabilities.persistence.whenSynced;
+await client.capabilities.sqlite.whenSynced;
+
+// Capability exports
+client.capabilities.sqlite.db.select()...
+
+// Raw Y.Doc access (escape hatch)
+client.ydoc;
+
+// Cleanup
+await client.destroy();
+```
+
+**Sync construction, async property pattern:**
+- `workspace.create()` returns immediately (synchronous)
+- Tables and KV are usable right away
+- Capabilities expose `.whenSynced` for async initialization
+- UI can render immediately, show loading state while waiting for sync
+
+---
+
+### Level 3: Lower-Level APIs
+
+For advanced use cases where you need to bring your own Y.Doc.
+
+#### `createTables()`
+
+Binds table definitions to an existing Y.Doc.
+
+```typescript
+import { createTables } from 'epicenter/static';
+
+const ydoc = new Y.Doc({ guid: 'my-doc' });
+const tables = createTables(ydoc, { posts, users });
+
+tables.posts.set({ id: '1', title: 'Hello', views: 0, _v: '2' });
+```
+
+**Type Signature:**
+
+```typescript
+function createTables<TTables extends Record<string, TableDefinition<any>>>(
+  ydoc: Y.Doc,
+  definitions: TTables
+): TablesHelper<TTables>;
+
+type TablesHelper<TTables> = {
+  [K in keyof TTables]: TableHelper<TTables[K]>;
+};
+```
+
+---
+
+#### `createKV()`
+
+Binds KV definitions to an existing Y.Doc.
+
+```typescript
+import { createKV } from 'epicenter/static';
+
+const ydoc = new Y.Doc({ guid: 'my-doc' });
+const kv = createKV(ydoc, { theme, sidebar });
+
+kv.theme.set({ mode: 'dark', fontSize: 16 });
+```
+
+**Type Signature:**
+
+```typescript
+function createKV<TKV extends Record<string, KVDefinition<any>>>(
+  ydoc: Y.Doc,
+  definitions: TKV
+): KVHelper<TKV>;
+
+type KVHelper<TKV> = {
+  [K in keyof TKV]: KVItemHelper<TKV[K]>;
+};
+```
+
+---
+
+## Table Helper Methods
+
+Methods available on `tables.{tableName}`:
+
+```typescript
+type TableHelper<TRow extends { id: string }> = {
+  // ════════════════════════════════════════════════════════════════
+  // WRITE (always writes latest schema shape)
+  // ════════════════════════════════════════════════════════════════
+
+  /** Set a row (insert or replace). Always writes full row. */
+  set(row: TRow): void;
+
+  /** Set multiple rows. */
+  setMany(rows: TRow[]): void;
+
+  // ════════════════════════════════════════════════════════════════
+  // READ (validates + migrates to latest)
+  // ════════════════════════════════════════════════════════════════
+
+  /** Get a row by ID. Returns GetResult (valid | invalid | not_found). */
+  get(id: string): GetResult<TRow>;
+
+  /** Get all rows with validation status. */
+  getAll(): RowResult<TRow>[];
+
+  /** Get all valid rows (skips invalid). */
+  getAllValid(): TRow[];
+
+  /** Get all invalid rows (for debugging/repair). */
+  getAllInvalid(): InvalidRowResult[];
+
+  // ════════════════════════════════════════════════════════════════
+  // QUERY
+  // ════════════════════════════════════════════════════════════════
+
+  /** Filter rows by predicate (only valid rows). */
+  filter(predicate: (row: TRow) => boolean): TRow[];
+
+  /** Find first row matching predicate (only valid rows). */
+  find(predicate: (row: TRow) => boolean): TRow | null;
+
+  // ════════════════════════════════════════════════════════════════
+  // DELETE
+  // ════════════════════════════════════════════════════════════════
+
+  /** Delete a row by ID. */
+  delete(id: string): DeleteResult;
+
+  /** Delete multiple rows. */
+  deleteMany(ids: string[]): DeleteManyResult;
+
+  /** Delete all rows (table structure preserved). */
+  clear(): void;
+
+  // ════════════════════════════════════════════════════════════════
+  // OBSERVE
+  // ════════════════════════════════════════════════════════════════
+
+  /** Watch for row changes. Returns unsubscribe function. */
+  observe(callback: (changedIds: Set<string>, tx: Y.Transaction) => void): () => void;
+
+  // ════════════════════════════════════════════════════════════════
+  // METADATA
+  // ════════════════════════════════════════════════════════════════
+
+  /** Number of rows in table. */
+  count(): number;
+
+  /** Check if row exists. */
+  has(id: string): boolean;
+};
+```
+
+**Key Design Decision: `set` not `upsert`/`insert`/`update`**
+
+There's no distinction between insert and update. `set()` always writes the full row:
+- If row exists → replaced
+- If row doesn't exist → created
+
+This simplifies the mental model and enables schema versioning (entire row is atomic).
+
+---
+
+## KV Helper Methods
+
+Methods available on `kv.{key}`:
+
+```typescript
+type KVItemHelper<TValue> = {
+  /** Get the value (validates + migrates). */
+  get(): KVGetResult<TValue>;
+
+  /** Set the value (always latest schema). */
+  set(value: TValue): void;
+
+  /** Reset to default or delete. */
+  reset(): void;
+
+  /** Watch for changes. */
+  observe(callback: (change: KVChange<TValue>, tx: Y.Transaction) => void): () => void;
+};
+
+type KVGetResult<TValue> =
+  | { status: 'valid'; value: TValue }
+  | { status: 'invalid'; error: ValidationError }
+  | { status: 'not_found' };
+```
+
+---
+
+## Capabilities vs Raw Providers
+
+### When to Use Capabilities
+
+Capabilities wrap providers and receive context with `ydoc`, `tables`, `kv`:
+
+```typescript
+const client = await workspace.create({
+  sqlite,      // Materializes tables to SQLite
+  persistence, // Persists Y.Doc to disk
+});
+
+// Capability exports are type-safe
+client.capabilities.sqlite.db.select()...
+```
+
+Use capabilities when:
+- The provider needs access to tables/kv (e.g., SQLite materializer)
+- You want type-safe exports on `client.capabilities`
+- The capability is part of the workspace lifecycle (auto-cleanup on destroy)
+
+### When to Use Raw Providers
+
+Use raw Yjs providers directly on `client.ydoc`:
+
+```typescript
+const client = await workspace.create();
+
+// Raw providers - standard Yjs pattern
+new IndexeddbPersistence(client.id, client.ydoc);
+createYSweetProvider(client.ydoc, url);
+
+// Type-safe access still works
+client.tables.posts.set({ id: '1', title: 'Hello' });
+```
+
+Use raw providers when:
+- The provider only needs Y.Doc (no tables/kv context)
+- You want standard Yjs provider patterns
+- You're integrating with existing Yjs ecosystem tools
+
+---
+
+## File Organization
+
+### Proposed Structure
+
+```
+packages/epicenter/src/static/
+├── index.ts                    # Public exports
+├── define-table.ts             # defineTable() builder
+├── define-kv.ts                # defineKV() builder
+├── define-workspace.ts         # defineWorkspace() + workspace.create()
+├── create-tables.ts            # createTables() lower-level API
+├── create-kv.ts                # createKV() lower-level API
+├── table-helper.ts             # TableHelper implementation
+├── kv-helper.ts                # KVHelper implementation
+├── types.ts                    # Shared types
+└── schema-union.ts             # Standard Schema union validation
+```
+
+### Exports
+
+```typescript
+// packages/epicenter/src/static/index.ts
+
+// Schema definitions (pure)
+export { defineTable } from './define-table';
+export { defineKV } from './define-kv';
+export { defineWorkspace } from './define-workspace';
+
+// Lower-level APIs (for existing Y.Doc)
+export { createTables } from './create-tables';
+export { createKV } from './create-kv';
+
+// Types
+export type {
+  TableDefinition,
+  KVDefinition,
+  Workspace,
+  WorkspaceClient,
+  TableHelper,
+  KVHelper,
+  GetResult,
+  RowResult,
+  KVGetResult,
+  // ...
+} from './types';
+```
+
+---
+
+## Testing Strategy
+
+The layered API enables clean unit testing:
+
+### Test Schema Definitions
+
+```typescript
+import { defineTable } from 'epicenter/static';
+
+test('defineTable creates valid definition', () => {
+  const posts = defineTable()
+    .version(type({ id: 'string', title: 'string' }))
+    .migrate((row) => row);
+
+  expect(posts.versions).toHaveLength(1);
+  expect(posts.migrate({ id: '1', title: 'Hi' })).toEqual({ id: '1', title: 'Hi' });
+});
+```
+
+### Test Tables with In-Memory Y.Doc
+
+```typescript
+import { createTables } from 'epicenter/static';
+import * as Y from 'yjs';
+
+test('tables set and get', () => {
+  const ydoc = new Y.Doc();
+  const tables = createTables(ydoc, { posts });
+
+  tables.posts.set({ id: '1', title: 'Hello', _v: '1' });
+
+  const result = tables.posts.get('1');
+  expect(result.status).toBe('valid');
+  expect(result.row.title).toBe('Hello');
+});
+```
+
+### Test Migrations
+
+```typescript
+test('migrates old schema to latest', () => {
+  const ydoc = new Y.Doc();
+  const tables = createTables(ydoc, { posts });
+
+  // Simulate old data (v1 schema)
+  const rawTables = ydoc.getMap('tables');
+  // ... insert v1 data directly ...
+
+  // Read should migrate
+  const result = tables.posts.get('1');
+  expect(result.status).toBe('valid');
+  expect(result.row._v).toBe('2');  // Migrated to v2
+  expect(result.row.views).toBe(0); // Default from migration
+});
+```
+
+### Test Workspace with Capabilities
+
+```typescript
+test('workspace with sqlite capability', async () => {
+  const workspace = defineWorkspace({
+    id: 'test',
+    tables: { posts },
+  });
+
+  // Synchronous creation
+  const client = workspace.create({ sqlite });
+
+  // Wait for SQLite to be ready
+  await client.capabilities.sqlite.whenSynced;
+
+  client.tables.posts.set({ id: '1', title: 'Hello' });
+
+  // Verify SQLite materialization
+  const rows = client.capabilities.sqlite.db
+    .select()
+    .from(postsTable)
+    .all();
+
+  expect(rows).toHaveLength(1);
+
+  await client.destroy();
+});
+```
+
+---
+
+## Migration from Current API
+
+### From `createTableHelpers`
+
+```typescript
+// Before
+const tableHelpers = createTableHelpers({ ydoc, tableDefinitions });
+tableHelpers.posts.upsert({ id: '1', title: 'Hi' });
+
+// After
+const tables = createTables(ydoc, { posts });
+tables.posts.set({ id: '1', title: 'Hi', _v: '1' });
+```
+
+### From Current Workspace API
+
+```typescript
+// Before (if using old patterns)
+const client = await workspace.withCapabilities({ sqlite }).create();
+
+// After (synchronous creation)
+const client = workspace.create({ sqlite });
+await client.capabilities.sqlite.whenSynced;  // If you need to wait
+```
+
+---
+
+## Open Questions
+
+### 1. Naming: "static" or something else?
+
+**Current**: `epicenter/static`
+
+**Concern**: "Static" might imply compile-time only, but workspaces are created at runtime.
+
+**Alternatives**:
+- `epicenter/schema` - Emphasizes schema-defined
+- `epicenter/typed` - Emphasizes type safety
+- Just `epicenter` - If this is the main/default API
+
+**Decision**: Keep `epicenter/static` for now. Can revisit later.
+
+---
+
+### 2. Synchronous workspace creation with async lifecycle
+
+**Decision**: `workspace.create()` is **synchronous**. Capabilities handle async work via lifecycle exports.
+
+```typescript
+// Synchronous creation
+const client = workspace.create({
+  sqlite,
+  persistence,
+});
+
+// Capabilities return whenSynced for async lifecycle
+await client.capabilities.persistence.whenSynced;
+await client.capabilities.sqlite.whenSynced;
+
+// Or wait for all capabilities
+await Promise.all([
+  client.capabilities.persistence.whenSynced,
+  client.capabilities.sqlite.whenSynced,
+]);
+```
+
+**Why synchronous construction?**
+- Simpler mental model
+- Client is immediately usable (reads/writes work, just may not be synced yet)
+- Follows "sync construction, async property" pattern (see `.claude/skills/sync-construction-async-property-ui-render-gate-pattern/`)
+- UI can render immediately, then show loading state while waiting for sync
+
+**Capability lifecycle exports:**
+```typescript
+type CapabilityExports = {
+  whenSynced?: Promise<void>;  // Resolves when capability is fully initialized
+  destroy?: () => Promise<void>;  // Cleanup on workspace destroy
+  // ... other capability-specific exports
+};
+```
+
+---
+
+### 3. Single version tables (no migration)
+
+When there's only one version, `.migrate()` is still required but trivial:
+
+```typescript
+const posts = defineTable()
+  .version(type({ id: 'string', title: 'string' }))
+  .migrate((row) => row);  // Identity function
+```
+
+**Decision**: Keep `.migrate()` required for now. Explicit is better than implicit.
+
+**Future consideration**: Shorthand for single-version tables:
+
+```typescript
+// Potential future shorthand (not implementing now)
+const posts = defineTable(type({ id: 'string', title: 'string' }));
+// Equivalent to:
+// defineTable().version(schema).migrate((row) => row)
+```
+
+This would pass the schema directly to `defineTable()` and auto-generate an identity migration. Defer until we see if the verbosity is actually painful in practice.
+
+---
+
+### 4. KV default values
+
+**Decision**: Use the validator's built-in default support. No separate `.default()` method needed.
+
+ArkType (and other Standard Schema libraries) support default values:
+
+```typescript
+import { type } from 'arktype';
+
+// ArkType: Use '=' for defaults
+const theme = defineKV()
+  .version(type({
+    mode: "'light' | 'dark' = 'light'",
+    fontSize: 'number = 14',
+  }))
+  .migrate((v) => v);
+
+// Zod: Use .default()
+const theme = defineKV()
+  .version(z.object({
+    mode: z.enum(['light', 'dark']).default('light'),
+    fontSize: z.number().default(14),
+  }))
+  .migrate((v) => v);
+```
+
+**How it works:**
+- On read, if value is `not_found`, return `{ status: 'not_found' }`
+- App code decides whether to use schema defaults or handle missing state differently
+- Schema defaults are applied during validation, so partial data gets filled in
+
+```typescript
+const result = kv.theme.get();
+if (result.status === 'not_found') {
+  // First time - set initial value (schema defaults will apply)
+  kv.theme.set({ mode: 'light' });  // fontSize: 14 applied by schema default
+}
+```
+
+---
+
+### 5. Schema library examples
+
+**Decision**: Include examples for all major Standard Schema libraries.
+
+```typescript
+// ════════════════════════════════════════════════════════════════════
+// ArkType (recommended - best TypeScript inference)
+// ════════════════════════════════════════════════════════════════════
+import { type } from 'arktype';
+
+const posts = defineTable()
+  .version(type({ id: 'string', title: 'string' }))
+  .version(type({ id: 'string', title: 'string', views: 'number' }))
+  .migrate((row) => {
+    if (!('views' in row)) return { ...row, views: 0 };
+    return row;
+  });
+
+// ════════════════════════════════════════════════════════════════════
+// Zod
+// ════════════════════════════════════════════════════════════════════
+import { z } from 'zod';
+
+const posts = defineTable()
+  .version(z.object({ id: z.string(), title: z.string() }))
+  .version(z.object({ id: z.string(), title: z.string(), views: z.number() }))
+  .migrate((row) => {
+    if (!('views' in row)) return { ...row, views: 0 };
+    return row;
+  });
+
+// ════════════════════════════════════════════════════════════════════
+// Valibot
+// ════════════════════════════════════════════════════════════════════
+import * as v from 'valibot';
+
+const posts = defineTable()
+  .version(v.object({ id: v.string(), title: v.string() }))
+  .version(v.object({ id: v.string(), title: v.string(), views: v.number() }))
+  .migrate((row) => {
+    if (!('views' in row)) return { ...row, views: 0 };
+    return row;
+  });
+
+// ════════════════════════════════════════════════════════════════════
+// TypeBox
+// ════════════════════════════════════════════════════════════════════
+import { Type } from '@sinclair/typebox';
+
+const posts = defineTable()
+  .version(Type.Object({ id: Type.String(), title: Type.String() }))
+  .version(Type.Object({ id: Type.String(), title: Type.String(), views: Type.Number() }))
+  .migrate((row) => {
+    if (!('views' in row)) return { ...row, views: 0 };
+    return row;
+  });
+```
+
+All libraries work because `defineTable().version()` accepts any Standard Schema v1 compliant schema.
+
+---
+
+### 6. The `id` parameter format
+
+**Current**: `id: 'epicenter.whispering'`
+
+**Used for**:
+- Y.Doc guid (unless overridden)
+- Capability storage paths (e.g., `~/.epicenter/{id}/`)
+- Provider connection identifiers
+- Debugging/logging
+
+**Format restrictions**:
+- Must be a valid file path segment (no `/`, `\`, `:`, etc.)
+- Recommended: lowercase, dots or hyphens for namespacing
+- Examples: `myapp.workspace`, `blog-posts`, `user-123-settings`
+
+---
+
+### 7. Error scenarios
+
+**Migration throws:**
+```typescript
+.migrate((row) => {
+  if (row._v === '1') throw new Error('Cannot migrate v1');
+  return row;
+});
+```
+
+On read, if migration throws:
+- Return `{ status: 'invalid', error: MigrationError }`
+- Do NOT crash the app
+- Row is accessible via `getAllInvalid()` for debugging
+
+**Invalid data on write:**
+- Writes are NOT validated (performance)
+- Trust the TypeScript types
+- Invalid data will fail on next read
+
+**Validation fails on read:**
+- Return `{ status: 'invalid', errors: ValidationError[] }`
+- Original data accessible via `result.row` (untyped)
+
+---
+
+### 8. Conflict resolution (LWW)
+
+Row-level Last-Writer-Wins behavior:
+
+```
+Client A: set({ id: '1', title: 'A', views: 10 }) at t=1
+Client B: set({ id: '1', title: 'B', views: 20 }) at t=2
+
+After sync: { id: '1', title: 'B', views: 20 }  // B wins entirely
+```
+
+**Important**: This is different from cell-level CRDT (where A's views and B's title could both win). Entire row is atomic.
+
+See `specs/20260125T120000-versioned-table-kv-specification.md` for why this tradeoff is made (enables schema versioning).
+
+---
+
+### 9. Where do Grids live?
+
+Grids (cell-level dynamic tables) are a separate concept. Options:
+
+| Option | Location | Pros | Cons |
+|--------|----------|------|------|
+| A | `epicenter/grid` | Clear separation | Another import path |
+| B | Separate package `@epicenter/grid` | Independent versioning | More packages to maintain |
+| C | Same package, different export | Single install | Might confuse users |
+
+**Recommendation**: Option A (`epicenter/grid`) - keeps them together but clearly separated.
+
+---
+
+### 10. Result type definitions
+
+```typescript
+// Table read results
+type GetResult<TRow> =
+  | { status: 'valid'; row: TRow }
+  | { status: 'invalid'; id: string; errors: ValidationError[]; row: unknown }
+  | { status: 'not_found'; id: string };
+
+type RowResult<TRow> =
+  | { status: 'valid'; row: TRow }
+  | { status: 'invalid'; id: string; errors: ValidationError[]; row: unknown };
+
+// Table write results
+type DeleteResult =
+  | { status: 'deleted' }
+  | { status: 'not_found_locally' };
+
+type DeleteManyResult =
+  | { status: 'all_deleted'; deleted: string[] }
+  | { status: 'partially_deleted'; deleted: string[]; notFoundLocally: string[] }
+  | { status: 'none_deleted'; notFoundLocally: string[] };
+
+// KV results
+type KVGetResult<TValue> =
+  | { status: 'valid'; value: TValue }
+  | { status: 'invalid'; error: ValidationError }
+  | { status: 'not_found' };
+```
+
+---
+
+### 11. Version discriminator (`_v`)
+
+The `_v` field shown in examples is **recommended but optional**:
+
+```typescript
+// Recommended: explicit version field
+.version(type({ id: 'string', title: 'string', _v: '"1"' }))
+.version(type({ id: 'string', title: 'string', views: 'number', _v: '"2"' }))
+.migrate((row) => {
+  if (row._v === '1') return { ...row, views: 0, _v: '2' as const };
+  return row;
+});
+
+// Also works: no version field (check field presence)
+.version(type({ id: 'string', title: 'string' }))
+.version(type({ id: 'string', title: 'string', views: 'number' }))
+.migrate((row) => {
+  if (!('views' in row)) return { ...row, views: 0 };
+  return row;
+});
+```
+
+See `specs/20260125T120000-versioned-table-kv-specification.md` for detailed rationale.
+
+---
+
+## TODO
+
+- [ ] Implement `defineTable()` with TypeScript inference
+- [ ] Implement `defineKV()` with TypeScript inference
+- [ ] Implement `defineWorkspace()` and `workspace.create()`
+- [ ] Implement `createTables()` with YKeyValue storage
+- [ ] Implement `createKV()` with YKeyValue storage
+- [ ] Implement Standard Schema union validation
+- [ ] Add comprehensive tests for migration scenarios
+- [ ] Update package exports
+- [ ] Write migration guide for existing users
