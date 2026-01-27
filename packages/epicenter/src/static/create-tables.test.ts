@@ -168,9 +168,7 @@ describe('createTables', () => {
 		});
 
 		// Simulate writing old data by accessing the raw array
-		const yarray = ydoc.getArray<{ key: string; val: unknown }>(
-			'static:tables:posts',
-		);
+		const yarray = ydoc.getArray<{ key: string; val: unknown }>('table:posts');
 		yarray.push([{ key: '1', val: { id: '1', title: 'Old Post' } }]);
 
 		// Read should migrate
@@ -212,9 +210,7 @@ describe('migration scenarios', () => {
 		});
 
 		// Insert v1 data directly
-		const yarray = ydoc.getArray<{ key: string; val: unknown }>(
-			'static:tables:posts',
-		);
+		const yarray = ydoc.getArray<{ key: string; val: unknown }>('table:posts');
 		yarray.push([{ key: '1', val: { id: '1', title: 'Old', _v: '1' } }]);
 		yarray.push([
 			{ key: '2', val: { id: '2', title: 'Medium', views: 10, _v: '2' } },
@@ -275,9 +271,7 @@ describe('migration scenarios', () => {
 		});
 
 		// Insert v1 data
-		const yarray = ydoc.getArray<{ key: string; val: unknown }>(
-			'static:tables:posts',
-		);
+		const yarray = ydoc.getArray<{ key: string; val: unknown }>('table:posts');
 		yarray.push([{ key: '1', val: { id: '1', title: 'Old' } }]);
 
 		const result = tables.posts.get('1');

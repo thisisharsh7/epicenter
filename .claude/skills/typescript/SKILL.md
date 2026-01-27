@@ -292,6 +292,79 @@ This correctly omits properties from the `required` array in JSON Schema.
 
 Both behave similarly in TypeScript, but only the `?` syntax converts correctly to JSON Schema for OpenAPI documentation and MCP tool schemas.
 
+# Inline Definitions in Tests
+
+## Prefer Inlining Single-Use Definitions
+
+When a schema, builder, or configuration is only used once in a test, inline it directly at the call site rather than extracting to a variable.
+
+### Bad Pattern (Extracted Variables)
+
+```typescript
+test('creates workspace with tables', () => {
+  const posts = defineTable()
+    .version(type({ id: 'string', title: 'string' }))
+    .migrate((row) => row);
+
+  const theme = defineKV()
+    .version(type({ mode: "'light' | 'dark'" }))
+    .migrate((v) => v);
+
+  const workspace = defineWorkspace({
+    id: 'test-app',
+    tables: { posts },
+    kv: { theme },
+  });
+
+  expect(workspace.id).toBe('test-app');
+});
+```
+
+### Good Pattern (Inlined)
+
+```typescript
+test('creates workspace with tables', () => {
+  const workspace = defineWorkspace({
+    id: 'test-app',
+    tables: {
+      posts: defineTable()
+        .version(type({ id: 'string', title: 'string' }))
+        .migrate((row) => row),
+    },
+    kv: {
+      theme: defineKV()
+        .version(type({ mode: "'light' | 'dark'" }))
+        .migrate((v) => v),
+    },
+  });
+
+  expect(workspace.id).toBe('test-app');
+});
+```
+
+### Why Inlining is Better
+
+1. **All context in one place**: No scrolling to understand what `posts` or `theme` are
+2. **Reduces naming overhead**: No need to invent variable names for single-use values
+3. **Matches mental model**: The definition IS the usage - they're one conceptual unit
+4. **Easier to copy/modify**: Self-contained test setup is easier to duplicate and tweak
+
+### When to Extract
+
+Extract to a variable when:
+- The value is used **multiple times** in the same test
+- You need to call **methods on the result** (e.g., `posts.migrate()`, `posts.versions`)
+- The definition is **shared across multiple tests** in a `beforeEach` or test fixture
+- The inline version would exceed ~15-20 lines and hurt readability
+
+### Applies To
+
+- `defineTable()`, `defineKV()`, `defineWorkspace()` builders
+- `createTables()`, `createKV()` factory calls
+- Schema definitions (arktype, zod, etc.)
+- Configuration objects passed to factories
+- Mock functions used only once
+
 # Test File Organization
 
 ## Shadow Source Files with Test Files
