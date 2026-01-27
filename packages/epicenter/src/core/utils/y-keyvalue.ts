@@ -3,6 +3,10 @@
  *
  * Based on [y-utility](https://github.com/yjs/y-utility) (MIT License).
  *
+ * **See also**: `y-keyvalue-lww.ts` for timestamp-based last-write-wins conflict resolution,
+ * which is better suited for offline-first, multi-device scenarios where "latest edit wins"
+ * semantics are desired.
+ *
  * ## The Problem: Y.Map's Unbounded Growth
  *
  * Yjs is a CRDT (Conflict-free Replicated Data Type) library that enables real-time
