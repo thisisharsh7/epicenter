@@ -54,6 +54,28 @@ Quick test: Planning something? → `specs/`. Documenting something learned? →
 3. Then either the plan will be explicitly approved or changes to the plan will be requested.
 4. Unless otherwise stated, any approval applies only to the plan directly before it. So any future action will require a new plan with associated approval.
 
+## Token-Efficient Commit Execution
+
+Once a commit plan is **approved**, delegate execution to a sub-agent to avoid re-processing the entire conversation context.
+
+**Workflow:**
+
+1. Main agent plans the commit (needs full context for intent)
+2. Main agent shows plan, gets explicit approval
+3. On approval ("ok", "go", "approved", etc.), delegate to `@general`:
+   - Pass ONLY: files to stage + commit message
+   - Instruct: execute without re-analyzing
+   - Return: commit hash or error
+
+**Example delegation:**
+
+```
+@general Execute git commit (do not analyze, just run):
+- Stage: git add src/api.ts src/utils.ts
+- Commit: git commit -m "fix: handle null response in API client"
+Return only the commit hash or error message.
+```
+
 ## Git Worktree Handling
 
 CRITICAL: When working in a git worktree (such as `.conductor/` directories), ALL file operations and git commands MUST be performed within that worktree, not the parent repository.
