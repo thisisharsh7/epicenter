@@ -7,7 +7,9 @@ describe('defineKv', () => {
 		test('creates valid KV definition with direct schema', () => {
 			const theme = defineKv(type({ mode: "'light' | 'dark'" }));
 
-			expect(theme.versions).toHaveLength(1);
+			// Verify schema validates correctly
+			const result = theme.schema['~standard'].validate({ mode: 'dark' });
+			expect(result).not.toHaveProperty('issues');
 		});
 
 		test('migrate is identity function for shorthand', () => {
@@ -17,14 +19,19 @@ describe('defineKv', () => {
 			expect(sidebar.migrate(value)).toBe(value);
 		});
 
-		test('shorthand produces equivalent output to builder pattern', () => {
+		test('shorthand produces equivalent validation to builder pattern', () => {
 			const schema = type({ collapsed: 'boolean', width: 'number' });
 
 			const shorthand = defineKv(schema);
 			const builder = defineKv().version(schema).migrate((v) => v);
 
-			expect(shorthand.versions).toEqual(builder.versions);
-			expect(shorthand.unionSchema).toBe(builder.unionSchema);
+			// Both should validate the same data
+			const testValue = { collapsed: true, width: 300 };
+			const shorthandResult = shorthand.schema['~standard'].validate(testValue);
+			const builderResult = builder.schema['~standard'].validate(testValue);
+
+			expect(shorthandResult).not.toHaveProperty('issues');
+			expect(builderResult).not.toHaveProperty('issues');
 		});
 	});
 
@@ -34,10 +41,11 @@ describe('defineKv', () => {
 				.version(type({ mode: "'light' | 'dark'" }))
 				.migrate((v) => v);
 
-			expect(theme.versions).toHaveLength(1);
+			const result = theme.schema['~standard'].validate({ mode: 'light' });
+			expect(result).not.toHaveProperty('issues');
 		});
 
-		test('creates KV definition with multiple versions', () => {
+		test('creates KV definition with multiple versions that validates both', () => {
 			const theme = defineKv()
 				.version(type({ mode: "'light' | 'dark'" }))
 				.version(type({ mode: "'light' | 'dark' | 'system'", fontSize: 'number' }))
@@ -46,7 +54,13 @@ describe('defineKv', () => {
 					return v;
 				});
 
-			expect(theme.versions).toHaveLength(2);
+			// V1 data should validate
+			const v1Result = theme.schema['~standard'].validate({ mode: 'dark' });
+			expect(v1Result).not.toHaveProperty('issues');
+
+			// V2 data should validate
+			const v2Result = theme.schema['~standard'].validate({ mode: 'system', fontSize: 16 });
+			expect(v2Result).not.toHaveProperty('issues');
 		});
 
 		test('migrate function transforms old version to latest', () => {
@@ -67,7 +81,8 @@ describe('defineKv', () => {
 		test('primitive value (not recommended but supported)', () => {
 			const fontSize = defineKv(type('number'));
 
-			expect(fontSize.versions).toHaveLength(1);
+			const result = fontSize.schema['~standard'].validate(14);
+			expect(result).not.toHaveProperty('issues');
 			expect(fontSize.migrate(14)).toBe(14);
 		});
 
@@ -80,7 +95,12 @@ describe('defineKv', () => {
 					return v;
 				});
 
-			expect(theme.versions).toHaveLength(2);
+			// Both versions should validate
+			const v1Result = theme.schema['~standard'].validate({ mode: 'dark', _v: '1' });
+			expect(v1Result).not.toHaveProperty('issues');
+
+			const v2Result = theme.schema['~standard'].validate({ mode: 'system', fontSize: 16, _v: '2' });
+			expect(v2Result).not.toHaveProperty('issues');
 
 			// Migrate v1 to v2
 			const migrated = theme.migrate({ mode: 'dark', _v: '1' as const });

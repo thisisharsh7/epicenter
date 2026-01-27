@@ -22,13 +22,13 @@ import type {
  */
 export function createTableHelper<TRow extends { id: string }>(
 	ykv: YKeyValue<unknown>,
-	definition: TableDefinition<TRow>,
+	definition: TableDefinition<unknown, TRow>,
 ): TableHelper<TRow> {
 	/**
 	 * Parse and migrate a raw row value.
 	 */
 	function parseRow(id: string, raw: unknown): GetResult<TRow> {
-		const result = definition.unionSchema['~standard'].validate(raw);
+		const result = definition.schema['~standard'].validate(raw);
 		if (result instanceof Promise)
 			throw new TypeError('Async schemas not supported');
 

@@ -118,13 +118,13 @@ type TableBuilder<TVersions extends StandardSchemaV1[], TLatest> = {
 
   migrate(
     fn: (row: StandardSchemaV1.InferOutput<TVersions[number]>) => TLatest
-  ): TableDefinition<TLatest>;
+  ): TableDefinition<StandardSchemaV1.InferOutput<TVersions[number]>, TLatest>;
 };
 
-type TableDefinition<TRow extends { id: string }> = {
-  readonly versions: readonly StandardSchemaV1[];
-  readonly unionSchema: StandardSchemaV1;
-  readonly migrate: (row: unknown) => TRow;
+// TVersionUnion = union of all version outputs, TRow = migrated type
+type TableDefinition<TVersionUnion, TRow extends { id: string }> = {
+  readonly schema: StandardSchemaV1<unknown, TVersionUnion>;
+  readonly migrate: (row: TVersionUnion) => TRow;
 };
 ```
 
@@ -175,13 +175,13 @@ type KvBuilder<TVersions extends StandardSchemaV1[], TLatest> = {
 
   migrate(
     fn: (value: StandardSchemaV1.InferOutput<TVersions[number]>) => TLatest
-  ): KvDefinition<TLatest>;
+  ): KvDefinition<StandardSchemaV1.InferOutput<TVersions[number]>, TLatest>;
 };
 
-type KvDefinition<TValue> = {
-  readonly versions: readonly StandardSchemaV1[];
-  readonly unionSchema: StandardSchemaV1;
-  readonly migrate: (value: unknown) => TValue;
+// TVersionUnion = union of all version outputs, TValue = migrated type
+type KvDefinition<TVersionUnion, TValue> = {
+  readonly schema: StandardSchemaV1<unknown, TVersionUnion>;
+  readonly migrate: (value: TVersionUnion) => TValue;
 };
 ```
 
@@ -206,8 +206,8 @@ const workspace = defineWorkspace({
 ```typescript
 function defineWorkspace<
   TId extends string,
-  TTables extends Record<string, TableDefinition<any>>,
-  TKV extends Record<string, KvDefinition<any>>,
+  TTables extends Record<string, TableDefinition<any, any>>,
+  TKV extends Record<string, KvDefinition<any, any>>,
 >(config: {
   id: TId;
   tables?: TTables;
@@ -324,7 +324,7 @@ tables.posts.set({ id: '1', title: 'Hello', views: 0, _v: '2' });
 **Type Signature:**
 
 ```typescript
-function createTables<TTables extends Record<string, TableDefinition<any>>>(
+function createTables<TTables extends Record<string, TableDefinition<any, any>>>(
   ydoc: Y.Doc,
   definitions: TTables
 ): TablesHelper<TTables>;
@@ -352,12 +352,12 @@ kv.set('theme', { mode: 'dark', fontSize: 16 });
 **Type Signature:**
 
 ```typescript
-function createKv<TKV extends Record<string, KvDefinition<any>>>(
+function createKv<TKV extends Record<string, KvDefinition<any, any>>>(
   ydoc: Y.Doc,
   definitions: TKV
 ): KvHelper<TKV>;
 
-type KvHelper<TKV extends Record<string, KvDefinition<any>>> = {
+type KvHelper<TKV extends Record<string, KvDefinition<any, any>>> = {
   get<K extends keyof TKV>(key: K): KvGetResult<InferKvValue<TKV[K]>>;
   set<K extends keyof TKV>(key: K, value: InferKvValue<TKV[K]>): void;
   delete<K extends keyof TKV>(key: K): void;
@@ -459,7 +459,7 @@ This simplifies the mental model and enables schema versioning (entire row is at
 Methods available on `kv` (dictionary-style access):
 
 ```typescript
-type KvHelper<TKV extends Record<string, KvDefinition<any>>> = {
+type KvHelper<TKV extends Record<string, KvDefinition<any, any>>> = {
   /** Get a value by key (validates + migrates). */
   get<K extends keyof TKV>(key: K): KvGetResult<InferKvValue<TKV[K]>>;
 
@@ -589,7 +589,9 @@ test('defineTable creates valid definition', () => {
     .version(type({ id: 'string', title: 'string' }))
     .migrate((row) => row);
 
-  expect(posts.versions).toHaveLength(1);
+  // Verify schema validates correctly
+  const result = posts.schema['~standard'].validate({ id: '1', title: 'Hi' });
+  expect(result).not.toHaveProperty('issues');
   expect(posts.migrate({ id: '1', title: 'Hi' })).toEqual({ id: '1', title: 'Hi' });
 });
 ```

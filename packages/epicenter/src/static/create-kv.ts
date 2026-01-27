@@ -53,9 +53,9 @@ export function createKv<TKV extends KvDefinitionMap>(
 	 */
 	function parseValue<TValue>(
 		raw: unknown,
-		definition: KvDefinition<TValue>,
+		definition: KvDefinition<unknown, TValue>,
 	): KvGetResult<TValue> {
-		const result = definition.unionSchema['~standard'].validate(raw);
+		const result = definition.schema['~standard'].validate(raw);
 		if (result instanceof Promise)
 			throw new TypeError('Async schemas not supported');
 
@@ -81,7 +81,7 @@ export function createKv<TKV extends KvDefinitionMap>(
 			if (raw === undefined) {
 				return { status: 'not_found' };
 			}
-			return parseValue(raw, definition as KvDefinition<unknown>);
+			return parseValue(raw, definition as KvDefinition<unknown, unknown>);
 		},
 
 		set(key, value) {
@@ -111,7 +111,7 @@ export function createKv<TKV extends KvDefinitionMap>(
 					// For add or update, parse and migrate the new value
 					const parsed = parseValue(
 						change.newValue,
-						definition as KvDefinition<unknown>,
+						definition as KvDefinition<unknown, unknown>,
 					);
 					if (parsed.status === 'valid') {
 						callback(

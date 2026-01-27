@@ -7,7 +7,9 @@ describe('defineTable', () => {
 		test('creates valid table definition with direct schema', () => {
 			const posts = defineTable(type({ id: 'string', title: 'string' }));
 
-			expect(posts.versions).toHaveLength(1);
+			// Verify schema validates correctly
+			const result = posts.schema['~standard'].validate({ id: '1', title: 'Hello' });
+			expect(result).not.toHaveProperty('issues');
 		});
 
 		test('migrate is identity function for shorthand', () => {
@@ -17,14 +19,19 @@ describe('defineTable', () => {
 			expect(users.migrate(row)).toBe(row);
 		});
 
-		test('shorthand produces equivalent output to builder pattern', () => {
+		test('shorthand produces equivalent validation to builder pattern', () => {
 			const schema = type({ id: 'string', title: 'string' });
 
 			const shorthand = defineTable(schema);
 			const builder = defineTable().version(schema).migrate((row) => row);
 
-			expect(shorthand.versions).toEqual(builder.versions);
-			expect(shorthand.unionSchema).toBe(builder.unionSchema);
+			// Both should validate the same data
+			const testRow = { id: '1', title: 'Test' };
+			const shorthandResult = shorthand.schema['~standard'].validate(testRow);
+			const builderResult = builder.schema['~standard'].validate(testRow);
+
+			expect(shorthandResult).not.toHaveProperty('issues');
+			expect(builderResult).not.toHaveProperty('issues');
 		});
 	});
 
@@ -34,10 +41,11 @@ describe('defineTable', () => {
 				.version(type({ id: 'string', title: 'string' }))
 				.migrate((row) => row);
 
-			expect(posts.versions).toHaveLength(1);
+			const result = posts.schema['~standard'].validate({ id: '1', title: 'Hello' });
+			expect(result).not.toHaveProperty('issues');
 		});
 
-		test('creates table definition with multiple versions', () => {
+		test('creates table definition with multiple versions that validates both', () => {
 			const posts = defineTable()
 				.version(type({ id: 'string', title: 'string' }))
 				.version(type({ id: 'string', title: 'string', views: 'number' }))
@@ -46,7 +54,13 @@ describe('defineTable', () => {
 					return row;
 				});
 
-			expect(posts.versions).toHaveLength(2);
+			// V1 data should validate
+			const v1Result = posts.schema['~standard'].validate({ id: '1', title: 'Test' });
+			expect(v1Result).not.toHaveProperty('issues');
+
+			// V2 data should validate
+			const v2Result = posts.schema['~standard'].validate({ id: '1', title: 'Test', views: 10 });
+			expect(v2Result).not.toHaveProperty('issues');
 		});
 
 		test('migrate function transforms old version to latest', () => {
@@ -80,7 +94,9 @@ describe('defineTable', () => {
 					return row;
 				});
 
-			expect(posts.versions).toHaveLength(2);
+			// Both versions should validate
+			const v1Result = posts.schema['~standard'].validate({ id: '1', title: 'Test' });
+			expect(v1Result).not.toHaveProperty('issues');
 
 			const migrated = posts.migrate({ id: '1', title: 'Test' });
 			expect(migrated).toEqual({ id: '1', title: 'Test', views: 0 });
@@ -95,7 +111,12 @@ describe('defineTable', () => {
 					return row;
 				});
 
-			expect(posts.versions).toHaveLength(2);
+			// Both versions should validate
+			const v1Result = posts.schema['~standard'].validate({ id: '1', title: 'Test', _v: '1' });
+			expect(v1Result).not.toHaveProperty('issues');
+
+			const v2Result = posts.schema['~standard'].validate({ id: '1', title: 'Test', views: 10, _v: '2' });
+			expect(v2Result).not.toHaveProperty('issues');
 
 			// Migrate v1 to v2
 			const migrated = posts.migrate({ id: '1', title: 'Test', _v: '1' as const });
