@@ -537,7 +537,7 @@ type KvBatchTransaction<TKV extends Record<string, KvDefinition<any, any>>> = {
 
 type KvGetResult<TValue> =
   | { status: 'valid'; value: TValue }
-  | { status: 'invalid'; error: ValidationError }
+  | { status: 'invalid'; errors: readonly StandardSchemaV1.Issue[]; value: unknown }
   | { status: 'not_found' };
 ```
 
@@ -974,7 +974,7 @@ On read, if migration throws:
 - Invalid data will fail on next read
 
 **Validation fails on read:**
-- Return `{ status: 'invalid', errors: ValidationError[] }`
+- Return `{ status: 'invalid', errors: readonly StandardSchemaV1.Issue[] }`
 - Original data accessible via `result.row` (untyped)
 
 ---
@@ -1013,15 +1013,22 @@ Grids (cell-level dynamic tables) are a separate concept. Options:
 ### 10. Result type definitions
 
 ```typescript
-// Table read results
-type GetResult<TRow> =
-  | { status: 'valid'; row: TRow }
-  | { status: 'invalid'; id: string; errors: ValidationError[]; row: unknown }
-  | { status: 'not_found'; id: string };
+// Table read results - building blocks
+type ValidRowResult<TRow> = { status: 'valid'; row: TRow };
 
-type RowResult<TRow> =
-  | { status: 'valid'; row: TRow }
-  | { status: 'invalid'; id: string; errors: ValidationError[]; row: unknown };
+type InvalidRowResult = {
+  status: 'invalid';
+  id: string;
+  errors: readonly StandardSchemaV1.Issue[];
+  row: unknown;
+};
+
+type NotFoundResult = { status: 'not_found'; id: string };
+
+// Table read results - composed
+type RowResult<TRow> = ValidRowResult<TRow> | InvalidRowResult;
+
+type GetResult<TRow> = RowResult<TRow> | NotFoundResult;
 
 // Table write results
 type DeleteResult =
@@ -1031,7 +1038,7 @@ type DeleteResult =
 // KV results
 type KvGetResult<TValue> =
   | { status: 'valid'; value: TValue }
-  | { status: 'invalid'; error: ValidationError }
+  | { status: 'invalid'; errors: readonly StandardSchemaV1.Issue[]; value: unknown }
   | { status: 'not_found' };
 ```
 
@@ -1150,12 +1157,12 @@ packages/epicenter/src/static/
    - Only supports synchronous schemas (throws TypeError for async)
 
 2. **Table Storage** (`create-tables.ts`)
-   - Each table stored in `static:tables:{tableName}` Y.Array
+   - Each table stored in `table:{tableName}` Y.Array
    - Uses existing `YKeyValue` class from `core/utils/y-keyvalue.ts`
    - Bounded memory via append-and-cleanup strategy
 
 3. **KV Storage** (`create-kv.ts`)
-   - All KV values stored in shared `static:kv` Y.Array
+   - All KV values stored in shared `kv` Y.Array
    - Each key is a separate entry in the YKeyValue store
 
 4. **Workspace Client** (`define-workspace.ts`)
@@ -1166,14 +1173,22 @@ packages/epicenter/src/static/
 
 ### Test Coverage
 
-33 tests covering:
-- Schema union validation (first match, second match, no match)
-- defineTable builder (single version, multiple versions, migration)
-- defineKv builder (single version, multiple versions, migration)
-- createTables CRUD (set, get, getAll, filter, find, delete, clear, count)
-- createKv operations (set, get, reset, migration on read)
-- defineWorkspace (creation, tables/kv access, capabilities, destroy)
-- Migration scenarios (with/without explicit `_v` field, multi-version)
+92 tests across 7 test files:
+
+- **schema-union.test.ts** (4 tests): First match, second match, no match, async rejection
+- **define-table.test.ts** (9 tests): Shorthand syntax, builder syntax, schema patterns with/without `_v`
+- **define-kv.test.ts** (10 tests): Shorthand syntax, builder syntax, schema patterns
+- **create-tables.test.ts** (14 tests): CRUD operations, migration scenarios
+- **create-kv.test.ts** (4 tests): set/get/delete, not_found handling, migration on read
+- **define-workspace.test.ts** (6 tests): Creation, client access, capabilities, destroy, empty workspace
+- **table-helper.test.ts** (45 tests): Comprehensive unit tests for TableHelper
+  - Set operations (single, batch, overwrite)
+  - Get operations (valid, invalid, not_found, getAllValid, getAllInvalid)
+  - Query operations (filter, find with predicates, invalid row handling)
+  - Delete operations (single, batch, mixed batch, clear)
+  - Observer pattern (callbacks, batch notifications, unsubscribe)
+  - Metadata operations (count, has)
+  - Migration (old data, current version passthrough)
 
 ### Deviations from Spec
 
