@@ -197,9 +197,15 @@ describe('Offline Sync Scenarios', () => {
 			tablesOnline.get('posts').upsert({ id: 'post-1', title: 'Initial' });
 			Y.applyUpdate(docOffline, Y.encodeStateAsUpdate(docOnline));
 
-			tablesOnline.get('posts').update({ id: 'post-1', title: 'Online Edit 1' });
-			tablesOnline.get('posts').update({ id: 'post-1', title: 'Online Edit 2' });
-			tablesOnline.get('posts').update({ id: 'post-1', title: 'Online Edit 3' });
+			tablesOnline
+				.get('posts')
+				.update({ id: 'post-1', title: 'Online Edit 1' });
+			tablesOnline
+				.get('posts')
+				.update({ id: 'post-1', title: 'Online Edit 2' });
+			tablesOnline
+				.get('posts')
+				.update({ id: 'post-1', title: 'Online Edit 3' });
 
 			tablesOffline.get('posts').update({
 				id: 'post-1',
@@ -361,7 +367,9 @@ describe('Offline Sync Scenarios', () => {
 			tablesA.get('posts').upsert({ id: 'post-1', title: 'Original' });
 			Y.applyUpdate(docB, Y.encodeStateAsUpdate(docA));
 
-			tablesA.get('posts').update({ id: 'post-1', title: 'A edits at 10:00am' });
+			tablesA
+				.get('posts')
+				.update({ id: 'post-1', title: 'A edits at 10:00am' });
 
 			await new Promise((r) => setTimeout(r, 100));
 

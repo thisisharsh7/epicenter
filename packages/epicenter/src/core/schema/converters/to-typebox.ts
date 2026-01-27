@@ -152,9 +152,7 @@ export function fieldsToTypebox<TFieldMap extends FieldMap>(
  * });
  * ```
  */
-export function fieldToTypebox<C extends Field>(
-	field: C,
-): FieldToTypebox<C> {
+export function fieldToTypebox<C extends Field>(field: C): FieldToTypebox<C> {
 	let baseType: TSchema;
 
 	switch (field.type) {
@@ -185,18 +183,14 @@ export function fieldToTypebox<C extends Field>(
 			break;
 
 		case 'select': {
-			const literals = field.options.map((value) =>
-				Type.Literal(value),
-			);
+			const literals = field.options.map((value) => Type.Literal(value));
 			baseType = Type.Union(literals);
 			break;
 		}
 
 		case 'tags': {
 			if (field.options) {
-				const literals = field.options.map((value) =>
-					Type.Literal(value),
-				);
+				const literals = field.options.map((value) => Type.Literal(value));
 				baseType = Type.Array(Type.Union(literals), { uniqueItems: true });
 			} else {
 				baseType = Type.Array(Type.String(), { uniqueItems: true });

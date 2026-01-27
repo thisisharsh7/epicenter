@@ -22,7 +22,11 @@ export function camelToSnake(str: string): string {
 		if (isLetter(str[i]) && str[i].toUpperCase() === str[i]) {
 			let l = i;
 
-			while (l < str.length && isLetter(str[l]) && str[l].toUpperCase() === str[l]) {
+			while (
+				l < str.length &&
+				isLetter(str[l]) &&
+				str[l].toUpperCase() === str[l]
+			) {
 				l++;
 			}
 
@@ -68,7 +72,11 @@ export function pascalToSnake(str: string): string {
 		) {
 			let l = i;
 
-			while (l < str.length && isLetter(str[l]) && str[l].toUpperCase() === str[l]) {
+			while (
+				l < str.length &&
+				isLetter(str[l]) &&
+				str[l].toUpperCase() === str[l]
+			) {
 				l++;
 			}
 
@@ -103,7 +111,11 @@ export function camelToKebab(str: string): string {
 		if (i > 0 && isLetter(str[i]) && str[i].toUpperCase() === str[i]) {
 			let l = i;
 
-			while (l < str.length && isLetter(str[l]) && str[l].toUpperCase() === str[l]) {
+			while (
+				l < str.length &&
+				isLetter(str[l]) &&
+				str[l].toUpperCase() === str[l]
+			) {
 				l++;
 			}
 
@@ -138,7 +150,11 @@ export function pascalToKebab(str: string): string {
 		if (i > 0 && isLetter(str[i]) && str[i].toUpperCase() === str[i]) {
 			let l = i;
 
-			while (l < str.length && isLetter(str[l]) && str[l].toUpperCase() === str[l]) {
+			while (
+				l < str.length &&
+				isLetter(str[l]) &&
+				str[l].toUpperCase() === str[l]
+			) {
 				l++;
 			}
 

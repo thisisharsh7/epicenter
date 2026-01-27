@@ -23,7 +23,9 @@ describe('defineKv', () => {
 			const schema = type({ collapsed: 'boolean', width: 'number' });
 
 			const shorthand = defineKv(schema);
-			const builder = defineKv().version(schema).migrate((v) => v);
+			const builder = defineKv()
+				.version(schema)
+				.migrate((v) => v);
 
 			// Both should validate the same data
 			const testValue = { collapsed: true, width: 300 };
@@ -48,7 +50,9 @@ describe('defineKv', () => {
 		test('creates KV definition with multiple versions that validates both', () => {
 			const theme = defineKv()
 				.version(type({ mode: "'light' | 'dark'" }))
-				.version(type({ mode: "'light' | 'dark' | 'system'", fontSize: 'number' }))
+				.version(
+					type({ mode: "'light' | 'dark' | 'system'", fontSize: 'number' }),
+				)
 				.migrate((v) => {
 					if (!('fontSize' in v)) return { ...v, fontSize: 14 };
 					return v;
@@ -59,7 +63,10 @@ describe('defineKv', () => {
 			expect(v1Result).not.toHaveProperty('issues');
 
 			// V2 data should validate
-			const v2Result = theme.schema['~standard'].validate({ mode: 'system', fontSize: 16 });
+			const v2Result = theme.schema['~standard'].validate({
+				mode: 'system',
+				fontSize: 16,
+			});
 			expect(v2Result).not.toHaveProperty('issues');
 		});
 
@@ -89,17 +96,31 @@ describe('defineKv', () => {
 		test('object with _v discriminant (recommended)', () => {
 			const theme = defineKv()
 				.version(type({ mode: "'light' | 'dark'", _v: '"1"' }))
-				.version(type({ mode: "'light' | 'dark' | 'system'", fontSize: 'number', _v: '"2"' }))
+				.version(
+					type({
+						mode: "'light' | 'dark' | 'system'",
+						fontSize: 'number',
+						_v: '"2"',
+					}),
+				)
 				.migrate((v) => {
-					if (v._v === '1') return { mode: v.mode, fontSize: 14, _v: '2' as const };
+					if (v._v === '1')
+						return { mode: v.mode, fontSize: 14, _v: '2' as const };
 					return v;
 				});
 
 			// Both versions should validate
-			const v1Result = theme.schema['~standard'].validate({ mode: 'dark', _v: '1' });
+			const v1Result = theme.schema['~standard'].validate({
+				mode: 'dark',
+				_v: '1',
+			});
 			expect(v1Result).not.toHaveProperty('issues');
 
-			const v2Result = theme.schema['~standard'].validate({ mode: 'system', fontSize: 16, _v: '2' });
+			const v2Result = theme.schema['~standard'].validate({
+				mode: 'system',
+				fontSize: 16,
+				_v: '2',
+			});
 			expect(v2Result).not.toHaveProperty('issues');
 
 			// Migrate v1 to v2

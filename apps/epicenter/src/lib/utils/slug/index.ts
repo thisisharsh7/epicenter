@@ -1,2 +1,2 @@
-export * from './slugify';
 export * from './case-convert';
+export * from './slugify';

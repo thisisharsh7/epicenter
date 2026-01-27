@@ -87,13 +87,19 @@ export function defineWorkspace<
 			const capabilityExports = Object.fromEntries(
 				Object.entries(capabilities).map(([name, factory]) => [
 					name,
-					(factory as CapabilityFactory<TTableDefinitions, TKvDefinitions>)({ ydoc, tables, kv }),
+					(factory as CapabilityFactory<TTableDefinitions, TKvDefinitions>)({
+						ydoc,
+						tables,
+						kv,
+					}),
 				]),
 			) as Record<string, Lifecycle>;
 
 			// Destroy function - capabilities guarantee destroy() exists via Lifecycle
 			async function destroy(): Promise<void> {
-				await Promise.all(Object.values(capabilityExports).map((c) => c.destroy()));
+				await Promise.all(
+					Object.values(capabilityExports).map((c) => c.destroy()),
+				);
 				ydoc.destroy();
 			}
 

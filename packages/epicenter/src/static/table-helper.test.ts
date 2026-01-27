@@ -2,8 +2,8 @@ import { describe, expect, test } from 'bun:test';
 import { type } from 'arktype';
 import * as Y from 'yjs';
 import { YKeyValue } from '../core/utils/y-keyvalue.js';
-import { createTableHelper } from './table-helper.js';
 import { defineTable } from './define-table.js';
+import { createTableHelper } from './table-helper.js';
 
 /** Creates Yjs infrastructure for testing */
 function setup() {

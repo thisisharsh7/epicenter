@@ -95,7 +95,11 @@ function getDocSize(doc: Y.Doc): number {
 	return Y.encodeStateAsUpdate(doc).byteLength;
 }
 
-function countStructs(doc: Y.Doc): { total: number; deleted: number; gc: number } {
+function countStructs(doc: Y.Doc): {
+	total: number;
+	deleted: number;
+	gc: number;
+} {
 	let total = 0;
 	let deleted = 0;
 	let gc = 0;
@@ -178,7 +182,10 @@ interface BenchmarkResult {
 // Y.Map<id, PlainObject>
 // ---------------------------------------------------------------------------
 
-function benchmarkMapPlain(gcEnabled: boolean, strategy: UpdateStrategy): BenchmarkResult {
+function benchmarkMapPlain(
+	gcEnabled: boolean,
+	strategy: UpdateStrategy,
+): BenchmarkResult {
 	const doc = new Y.Doc({ gc: gcEnabled });
 	const ymap = doc.getMap<PlainRow>('data');
 
@@ -213,7 +220,8 @@ function benchmarkMapPlain(gcEnabled: boolean, strategy: UpdateStrategy): Benchm
 					ymap.set(`row-${i}`, fullRowUpdate(existing));
 				} else {
 					// mixed: 70% single, 30% full
-					const updateFn = Math.random() < 0.7 ? singleColumnUpdate : fullRowUpdate;
+					const updateFn =
+						Math.random() < 0.7 ? singleColumnUpdate : fullRowUpdate;
 					ymap.set(`row-${i}`, updateFn(existing));
 				}
 			}
@@ -250,7 +258,10 @@ function benchmarkMapPlain(gcEnabled: boolean, strategy: UpdateStrategy): Benchm
 // Y.Array<PlainObject>
 // ---------------------------------------------------------------------------
 
-function benchmarkArrayPlain(gcEnabled: boolean, strategy: UpdateStrategy): BenchmarkResult {
+function benchmarkArrayPlain(
+	gcEnabled: boolean,
+	strategy: UpdateStrategy,
+): BenchmarkResult {
 	const doc = new Y.Doc({ gc: gcEnabled });
 	const yarray = doc.getArray<PlainRow>('data');
 
@@ -285,7 +296,8 @@ function benchmarkArrayPlain(gcEnabled: boolean, strategy: UpdateStrategy): Benc
 				} else if (strategy === 'full-row') {
 					yarray.insert(i, [fullRowUpdate(existing)]);
 				} else {
-					const updateFn = Math.random() < 0.7 ? singleColumnUpdate : fullRowUpdate;
+					const updateFn =
+						Math.random() < 0.7 ? singleColumnUpdate : fullRowUpdate;
 					yarray.insert(i, [updateFn(existing)]);
 				}
 			}
@@ -306,7 +318,9 @@ function benchmarkArrayPlain(gcEnabled: boolean, strategy: UpdateStrategy): Benc
 	start = performance.now();
 	doc.transact(() => {
 		for (let i = 0; i < CONFIG.NUM_RECREATIONS; i++) {
-			yarray.push([createPlainRow(`${CONFIG.NUM_ROWS - CONFIG.NUM_DELETIONS + i}`, '-v2')]);
+			yarray.push([
+				createPlainRow(`${CONFIG.NUM_ROWS - CONFIG.NUM_DELETIONS + i}`, '-v2'),
+			]);
 		}
 	});
 	result.timings.recreate = performance.now() - start;
@@ -320,7 +334,10 @@ function benchmarkArrayPlain(gcEnabled: boolean, strategy: UpdateStrategy): Benc
 // Y.Map<id, Y.Map>
 // ---------------------------------------------------------------------------
 
-function benchmarkMapYMap(gcEnabled: boolean, strategy: UpdateStrategy): BenchmarkResult {
+function benchmarkMapYMap(
+	gcEnabled: boolean,
+	strategy: UpdateStrategy,
+): BenchmarkResult {
 	const doc = new Y.Doc({ gc: gcEnabled });
 	const ymap = doc.getMap<Y.Map<unknown>>('data');
 
@@ -356,7 +373,10 @@ function benchmarkMapYMap(gcEnabled: boolean, strategy: UpdateStrategy): Benchma
 					// Update all columns - creates 5 tombstones (one per column)
 					row.set('name', (row.get('name') as string) + '!');
 					row.set('age', (row.get('age') as number) + 1);
-					row.set('email', (row.get('email') as string).replace('@', '+updated@'));
+					row.set(
+						'email',
+						(row.get('email') as string).replace('@', '+updated@'),
+					);
 					row.set('active', !(row.get('active') as boolean));
 				} else {
 					// mixed
@@ -365,7 +385,10 @@ function benchmarkMapYMap(gcEnabled: boolean, strategy: UpdateStrategy): Benchma
 					} else {
 						row.set('name', (row.get('name') as string) + '!');
 						row.set('age', (row.get('age') as number) + 1);
-						row.set('email', (row.get('email') as string).replace('@', '+updated@'));
+						row.set(
+							'email',
+							(row.get('email') as string).replace('@', '+updated@'),
+						);
 						row.set('active', !(row.get('active') as boolean));
 					}
 				}
@@ -403,7 +426,10 @@ function benchmarkMapYMap(gcEnabled: boolean, strategy: UpdateStrategy): Benchma
 // Y.Array<Y.Map>
 // ---------------------------------------------------------------------------
 
-function benchmarkArrayYMap(gcEnabled: boolean, strategy: UpdateStrategy): BenchmarkResult {
+function benchmarkArrayYMap(
+	gcEnabled: boolean,
+	strategy: UpdateStrategy,
+): BenchmarkResult {
 	const doc = new Y.Doc({ gc: gcEnabled });
 	const yarray = doc.getArray<Y.Map<unknown>>('data');
 
@@ -437,7 +463,10 @@ function benchmarkArrayYMap(gcEnabled: boolean, strategy: UpdateStrategy): Bench
 				} else if (strategy === 'full-row') {
 					row.set('name', (row.get('name') as string) + '!');
 					row.set('age', (row.get('age') as number) + 1);
-					row.set('email', (row.get('email') as string).replace('@', '+updated@'));
+					row.set(
+						'email',
+						(row.get('email') as string).replace('@', '+updated@'),
+					);
 					row.set('active', !(row.get('active') as boolean));
 				} else {
 					if (Math.random() < 0.7) {
@@ -445,7 +474,10 @@ function benchmarkArrayYMap(gcEnabled: boolean, strategy: UpdateStrategy): Bench
 					} else {
 						row.set('name', (row.get('name') as string) + '!');
 						row.set('age', (row.get('age') as number) + 1);
-						row.set('email', (row.get('email') as string).replace('@', '+updated@'));
+						row.set(
+							'email',
+							(row.get('email') as string).replace('@', '+updated@'),
+						);
 						row.set('active', !(row.get('active') as boolean));
 					}
 				}
@@ -467,7 +499,13 @@ function benchmarkArrayYMap(gcEnabled: boolean, strategy: UpdateStrategy): Bench
 	start = performance.now();
 	doc.transact(() => {
 		for (let i = 0; i < CONFIG.NUM_RECREATIONS; i++) {
-			yarray.push([createYMapRow(doc, `${CONFIG.NUM_ROWS - CONFIG.NUM_DELETIONS + i}`, '-v2')]);
+			yarray.push([
+				createYMapRow(
+					doc,
+					`${CONFIG.NUM_ROWS - CONFIG.NUM_DELETIONS + i}`,
+					'-v2',
+				),
+			]);
 		}
 	});
 	result.timings.recreate = performance.now() - start;
@@ -497,7 +535,10 @@ function formatPercent(ratio: number): string {
 	return `${(ratio * 100).toFixed(1)}%`;
 }
 
-function printStrategyResults(results: BenchmarkResult[], strategy: UpdateStrategy) {
+function printStrategyResults(
+	results: BenchmarkResult[],
+	strategy: UpdateStrategy,
+) {
 	const strategyLabel =
 		strategy === 'single-column'
 			? 'SINGLE COLUMN UPDATES (best case for Y.Map nested)'
@@ -550,12 +591,18 @@ function printStrategyResults(results: BenchmarkResult[], strategy: UpdateStrate
 
 		// Struct counts
 		console.log(
-			'\n  ' + 'Structure'.padEnd(24) + 'Total Structs'.padStart(14) + 'Deleted'.padStart(10) + 'GC'.padStart(8) + 'Tombstone %'.padStart(14),
+			'\n  ' +
+				'Structure'.padEnd(24) +
+				'Total Structs'.padStart(14) +
+				'Deleted'.padStart(10) +
+				'GC'.padStart(8) +
+				'Tombstone %'.padStart(14),
 		);
 		console.log('  ' + '─'.repeat(70));
 
 		for (const r of group) {
-			const tombstoneRatio = r.structs.total > 0 ? r.structs.deleted / r.structs.total : 0;
+			const tombstoneRatio =
+				r.structs.total > 0 ? r.structs.deleted / r.structs.total : 0;
 			console.log(
 				'  ' +
 					r.name.padEnd(24) +
@@ -574,12 +621,20 @@ function printAnalysis(allResults: BenchmarkResult[]) {
 	console.log(`${'═'.repeat(100)}`);
 
 	// Group by strategy
-	const singleCol = allResults.filter((r) => r.updateStrategy === 'single-column' && r.gcEnabled);
-	const fullRow = allResults.filter((r) => r.updateStrategy === 'full-row' && r.gcEnabled);
+	const singleCol = allResults.filter(
+		(r) => r.updateStrategy === 'single-column' && r.gcEnabled,
+	);
+	const fullRow = allResults.filter(
+		(r) => r.updateStrategy === 'full-row' && r.gcEnabled,
+	);
 
 	// Find winners
-	const singleColBySize = [...singleCol].sort((a, b) => a.sizes.afterRecreate - b.sizes.afterRecreate);
-	const fullRowBySize = [...fullRow].sort((a, b) => a.sizes.afterRecreate - b.sizes.afterRecreate);
+	const singleColBySize = [...singleCol].sort(
+		(a, b) => a.sizes.afterRecreate - b.sizes.afterRecreate,
+	);
+	const fullRowBySize = [...fullRow].sort(
+		(a, b) => a.sizes.afterRecreate - b.sizes.afterRecreate,
+	);
 
 	console.log('\n  STORAGE EFFICIENCY (with GC enabled)');
 	console.log('  ' + '─'.repeat(70));
@@ -587,42 +642,68 @@ function printAnalysis(allResults: BenchmarkResult[]) {
 	console.log('\n  Single Column Updates - Final Size Ranking:');
 	singleColBySize.forEach((r, i) => {
 		const marker = i === 0 ? ' ★ BEST' : '';
-		console.log(`    ${i + 1}. ${r.name.padEnd(24)} ${formatBytes(r.sizes.afterRecreate).padStart(10)}${marker}`);
+		console.log(
+			`    ${i + 1}. ${r.name.padEnd(24)} ${formatBytes(r.sizes.afterRecreate).padStart(10)}${marker}`,
+		);
 	});
 
 	console.log('\n  Full Row Replacements - Final Size Ranking:');
 	fullRowBySize.forEach((r, i) => {
 		const marker = i === 0 ? ' ★ BEST' : '';
-		console.log(`    ${i + 1}. ${r.name.padEnd(24)} ${formatBytes(r.sizes.afterRecreate).padStart(10)}${marker}`);
+		console.log(
+			`    ${i + 1}. ${r.name.padEnd(24)} ${formatBytes(r.sizes.afterRecreate).padStart(10)}${marker}`,
+		);
 	});
 
 	// Compare plain vs nested for each strategy
 	console.log('\n  PLAIN OBJECTS vs NESTED Y.MAPS');
 	console.log('  ' + '─'.repeat(70));
 
-	const mapPlainSingle = singleCol.find((r) => r.name.includes('Map<id, Plain'))!;
-	const mapYMapSingle = singleCol.find((r) => r.name.includes('Map<id, Y.Map'))!;
+	const mapPlainSingle = singleCol.find((r) =>
+		r.name.includes('Map<id, Plain'),
+	)!;
+	const mapYMapSingle = singleCol.find((r) =>
+		r.name.includes('Map<id, Y.Map'),
+	)!;
 	const mapPlainFull = fullRow.find((r) => r.name.includes('Map<id, Plain'))!;
 	const mapYMapFull = fullRow.find((r) => r.name.includes('Map<id, Y.Map'))!;
 
 	console.log('\n  Single Column Updates:');
-	console.log(`    Plain objects: ${formatBytes(mapPlainSingle.sizes.afterRecreate)}`);
-	console.log(`    Nested Y.Maps: ${formatBytes(mapYMapSingle.sizes.afterRecreate)}`);
-	const singleDiff = mapPlainSingle.sizes.afterRecreate - mapYMapSingle.sizes.afterRecreate;
+	console.log(
+		`    Plain objects: ${formatBytes(mapPlainSingle.sizes.afterRecreate)}`,
+	);
+	console.log(
+		`    Nested Y.Maps: ${formatBytes(mapYMapSingle.sizes.afterRecreate)}`,
+	);
+	const singleDiff =
+		mapPlainSingle.sizes.afterRecreate - mapYMapSingle.sizes.afterRecreate;
 	if (singleDiff > 0) {
-		console.log(`    → Nested Y.Maps saves ${formatBytes(singleDiff)} (${formatPercent(singleDiff / mapPlainSingle.sizes.afterRecreate)})`);
+		console.log(
+			`    → Nested Y.Maps saves ${formatBytes(singleDiff)} (${formatPercent(singleDiff / mapPlainSingle.sizes.afterRecreate)})`,
+		);
 	} else {
-		console.log(`    → Plain objects saves ${formatBytes(-singleDiff)} (${formatPercent(-singleDiff / mapYMapSingle.sizes.afterRecreate)})`);
+		console.log(
+			`    → Plain objects saves ${formatBytes(-singleDiff)} (${formatPercent(-singleDiff / mapYMapSingle.sizes.afterRecreate)})`,
+		);
 	}
 
 	console.log('\n  Full Row Replacements:');
-	console.log(`    Plain objects: ${formatBytes(mapPlainFull.sizes.afterRecreate)}`);
-	console.log(`    Nested Y.Maps: ${formatBytes(mapYMapFull.sizes.afterRecreate)}`);
-	const fullDiff = mapPlainFull.sizes.afterRecreate - mapYMapFull.sizes.afterRecreate;
+	console.log(
+		`    Plain objects: ${formatBytes(mapPlainFull.sizes.afterRecreate)}`,
+	);
+	console.log(
+		`    Nested Y.Maps: ${formatBytes(mapYMapFull.sizes.afterRecreate)}`,
+	);
+	const fullDiff =
+		mapPlainFull.sizes.afterRecreate - mapYMapFull.sizes.afterRecreate;
 	if (fullDiff > 0) {
-		console.log(`    → Nested Y.Maps saves ${formatBytes(fullDiff)} (${formatPercent(fullDiff / mapPlainFull.sizes.afterRecreate)})`);
+		console.log(
+			`    → Nested Y.Maps saves ${formatBytes(fullDiff)} (${formatPercent(fullDiff / mapPlainFull.sizes.afterRecreate)})`,
+		);
 	} else {
-		console.log(`    → Plain objects saves ${formatBytes(-fullDiff)} (${formatPercent(-fullDiff / mapYMapFull.sizes.afterRecreate)})`);
+		console.log(
+			`    → Plain objects saves ${formatBytes(-fullDiff)} (${formatPercent(-fullDiff / mapYMapFull.sizes.afterRecreate)})`,
+		);
 	}
 
 	// GC impact analysis
@@ -634,13 +715,19 @@ function printAnalysis(allResults: BenchmarkResult[]) {
 		const label = strategy === 'single-column' ? 'Single Column' : 'Full Row';
 		console.log(`\n  ${label} Updates:`);
 
-		const gcOn = allResults.filter((r) => r.updateStrategy === strategy && r.gcEnabled);
-		const gcOff = allResults.filter((r) => r.updateStrategy === strategy && !r.gcEnabled);
+		const gcOn = allResults.filter(
+			(r) => r.updateStrategy === strategy && r.gcEnabled,
+		);
+		const gcOff = allResults.filter(
+			(r) => r.updateStrategy === strategy && !r.gcEnabled,
+		);
 
 		for (const on of gcOn) {
 			const off = gcOff.find((r) => r.name === on.name)!;
 			const reduction = 1 - on.sizes.afterRecreate / off.sizes.afterRecreate;
-			console.log(`    ${on.name.padEnd(24)} ${formatBytes(off.sizes.afterRecreate)} → ${formatBytes(on.sizes.afterRecreate)} (${formatPercent(reduction)} reduction)`);
+			console.log(
+				`    ${on.name.padEnd(24)} ${formatBytes(off.sizes.afterRecreate)} → ${formatBytes(on.sizes.afterRecreate)} (${formatPercent(reduction)} reduction)`,
+			);
 		}
 	}
 
@@ -697,7 +784,12 @@ async function main() {
 
 	const allResults: BenchmarkResult[] = [];
 	const strategies: UpdateStrategy[] = ['single-column', 'full-row', 'mixed'];
-	const benchmarks = [benchmarkMapPlain, benchmarkArrayPlain, benchmarkMapYMap, benchmarkArrayYMap];
+	const benchmarks = [
+		benchmarkMapPlain,
+		benchmarkArrayPlain,
+		benchmarkMapYMap,
+		benchmarkArrayYMap,
+	];
 
 	for (const strategy of strategies) {
 		console.log(`Running ${strategy} benchmarks...`);
