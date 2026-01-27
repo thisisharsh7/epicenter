@@ -7,18 +7,18 @@ import { defineWorkspace } from './define-workspace.js';
 
 describe('defineWorkspace', () => {
 	test('creates workspace with tables and kv', () => {
-		const posts = defineTable()
-			.version(type({ id: 'string', title: 'string' }))
-			.migrate((row) => row);
-
-		const theme = defineKV()
-			.version(type({ mode: "'light' | 'dark'" }))
-			.migrate((v) => v);
-
 		const workspace = defineWorkspace({
 			id: 'test-app',
-			tables: { posts },
-			kv: { theme },
+			tables: {
+				posts: defineTable()
+					.version(type({ id: 'string', title: 'string' }))
+					.migrate((row) => row),
+			},
+			kv: {
+				theme: defineKV()
+					.version(type({ mode: "'light' | 'dark'" }))
+					.migrate((v) => v),
+			},
 		});
 
 		expect(workspace.id).toBe('test-app');
@@ -27,18 +27,18 @@ describe('defineWorkspace', () => {
 	});
 
 	test('workspace.create() returns client with tables and kv', () => {
-		const posts = defineTable()
-			.version(type({ id: 'string', title: 'string' }))
-			.migrate((row) => row);
-
-		const theme = defineKV()
-			.version(type({ mode: "'light' | 'dark'" }))
-			.migrate((v) => v);
-
 		const workspace = defineWorkspace({
 			id: 'test-app',
-			tables: { posts },
-			kv: { theme },
+			tables: {
+				posts: defineTable()
+					.version(type({ id: 'string', title: 'string' }))
+					.migrate((row) => row),
+			},
+			kv: {
+				theme: defineKV()
+					.version(type({ mode: "'light' | 'dark'" }))
+					.migrate((v) => v),
+			},
 		});
 
 		const client = workspace.create();
@@ -50,18 +50,18 @@ describe('defineWorkspace', () => {
 	});
 
 	test('client.tables and client.kv work correctly', () => {
-		const posts = defineTable()
-			.version(type({ id: 'string', title: 'string' }))
-			.migrate((row) => row);
-
-		const theme = defineKV()
-			.version(type({ mode: "'light' | 'dark'" }))
-			.migrate((v) => v);
-
 		const workspace = defineWorkspace({
 			id: 'test-app',
-			tables: { posts },
-			kv: { theme },
+			tables: {
+				posts: defineTable()
+					.version(type({ id: 'string', title: 'string' }))
+					.migrate((row) => row),
+			},
+			kv: {
+				theme: defineKV()
+					.version(type({ mode: "'light' | 'dark'" }))
+					.migrate((v) => v),
+			},
 		});
 
 		const client = workspace.create();
@@ -78,13 +78,13 @@ describe('defineWorkspace', () => {
 	});
 
 	test('workspace.create() with capabilities', () => {
-		const posts = defineTable()
-			.version(type({ id: 'string', title: 'string' }))
-			.migrate((row) => row);
-
 		const workspace = defineWorkspace({
 			id: 'test-app',
-			tables: { posts },
+			tables: {
+				posts: defineTable()
+					.version(type({ id: 'string', title: 'string' }))
+					.migrate((row) => row),
+			},
 		});
 
 		// Mock capability
@@ -106,13 +106,13 @@ describe('defineWorkspace', () => {
 	});
 
 	test('client.destroy() cleans up', async () => {
-		const posts = defineTable()
-			.version(type({ id: 'string', title: 'string' }))
-			.migrate((row) => row);
-
 		const workspace = defineWorkspace({
 			id: 'test-app',
-			tables: { posts },
+			tables: {
+				posts: defineTable()
+					.version(type({ id: 'string', title: 'string' }))
+					.migrate((row) => row),
+			},
 		});
 
 		let destroyed = false;

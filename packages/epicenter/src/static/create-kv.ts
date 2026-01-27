@@ -20,14 +20,14 @@
  */
 
 import type * as Y from 'yjs';
-import { YKeyValue } from '../core/utils/y-keyvalue.js';
-import { createKVItemHelper } from './kv-helper.js';
+import { YKeyValue, type YKeyValueChange } from '../core/utils/y-keyvalue.js';
 import type {
 	InferKVValue,
 	KVDefinition,
 	KVDefinitionMap,
+	KVGetResult,
 	KVHelper,
-	KVItemHelper,
+	ValidationIssue,
 } from './types.js';
 
 /**
@@ -48,43 +48,85 @@ export function createKV<TKV extends KVDefinitionMap>(
 	const yarray = ydoc.getArray<{ key: string; val: unknown }>('kv');
 	const ykv = new YKeyValue(yarray);
 
-	// Create internal helpers for each key
-	const helpers: Record<string, KVItemHelper<unknown>> = {};
+	/**
+	 * Parse and migrate a raw value using the given definition.
+	 */
+	function parseValue<TValue>(
+		raw: unknown,
+		definition: KVDefinition<TValue>,
+	): KVGetResult<TValue> {
+		const result = definition.unionSchema['~standard'].validate(raw);
+		if (result instanceof Promise)
+			throw new TypeError('Async schemas not supported');
 
-	for (const [name, definition] of Object.entries(definitions)) {
-		helpers[name] = createKVItemHelper(
-			ykv,
-			name,
-			definition as KVDefinition<unknown>,
-		);
+		if (result.issues) {
+			return {
+				status: 'invalid',
+				errors: result.issues as ValidationIssue[],
+				raw,
+			};
+		}
+
+		// Migrate to latest version
+		const migrated = definition.migrate(result.value);
+		return { status: 'valid', value: migrated };
 	}
 
-	// Return dictionary-style API
 	return {
 		get(key) {
-			const helper = helpers[key];
-			if (!helper) throw new Error(`Unknown KV key: ${key}`);
-			return helper.get();
+			const definition = definitions[key];
+			if (!definition) throw new Error(`Unknown KV key: ${key}`);
+
+			const raw = ykv.get(key);
+			if (raw === undefined) {
+				return { status: 'not_found' };
+			}
+			return parseValue(raw, definition as KVDefinition<unknown>);
 		},
 
 		set(key, value) {
-			const helper = helpers[key];
-			if (!helper) throw new Error(`Unknown KV key: ${key}`);
-			helper.set(value);
+			if (!definitions[key]) throw new Error(`Unknown KV key: ${key}`);
+			ykv.set(key, value);
 		},
 
 		delete(key) {
-			const helper = helpers[key];
-			if (!helper) throw new Error(`Unknown KV key: ${key}`);
-			helper.delete();
+			if (!definitions[key]) throw new Error(`Unknown KV key: ${key}`);
+			ykv.delete(key);
 		},
 
 		observe(key, callback) {
-			const helper = helpers[key];
-			if (!helper) throw new Error(`Unknown KV key: ${key}`);
-			return helper.observe(
-				callback as Parameters<KVItemHelper<unknown>['observe']>[0],
-			);
+			const definition = definitions[key];
+			if (!definition) throw new Error(`Unknown KV key: ${key}`);
+
+			const handler = (
+				changes: Map<string, YKeyValueChange<unknown>>,
+				transaction: Y.Transaction,
+			) => {
+				const change = changes.get(key);
+				if (!change) return;
+
+				if (change.action === 'delete') {
+					callback({ type: 'delete' }, transaction);
+				} else {
+					// For add or update, parse and migrate the new value
+					const parsed = parseValue(
+						change.newValue,
+						definition as KVDefinition<unknown>,
+					);
+					if (parsed.status === 'valid') {
+						callback(
+							{ type: 'set', value: parsed.value } as Parameters<
+								typeof callback
+							>[0],
+							transaction,
+						);
+					}
+					// Skip callback for invalid values (could add an error callback if needed)
+				}
+			};
+
+			ykv.on('change', handler);
+			return () => ykv.off('change', handler);
 		},
 	} as KVHelper<TKV>;
 }

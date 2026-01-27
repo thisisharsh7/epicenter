@@ -85,7 +85,6 @@ export type {
 	InferKVValue,
 	// Helper types
 	TableHelper,
-	KVItemHelper,
 	TablesHelper,
 	KVHelper,
 	// Map types

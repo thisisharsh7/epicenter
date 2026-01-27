@@ -518,9 +518,8 @@ packages/epicenter/src/static/
 ├── define-kv.ts                # defineKV() builder
 ├── define-workspace.ts         # defineWorkspace() + workspace.create()
 ├── create-tables.ts            # createTables() lower-level API
-├── create-kv.ts                # createKV() lower-level API
+├── create-kv.ts                # createKV() lower-level API + KVHelper implementation
 ├── table-helper.ts             # TableHelper implementation
-├── kv-helper.ts                # KVHelper implementation
 ├── types.ts                    # Shared types
 └── schema-union.ts             # Standard Schema union validation
 ```
@@ -1012,15 +1011,14 @@ Implementation completed in branch `feat/static-workspace-api` with 11 commits.
 packages/epicenter/src/static/
 ├── index.ts           # Public exports
 ├── types.ts           # All shared types (GetResult, RowResult, TableDefinition, etc.)
-├── schema-union.ts    # createUnionSchema(), validateWithSchema()
+├── schema-union.ts    # createUnionSchema()
 ├── define-table.ts    # defineTable() builder
 ├── define-kv.ts       # defineKV() builder
 ├── table-helper.ts    # TableHelper implementation (CRUD operations)
-├── kv-helper.ts       # KVHelper implementation (get/set/observe)
 ├── create-tables.ts   # createTables() factory
-├── create-kv.ts       # createKV() factory
+├── create-kv.ts       # createKV() factory + KVHelper implementation (get/set/observe)
 ├── define-workspace.ts # defineWorkspace() + workspace.create()
-└── static.test.ts     # Comprehensive tests (33 tests passing)
+└── *.test.ts          # Per-module test files
 ```
 
 ### Key Implementation Details

@@ -191,23 +191,6 @@ export type TableHelper<TRow extends { id: string }> = {
 	has(id: string): boolean;
 };
 
-/** Helper for a single KV key (internal use) */
-export type KVItemHelper<TValue> = {
-	/** Get the value (validates + migrates). */
-	get(): KVGetResult<TValue>;
-
-	/** Set the value (always latest schema). */
-	set(value: TValue): void;
-
-	/** Delete the value. */
-	delete(): void;
-
-	/** Watch for changes. */
-	observe(
-		callback: (change: KVChange<TValue>, transaction: unknown) => void,
-	): () => void;
-};
-
 // ════════════════════════════════════════════════════════════════════════════
 // WORKSPACE TYPES
 // ════════════════════════════════════════════════════════════════════════════
