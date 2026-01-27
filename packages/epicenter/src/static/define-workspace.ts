@@ -36,9 +36,9 @@ import type {
 	CapabilityFactory,
 	CapabilityMap,
 	InferCapabilityExports,
-	KvDefinitionMap,
+	KvDefinitions,
 	KvHelper,
-	TableDefinitionMap,
+	TableDefinitions,
 	TablesHelper,
 	WorkspaceClient,
 	WorkspaceDefinition,
@@ -58,17 +58,17 @@ import type {
  */
 export function defineWorkspace<
 	TId extends string,
-	TTables extends TableDefinitionMap = {},
-	TKV extends KvDefinitionMap = {},
+	TTableDefinitions extends TableDefinitions = {},
+	TKvDefinitions extends KvDefinitions = {},
 >({
 	id,
-	tables: tableDefinitions = {} as TTables,
-	kv: kvDefinitions = {} as TKV,
+	tables: tableDefinitions = {} as TTableDefinitions,
+	kv: kvDefinitions = {} as TKvDefinitions,
 }: {
 	id: TId;
-	tables?: TTables;
-	kv?: TKV;
-}): WorkspaceDefinition<TId, TTables, TKV> {
+	tables?: TTableDefinitions;
+	kv?: TKvDefinitions;
+}): WorkspaceDefinition<TId, TTableDefinitions, TKvDefinitions> {
 
 	return {
 		id,
@@ -77,7 +77,7 @@ export function defineWorkspace<
 
 		create<TCapabilities extends CapabilityMap = {}>(
 			capabilities?: TCapabilities,
-		): WorkspaceClient<TId, TTables, TKV, TCapabilities> {
+		): WorkspaceClient<TId, TTableDefinitions, TKvDefinitions, TCapabilities> {
 			// Create Y.Doc with workspace id as guid
 			const ydoc = new Y.Doc({ guid: id });
 
@@ -120,8 +120,8 @@ export function defineWorkspace<
 			return {
 				id,
 				ydoc,
-				tables: tables as TablesHelper<TTables>,
-				kv: kv as KvHelper<TKV>,
+				tables: tables as TablesHelper<TTableDefinitions>,
+				kv: kv as KvHelper<TKvDefinitions>,
 				capabilities: capabilityExports as InferCapabilityExports<TCapabilities>,
 				destroy,
 				[Symbol.asyncDispose]: destroy,

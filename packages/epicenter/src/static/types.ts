@@ -225,44 +225,44 @@ export type TableHelper<TRow extends { id: string }> = {
 
 /** Map of table definitions (uses `any` to allow variance in generic parameters) */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type TableDefinitionMap = Record<string, TableDefinition<any>>;
+export type TableDefinitions = Record<string, TableDefinition<any>>;
 
 /** Map of KV definitions (uses `any` to allow variance in generic parameters) */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type KvDefinitionMap = Record<string, KvDefinition<any>>;
+export type KvDefinitions = Record<string, KvDefinition<any>>;
 
 /** Tables helper object with all table helpers */
-export type TablesHelper<TTables extends TableDefinitionMap> = {
-	readonly [K in keyof TTables]: TableHelper<InferTableRow<TTables[K]>>;
+export type TablesHelper<TTableDefinitions extends TableDefinitions> = {
+	readonly [K in keyof TTableDefinitions]: TableHelper<InferTableRow<TTableDefinitions[K]>>;
 };
 
 /** Operations available inside a KV batch transaction. */
-export type KvBatchTransaction<TKV extends KvDefinitionMap> = {
-	set<K extends keyof TKV & string>(key: K, value: InferKvValue<TKV[K]>): void;
-	delete<K extends keyof TKV & string>(key: K): void;
+export type KvBatchTransaction<TKvDefinitions extends KvDefinitions> = {
+	set<K extends keyof TKvDefinitions & string>(key: K, value: InferKvValue<TKvDefinitions[K]>): void;
+	delete<K extends keyof TKvDefinitions & string>(key: K): void;
 };
 
 /** KV helper with dictionary-style access */
-export type KvHelper<TKV extends KvDefinitionMap> = {
+export type KvHelper<TKvDefinitions extends KvDefinitions> = {
 	/** Get a value by key (validates + migrates). */
-	get<K extends keyof TKV & string>(key: K): KvGetResult<InferKvValue<TKV[K]>>;
+	get<K extends keyof TKvDefinitions & string>(key: K): KvGetResult<InferKvValue<TKvDefinitions[K]>>;
 
 	/** Set a value by key (always latest schema). */
-	set<K extends keyof TKV & string>(key: K, value: InferKvValue<TKV[K]>): void;
+	set<K extends keyof TKvDefinitions & string>(key: K, value: InferKvValue<TKvDefinitions[K]>): void;
 
 	/** Delete a value by key. */
-	delete<K extends keyof TKV & string>(key: K): void;
+	delete<K extends keyof TKvDefinitions & string>(key: K): void;
 
 	/**
 	 * Execute multiple operations atomically in a Y.js transaction.
 	 */
-	batch(fn: (tx: KvBatchTransaction<TKV>) => void): void;
+	batch(fn: (tx: KvBatchTransaction<TKvDefinitions>) => void): void;
 
 	/** Watch for changes to a key. Returns unsubscribe function. */
-	observe<K extends keyof TKV & string>(
+	observe<K extends keyof TKvDefinitions & string>(
 		key: K,
 		callback: (
-			change: KvChange<InferKvValue<TKV[K]>>,
+			change: KvChange<InferKvValue<TKvDefinitions[K]>>,
 			transaction: unknown,
 		) => void,
 	): () => void;
@@ -271,17 +271,17 @@ export type KvHelper<TKV extends KvDefinitionMap> = {
 /** Workspace definition created by defineWorkspace() */
 export type WorkspaceDefinition<
 	TId extends string,
-	TTables extends TableDefinitionMap,
-	TKV extends KvDefinitionMap,
+	TTableDefinitions extends TableDefinitions,
+	TKvDefinitions extends KvDefinitions,
 > = {
 	readonly id: TId;
-	readonly tableDefinitions: TTables;
-	readonly kvDefinitions: TKV;
+	readonly tableDefinitions: TTableDefinitions;
+	readonly kvDefinitions: TKvDefinitions;
 
 	/** Create a workspace client. Synchronous - returns immediately. */
 	create<TCapabilities extends CapabilityMap = {}>(
 		capabilities?: TCapabilities,
-	): WorkspaceClient<TId, TTables, TKV, TCapabilities>;
+	): WorkspaceClient<TId, TTableDefinitions, TKvDefinitions, TCapabilities>;
 };
 
 /** Capability factory function */
@@ -302,14 +302,14 @@ export type InferCapabilityExports<TCapabilities extends CapabilityMap> = {
 /** The workspace client returned by workspace.create() */
 export type WorkspaceClient<
 	TId extends string,
-	TTables extends TableDefinitionMap,
-	TKV extends KvDefinitionMap,
+	TTableDefinitions extends TableDefinitions,
+	TKvDefinitions extends KvDefinitions,
 	TCapabilities extends CapabilityMap,
 > = {
 	readonly id: TId;
 	readonly ydoc: unknown;
-	readonly tables: TablesHelper<TTables>;
-	readonly kv: KvHelper<TKV>;
+	readonly tables: TablesHelper<TTableDefinitions>;
+	readonly kv: KvHelper<TKvDefinitions>;
 	readonly capabilities: InferCapabilityExports<TCapabilities>;
 
 	/** Cleanup all resources */

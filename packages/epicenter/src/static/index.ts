@@ -91,8 +91,8 @@ export type {
 	KvHelper,
 	KvBatchTransaction,
 	// Map types
-	TableDefinitionMap,
-	KvDefinitionMap,
+	TableDefinitions,
+	KvDefinitions,
 	// Workspace types
 	WorkspaceDefinition,
 	WorkspaceClient,

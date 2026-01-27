@@ -206,23 +206,23 @@ const workspace = defineWorkspace({
 ```typescript
 function defineWorkspace<
   TId extends string,
-  TTables extends Record<string, TableDefinition<any, any>>,
-  TKV extends Record<string, KvDefinition<any, any>>,
+  TTableDefinitions extends TableDefinitions = {},
+  TKvDefinitions extends KvDefinitions = {},
 >(config: {
   id: TId;
-  tables?: TTables;
-  kv?: TKV;
-}): Workspace<TId, TTables, TKV>;
+  tables?: TTableDefinitions;
+  kv?: TKvDefinitions;
+}): WorkspaceDefinition<TId, TTableDefinitions, TKvDefinitions>;
 
-type Workspace<TId, TTables, TKV> = {
+type WorkspaceDefinition<TId, TTableDefinitions, TKvDefinitions> = {
   readonly id: TId;
-  readonly tableDefinitions: TTables;
-  readonly kvDefinitions: TKV;
+  readonly tableDefinitions: TTableDefinitions;
+  readonly kvDefinitions: TKvDefinitions;
 
   /** Synchronous - returns immediately. Use capability.whenSynced for async initialization. */
   create<TCapabilities extends CapabilityMap = {}>(
     capabilities?: TCapabilities
-  ): WorkspaceClient<TId, TTables, TKV, TCapabilities>;
+  ): WorkspaceClient<TId, TTableDefinitions, TKvDefinitions, TCapabilities>;
 };
 ```
 
@@ -257,11 +257,11 @@ await client.capabilities.persistence.whenSynced;
 **Returns `WorkspaceClient`:**
 
 ```typescript
-type WorkspaceClient<TId, TTables, TKV, TCapabilities> = {
+type WorkspaceClient<TId, TTableDefinitions, TKvDefinitions, TCapabilities> = {
   readonly id: TId;
   readonly ydoc: Y.Doc;
-  readonly tables: TablesHelper<TTables>;
-  readonly kv: KvHelper<TKV>;
+  readonly tables: TablesHelper<TTableDefinitions>;
+  readonly kv: KvHelper<TKvDefinitions>;
   readonly capabilities: InferCapabilityExports<TCapabilities>;
 
   destroy(): Promise<void>;
@@ -324,13 +324,13 @@ tables.posts.set({ id: '1', title: 'Hello', views: 0, _v: '2' });
 **Type Signature:**
 
 ```typescript
-function createTables<TTables extends Record<string, TableDefinition<any, any>>>(
+function createTables<TTableDefinitions extends TableDefinitions>(
   ydoc: Y.Doc,
-  definitions: TTables
-): TablesHelper<TTables>;
+  definitions: TTableDefinitions
+): TablesHelper<TTableDefinitions>;
 
-type TablesHelper<TTables> = {
-  [K in keyof TTables]: TableHelper<TTables[K]>;
+type TablesHelper<TTableDefinitions> = {
+  [K in keyof TTableDefinitions]: TableHelper<InferTableRow<TTableDefinitions[K]>>;
 };
 ```
 
@@ -352,18 +352,18 @@ kv.set('theme', { mode: 'dark', fontSize: 16 });
 **Type Signature:**
 
 ```typescript
-function createKv<TKV extends Record<string, KvDefinition<any, any>>>(
+function createKv<TKvDefinitions extends KvDefinitions>(
   ydoc: Y.Doc,
-  definitions: TKV
-): KvHelper<TKV>;
+  definitions: TKvDefinitions
+): KvHelper<TKvDefinitions>;
 
-type KvHelper<TKV extends Record<string, KvDefinition<any, any>>> = {
-  get<K extends keyof TKV>(key: K): KvGetResult<InferKvValue<TKV[K]>>;
-  set<K extends keyof TKV>(key: K, value: InferKvValue<TKV[K]>): void;
-  delete<K extends keyof TKV>(key: K): void;
-  observe<K extends keyof TKV>(
+type KvHelper<TKvDefinitions extends KvDefinitions> = {
+  get<K extends keyof TKvDefinitions>(key: K): KvGetResult<InferKvValue<TKvDefinitions[K]>>;
+  set<K extends keyof TKvDefinitions>(key: K, value: InferKvValue<TKvDefinitions[K]>): void;
+  delete<K extends keyof TKvDefinitions>(key: K): void;
+  observe<K extends keyof TKvDefinitions>(
     key: K,
-    callback: (change: KvChange<InferKvValue<TKV[K]>>, tx: Y.Transaction) => void
+    callback: (change: KvChange<InferKvValue<TKvDefinitions[K]>>, tx: Y.Transaction) => void
   ): () => void;
 };
 ```
@@ -507,32 +507,32 @@ client.ydoc.transact(() => {
 Methods available on `kv` (dictionary-style access):
 
 ```typescript
-type KvHelper<TKV extends Record<string, KvDefinition<any, any>>> = {
+type KvHelper<TKvDefinitions extends KvDefinitions> = {
   /** Get a value by key (validates + migrates). */
-  get<K extends keyof TKV>(key: K): KvGetResult<InferKvValue<TKV[K]>>;
+  get<K extends keyof TKvDefinitions>(key: K): KvGetResult<InferKvValue<TKvDefinitions[K]>>;
 
   /** Set a value by key (always latest schema). */
-  set<K extends keyof TKV>(key: K, value: InferKvValue<TKV[K]>): void;
+  set<K extends keyof TKvDefinitions>(key: K, value: InferKvValue<TKvDefinitions[K]>): void;
 
   /** Delete a value by key. */
-  delete<K extends keyof TKV>(key: K): void;
+  delete<K extends keyof TKvDefinitions>(key: K): void;
 
   /**
    * Execute multiple operations atomically in a Y.js transaction.
    */
-  batch(fn: (tx: KvBatchTransaction<TKV>) => void): void;
+  batch(fn: (tx: KvBatchTransaction<TKvDefinitions>) => void): void;
 
   /** Watch for changes to a specific key. */
-  observe<K extends keyof TKV>(
+  observe<K extends keyof TKvDefinitions>(
     key: K,
-    callback: (change: KvChange<InferKvValue<TKV[K]>>, tx: Y.Transaction) => void
+    callback: (change: KvChange<InferKvValue<TKvDefinitions[K]>>, tx: Y.Transaction) => void
   ): () => void;
 };
 
 /** Operations available inside a KV batch transaction. */
-type KvBatchTransaction<TKV extends Record<string, KvDefinition<any, any>>> = {
-  set<K extends keyof TKV>(key: K, value: InferKvValue<TKV[K]>): void;
-  delete<K extends keyof TKV>(key: K): void;
+type KvBatchTransaction<TKvDefinitions extends KvDefinitions> = {
+  set<K extends keyof TKvDefinitions>(key: K, value: InferKvValue<TKvDefinitions[K]>): void;
+  delete<K extends keyof TKvDefinitions>(key: K): void;
 };
 
 type KvGetResult<TValue> =

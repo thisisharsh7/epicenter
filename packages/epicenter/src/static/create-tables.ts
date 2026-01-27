@@ -24,7 +24,7 @@ import { createTableHelper } from './table-helper.js';
 import type {
 	InferTableRow,
 	TableDefinition,
-	TableDefinitionMap,
+	TableDefinitions,
 	TableHelper,
 	TablesHelper,
 } from './types.js';
@@ -39,10 +39,10 @@ import type {
  * @param definitions - Map of table name to TableDefinition
  * @returns TablesHelper with type-safe access to each table
  */
-export function createTables<TTables extends TableDefinitionMap>(
+export function createTables<TTableDefinitions extends TableDefinitions>(
 	ydoc: Y.Doc,
-	definitions: TTables,
-): TablesHelper<TTables> {
+	definitions: TTableDefinitions,
+): TablesHelper<TTableDefinitions> {
 	const helpers: Record<string, TableHelper<{ id: string }>> = {};
 
 	for (const [name, definition] of Object.entries(definitions)) {
@@ -55,13 +55,13 @@ export function createTables<TTables extends TableDefinitionMap>(
 		helpers[name] = createTableHelper(ykv, definition);
 	}
 
-	return helpers as TablesHelper<TTables>;
+	return helpers as TablesHelper<TTableDefinitions>;
 }
 
 // Re-export types for convenience
 export type {
 	InferTableRow,
 	TableDefinition,
-	TableDefinitionMap,
+	TableDefinitions,
 	TablesHelper,
 };

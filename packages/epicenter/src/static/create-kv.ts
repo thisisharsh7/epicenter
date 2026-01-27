@@ -26,7 +26,7 @@ import type {
 	InferKvValue,
 	KvBatchTransaction,
 	KvDefinition,
-	KvDefinitionMap,
+	KvDefinitions,
 	KvGetResult,
 	KvHelper,
 } from './types.js';
@@ -41,10 +41,10 @@ import type {
  * @param definitions - Map of key name to KvDefinition
  * @returns KvHelper with type-safe get/set/delete/observe methods
  */
-export function createKv<TKV extends KvDefinitionMap>(
+export function createKv<TKvDefinitions extends KvDefinitions>(
 	ydoc: Y.Doc,
-	definitions: TKV,
-): KvHelper<TKV> {
+	definitions: TKvDefinitions,
+): KvHelper<TKvDefinitions> {
 	// All KV values share a single YKeyValue store
 	const yarray = ydoc.getArray<{ key: string; val: unknown }>('kv');
 	const ykv = new YKeyValue(yarray);
@@ -106,7 +106,7 @@ export function createKv<TKV extends KvDefinitionMap>(
 						if (!definitions[key]) throw new Error(`Unknown KV key: ${key}`);
 						ykv.delete(key);
 					},
-				} as KvBatchTransaction<TKV>);
+				} as KvBatchTransaction<TKvDefinitions>);
 			});
 		},
 
@@ -141,8 +141,8 @@ export function createKv<TKV extends KvDefinitionMap>(
 			ykv.on('change', handler);
 			return () => ykv.off('change', handler);
 		},
-	} as KvHelper<TKV>;
+	} as KvHelper<TKvDefinitions>;
 }
 
 // Re-export types for convenience
-export type { InferKvValue, KvDefinition, KvDefinitionMap, KvHelper };
+export type { InferKvValue, KvDefinition, KvDefinitions, KvHelper };
