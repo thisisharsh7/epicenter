@@ -168,39 +168,6 @@ describe('YKeyValueLww', () => {
 		});
 	});
 
-	describe('Migration from YKeyValue', () => {
-		test('entries without ts field are treated as ts=0', () => {
-			const ydoc = new Y.Doc({ guid: 'test' });
-			const yarray = ydoc.getArray<any>('data');
-
-			// Push old-format entry without timestamp
-			yarray.push([{ key: 'old', val: 'old-value' }]);
-
-			// Push new-format entry with timestamp
-			yarray.push([{ key: 'old', val: 'new-value', ts: 1000 }]);
-
-			const kv = new YKeyValueLww(yarray);
-
-			// New entry should win (ts: 1000 > ts: 0)
-			expect(kv.get('old')).toBe('new-value');
-		});
-
-		test('new timestamped entry always beats old non-timestamped entry', () => {
-			const ydoc = new Y.Doc({ guid: 'test' });
-			const yarray = ydoc.getArray<any>('data');
-
-			// Old format first
-			yarray.push([{ key: 'key', val: 'old-format' }]);
-
-			const kv = new YKeyValueLww(yarray);
-
-			// Update with new format
-			kv.set('key', 'new-format');
-
-			expect(kv.get('key')).toBe('new-format');
-		});
-	});
-
 	describe('Change Events', () => {
 		test('fires add event for new key', () => {
 			const ydoc = new Y.Doc({ guid: 'test' });

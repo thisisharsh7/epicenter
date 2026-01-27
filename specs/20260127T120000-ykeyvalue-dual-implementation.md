@@ -57,9 +57,7 @@ type Entry<T> = { key: string; val: T; ts: number };
 // YKeyValueLww: Higher timestamp wins
 // Tiebreaker: positional (rightmost wins) when timestamps equal
 function shouldReplace(existing: Entry, incoming: Entry): boolean {
-  const existingTs = existing.ts ?? 0;  // Migration: missing ts = 0
-  const incomingTs = incoming.ts ?? 0;
-  return incomingTs > existingTs;  // If equal, fall back to positional
+  return incoming.ts > existing.ts;  // If equal, fall back to positional
 }
 ```
 
@@ -79,10 +77,11 @@ private getTimestamp(): number {
 
 ### From YKeyValue to YKeyValueLww
 
-Entries without `ts` field are treated as `ts: 0`. This means:
-- Old entries automatically lose to any new timestamped entry
-- First write with new code wins
-- No explicit migration needed, but all entries should be re-written for consistency
+The two implementations use different entry formats:
+- `YKeyValue`: `{ key, val }`
+- `YKeyValueLww`: `{ key, val, ts }`
+
+When migrating data from `YKeyValue` to `YKeyValueLww`, existing entries must be re-written with timestamps. All `YKeyValueLww` entries are required to have the `ts` field.
 
 ### Switching Back
 

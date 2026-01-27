@@ -128,19 +128,17 @@ export class YKeyValueLww<T> {
 		// First pass: find winners by timestamp
 		for (let i = 0; i < entries.length; i++) {
 			const entry = entries[i]!;
-			const entryTimestamp = entry.ts ?? 0; // Migration: missing ts = 0
 			const existing = this.map.get(entry.key);
 
 			if (!existing) {
 				this.map.set(entry.key, entry);
 			} else {
-				const existingTimestamp = existing.ts ?? 0;
-				if (entryTimestamp > existingTimestamp) {
+				if (entry.ts > existing.ts) {
 					// New entry wins, mark old for deletion
 					const oldIndex = entries.indexOf(existing);
 					if (oldIndex !== -1) indicesToDelete.push(oldIndex);
 					this.map.set(entry.key, entry);
-				} else if (entryTimestamp < existingTimestamp) {
+				} else if (entry.ts < existing.ts) {
 					// Old entry wins, mark new for deletion
 					indicesToDelete.push(i);
 				} else {
@@ -156,7 +154,7 @@ export class YKeyValueLww<T> {
 			}
 
 			// Track max timestamp for monotonic clock
-			if (entryTimestamp > this.lastTimestamp) this.lastTimestamp = entryTimestamp;
+			if (entry.ts > this.lastTimestamp) this.lastTimestamp = entry.ts;
 		}
 
 		// Delete losers
@@ -181,8 +179,7 @@ export class YKeyValueLww<T> {
 					addedEntries.push(content);
 
 					// Track max timestamp
-					const contentTimestamp = content.ts ?? 0;
-					if (contentTimestamp > this.lastTimestamp) this.lastTimestamp = contentTimestamp;
+					if (content.ts > this.lastTimestamp) this.lastTimestamp = content.ts;
 				}
 			}
 
@@ -202,7 +199,6 @@ export class YKeyValueLww<T> {
 			const allEntries = yarray.toArray();
 
 			for (const newEntry of addedEntries) {
-				const newTimestamp = newEntry.ts ?? 0;
 				const existing = this.map.get(newEntry.key);
 
 				if (!existing) {
@@ -224,9 +220,7 @@ export class YKeyValueLww<T> {
 					this.map.set(newEntry.key, newEntry);
 				} else {
 					// Compare timestamps
-					const existingTimestamp = existing.ts ?? 0;
-
-					if (newTimestamp > existingTimestamp) {
+					if (newEntry.ts > existing.ts) {
 						// New entry wins
 						changes.set(newEntry.key, {
 							action: 'update',
@@ -239,7 +233,7 @@ export class YKeyValueLww<T> {
 						if (oldIndex !== -1) indicesToDelete.push(oldIndex);
 
 						this.map.set(newEntry.key, newEntry);
-					} else if (newTimestamp < existingTimestamp) {
+					} else if (newEntry.ts < existing.ts) {
 						// Old entry wins, delete new entry
 						const newIndex = allEntries.indexOf(newEntry);
 						if (newIndex !== -1) indicesToDelete.push(newIndex);
