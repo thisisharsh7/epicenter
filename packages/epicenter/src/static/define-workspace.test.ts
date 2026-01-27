@@ -87,13 +87,14 @@ describe('defineWorkspace', () => {
 			},
 		});
 
-		// Mock capability
+		// Mock capability with custom exports
 		const mockCapability = (_context: {
 			ydoc: Y.Doc;
 			tables: unknown;
 			kv: unknown;
 		}) => ({
 			whenSynced: Promise.resolve(),
+			destroy: async () => {},
 			customMethod: () => 'hello',
 		});
 
@@ -103,6 +104,67 @@ describe('defineWorkspace', () => {
 
 		expect(client.capabilities.mock).toBeDefined();
 		expect(client.capabilities.mock.customMethod()).toBe('hello');
+	});
+
+	test('capability exports are fully typed', () => {
+		const workspace = defineWorkspace({
+			id: 'test-app',
+			tables: {
+				posts: defineTable()
+					.version(type({ id: 'string', title: 'string' }))
+					.migrate((row) => row),
+			},
+		});
+
+		// Capability with rich exports
+		const persistenceCapability = () => ({
+			whenSynced: Promise.resolve(),
+			destroy: async () => {},
+			db: {
+				query: (sql: string) => sql.toUpperCase(),
+				execute: (sql: string) => ({ rows: [sql] }),
+			},
+			stats: { writes: 0, reads: 0 },
+		});
+
+		// Another capability with different exports
+		const syncCapability = () => ({
+			whenSynced: Promise.resolve(),
+			destroy: async () => {},
+			connect: (url: string) => `connected to ${url}`,
+			disconnect: () => 'disconnected',
+			status: 'idle' as 'idle' | 'syncing' | 'synced',
+		});
+
+		const client = workspace.create({
+			persistence: persistenceCapability,
+			sync: syncCapability,
+		});
+
+		// Test persistence capability exports are typed
+		const queryResult = client.capabilities.persistence.db.query('SELECT');
+		expect(queryResult).toBe('SELECT');
+
+		const execResult = client.capabilities.persistence.db.execute('INSERT');
+		expect(execResult.rows).toEqual(['INSERT']);
+
+		expect(client.capabilities.persistence.stats.writes).toBe(0);
+
+		// Test sync capability exports are typed
+		const connectResult = client.capabilities.sync.connect('ws://localhost');
+		expect(connectResult).toBe('connected to ws://localhost');
+
+		expect(client.capabilities.sync.disconnect()).toBe('disconnected');
+		expect(client.capabilities.sync.status).toBe('idle');
+
+		// Type assertions (these would fail to compile if types were wrong)
+		const _queryType: string = queryResult;
+		const _connectType: string = connectResult;
+		const _statusType: 'idle' | 'syncing' | 'synced' =
+			client.capabilities.sync.status;
+		void _queryType;
+		void _connectType;
+		void _statusType;
 	});
 
 	test('client.destroy() cleans up', async () => {
@@ -117,6 +179,7 @@ describe('defineWorkspace', () => {
 
 		let destroyed = false;
 		const mockCapability = () => ({
+			whenSynced: Promise.resolve(),
 			destroy: async () => {
 				destroyed = true;
 			},

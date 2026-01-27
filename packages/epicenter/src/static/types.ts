@@ -391,25 +391,27 @@ export type CapabilityFactory<TExports extends Lifecycle = Lifecycle> = <
 /**
  * Map of capability factories.
  *
- * Each capability is schema-generic and will receive the workspace's specific
- * table/kv types when `workspace.create()` is called.
+ * Uses a loose function signature to allow both:
+ * - Generic capability factories that receive typed context
+ * - Simple functions that ignore context
+ *
+ * Type safety is enforced at the individual capability level, not the map level.
  */
-export type CapabilityMap = Record<string, CapabilityFactory<Lifecycle>>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type CapabilityMap = Record<string, (...args: any[]) => Lifecycle>;
 
 /**
  * Infer exports from a capability map.
  *
- * This only needs ONE generic parameter (TCapabilities) because capabilities
- * are schema-generic - they don't carry table/kv types in their signature.
+ * Uses `ReturnType` directly rather than conditional type inference against
+ * `CapabilityFactory`. This works because TypeScript infers `TCapabilities`
+ * from the literal object passed to `create()`, preserving the actual return
+ * types of each capability function.
  *
  * @typeParam TCapabilities - The capability map to infer exports from
  */
 export type InferCapabilityExports<TCapabilities extends CapabilityMap> = {
-	[K in keyof TCapabilities]: TCapabilities[K] extends CapabilityFactory<
-		infer TExports
-	>
-		? TExports
-		: Lifecycle;
+	[K in keyof TCapabilities]: ReturnType<TCapabilities[K]>;
 };
 
 /** The workspace client returned by workspace.create() */
