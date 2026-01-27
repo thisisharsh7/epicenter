@@ -1,5 +1,5 @@
 /**
- * # YKeyValueLWW - Last-Write-Wins Key-Value Store for Yjs
+ * # YKeyValueLww - Last-Write-Wins Key-Value Store for Yjs
  *
  * A timestamp-based variant of YKeyValue that uses last-write-wins (LWW) conflict
  * resolution instead of positional ordering.
@@ -8,7 +8,7 @@
  *
  * ## When to Use This vs YKeyValue
  *
- * | Scenario | Use `YKeyValue` | Use `YKeyValueLWW` |
+ * | Scenario | Use `YKeyValue` | Use `YKeyValueLww` |
  * |----------|-----------------|-------------------|
  * | Real-time collab | Yes | Either |
  * | Offline-first, multi-device | No | Yes |
@@ -68,11 +68,11 @@
  * @example
  * ```typescript
  * import * as Y from 'yjs';
- * import { YKeyValueLWW } from './y-keyvalue-lww';
+ * import { YKeyValueLww } from './y-keyvalue-lww';
  *
  * const doc = new Y.Doc();
  * const yarray = doc.getArray<{ key: string; val: any; ts: number }>('data');
- * const kv = new YKeyValueLWW(yarray);
+ * const kv = new YKeyValueLww(yarray);
  *
  * kv.set('user1', { name: 'Alice' });  // ts auto-generated
  * kv.get('user1');  // { name: 'Alice' }
@@ -81,43 +81,43 @@
 import type * as Y from 'yjs';
 
 /** Entry stored in the Y.Array. The `ts` field enables last-write-wins conflict resolution. */
-export type YKeyValueLWWEntry<T> = { key: string; val: T; ts: number };
+export type YKeyValueLwwEntry<T> = { key: string; val: T; ts: number };
 
-export type YKeyValueLWWChange<T> =
+export type YKeyValueLwwChange<T> =
 	| { action: 'add'; newValue: T }
 	| { action: 'update'; oldValue: T; newValue: T }
 	| { action: 'delete'; oldValue: T };
 
-export type YKeyValueLWWChangeHandler<T> = (
-	changes: Map<string, YKeyValueLWWChange<T>>,
+export type YKeyValueLwwChangeHandler<T> = (
+	changes: Map<string, YKeyValueLwwChange<T>>,
 	transaction: Y.Transaction,
 ) => void;
 
-export class YKeyValueLWW<T> {
+export class YKeyValueLww<T> {
 	/** The underlying Y.Array that stores `{key, val, ts}` entries. */
-	readonly yarray: Y.Array<YKeyValueLWWEntry<T>>;
+	readonly yarray: Y.Array<YKeyValueLwwEntry<T>>;
 
 	/** The Y.Doc that owns this array. Required for transactions. */
 	readonly doc: Y.Doc;
 
 	/** In-memory index for O(1) key lookups. Maps key -> entry object. */
-	readonly map: Map<string, YKeyValueLWWEntry<T>>;
+	readonly map: Map<string, YKeyValueLwwEntry<T>>;
 
 	/** Registered change handlers. */
-	private changeHandlers: Set<YKeyValueLWWChangeHandler<T>> = new Set();
+	private changeHandlers: Set<YKeyValueLwwChangeHandler<T>> = new Set();
 
 	/** Last timestamp used, for monotonic clock. */
 	private lastTs = 0;
 
 	/**
-	 * Create a YKeyValueLWW wrapper around an existing Y.Array.
+	 * Create a YKeyValueLww wrapper around an existing Y.Array.
 	 *
 	 * On construction:
 	 * 1. Scans the array to build the in-memory Map, keeping highest-timestamp entries
 	 * 2. Removes duplicate keys (losers based on timestamp comparison)
 	 * 3. Sets up an observer to handle future changes with LWW semantics
 	 */
-	constructor(yarray: Y.Array<YKeyValueLWWEntry<T>>) {
+	constructor(yarray: Y.Array<YKeyValueLwwEntry<T>>) {
 		this.yarray = yarray;
 		this.doc = yarray.doc as Y.Doc;
 		this.map = new Map();
@@ -172,16 +172,16 @@ export class YKeyValueLWW<T> {
 
 		// Set up observer for future changes
 		yarray.observe((event, tr) => {
-			const changes = new Map<string, YKeyValueLWWChange<T>>();
+			const changes = new Map<string, YKeyValueLwwChange<T>>();
 			const addedEntries: Array<{
-				entry: YKeyValueLWWEntry<T>;
+				entry: YKeyValueLwwEntry<T>;
 				index: number;
 			}> = [];
 
 			// Collect added entries with their positions
 			let idx = 0;
 			for (const item of event.changes.added) {
-				for (const content of item.content.getContent() as YKeyValueLWWEntry<T>[]) {
+				for (const content of item.content.getContent() as YKeyValueLwwEntry<T>[]) {
 					// Find actual index in array
 					const arr = yarray.toArray();
 					const actualIdx = arr.findIndex((e) => e === content);
@@ -196,7 +196,7 @@ export class YKeyValueLWW<T> {
 
 			// Handle deletions first
 			event.changes.deleted.forEach((ditem) => {
-				ditem.content.getContent().forEach((c: YKeyValueLWWEntry<T>) => {
+				ditem.content.getContent().forEach((c: YKeyValueLwwEntry<T>) => {
 					if (this.map.get(c.key) === c) {
 						this.map.delete(c.key);
 						changes.set(c.key, { action: 'delete', oldValue: c.val });
@@ -306,7 +306,7 @@ export class YKeyValueLWW<T> {
 	 * The timestamp enables LWW conflict resolution during sync.
 	 */
 	set(key: string, val: T): void {
-		const entry: YKeyValueLWWEntry<T> = { key, val, ts: this.getTimestamp() };
+		const entry: YKeyValueLwwEntry<T> = { key, val, ts: this.getTimestamp() };
 		const existing = this.map.get(key);
 
 		this.doc.transact(() => {
@@ -353,14 +353,14 @@ export class YKeyValueLWW<T> {
 	}
 
 	/** Subscribe to changes. */
-	on(event: 'change', handler: YKeyValueLWWChangeHandler<T>): void {
+	on(event: 'change', handler: YKeyValueLwwChangeHandler<T>): void {
 		if (event === 'change') {
 			this.changeHandlers.add(handler);
 		}
 	}
 
 	/** Unsubscribe from changes. */
-	off(event: 'change', handler: YKeyValueLWWChangeHandler<T>): void {
+	off(event: 'change', handler: YKeyValueLwwChangeHandler<T>): void {
 		if (event === 'change') {
 			this.changeHandlers.delete(handler);
 		}

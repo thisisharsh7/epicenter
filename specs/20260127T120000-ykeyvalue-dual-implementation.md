@@ -10,7 +10,7 @@ We maintain two YKeyValue implementations with different conflict resolution str
 | Implementation | File | Conflict Resolution | Use Case |
 |----------------|------|---------------------|----------|
 | `YKeyValue` | `y-keyvalue.ts` | Positional (rightmost wins) | Real-time collab, simple cases |
-| `YKeyValueLWW` | `y-keyvalue-lww.ts` | Timestamp-based (last-write-wins) | Offline-first, multi-device |
+| `YKeyValueLww` | `y-keyvalue-lww.ts` | Timestamp-based (last-write-wins) | Offline-first, multi-device |
 
 ## Rationale
 
@@ -18,7 +18,7 @@ We maintain two YKeyValue implementations with different conflict resolution str
 
 1. **Different trade-offs**: Positional is simpler and has no clock dependencies. LWW is more intuitive for offline editing but assumes reasonable clock sync.
 
-2. **Migration path**: Existing code using `YKeyValue` continues to work. New code can opt into `YKeyValueLWW` where timestamp semantics matter.
+2. **Migration path**: Existing code using `YKeyValue` continues to work. New code can opt into `YKeyValueLww` where timestamp semantics matter.
 
 3. **Minimal overhead**: The LWW version adds only ~8 bytes per entry (timestamp field).
 
@@ -30,7 +30,7 @@ We maintain two YKeyValue implementations with different conflict resolution str
 - You want the simplest possible implementation
 - You're okay with "deterministic but arbitrary" conflict resolution
 
-**Use `YKeyValueLWW` (timestamp) when:**
+**Use `YKeyValueLww` (timestamp) when:**
 - Offline-first editing across multiple devices
 - Users expect "my latest edit should win"
 - Devices have reasonably synchronized clocks (NTP)
@@ -44,7 +44,7 @@ We maintain two YKeyValue implementations with different conflict resolution str
 // YKeyValue (positional)
 type Entry<T> = { key: string; val: T };
 
-// YKeyValueLWW (timestamp)
+// YKeyValueLww (timestamp)
 type Entry<T> = { key: string; val: T; ts: number };
 ```
 
@@ -54,7 +54,7 @@ type Entry<T> = { key: string; val: T; ts: number };
 // YKeyValue: Rightmost entry wins after Yjs CRDT merge
 // The "rightmost" position is determined by Yjs's internal clientID ordering
 
-// YKeyValueLWW: Higher timestamp wins
+// YKeyValueLww: Higher timestamp wins
 // Tiebreaker: positional (rightmost wins) when timestamps equal
 function shouldReplace(existing: Entry, incoming: Entry): boolean {
   const existingTs = existing.ts ?? 0;  // Migration: missing ts = 0
@@ -66,7 +66,7 @@ function shouldReplace(existing: Entry, incoming: Entry): boolean {
 ### Timestamp Generation
 
 ```typescript
-// YKeyValueLWW uses a monotonic clock to prevent same-millisecond collisions
+// YKeyValueLww uses a monotonic clock to prevent same-millisecond collisions
 private lastTs = 0;
 private getTimestamp(): number {
   const now = Date.now();
@@ -77,7 +77,7 @@ private getTimestamp(): number {
 
 ## Migration
 
-### From YKeyValue to YKeyValueLWW
+### From YKeyValue to YKeyValueLww
 
 Entries without `ts` field are treated as `ts: 0`. This means:
 - Old entries automatically lose to any new timestamped entry
@@ -113,7 +113,7 @@ Code can switch between implementations by changing the import:
 import { YKeyValue } from './y-keyvalue';
 
 // After
-import { YKeyValueLWW as YKeyValue } from './y-keyvalue-lww';
+import { YKeyValueLww as YKeyValue } from './y-keyvalue-lww';
 ```
 
 ## Related Specs

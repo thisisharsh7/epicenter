@@ -1,5 +1,5 @@
 /**
- * YKeyValue vs YKeyValueLWW - Comparison Tests
+ * YKeyValue vs YKeyValueLww - Comparison Tests
  *
  * This file demonstrates the behavioral differences between the two implementations
  * and provides benchmarks for storage and performance.
@@ -7,28 +7,28 @@
 import { describe, expect, test } from 'bun:test';
 import * as Y from 'yjs';
 import { YKeyValue } from './y-keyvalue';
-import { YKeyValueLWW, type YKeyValueLWWEntry } from './y-keyvalue-lww';
+import { YKeyValueLww, type YKeyValueLwwEntry } from './y-keyvalue-lww';
 
 /** Helper to create a YKeyValue with fresh doc */
-function createKV<T>() {
+function createKv<T>() {
 	const doc = new Y.Doc();
 	const array = doc.getArray<{ key: string; val: T }>('data');
 	return { doc, array, kv: new YKeyValue(array) };
 }
 
-/** Helper to create a YKeyValueLWW with fresh doc */
-function createKVLWW<T>() {
+/** Helper to create a YKeyValueLww with fresh doc */
+function createKvLww<T>() {
 	const doc = new Y.Doc();
-	const array = doc.getArray<YKeyValueLWWEntry<T>>('data');
-	return { doc, array, kv: new YKeyValueLWW(array) };
+	const array = doc.getArray<YKeyValueLwwEntry<T>>('data');
+	return { doc, array, kv: new YKeyValueLww(array) };
 }
 
-describe('Conflict Resolution: YKeyValue vs YKeyValueLWW', () => {
+describe('Conflict Resolution: YKeyValue vs YKeyValueLww', () => {
 	/**
 	 * THE KEY DIFFERENCE: Same concurrent edits, different winners.
 	 *
 	 * YKeyValue: Winner determined by clientID (arbitrary)
-	 * YKeyValueLWW: Winner determined by timestamp (chronological)
+	 * YKeyValueLww: Winner determined by timestamp (chronological)
 	 */
 	test('demonstrates the behavioral difference', () => {
 		// Two clients edit the same key while offline
@@ -39,9 +39,9 @@ describe('Conflict Resolution: YKeyValue vs YKeyValueLWW', () => {
 		const arr1 = doc1.getArray<{ key: string; val: string }>('positional');
 		const arr2 = doc2.getArray<{ key: string; val: string }>('positional');
 
-		// For YKeyValueLWW (timestamp)
-		const arrLww1 = doc1.getArray<YKeyValueLWWEntry<string>>('lww');
-		const arrLww2 = doc2.getArray<YKeyValueLWWEntry<string>>('lww');
+		// For YKeyValueLww (timestamp)
+		const arrLww1 = doc1.getArray<YKeyValueLwwEntry<string>>('lww');
+		const arrLww2 = doc2.getArray<YKeyValueLwwEntry<string>>('lww');
 
 		// Simulate: Client 1 edits at "2pm" (earlier), Client 2 edits at "3pm" (later)
 		// For LWW, we use explicit timestamps to control the outcome
@@ -58,19 +58,19 @@ describe('Conflict Resolution: YKeyValue vs YKeyValueLWW', () => {
 		// Create KV wrappers
 		const kv1 = new YKeyValue(arr1);
 		const kv2 = new YKeyValue(arr2);
-		const kvLww1 = new YKeyValueLWW(arrLww1);
-		const kvLww2 = new YKeyValueLWW(arrLww2);
+		const kvLww1 = new YKeyValueLww(arrLww1);
+		const kvLww2 = new YKeyValueLww(arrLww2);
 
 		// YKeyValue: Both converge, but winner is based on clientID (unpredictable)
 		expect(kv1.get('x')).toBe(kv2.get('x')); // Convergence guaranteed
 
-		// YKeyValueLWW: Both converge, winner is ALWAYS the later timestamp
+		// YKeyValueLww: Both converge, winner is ALWAYS the later timestamp
 		expect(kvLww1.get('x')).toBe('client-2-3pm'); // Later edit wins
 		expect(kvLww2.get('x')).toBe('client-2-3pm'); // Both see same result
 
 		console.log('\n=== Conflict Resolution Comparison ===');
 		console.log(`YKeyValue winner: "${kv1.get('x')}" (clientID-based, unpredictable)`);
-		console.log(`YKeyValueLWW winner: "${kvLww1.get('x')}" (timestamp-based, later edit wins)`);
+		console.log(`YKeyValueLww winner: "${kvLww1.get('x')}" (timestamp-based, later edit wins)`);
 	});
 
 	test('YKeyValue: ~50% chance earlier edit wins (clientID lottery)', () => {
@@ -102,7 +102,7 @@ describe('Conflict Resolution: YKeyValue vs YKeyValueLWW', () => {
 		expect(earlierWins).toBeLessThan(80);
 	});
 
-	test('YKeyValueLWW: 100% later timestamp wins', () => {
+	test('YKeyValueLww: 100% later timestamp wins', () => {
 		let laterWins = 0;
 		const trials = 100;
 
@@ -110,8 +110,8 @@ describe('Conflict Resolution: YKeyValue vs YKeyValueLWW', () => {
 			const doc1 = new Y.Doc({ guid: `test-${i}` });
 			const doc2 = new Y.Doc({ guid: `test-${i}` });
 
-			const arr1 = doc1.getArray<YKeyValueLWWEntry<string>>('data');
-			const arr2 = doc2.getArray<YKeyValueLWWEntry<string>>('data');
+			const arr1 = doc1.getArray<YKeyValueLwwEntry<string>>('data');
+			const arr2 = doc2.getArray<YKeyValueLwwEntry<string>>('data');
 
 			// Randomize which doc gets higher timestamp
 			const ts1 = Math.random() * 1000;
@@ -123,20 +123,20 @@ describe('Conflict Resolution: YKeyValue vs YKeyValueLWW', () => {
 			Y.applyUpdate(doc2, Y.encodeStateAsUpdate(doc1));
 			Y.applyUpdate(doc1, Y.encodeStateAsUpdate(doc2));
 
-			const kv1 = new YKeyValueLWW(arr1);
+			const kv1 = new YKeyValueLww(arr1);
 			const expected = ts1 > ts2 ? 'from-1' : 'from-2';
 			if (kv1.get('x') === expected) laterWins++;
 		}
 
-		console.log(`\nYKeyValueLWW: correct winner ${laterWins}/${trials} times`);
+		console.log(`\nYKeyValueLww: correct winner ${laterWins}/${trials} times`);
 		expect(laterWins).toBe(trials); // Must be 100%
 	});
 });
 
 describe('Storage Comparison', () => {
 	test('entry size difference', () => {
-		const { array: arr } = createKV<string>();
-		const { array: arrLww } = createKVLWW<string>();
+		const { array: arr } = createKv<string>();
+		const { array: arrLww } = createKvLww<string>();
 
 		// Push equivalent entries
 		arr.push([{ key: 'test', val: 'value' }]);
@@ -147,7 +147,7 @@ describe('Storage Comparison', () => {
 
 		console.log('\n=== Entry Size Comparison ===');
 		console.log('YKeyValue entry:', JSON.stringify(kvEntry));
-		console.log('YKeyValueLWW entry:', JSON.stringify(lwwEntry));
+		console.log('YKeyValueLww entry:', JSON.stringify(lwwEntry));
 		console.log(
 			`Size difference: +${JSON.stringify(lwwEntry).length - JSON.stringify(kvEntry).length} bytes per entry`,
 		);
@@ -159,8 +159,8 @@ describe('Storage Comparison', () => {
 	});
 
 	test('document size after many operations', () => {
-		const { doc: doc1, kv: kv1 } = createKV<number>();
-		const { doc: doc2, kv: kv2 } = createKVLWW<number>();
+		const { doc: doc1, kv: kv1 } = createKv<number>();
+		const { doc: doc2, kv: kv2 } = createKvLww<number>();
 
 		// Perform 1000 updates on 10 keys
 		for (let round = 0; round < 100; round++) {
@@ -175,7 +175,7 @@ describe('Storage Comparison', () => {
 
 		console.log('\n=== Document Size After 1000 Operations ===');
 		console.log(`YKeyValue: ${size1} bytes`);
-		console.log(`YKeyValueLWW: ${size2} bytes`);
+		console.log(`YKeyValueLww: ${size2} bytes`);
 		console.log(`LWW overhead: ${((size2 / size1 - 1) * 100).toFixed(1)}%`);
 
 		// Both should maintain constant size (10 entries)
@@ -187,8 +187,8 @@ describe('Storage Comparison', () => {
 
 describe('API Compatibility', () => {
 	test('both implementations have identical API surface', () => {
-		const { kv: kv1 } = createKV<string>();
-		const { kv: kv2 } = createKVLWW<string>();
+		const { kv: kv1 } = createKv<string>();
+		const { kv: kv2 } = createKvLww<string>();
 
 		// Same methods exist
 		expect(typeof kv1.get).toBe('function');
@@ -221,7 +221,7 @@ describe('API Compatibility', () => {
 	});
 
 	test('drop-in replacement works', () => {
-		// Code that works with YKeyValue should work with YKeyValueLWW
+		// Code that works with YKeyValue should work with YKeyValueLww
 		function useKV(kv: { get: (k: string) => string | undefined; set: (k: string, v: string) => void; has: (k: string) => boolean }) {
 			kv.set('a', '1');
 			kv.set('b', '2');
@@ -231,8 +231,8 @@ describe('API Compatibility', () => {
 			expect(kv.get('a')).toBe('3');
 		}
 
-		const { kv: kv1 } = createKV<string>();
-		const { kv: kv2 } = createKVLWW<string>();
+		const { kv: kv1 } = createKv<string>();
+		const { kv: kv2 } = createKvLww<string>();
 
 		useKV(kv1);
 		useKV(kv2);

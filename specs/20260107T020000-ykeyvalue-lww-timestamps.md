@@ -1,8 +1,8 @@
 # YKeyValue LWW Timestamps Implementation
 
-**Status**: IMPLEMENTED as `YKeyValueLWW` (see `20260127T120000-ykeyvalue-dual-implementation.md`)
+**Status**: IMPLEMENTED as `YKeyValueLww` (see `20260127T120000-ykeyvalue-dual-implementation.md`)
 
-> **Update 2026-01-27**: This spec has been implemented as a separate class `YKeyValueLWW` in
+> **Update 2026-01-27**: This spec has been implemented as a separate class `YKeyValueLww` in
 > `y-keyvalue-lww.ts`. The original `YKeyValue` (positional conflict resolution) is preserved
 > for backwards compatibility. See the dual-implementation spec for guidance on when to use each.
 >

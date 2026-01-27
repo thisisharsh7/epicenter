@@ -1,7 +1,7 @@
 /**
- * YKeyValueLWW Tests - Last-Write-Wins Conflict Resolution
+ * YKeyValueLww Tests - Last-Write-Wins Conflict Resolution
  *
- * These tests verify that YKeyValueLWW correctly implements timestamp-based
+ * These tests verify that YKeyValueLww correctly implements timestamp-based
  * conflict resolution, where higher timestamps always win regardless of sync order.
  *
  * See also:
@@ -10,14 +10,14 @@
  */
 import { describe, expect, test } from 'bun:test';
 import * as Y from 'yjs';
-import { YKeyValueLWW, type YKeyValueLWWEntry } from './y-keyvalue-lww';
+import { YKeyValueLww, type YKeyValueLwwEntry } from './y-keyvalue-lww';
 
-describe('YKeyValueLWW', () => {
+describe('YKeyValueLww', () => {
 	describe('Basic Operations', () => {
 		test('set and get work correctly', () => {
 			const ydoc = new Y.Doc({ guid: 'test' });
-			const yarray = ydoc.getArray<YKeyValueLWWEntry<string>>('data');
-			const kv = new YKeyValueLWW(yarray);
+			const yarray = ydoc.getArray<YKeyValueLwwEntry<string>>('data');
+			const kv = new YKeyValueLww(yarray);
 
 			kv.set('foo', 'bar');
 			expect(kv.get('foo')).toBe('bar');
@@ -25,8 +25,8 @@ describe('YKeyValueLWW', () => {
 
 		test('set overwrites existing value', () => {
 			const ydoc = new Y.Doc({ guid: 'test' });
-			const yarray = ydoc.getArray<YKeyValueLWWEntry<string>>('data');
-			const kv = new YKeyValueLWW(yarray);
+			const yarray = ydoc.getArray<YKeyValueLwwEntry<string>>('data');
+			const kv = new YKeyValueLww(yarray);
 
 			kv.set('foo', 'first');
 			kv.set('foo', 'second');
@@ -35,8 +35,8 @@ describe('YKeyValueLWW', () => {
 
 		test('delete removes value', () => {
 			const ydoc = new Y.Doc({ guid: 'test' });
-			const yarray = ydoc.getArray<YKeyValueLWWEntry<string>>('data');
-			const kv = new YKeyValueLWW(yarray);
+			const yarray = ydoc.getArray<YKeyValueLwwEntry<string>>('data');
+			const kv = new YKeyValueLww(yarray);
 
 			kv.set('foo', 'bar');
 			kv.delete('foo');
@@ -46,8 +46,8 @@ describe('YKeyValueLWW', () => {
 
 		test('entries have timestamp field', () => {
 			const ydoc = new Y.Doc({ guid: 'test' });
-			const yarray = ydoc.getArray<YKeyValueLWWEntry<string>>('data');
-			const kv = new YKeyValueLWW(yarray);
+			const yarray = ydoc.getArray<YKeyValueLwwEntry<string>>('data');
+			const kv = new YKeyValueLww(yarray);
 
 			kv.set('foo', 'bar');
 
@@ -60,8 +60,8 @@ describe('YKeyValueLWW', () => {
 
 		test('timestamps are monotonically increasing', () => {
 			const ydoc = new Y.Doc({ guid: 'test' });
-			const yarray = ydoc.getArray<YKeyValueLWWEntry<string>>('data');
-			const kv = new YKeyValueLWW(yarray);
+			const yarray = ydoc.getArray<YKeyValueLwwEntry<string>>('data');
+			const kv = new YKeyValueLww(yarray);
 
 			kv.set('a', '1');
 			kv.set('b', '2');
@@ -79,8 +79,8 @@ describe('YKeyValueLWW', () => {
 			const doc1 = new Y.Doc({ guid: 'shared' });
 			const doc2 = new Y.Doc({ guid: 'shared' });
 
-			const array1 = doc1.getArray<YKeyValueLWWEntry<string>>('data');
-			const array2 = doc2.getArray<YKeyValueLWWEntry<string>>('data');
+			const array1 = doc1.getArray<YKeyValueLwwEntry<string>>('data');
+			const array2 = doc2.getArray<YKeyValueLwwEntry<string>>('data');
 
 			// Manually push entries with controlled timestamps
 			// Client 1 writes with LOWER timestamp (earlier)
@@ -94,8 +94,8 @@ describe('YKeyValueLWW', () => {
 			Y.applyUpdate(doc1, Y.encodeStateAsUpdate(doc2));
 
 			// Now create KV wrappers - they should resolve conflicts
-			const kv1 = new YKeyValueLWW(array1);
-			const kv2 = new YKeyValueLWW(array2);
+			const kv1 = new YKeyValueLww(array1);
+			const kv2 = new YKeyValueLww(array2);
 
 			// Higher timestamp should win
 			expect(kv1.get('x')).toBe('from-client-2-later');
@@ -106,8 +106,8 @@ describe('YKeyValueLWW', () => {
 			const doc1 = new Y.Doc({ guid: 'shared' });
 			const doc2 = new Y.Doc({ guid: 'shared' });
 
-			const array1 = doc1.getArray<YKeyValueLWWEntry<string>>('data');
-			const array2 = doc2.getArray<YKeyValueLWWEntry<string>>('data');
+			const array1 = doc1.getArray<YKeyValueLwwEntry<string>>('data');
+			const array2 = doc2.getArray<YKeyValueLwwEntry<string>>('data');
 
 			// Manually push entries with CONTROLLED timestamps to test LWW
 			// Client 1 writes with LOWER timestamp (earlier edit)
@@ -121,8 +121,8 @@ describe('YKeyValueLWW', () => {
 			Y.applyUpdate(doc1, Y.encodeStateAsUpdate(doc2));
 
 			// Create KV wrappers - they should resolve conflicts using timestamps
-			const kv1 = new YKeyValueLWW(array1);
-			const kv2 = new YKeyValueLWW(array2);
+			const kv1 = new YKeyValueLww(array1);
+			const kv2 = new YKeyValueLww(array2);
 
 			// Higher timestamp (2000) should win
 			expect(kv1.get('doc')).toBe('edit-from-client-2');
@@ -136,8 +136,8 @@ describe('YKeyValueLWW', () => {
 				const doc1 = new Y.Doc({ guid: `shared-${i}` });
 				const doc2 = new Y.Doc({ guid: `shared-${i}` });
 
-				const array1 = doc1.getArray<YKeyValueLWWEntry<string>>('data');
-				const array2 = doc2.getArray<YKeyValueLWWEntry<string>>('data');
+				const array1 = doc1.getArray<YKeyValueLwwEntry<string>>('data');
+				const array2 = doc2.getArray<YKeyValueLwwEntry<string>>('data');
 
 				// Manually insert with controlled timestamps to test ordering
 				const ts1 = 1000 + Math.random() * 1000;
@@ -151,8 +151,8 @@ describe('YKeyValueLWW', () => {
 				Y.applyUpdate(doc1, Y.encodeStateAsUpdate(doc2));
 
 				// Create KV wrappers
-				const kv1 = new YKeyValueLWW(array1);
-				const kv2 = new YKeyValueLWW(array2);
+				const kv1 = new YKeyValueLww(array1);
+				const kv2 = new YKeyValueLww(array2);
 
 				// Must converge
 				expect(kv1.get('key')).toBe(kv2.get('key'));
@@ -179,7 +179,7 @@ describe('YKeyValueLWW', () => {
 			// Push new-format entry with timestamp
 			yarray.push([{ key: 'old', val: 'new-value', ts: 1000 }]);
 
-			const kv = new YKeyValueLWW(yarray);
+			const kv = new YKeyValueLww(yarray);
 
 			// New entry should win (ts: 1000 > ts: 0)
 			expect(kv.get('old')).toBe('new-value');
@@ -192,7 +192,7 @@ describe('YKeyValueLWW', () => {
 			// Old format first
 			yarray.push([{ key: 'key', val: 'old-format' }]);
 
-			const kv = new YKeyValueLWW(yarray);
+			const kv = new YKeyValueLww(yarray);
 
 			// Update with new format
 			kv.set('key', 'new-format');
@@ -204,8 +204,8 @@ describe('YKeyValueLWW', () => {
 	describe('Change Events', () => {
 		test('fires add event for new key', () => {
 			const ydoc = new Y.Doc({ guid: 'test' });
-			const yarray = ydoc.getArray<YKeyValueLWWEntry<string>>('data');
-			const kv = new YKeyValueLWW(yarray);
+			const yarray = ydoc.getArray<YKeyValueLwwEntry<string>>('data');
+			const kv = new YKeyValueLww(yarray);
 
 			const events: Array<{ key: string; action: string }> = [];
 			kv.on('change', (changes) => {
@@ -220,8 +220,8 @@ describe('YKeyValueLWW', () => {
 
 		test('fires update event when value changes', () => {
 			const ydoc = new Y.Doc({ guid: 'test' });
-			const yarray = ydoc.getArray<YKeyValueLWWEntry<string>>('data');
-			const kv = new YKeyValueLWW(yarray);
+			const yarray = ydoc.getArray<YKeyValueLwwEntry<string>>('data');
+			const kv = new YKeyValueLww(yarray);
 
 			kv.set('foo', 'first');
 
@@ -238,8 +238,8 @@ describe('YKeyValueLWW', () => {
 
 		test('fires delete event when key removed', () => {
 			const ydoc = new Y.Doc({ guid: 'test' });
-			const yarray = ydoc.getArray<YKeyValueLWWEntry<string>>('data');
-			const kv = new YKeyValueLWW(yarray);
+			const yarray = ydoc.getArray<YKeyValueLwwEntry<string>>('data');
+			const kv = new YKeyValueLww(yarray);
 
 			kv.set('foo', 'bar');
 
@@ -258,13 +258,13 @@ describe('YKeyValueLWW', () => {
 	describe('Equal Timestamp Tiebreaker', () => {
 		test('equal timestamps fall back to positional ordering (rightmost wins)', () => {
 			const ydoc = new Y.Doc({ guid: 'test' });
-			const yarray = ydoc.getArray<YKeyValueLWWEntry<string>>('data');
+			const yarray = ydoc.getArray<YKeyValueLwwEntry<string>>('data');
 
 			// Push two entries with same timestamp
 			yarray.push([{ key: 'x', val: 'first', ts: 1000 }]);
 			yarray.push([{ key: 'x', val: 'second', ts: 1000 }]); // same ts, but rightmost
 
-			const kv = new YKeyValueLWW(yarray);
+			const kv = new YKeyValueLww(yarray);
 
 			// Rightmost should win when timestamps equal
 			expect(kv.get('x')).toBe('second');
