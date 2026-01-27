@@ -109,15 +109,24 @@ export class YKeyValueLww<T> {
 	/**
 	 * Last timestamp used for monotonic clock.
 	 *
+	 * **Primary purpose**: Ensures rapid writes on the SAME device get sequential timestamps,
+	 * preventing same-millisecond collisions where two writes would get identical timestamps.
+	 *
 	 * Tracks the highest timestamp seen from BOTH local writes and remote synced entries.
 	 * This ensures:
-	 * 1. Same-millisecond writes get unique timestamps (no collisions)
-	 * 2. Clock regression is handled (if system clock goes backward)
-	 * 3. Self-healing from clock skew (local writes "catch up" after syncing with faster clocks)
+	 * 1. **Same-millisecond writes on same device**: Always get unique, sequential timestamps
+	 *    - Write at t=1000 → ts=1000
+	 *    - Write at t=1000 (same ms!) → ts=1001 (incremented)
+	 *    - Write at t=1000 (same ms!) → ts=1002 (incremented again)
 	 *
-	 * Example: Device A's clock is at 1000ms. It syncs an entry from Device B with ts=5000ms.
-	 * Device A's lastTimestamp becomes 5000, so its next write uses 5001 (not 1001).
-	 * This prevents Device A from writing "old" timestamps that would lose to Device B.
+	 * 2. **Clock regression**: If system clock goes backward (NTP adjustment), continue
+	 *    incrementing from lastTimestamp instead of going backward
+	 *
+	 * 3. **Self-healing from clock skew**: After syncing with devices that have faster clocks,
+	 *    adopt their higher timestamps so future local writes win conflicts
+	 *    - Example: Device A's clock at 1000ms syncs entry from Device B with ts=5000ms
+	 *    - Device A's lastTimestamp becomes 5000, next write uses 5001 (not 1001)
+	 *    - Prevents Device A from writing "old" timestamps that would lose to Device B
 	 */
 	private lastTimestamp = 0;
 
@@ -296,18 +305,27 @@ export class YKeyValueLww<T> {
 	/**
 	 * Generate a monotonic timestamp for local writes.
 	 *
-	 * Returns a timestamp that is ALWAYS greater than the previous one, even if:
-	 * - Multiple writes happen in the same millisecond
-	 * - The system clock goes backward (NTP adjustment, manual change)
-	 * - We've synced entries from devices with higher timestamps
+	 * **Core guarantee**: Returns a timestamp that is ALWAYS strictly greater than the
+	 * previous one, ensuring sequential ordering of writes on this device.
+	 *
+	 * Handles three edge cases:
+	 * 1. **Same-millisecond writes** (primary use case):
+	 *    Multiple rapid writes in same millisecond get sequential timestamps
+	 *    - kv.set('x', 1) at t=1000 → ts=1000
+	 *    - kv.set('y', 2) at t=1000 → ts=1001 (incremented, not duplicate)
+	 *    - kv.set('z', 3) at t=1000 → ts=1002 (incremented again)
+	 *
+	 * 2. **Clock regression**:
+	 *    If system clock goes backward (NTP adjustment), continue incrementing
+	 *    instead of going backward (maintains monotonicity)
+	 *
+	 * 3. **Post-sync convergence**:
+	 *    After syncing entries with higher timestamps from other devices,
+	 *    local writes continue from the highest timestamp seen (self-healing)
 	 *
 	 * Algorithm:
 	 * - If Date.now() > lastTimestamp: use wall clock time (normal case)
-	 * - Otherwise: increment lastTimestamp by 1 (handles collisions and clock regression)
-	 *
-	 * Note: lastTimestamp is updated from BOTH local writes (here) and remote synced
-	 * entries (in constructor and observer). This creates "self-healing" behavior where
-	 * devices with slow clocks adopt higher timestamps after syncing.
+	 * - Otherwise: increment lastTimestamp by 1 (handles all three edge cases)
 	 */
 	private getTimestamp(): number {
 		const now = Date.now();
