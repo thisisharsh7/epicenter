@@ -1007,6 +1007,49 @@ See `specs/20260125T120000-versioned-table-kv-specification.md` for detailed rat
 
 ---
 
+### 12. KV schema best practices
+
+**Recommendation**: KV values should use object syntax with a version discriminant, just like tables.
+
+Even for simple values, wrapping in an object with a `_v` field enables future schema evolution:
+
+```typescript
+// ✓ Recommended: object with version discriminant
+const theme = defineKV(type({
+  mode: "'light' | 'dark'",
+  _v: '"1"',
+}));
+
+// Later, can evolve to:
+const theme = defineKV()
+  .version(type({ mode: "'light' | 'dark'", _v: '"1"' }))
+  .version(type({ mode: "'light' | 'dark' | 'system'", fontSize: 'number', _v: '"2"' }))
+  .migrate((v) => {
+    if (v._v === '1') return { ...v, mode: v.mode === 'dark' ? 'dark' : 'light', fontSize: 14, _v: '2' as const };
+    return v;
+  });
+```
+
+**Why not primitive values?**
+
+```typescript
+// ✗ Avoid: primitive value
+const fontSize = defineKV(type('number'));  // Just stores 14
+
+// Problem: How do you migrate from number to { size: number, unit: 'px' | 'rem' }?
+// There's no version field to check.
+```
+
+**Benefits of object syntax:**
+1. **Explicit versioning**: `_v` field makes version detection reliable
+2. **Future-proof**: Can always add fields without breaking migrations
+3. **Consistent pattern**: Same approach for tables and KV reduces cognitive load
+4. **Debugging**: Easier to inspect stored data and understand its schema version
+
+**Naming convention**: Use `_v` with string literal types (`'"1"'`, `'"2"'`, etc.) for consistency with tables.
+
+---
+
 ## TODO
 
 - [x] Implement `defineTable()` with TypeScript inference
