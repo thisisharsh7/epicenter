@@ -43,8 +43,8 @@
  * ```typescript
  * // Simplified logic:
  * const now = Date.now();
- * this.lastTs = now > this.lastTs ? now : this.lastTs + 1;
- * return this.lastTs;
+ * this.lastTimestamp = now > this.lastTimestamp ? now : this.lastTimestamp + 1;
+ * return this.lastTimestamp;
  * ```
  *
  * ## Tiebreaker
@@ -52,11 +52,6 @@
  * When timestamps are equal (rare - requires synchronized clocks AND coincidental
  * timing), falls back to positional ordering (rightmost wins). This is deterministic
  * because Yjs's CRDT merge produces consistent ordering based on clientID.
- *
- * ## Migration from YKeyValue
- *
- * Entries without a `ts` field (from the original YKeyValue) are treated as `ts: 0`.
- * This means any new timestamped entry automatically wins over old data.
  *
  * ## Limitations
  *
@@ -80,7 +75,12 @@
  */
 import type * as Y from 'yjs';
 
-/** Entry stored in the Y.Array. The `ts` field enables last-write-wins conflict resolution. */
+/**
+ * Entry stored in the Y.Array. The `ts` field enables last-write-wins conflict resolution.
+ *
+ * Field names are intentionally short (`val`, `ts`) to minimize serialized storage size -
+ * these entries are persisted and synced.
+ */
 export type YKeyValueLwwEntry<T> = { key: string; val: T; ts: number };
 
 export type YKeyValueLwwChange<T> =
@@ -107,7 +107,7 @@ export class YKeyValueLww<T> {
 	private changeHandlers: Set<YKeyValueLwwChangeHandler<T>> = new Set();
 
 	/** Last timestamp used, for monotonic clock. */
-	private lastTs = 0;
+	private lastTimestamp = 0;
 
 	/**
 	 * Create a YKeyValueLww wrapper around an existing Y.Array.
@@ -122,30 +122,30 @@ export class YKeyValueLww<T> {
 		this.doc = yarray.doc as Y.Doc;
 		this.map = new Map();
 
-		const arr = yarray.toArray();
+		const entries = yarray.toArray();
 		const indicesToDelete: number[] = [];
 
 		// First pass: find winners by timestamp
-		for (let i = 0; i < arr.length; i++) {
-			const entry = arr[i]!;
-			const ts = entry.ts ?? 0; // Migration: missing ts = 0
+		for (let i = 0; i < entries.length; i++) {
+			const entry = entries[i]!;
+			const entryTimestamp = entry.ts;
 			const existing = this.map.get(entry.key);
 
 			if (!existing) {
 				this.map.set(entry.key, entry);
 			} else {
-				const existingTs = existing.ts ?? 0;
-				if (ts > existingTs) {
+				const existingTimestamp = existing.ts ?? 0;
+				if (entryTimestamp > existingTimestamp) {
 					// New entry wins, mark old for deletion
-					const oldIndex = arr.indexOf(existing);
+					const oldIndex = entries.indexOf(existing);
 					if (oldIndex !== -1) indicesToDelete.push(oldIndex);
 					this.map.set(entry.key, entry);
-				} else if (ts < existingTs) {
+				} else if (entryTimestamp < existingTimestamp) {
 					// Old entry wins, mark new for deletion
 					indicesToDelete.push(i);
 				} else {
 					// Equal timestamps: keep later one (rightmost), delete earlier
-					const oldIndex = arr.indexOf(existing);
+					const oldIndex = entries.indexOf(existing);
 					if (oldIndex !== -1 && oldIndex < i) {
 						indicesToDelete.push(oldIndex);
 						this.map.set(entry.key, entry);
@@ -156,7 +156,7 @@ export class YKeyValueLww<T> {
 			}
 
 			// Track max timestamp for monotonic clock
-			if (ts > this.lastTs) this.lastTs = ts;
+			if (entryTimestamp > this.lastTimestamp) this.lastTimestamp = entryTimestamp;
 		}
 
 		// Delete losers
@@ -164,60 +164,55 @@ export class YKeyValueLww<T> {
 			this.doc.transact(() => {
 				// Sort descending to preserve indices during deletion
 				indicesToDelete.sort((a, b) => b - a);
-				for (const idx of indicesToDelete) {
-					yarray.delete(idx);
+				for (const index of indicesToDelete) {
+					yarray.delete(index);
 				}
 			});
 		}
 
 		// Set up observer for future changes
-		yarray.observe((event, tr) => {
+		yarray.observe((event, transaction) => {
 			const changes = new Map<string, YKeyValueLwwChange<T>>();
-			const addedEntries: Array<{
-				entry: YKeyValueLwwEntry<T>;
-				index: number;
-			}> = [];
+			const addedEntries: YKeyValueLwwEntry<T>[] = [];
 
-			// Collect added entries with their positions
+			// Collect added entries
 			for (const item of event.changes.added) {
 				for (const content of item.content.getContent() as YKeyValueLwwEntry<T>[]) {
-					// Find actual index in array
-					const arr = yarray.toArray();
-					const actualIdx = arr.indexOf(content);
-					addedEntries.push({ entry: content, index: actualIdx });
+					addedEntries.push(content);
 
 					// Track max timestamp
-					const timestamp = content.ts ?? 0;
-					if (timestamp > this.lastTs) this.lastTs = timestamp;
+					const contentTimestamp = content.ts ?? 0;
+					if (contentTimestamp > this.lastTimestamp) this.lastTimestamp = contentTimestamp;
 				}
 			}
 
 			// Handle deletions first
-			event.changes.deleted.forEach((ditem) => {
-				ditem.content.getContent().forEach((c: YKeyValueLwwEntry<T>) => {
-					if (this.map.get(c.key) === c) {
-						this.map.delete(c.key);
-						changes.set(c.key, { action: 'delete', oldValue: c.val });
+			event.changes.deleted.forEach((deletedItem) => {
+				deletedItem.content.getContent().forEach((entry: YKeyValueLwwEntry<T>) => {
+					// Reference equality: only process if this is the entry we have cached
+					if (this.map.get(entry.key) === entry) {
+						this.map.delete(entry.key);
+						changes.set(entry.key, { action: 'delete', oldValue: entry.val });
 					}
 				});
 			});
 
 			// Process added entries with LWW logic
 			const indicesToDelete: number[] = [];
-			const vals = yarray.toArray();
+			const allEntries = yarray.toArray();
 
-			for (const { entry: newEntry } of addedEntries) {
-				const newTs = newEntry.ts ?? 0;
+			for (const newEntry of addedEntries) {
+				const newTimestamp = newEntry.ts ?? 0;
 				const existing = this.map.get(newEntry.key);
 
 				if (!existing) {
 					// No existing entry for this key
-					const delEvent = changes.get(newEntry.key);
-					if (delEvent && delEvent.action === 'delete') {
+					const deleteEvent = changes.get(newEntry.key);
+					if (deleteEvent && deleteEvent.action === 'delete') {
 						// Was deleted in same transaction, now re-added
 						changes.set(newEntry.key, {
 							action: 'update',
-							oldValue: delEvent.oldValue,
+							oldValue: deleteEvent.oldValue,
 							newValue: newEntry.val,
 						});
 					} else {
@@ -229,9 +224,9 @@ export class YKeyValueLww<T> {
 					this.map.set(newEntry.key, newEntry);
 				} else {
 					// Compare timestamps
-					const existingTs = existing.ts ?? 0;
+					const existingTimestamp = existing.ts ?? 0;
 
-					if (newTs > existingTs) {
+					if (newTimestamp > existingTimestamp) {
 						// New entry wins
 						changes.set(newEntry.key, {
 							action: 'update',
@@ -240,31 +235,31 @@ export class YKeyValueLww<T> {
 						});
 
 						// Mark old entry for deletion
-						const oldIdx = vals.findIndex((e) => e === existing);
-						if (oldIdx !== -1) indicesToDelete.push(oldIdx);
+						const oldIndex = allEntries.indexOf(existing);
+						if (oldIndex !== -1) indicesToDelete.push(oldIndex);
 
 						this.map.set(newEntry.key, newEntry);
-					} else if (newTs < existingTs) {
+					} else if (newTimestamp < existingTimestamp) {
 						// Old entry wins, delete new entry
-						const newIdx = vals.findIndex((e) => e === newEntry);
-						if (newIdx !== -1) indicesToDelete.push(newIdx);
+						const newIndex = allEntries.indexOf(newEntry);
+						if (newIndex !== -1) indicesToDelete.push(newIndex);
 					} else {
 						// Equal timestamps: positional tiebreaker (rightmost wins)
-						const oldIdx = vals.findIndex((e) => e === existing);
-						const newIdx = vals.findIndex((e) => e === newEntry);
+						const oldIndex = allEntries.indexOf(existing);
+						const newIndex = allEntries.indexOf(newEntry);
 
-						if (newIdx > oldIdx) {
+						if (newIndex > oldIndex) {
 							// New is rightmost, it wins
 							changes.set(newEntry.key, {
 								action: 'update',
 								oldValue: existing.val,
 								newValue: newEntry.val,
 							});
-							if (oldIdx !== -1) indicesToDelete.push(oldIdx);
+							if (oldIndex !== -1) indicesToDelete.push(oldIndex);
 							this.map.set(newEntry.key, newEntry);
 						} else {
 							// Old is rightmost, delete new
-							if (newIdx !== -1) indicesToDelete.push(newIdx);
+							if (newIndex !== -1) indicesToDelete.push(newIndex);
 						}
 					}
 				}
@@ -274,8 +269,8 @@ export class YKeyValueLww<T> {
 			if (indicesToDelete.length > 0) {
 				this.doc.transact(() => {
 					indicesToDelete.sort((a, b) => b - a);
-					for (const idx of indicesToDelete) {
-						yarray.delete(idx);
+					for (const index of indicesToDelete) {
+						yarray.delete(index);
 					}
 				});
 			}
@@ -283,7 +278,7 @@ export class YKeyValueLww<T> {
 			// Emit change events
 			if (changes.size > 0) {
 				for (const handler of this.changeHandlers) {
-					handler(changes, tr);
+					handler(changes, transaction);
 				}
 			}
 		});
@@ -295,8 +290,8 @@ export class YKeyValueLww<T> {
 	 */
 	private getTimestamp(): number {
 		const now = Date.now();
-		this.lastTs = now > this.lastTs ? now : this.lastTs + 1;
-		return this.lastTs;
+		this.lastTimestamp = now > this.lastTimestamp ? now : this.lastTimestamp + 1;
+		return this.lastTimestamp;
 	}
 
 	/**
@@ -310,13 +305,13 @@ export class YKeyValueLww<T> {
 		this.doc.transact(() => {
 			if (existing) {
 				// Find and delete existing entry
-				let i = 0;
-				for (const v of this.yarray) {
-					if (v.key === key) {
-						this.yarray.delete(i);
+				let index = 0;
+				for (const currentEntry of this.yarray) {
+					if (currentEntry.key === key) {
+						this.yarray.delete(index);
 						break;
 					}
-					i++;
+					index++;
 				}
 			}
 			this.yarray.push([entry]);
@@ -329,13 +324,13 @@ export class YKeyValueLww<T> {
 	delete(key: string): void {
 		if (!this.map.has(key)) return;
 
-		let i = 0;
-		for (const val of this.yarray) {
-			if (val.key === key) {
-				this.yarray.delete(i);
+		let index = 0;
+		for (const currentEntry of this.yarray) {
+			if (currentEntry.key === key) {
+				this.yarray.delete(index);
 				break;
 			}
-			i++;
+			index++;
 		}
 		this.map.delete(key);
 	}

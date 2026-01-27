@@ -149,7 +149,12 @@
  */
 import type * as Y from 'yjs';
 
-/** Entry stored in the Y.Array. */
+/**
+ * Entry stored in the Y.Array.
+ *
+ * Field names are intentionally short (`val` not `value`) to minimize
+ * serialized storage size - these entries are persisted and synced.
+ */
 export type YKeyValueEntry<T> = { key: string; val: T };
 
 export type YKeyValueChange<T> =
@@ -225,88 +230,90 @@ export class YKeyValue<T> {
 		this.doc = yarray.doc as Y.Doc;
 		this.map = new Map();
 
-		const arr = yarray.toArray();
+		const entries = yarray.toArray();
 		this.doc.transact(() => {
-			for (let i = arr.length - 1; i >= 0; i--) {
-				const v = arr[i]!;
-				if (this.map.has(v.key)) {
+			for (let i = entries.length - 1; i >= 0; i--) {
+				const entry = entries[i]!;
+				if (this.map.has(entry.key)) {
 					yarray.delete(i);
 				} else {
-					this.map.set(v.key, v);
+					this.map.set(entry.key, entry);
 				}
 			}
 		});
 
-		yarray.observe((event, tr) => {
+		yarray.observe((event, transaction) => {
 			const changes = new Map<string, YKeyValueChange<T>>();
 			const addedItems: Y.Item[] = Array.from(event.changes.added);
 
-			event.changes.deleted.forEach((ditem) => {
-				ditem.content.getContent().forEach((c: { key: string; val: T }) => {
-					if (this.map.get(c.key) === c) {
-						this.map.delete(c.key);
-						changes.set(c.key, { action: 'delete', oldValue: c.val });
+			event.changes.deleted.forEach((deletedItem) => {
+				deletedItem.content.getContent().forEach((entry: YKeyValueEntry<T>) => {
+					// Reference equality: only process if this is the entry we have cached
+					// (Yjs returns the same object reference from the array)
+					if (this.map.get(entry.key) === entry) {
+						this.map.delete(entry.key);
+						changes.set(entry.key, { action: 'delete', oldValue: entry.val });
 					}
 				});
 			});
 
-			const addedVals = new Map<string, { key: string; val: T }>();
+			const addedEntriesByKey = new Map<string, YKeyValueEntry<T>>();
 			addedItems
 				.flatMap((item) => item.content.getContent())
-				.forEach((v: { key: string; val: T }) => {
-					addedVals.set(v.key, v);
+				.forEach((entry: YKeyValueEntry<T>) => {
+					addedEntriesByKey.set(entry.key, entry);
 				});
 
-			const itemsToRemove = new Set<string>();
-			const vals = yarray.toArray();
+			const keysToRemove = new Set<string>();
+			const allEntries = yarray.toArray();
 
 			this.doc.transact(() => {
 				for (
-					let i = vals.length - 1;
-					i >= 0 && (addedVals.size > 0 || itemsToRemove.size > 0);
+					let i = allEntries.length - 1;
+					i >= 0 && (addedEntriesByKey.size > 0 || keysToRemove.size > 0);
 					i--
 				) {
-					const currVal = vals[i]!;
+					const currentEntry = allEntries[i]!;
 
-					if (itemsToRemove.has(currVal.key)) {
-						itemsToRemove.delete(currVal.key);
+					if (keysToRemove.has(currentEntry.key)) {
+						keysToRemove.delete(currentEntry.key);
 						yarray.delete(i, 1);
-					} else if (addedVals.get(currVal.key) === currVal) {
-						const prevValue = this.map.get(currVal.key);
-						if (prevValue) {
-							itemsToRemove.add(currVal.key);
-							changes.set(currVal.key, {
+					} else if (addedEntriesByKey.get(currentEntry.key) === currentEntry) {
+						const previousEntry = this.map.get(currentEntry.key);
+						if (previousEntry) {
+							keysToRemove.add(currentEntry.key);
+							changes.set(currentEntry.key, {
 								action: 'update',
-								oldValue: prevValue.val,
-								newValue: currVal.val,
+								oldValue: previousEntry.val,
+								newValue: currentEntry.val,
 							});
 						} else {
-							const delEvent = changes.get(currVal.key);
-							if (delEvent && delEvent.action === 'delete') {
-								changes.set(currVal.key, {
+							const deleteEvent = changes.get(currentEntry.key);
+							if (deleteEvent && deleteEvent.action === 'delete') {
+								changes.set(currentEntry.key, {
 									action: 'update',
-									newValue: currVal.val,
-									oldValue: delEvent.oldValue,
+									newValue: currentEntry.val,
+									oldValue: deleteEvent.oldValue,
 								});
 							} else {
-								changes.set(currVal.key, {
+								changes.set(currentEntry.key, {
 									action: 'add',
-									newValue: currVal.val,
+									newValue: currentEntry.val,
 								});
 							}
 						}
-						addedVals.delete(currVal.key);
-						this.map.set(currVal.key, currVal);
-					} else if (addedVals.has(currVal.key)) {
-						itemsToRemove.add(currVal.key);
-						addedVals.delete(currVal.key);
+						addedEntriesByKey.delete(currentEntry.key);
+						this.map.set(currentEntry.key, currentEntry);
+					} else if (addedEntriesByKey.has(currentEntry.key)) {
+						keysToRemove.add(currentEntry.key);
+						addedEntriesByKey.delete(currentEntry.key);
 					}
 				}
 			});
 
 			if (changes.size > 0) {
 				for (const handler of this.changeHandlers) {
-					handler(changes, tr);
+					handler(changes, transaction);
 				}
 			}
 		});
@@ -325,13 +332,13 @@ export class YKeyValue<T> {
 
 		this.doc.transact(() => {
 			if (existing) {
-				let i = 0;
-				for (const v of this.yarray) {
-					if (v.key === key) {
-						this.yarray.delete(i);
+				let index = 0;
+				for (const currentEntry of this.yarray) {
+					if (currentEntry.key === key) {
+						this.yarray.delete(index);
 						break;
 					}
-					i++;
+					index++;
 				}
 			}
 			this.yarray.push([entry]);
@@ -344,13 +351,13 @@ export class YKeyValue<T> {
 	delete(key: string): void {
 		if (!this.map.has(key)) return;
 
-		let i = 0;
-		for (const val of this.yarray) {
-			if (val.key === key) {
-				this.yarray.delete(i);
+		let index = 0;
+		for (const currentEntry of this.yarray) {
+			if (currentEntry.key === key) {
+				this.yarray.delete(index);
 				break;
 			}
-			i++;
+			index++;
 		}
 		this.map.delete(key);
 	}
