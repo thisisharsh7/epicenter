@@ -979,12 +979,79 @@ See `specs/20260125T120000-versioned-table-kv-specification.md` for detailed rat
 
 ## TODO
 
-- [ ] Implement `defineTable()` with TypeScript inference
-- [ ] Implement `defineKV()` with TypeScript inference
-- [ ] Implement `defineWorkspace()` and `workspace.create()`
-- [ ] Implement `createTables()` with YKeyValue storage
-- [ ] Implement `createKV()` with YKeyValue storage
-- [ ] Implement Standard Schema union validation
-- [ ] Add comprehensive tests for migration scenarios
-- [ ] Update package exports
+- [x] Implement `defineTable()` with TypeScript inference
+- [x] Implement `defineKV()` with TypeScript inference
+- [x] Implement `defineWorkspace()` and `workspace.create()`
+- [x] Implement `createTables()` with YKeyValue storage
+- [x] Implement `createKV()` with YKeyValue storage
+- [x] Implement Standard Schema union validation
+- [x] Add comprehensive tests for migration scenarios
+- [x] Update package exports
 - [ ] Write migration guide for existing users
+
+---
+
+## Implementation Review
+
+### Completed: 2026-01-26
+
+Implementation completed in branch `feat/static-workspace-api` with 11 commits.
+
+### File Structure
+
+```
+packages/epicenter/src/static/
+├── index.ts           # Public exports
+├── types.ts           # All shared types (GetResult, RowResult, TableDefinition, etc.)
+├── schema-union.ts    # createUnionSchema(), validateWithSchema()
+├── define-table.ts    # defineTable() builder
+├── define-kv.ts       # defineKV() builder
+├── table-helper.ts    # TableHelper implementation (CRUD operations)
+├── kv-helper.ts       # KVHelper implementation (get/set/observe)
+├── create-tables.ts   # createTables() factory
+├── create-kv.ts       # createKV() factory
+├── define-workspace.ts # defineWorkspace() + workspace.create()
+└── static.test.ts     # Comprehensive tests (33 tests passing)
+```
+
+### Key Implementation Details
+
+1. **Schema Union Validation** (`schema-union.ts`)
+   - `createUnionSchema()` creates a Standard Schema v1 compliant union
+   - Tries each schema in order until one validates
+   - Only supports synchronous schemas (throws TypeError for async)
+
+2. **Table Storage** (`create-tables.ts`)
+   - Each table stored in `static:tables:{tableName}` Y.Array
+   - Uses existing `YKeyValue` class from `core/utils/y-keyvalue.ts`
+   - Bounded memory via append-and-cleanup strategy
+
+3. **KV Storage** (`create-kv.ts`)
+   - All KV values stored in shared `static:kv` Y.Array
+   - Each key is a separate entry in the YKeyValue store
+
+4. **Workspace Client** (`define-workspace.ts`)
+   - Synchronous construction (no await needed)
+   - Capabilities receive `{ ydoc, tables, kv }` context
+   - `destroy()` calls capability destroy functions in reverse order
+   - Supports `Symbol.asyncDispose` for `await using` syntax
+
+### Test Coverage
+
+33 tests covering:
+- Schema union validation (first match, second match, no match)
+- defineTable builder (single version, multiple versions, migration)
+- defineKV builder (single version, multiple versions, migration)
+- createTables CRUD (set, get, getAll, filter, find, delete, clear, count)
+- createKV operations (set, get, reset, migration on read)
+- defineWorkspace (creation, tables/kv access, capabilities, destroy)
+- Migration scenarios (with/without explicit `_v` field, multi-version)
+
+### Deviations from Spec
+
+1. **`find()` returns `undefined` instead of `null`**: More idiomatic TypeScript
+2. **No `name` parameter in `defineTable()`/`defineKV()`**: The spec showed optional name parameter but implementation doesn't require it (name comes from the key in the definition map)
+
+### Remaining Work
+
+- Migration guide for existing users (deferred to separate PR)
