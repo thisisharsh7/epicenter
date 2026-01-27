@@ -7,15 +7,6 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 
 // ════════════════════════════════════════════════════════════════════════════
-// VALIDATION TYPES
-// ════════════════════════════════════════════════════════════════════════════
-
-export type ValidationIssue = {
-	readonly message: string;
-	readonly path?: ReadonlyArray<PropertyKey>;
-};
-
-// ════════════════════════════════════════════════════════════════════════════
 // TABLE RESULT TYPES
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -25,7 +16,7 @@ export type GetResult<TRow> =
 	| {
 			readonly status: 'invalid';
 			readonly id: string;
-			readonly errors: readonly ValidationIssue[];
+			readonly errors: readonly StandardSchemaV1.Issue[];
 			readonly raw: unknown;
 	  }
 	| { readonly status: 'not_found'; readonly id: string };
@@ -36,14 +27,14 @@ export type RowResult<TRow> =
 	| {
 			readonly status: 'invalid';
 			readonly id: string;
-			readonly errors: readonly ValidationIssue[];
+			readonly errors: readonly StandardSchemaV1.Issue[];
 			readonly raw: unknown;
 	  };
 
 /** Result for invalid rows (used in getAllInvalid) */
 export type InvalidRowResult = {
 	readonly id: string;
-	readonly errors: readonly ValidationIssue[];
+	readonly errors: readonly StandardSchemaV1.Issue[];
 	readonly raw: unknown;
 };
 
@@ -74,7 +65,7 @@ export type KvGetResult<TValue> =
 	| { readonly status: 'valid'; readonly value: TValue }
 	| {
 			readonly status: 'invalid';
-			readonly errors: readonly ValidationIssue[];
+			readonly errors: readonly StandardSchemaV1.Issue[];
 			readonly raw: unknown;
 	  }
 	| { readonly status: 'not_found' };

@@ -16,7 +16,6 @@ import type {
 	RowResult,
 	TableDefinition,
 	TableHelper,
-	ValidationIssue,
 } from './types.js';
 
 /**
@@ -39,7 +38,7 @@ export function createTableHelper<TVersions extends readonly StandardSchemaV1[]>
 			return {
 				status: 'invalid',
 				id,
-				errors: result.issues as ValidationIssue[],
+				errors: result.issues,
 				raw,
 			};
 		}

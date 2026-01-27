@@ -77,7 +77,6 @@ export type {
 	DeleteManyResult,
 	KvGetResult,
 	KvChange,
-	ValidationIssue,
 	// Definition types
 	TableDefinition,
 	KvDefinition,

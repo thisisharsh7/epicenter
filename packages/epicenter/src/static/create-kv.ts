@@ -28,7 +28,6 @@ import type {
 	KvDefinitionMap,
 	KvGetResult,
 	KvHelper,
-	ValidationIssue,
 } from './types.js';
 
 /**
@@ -63,7 +62,7 @@ export function createKv<TKV extends KvDefinitionMap>(
 		if (result.issues) {
 			return {
 				status: 'invalid',
-				errors: result.issues as ValidationIssue[],
+				errors: result.issues,
 				raw,
 			};
 		}
