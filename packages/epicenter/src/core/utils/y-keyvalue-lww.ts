@@ -179,19 +179,17 @@ export class YKeyValueLww<T> {
 			}> = [];
 
 			// Collect added entries with their positions
-			let idx = 0;
 			for (const item of event.changes.added) {
 				for (const content of item.content.getContent() as YKeyValueLwwEntry<T>[]) {
 					// Find actual index in array
 					const arr = yarray.toArray();
-					const actualIdx = arr.findIndex((e) => e === content);
+					const actualIdx = arr.indexOf(content);
 					addedEntries.push({ entry: content, index: actualIdx });
 
 					// Track max timestamp
-					const ts = content.ts ?? 0;
-					if (ts > this.lastTs) this.lastTs = ts;
+					const timestamp = content.ts ?? 0;
+					if (timestamp > this.lastTs) this.lastTs = timestamp;
 				}
-				idx++;
 			}
 
 			// Handle deletions first
