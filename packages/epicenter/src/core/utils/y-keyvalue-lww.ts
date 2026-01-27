@@ -203,12 +203,12 @@ export class YKeyValueLww<T> {
 			const addedEntries: YKeyValueLwwEntry<T>[] = [];
 
 			// Collect added entries
-			for (const item of event.changes.added) {
-				for (const content of item.content.getContent() as YKeyValueLwwEntry<T>[]) {
-					addedEntries.push(content);
+			for (const addedItem of event.changes.added) {
+				for (const addedEntry of addedItem.content.getContent() as YKeyValueLwwEntry<T>[]) {
+					addedEntries.push(addedEntry);
 
 					// Track max timestamp from synced entries (self-healing behavior)
-					if (content.ts > this.lastTimestamp) this.lastTimestamp = content.ts;
+					if (addedEntry.ts > this.lastTimestamp) this.lastTimestamp = addedEntry.ts;
 				}
 			}
 

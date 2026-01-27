@@ -259,7 +259,7 @@ export class YKeyValue<T> {
 
 			const addedEntriesByKey = new Map<string, YKeyValueEntry<T>>();
 			addedItems
-				.flatMap((item) => item.content.getContent())
+				.flatMap((addedItem) => addedItem.content.getContent())
 				.forEach((entry: YKeyValueEntry<T>) => {
 					addedEntriesByKey.set(entry.key, entry);
 				});
