@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { type } from 'arktype';
 import * as Y from 'yjs';
+import { defineExports } from '../core/lifecycle.js';
 import { defineKv } from './define-kv.js';
 import { defineTable } from './define-table.js';
 import { defineWorkspace } from './define-workspace.js';
@@ -87,16 +88,15 @@ describe('defineWorkspace', () => {
 			},
 		});
 
-		// Mock capability with custom exports
+		// Mock capability with custom exports - uses defineExports for lifecycle
 		const mockCapability = (_context: {
 			ydoc: Y.Doc;
 			tables: unknown;
 			kv: unknown;
-		}) => ({
-			whenSynced: Promise.resolve(),
-			destroy: async () => {},
-			customMethod: () => 'hello',
-		});
+		}) =>
+			defineExports({
+				customMethod: () => 'hello',
+			});
 
 		const client = workspace.create({
 			mock: mockCapability,
@@ -116,25 +116,23 @@ describe('defineWorkspace', () => {
 			},
 		});
 
-		// Capability with rich exports
-		const persistenceCapability = () => ({
-			whenSynced: Promise.resolve(),
-			destroy: async () => {},
-			db: {
-				query: (sql: string) => sql.toUpperCase(),
-				execute: (sql: string) => ({ rows: [sql] }),
-			},
-			stats: { writes: 0, reads: 0 },
-		});
+		// Capability with rich exports - defineExports fills in whenSynced/destroy
+		const persistenceCapability = () =>
+			defineExports({
+				db: {
+					query: (sql: string) => sql.toUpperCase(),
+					execute: (sql: string) => ({ rows: [sql] }),
+				},
+				stats: { writes: 0, reads: 0 },
+			});
 
 		// Another capability with different exports
-		const syncCapability = () => ({
-			whenSynced: Promise.resolve(),
-			destroy: async () => {},
-			connect: (url: string) => `connected to ${url}`,
-			disconnect: () => 'disconnected',
-			status: 'idle' as 'idle' | 'syncing' | 'synced',
-		});
+		const syncCapability = () =>
+			defineExports({
+				connect: (url: string) => `connected to ${url}`,
+				disconnect: () => 'disconnected',
+				status: 'idle' as 'idle' | 'syncing' | 'synced',
+			});
 
 		const client = workspace.create({
 			persistence: persistenceCapability,
@@ -178,12 +176,12 @@ describe('defineWorkspace', () => {
 		});
 
 		let destroyed = false;
-		const mockCapability = () => ({
-			whenSynced: Promise.resolve(),
-			destroy: async () => {
-				destroyed = true;
-			},
-		});
+		const mockCapability = () =>
+			defineExports({
+				destroy: async () => {
+					destroyed = true;
+				},
+			});
 
 		const client = workspace.create({
 			mock: mockCapability,

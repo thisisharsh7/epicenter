@@ -30,6 +30,7 @@
  */
 
 import * as Y from 'yjs';
+import type { Lifecycle } from '../core/lifecycle.js';
 import { createKv } from './create-kv.js';
 import { createTables } from './create-tables.js';
 import type {
@@ -82,35 +83,23 @@ export function defineWorkspace<
 			const tables = createTables(ydoc, tableDefinitions);
 			const kv = createKv(ydoc, kvDefinitions);
 
-			// Initialize capabilities
-			const capabilityExports: Record<string, unknown> = {};
-			const destroyCallbacks: (() => Promise<void>)[] = [];
+			// Initialize capabilities (each returns Lifecycle via defineExports)
+			const capabilityExports: Record<string, Lifecycle> = {};
 
 			if (capabilities) {
-				for (const [name, factory] of Object.entries(capabilities)) {
-					const exports = factory({
-						ydoc,
-						tables,
-						kv,
-					});
-					capabilityExports[name] = exports;
-
-					// Track destroy callbacks
-					if (exports && typeof exports === 'object' && 'destroy' in exports) {
-						const destroy = (exports as { destroy?: () => Promise<void> })
-							.destroy;
-						if (typeof destroy === 'function') {
-							destroyCallbacks.push(destroy);
-						}
-					}
+				for (const [name, factory] of Object.entries(capabilities) as [
+					string,
+					(ctx: { ydoc: Y.Doc; tables: unknown; kv: unknown }) => Lifecycle,
+				][]) {
+					capabilityExports[name] = factory({ ydoc, tables, kv });
 				}
 			}
 
-			// Destroy function
+			// Destroy function - capabilities guarantee destroy() exists via Lifecycle
 			async function destroy(): Promise<void> {
-				// Call capability destroy functions in reverse order
-				for (let i = destroyCallbacks.length - 1; i >= 0; i--) {
-					await destroyCallbacks[i]!();
+				const entries = Object.values(capabilityExports);
+				for (let i = entries.length - 1; i >= 0; i--) {
+					await entries[i]!.destroy();
 				}
 				ydoc.destroy();
 			}

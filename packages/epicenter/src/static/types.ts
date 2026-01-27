@@ -391,11 +391,18 @@ export type CapabilityFactory<TExports extends Lifecycle = Lifecycle> = <
 /**
  * Map of capability factories.
  *
- * Uses a loose function signature to allow both:
- * - Generic capability factories that receive typed context
- * - Simple functions that ignore context
+ * Each capability must return a `Lifecycle` (with `whenSynced` and `destroy`).
+ * Use `defineExports()` from `core/lifecycle.ts` to easily create compliant returns:
  *
- * Type safety is enforced at the individual capability level, not the map level.
+ * ```typescript
+ * import { defineExports } from 'epicenter';
+ *
+ * const myCapability = () => defineExports({
+ *   db: createDatabase(),
+ *   destroy: () => db.close(),
+ * });
+ * // Returns: { db, whenSynced: Promise.resolve(), destroy: closeFn }
+ * ```
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type CapabilityMap = Record<string, (...args: any[]) => Lifecycle>;
@@ -403,10 +410,8 @@ export type CapabilityMap = Record<string, (...args: any[]) => Lifecycle>;
 /**
  * Infer exports from a capability map.
  *
- * Uses `ReturnType` directly rather than conditional type inference against
- * `CapabilityFactory`. This works because TypeScript infers `TCapabilities`
- * from the literal object passed to `create()`, preserving the actual return
- * types of each capability function.
+ * Capabilities return `Lifecycle & CustomExports` via `defineExports()`.
+ * This type extracts the full return type of each capability.
  *
  * @typeParam TCapabilities - The capability map to infer exports from
  */
