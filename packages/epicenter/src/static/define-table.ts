@@ -73,6 +73,17 @@ export function defineTable<TSchema extends StandardSchemaV1>(
 /**
  * Creates a table definition builder for multiple versions with migrations.
  *
+ * Returns `TableBuilder<[]>` - an empty builder with no versions yet.
+ * You must call `.version()` at least once before `.migrate()`.
+ *
+ * The return type evolves as you chain calls:
+ * ```typescript
+ * defineTable()                        // TableBuilder<[]>
+ *   .version(schemaV1)                 // TableBuilder<[SchemaV1]>
+ *   .version(schemaV2)                 // TableBuilder<[SchemaV1, SchemaV2]>
+ *   .migrate(fn)                       // TableDefinition<[SchemaV1, SchemaV2]>
+ * ```
+ *
  * @example
  * ```typescript
  * const posts = defineTable()

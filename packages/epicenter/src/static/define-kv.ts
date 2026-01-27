@@ -68,6 +68,17 @@ export function defineKv<TSchema extends StandardSchemaV1>(
 /**
  * Creates a KV definition builder for multiple versions with migrations.
  *
+ * Returns `KvBuilder<[]>` - an empty builder with no versions yet.
+ * You must call `.version()` at least once before `.migrate()`.
+ *
+ * The return type evolves as you chain calls:
+ * ```typescript
+ * defineKv()                           // KvBuilder<[]>
+ *   .version(schemaV1)                 // KvBuilder<[SchemaV1]>
+ *   .version(schemaV2)                 // KvBuilder<[SchemaV1, SchemaV2]>
+ *   .migrate(fn)                       // KvDefinition<[SchemaV1, SchemaV2]>
+ * ```
+ *
  * @example
  * ```typescript
  * const theme = defineKv()
