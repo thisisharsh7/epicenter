@@ -3,14 +3,14 @@
  *
  * @example
  * ```typescript
- * import { defineWorkspace, defineTable, defineKV } from 'epicenter/static';
+ * import { defineWorkspace, defineTable, defineKv } from 'epicenter/static';
  * import { type } from 'arktype';
  *
  * const posts = defineTable()
  *   .version(type({ id: 'string', title: 'string' }))
  *   .migrate((row) => row);
  *
- * const theme = defineKV()
+ * const theme = defineKv()
  *   .version(type({ mode: "'light' | 'dark'" }))
  *   .migrate((v) => v);
  *

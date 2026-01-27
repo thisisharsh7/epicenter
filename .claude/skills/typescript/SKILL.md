@@ -1,6 +1,6 @@
 ---
 name: typescript
-description: TypeScript code style, type co-location, constant naming conventions, test organization, and arktype patterns. Use when writing TypeScript code, defining types, creating constants, organizing tests, or working with arktype schemas.
+description: TypeScript code style, type co-location, naming conventions (including acronym casing), test organization, and arktype patterns. Use when writing TypeScript code, defining types, naming variables/functions, organizing tests, or working with arktype schemas.
 ---
 
 # TypeScript Guidelines
@@ -8,6 +8,23 @@ description: TypeScript code style, type co-location, constant naming convention
 ## Core Rules
 
 - Always use `type` instead of `interface` in TypeScript.
+- **Acronyms in camelCase**: Treat acronyms as single words, capitalizing only the first letter:
+  ```typescript
+  // Correct - acronyms as words
+  parseUrl()
+  defineKv()
+  readJson()
+  customerId
+  httpClient
+
+  // Incorrect - all-caps acronyms
+  parseURL()
+  defineKV()
+  readJSON()
+  customerID
+  HTTPClient
+  ```
+  Exception: Match existing platform APIs (e.g., `XMLHttpRequest`). See `docs/articles/acronyms-in-camelcase.md` for rationale.
 - TypeScript 5.5+ automatically infers type predicates in `.filter()` callbacks. Don't add manual type assertions:
   ```typescript
   // Good - TypeScript infers the narrowed type automatically
@@ -306,7 +323,7 @@ test('creates workspace with tables', () => {
     .version(type({ id: 'string', title: 'string' }))
     .migrate((row) => row);
 
-  const theme = defineKV()
+  const theme = defineKv()
     .version(type({ mode: "'light' | 'dark'" }))
     .migrate((v) => v);
 
@@ -332,7 +349,7 @@ test('creates workspace with tables', () => {
         .migrate((row) => row),
     },
     kv: {
-      theme: defineKV()
+      theme: defineKv()
         .version(type({ mode: "'light' | 'dark'" }))
         .migrate((v) => v),
     },
@@ -359,7 +376,7 @@ Extract to a variable when:
 
 ### Applies To
 
-- `defineTable()`, `defineKV()`, `defineWorkspace()` builders
+- `defineTable()`, `defineKv()`, `defineWorkspace()` builders
 - `createTables()`, `createKV()` factory calls
 - Schema definitions (arktype, zod, etc.)
 - Configuration objects passed to factories

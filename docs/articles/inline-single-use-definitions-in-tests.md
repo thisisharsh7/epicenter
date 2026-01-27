@@ -12,7 +12,7 @@ test('creates workspace with tables', () => {
     .version(type({ id: 'string', title: 'string' }))
     .migrate((row) => row);
 
-  const theme = defineKV()
+  const theme = defineKv()
     .version(type({ mode: "'light' | 'dark'" }))
     .migrate((v) => v);
 
@@ -48,7 +48,7 @@ test('creates workspace with tables', () => {
         .migrate((row) => row),
     },
     kv: {
-      theme: defineKV()
+      theme: defineKv()
         .version(type({ mode: "'light' | 'dark'" }))
         .migrate((v) => v),
     },
@@ -89,7 +89,7 @@ Extract to a variable when:
 
 ## What This Applies To
 
-- `defineTable()`, `defineKV()`, `defineWorkspace()` builders
+- `defineTable()`, `defineKv()`, `defineWorkspace()` builders
 - `createTables()`, `createKV()` factory calls
 - Schema definitions (arktype, zod, valibot, typebox)
 - Configuration objects passed to factories

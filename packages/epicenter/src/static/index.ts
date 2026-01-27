@@ -6,7 +6,7 @@
  *
  * @example
  * ```typescript
- * import { defineWorkspace, defineTable, defineKV } from 'epicenter/static';
+ * import { defineWorkspace, defineTable, defineKv } from 'epicenter/static';
  * import { type } from 'arktype';
  *
  * // Define schemas with versioning
@@ -18,7 +18,7 @@
  *     return row;
  *   });
  *
- * const theme = defineKV()
+ * const theme = defineKv()
  *   .version(type({ mode: "'light' | 'dark'" }))
  *   .migrate((v) => v);
  *
@@ -48,7 +48,7 @@
 // ════════════════════════════════════════════════════════════════════════════
 
 export { defineTable } from './define-table.js';
-export { defineKV } from './define-kv.js';
+export { defineKv } from './define-kv.js';
 export { defineWorkspace } from './define-workspace.js';
 
 // ════════════════════════════════════════════════════════════════════════════

@@ -1,4 +1,4 @@
-# API Design Decisions: defineTable and defineKV
+# API Design Decisions: defineTable and defineKv
 
 Designing an API is about trade-offs. Every choice closes some doors and opens others. Here's the reasoning behind Epicenter's versioned schema API.
 
@@ -32,17 +32,17 @@ This didn't emerge fully formed. We considered many alternatives.
 - Clear distinction from `createTables()` which binds definitions to storage
 - Familiar pattern from other libraries (Drizzle's `defineRelations`, etc.)
 
-## Naming: `defineKV` vs `defineKVKey`
+## Naming: `defineKv` vs `defineKvKey`
 
-Early versions used `defineKVKey`:
+Early versions used `defineKvKey`:
 
 ```typescript
-const theme = defineKVKey('theme')
+const theme = defineKvKey('theme')
   .version(...)
   .migrate(...);
 ```
 
-**We shortened to `defineKV` because:**
+**We shortened to `defineKv` because:**
 - "KVKey" is redundant - "KV" already implies key-value
 - The first argument IS the key
 - Saying it aloud: "define KV key theme" vs "define KV theme" - the latter is cleaner
@@ -195,7 +195,7 @@ createTables(ydoc, { posts })
 tables.posts.get()
 
 // KV
-defineKV('theme').version(...).migrate(...)
+defineKv('theme').version(...).migrate(...)
 createKV(ydoc, { theme })
 kv.theme.get()
 ```

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { type } from 'arktype';
 import * as Y from 'yjs';
-import { defineKV } from './define-kv.js';
+import { defineKv } from './define-kv.js';
 import { defineTable } from './define-table.js';
 import { defineWorkspace } from './define-workspace.js';
 
@@ -15,7 +15,7 @@ describe('defineWorkspace', () => {
 					.migrate((row) => row),
 			},
 			kv: {
-				theme: defineKV()
+				theme: defineKv()
 					.version(type({ mode: "'light' | 'dark'" }))
 					.migrate((v) => v),
 			},
@@ -35,7 +35,7 @@ describe('defineWorkspace', () => {
 					.migrate((row) => row),
 			},
 			kv: {
-				theme: defineKV()
+				theme: defineKv()
 					.version(type({ mode: "'light' | 'dark'" }))
 					.migrate((v) => v),
 			},
@@ -58,7 +58,7 @@ describe('defineWorkspace', () => {
 					.migrate((row) => row),
 			},
 			kv: {
-				theme: defineKV()
+				theme: defineKv()
 					.version(type({ mode: "'light' | 'dark'" }))
 					.migrate((v) => v),
 			},

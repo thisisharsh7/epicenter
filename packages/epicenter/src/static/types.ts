@@ -104,7 +104,7 @@ export type InferTableRow<T> = T extends TableDefinition<infer R> ? R : never;
 // KV DEFINITION TYPES
 // ════════════════════════════════════════════════════════════════════════════
 
-/** A KV definition created by defineKV().version().migrate() */
+/** A KV definition created by defineKv().version().migrate() */
 export type KVDefinition<TValue> = {
 	readonly versions: readonly StandardSchemaV1[];
 	readonly unionSchema: StandardSchemaV1;

@@ -1,16 +1,16 @@
 /**
- * defineKV() builder for creating versioned KV definitions.
+ * defineKv() builder for creating versioned KV definitions.
  *
  * @example
  * ```typescript
- * import { defineKV } from 'epicenter/static';
+ * import { defineKv } from 'epicenter/static';
  * import { type } from 'arktype';
  *
  * // Shorthand for single version
- * const sidebar = defineKV(type({ collapsed: 'boolean', width: 'number' }));
+ * const sidebar = defineKv(type({ collapsed: 'boolean', width: 'number' }));
  *
  * // Builder pattern for multiple versions
- * const theme = defineKV()
+ * const theme = defineKv()
  *   .version(type({ mode: "'light' | 'dark'" }))
  *   .version(type({ mode: "'light' | 'dark' | 'system'", fontSize: 'number' }))
  *   .migrate((v) => {
@@ -50,10 +50,10 @@ type KVBuilder<TVersions extends StandardSchemaV1[], TLatest> = {
  *
  * @example
  * ```typescript
- * const sidebar = defineKV(type({ collapsed: 'boolean', width: 'number' }));
+ * const sidebar = defineKv(type({ collapsed: 'boolean', width: 'number' }));
  * ```
  */
-export function defineKV<TSchema extends StandardSchemaV1>(
+export function defineKv<TSchema extends StandardSchemaV1>(
 	schema: TSchema,
 ): KVDefinition<StandardSchemaV1.InferOutput<TSchema>>;
 
@@ -62,7 +62,7 @@ export function defineKV<TSchema extends StandardSchemaV1>(
  *
  * @example
  * ```typescript
- * const theme = defineKV()
+ * const theme = defineKv()
  *   .version(type({ mode: "'light' | 'dark'" }))
  *   .version(type({ mode: "'light' | 'dark' | 'system'", fontSize: 'number' }))
  *   .migrate((v) => {
@@ -71,9 +71,9 @@ export function defineKV<TSchema extends StandardSchemaV1>(
  *   });
  * ```
  */
-export function defineKV(): KVBuilder<[], never>;
+export function defineKv(): KVBuilder<[], never>;
 
-export function defineKV<TSchema extends StandardSchemaV1>(
+export function defineKv<TSchema extends StandardSchemaV1>(
 	schema?: TSchema,
 ): KVDefinition<StandardSchemaV1.InferOutput<TSchema>> | KVBuilder<[], never> {
 	if (schema) {
@@ -95,7 +95,7 @@ export function defineKV<TSchema extends StandardSchemaV1>(
 
 		migrate(fn) {
 			if (versions.length === 0) {
-				throw new Error('defineKV() requires at least one .version() call');
+				throw new Error('defineKv() requires at least one .version() call');
 			}
 
 			const unionSchema = createUnionSchema(versions);

@@ -30,7 +30,7 @@ The API is designed in layers. Each layer is independently usable:
 │  createTables(ydoc, {...}) / createKV(ydoc, {...})          │  ← Mid-level
 │    Binds to existing Y.Doc                                  │
 ├─────────────────────────────────────────────────────────────┤
-│  defineTable() / defineKV()                                 │  ← Low-level
+│  defineTable() / defineKv()                                 │  ← Low-level
 │    Pure schema definitions                                  │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -39,7 +39,7 @@ The API is designed in layers. Each layer is independently usable:
 
 | Prefix | Meaning | Side Effects | Example |
 |--------|---------|--------------|---------|
-| `define*` | Pure schema declaration | None | `defineTable()`, `defineKV()`, `defineWorkspace()` |
+| `define*` | Pure schema declaration | None | `defineTable()`, `defineKv()`, `defineWorkspace()` |
 | `create*` | Instantiation | Creates Y.Doc, binds data | `createTables()`, `createKV()`, `workspace.create()` |
 
 ### 3. No Wrapper Functions for Composition
@@ -136,19 +136,19 @@ type TableDefinition<TRow extends { id: string }> = {
 
 ---
 
-#### `defineKV()`
+#### `defineKv()`
 
 Defines a versioned KV schema with migration support.
 
 ```typescript
-import { defineKV } from 'epicenter/static';
+import { defineKv } from 'epicenter/static';
 import { type } from 'arktype';
 
 // Shorthand for single version (no migration needed)
-const sidebar = defineKV(type({ collapsed: 'boolean', width: 'number' }));
+const sidebar = defineKv(type({ collapsed: 'boolean', width: 'number' }));
 
 // Builder pattern for multiple versions with migration
-const theme = defineKV()
+const theme = defineKv()
   .version(type({ mode: "'light' | 'dark'" }))
   .version(type({ mode: "'light' | 'dark' | 'system'", fontSize: 'number' }))
   .migrate((v) => {
@@ -161,12 +161,12 @@ const theme = defineKV()
 
 ```typescript
 // Shorthand: direct schema → KVDefinition
-function defineKV<TSchema extends StandardSchemaV1>(
+function defineKv<TSchema extends StandardSchemaV1>(
   schema: TSchema
 ): KVDefinition<StandardSchemaV1.InferOutput<TSchema>>;
 
 // Builder: no args → KVBuilder
-function defineKV(): KVBuilder<[], never>;
+function defineKv(): KVBuilder<[], never>;
 
 type KVBuilder<TVersions extends StandardSchemaV1[], TLatest> = {
   version<TSchema extends StandardSchemaV1>(
@@ -535,7 +535,7 @@ Use raw providers when:
 packages/epicenter/src/static/
 ├── index.ts                    # Public exports
 ├── define-table.ts             # defineTable() builder
-├── define-kv.ts                # defineKV() builder
+├── define-kv.ts                # defineKv() builder
 ├── define-workspace.ts         # defineWorkspace() + workspace.create()
 ├── create-tables.ts            # createTables() lower-level API
 ├── create-kv.ts                # createKV() lower-level API + KVHelper implementation
@@ -551,7 +551,7 @@ packages/epicenter/src/static/
 
 // Schema definitions (pure)
 export { defineTable } from './define-table';
-export { defineKV } from './define-kv';
+export { defineKv } from './define-kv';
 export { defineWorkspace } from './define-workspace';
 
 // Lower-level APIs (for existing Y.Doc)
@@ -754,7 +754,7 @@ When there's only one version, you can pass the schema directly:
 ```typescript
 // Shorthand (single version)
 const posts = defineTable(type({ id: 'string', title: 'string' }));
-const sidebar = defineKV(type({ collapsed: 'boolean', width: 'number' }));
+const sidebar = defineKv(type({ collapsed: 'boolean', width: 'number' }));
 
 // Equivalent builder pattern
 const posts = defineTable()
@@ -782,7 +782,7 @@ ArkType (and other Standard Schema libraries) support default values:
 import { type } from 'arktype';
 
 // ArkType: Use '=' for defaults
-const theme = defineKV()
+const theme = defineKv()
   .version(type({
     mode: "'light' | 'dark' = 'light'",
     fontSize: 'number = 14',
@@ -790,7 +790,7 @@ const theme = defineKV()
   .migrate((v) => v);
 
 // Zod: Use .default()
-const theme = defineKV()
+const theme = defineKv()
   .version(z.object({
     mode: z.enum(['light', 'dark']).default('light'),
     fontSize: z.number().default(14),
@@ -1015,13 +1015,13 @@ Even for simple values, wrapping in an object with a `_v` field enables future s
 
 ```typescript
 // ✓ Recommended: object with version discriminant
-const theme = defineKV(type({
+const theme = defineKv(type({
   mode: "'light' | 'dark'",
   _v: '"1"',
 }));
 
 // Later, can evolve to:
-const theme = defineKV()
+const theme = defineKv()
   .version(type({ mode: "'light' | 'dark'", _v: '"1"' }))
   .version(type({ mode: "'light' | 'dark' | 'system'", fontSize: 'number', _v: '"2"' }))
   .migrate((v) => {
@@ -1034,7 +1034,7 @@ const theme = defineKV()
 
 ```typescript
 // ✗ Avoid: primitive value
-const fontSize = defineKV(type('number'));  // Just stores 14
+const fontSize = defineKv(type('number'));  // Just stores 14
 
 // Problem: How do you migrate from number to { size: number, unit: 'px' | 'rem' }?
 // There's no version field to check.
@@ -1053,7 +1053,7 @@ const fontSize = defineKV(type('number'));  // Just stores 14
 ## TODO
 
 - [x] Implement `defineTable()` with TypeScript inference
-- [x] Implement `defineKV()` with TypeScript inference
+- [x] Implement `defineKv()` with TypeScript inference
 - [x] Implement `defineWorkspace()` and `workspace.create()`
 - [x] Implement `createTables()` with YKeyValue storage
 - [x] Implement `createKV()` with YKeyValue storage
@@ -1078,7 +1078,7 @@ packages/epicenter/src/static/
 ├── types.ts           # All shared types (GetResult, RowResult, TableDefinition, etc.)
 ├── schema-union.ts    # createUnionSchema()
 ├── define-table.ts    # defineTable() builder
-├── define-kv.ts       # defineKV() builder
+├── define-kv.ts       # defineKv() builder
 ├── table-helper.ts    # TableHelper implementation (CRUD operations)
 ├── create-tables.ts   # createTables() factory
 ├── create-kv.ts       # createKV() factory + KVHelper implementation (get/set/observe)
@@ -1113,7 +1113,7 @@ packages/epicenter/src/static/
 33 tests covering:
 - Schema union validation (first match, second match, no match)
 - defineTable builder (single version, multiple versions, migration)
-- defineKV builder (single version, multiple versions, migration)
+- defineKv builder (single version, multiple versions, migration)
 - createTables CRUD (set, get, getAll, filter, find, delete, clear, count)
 - createKV operations (set, get, reset, migration on read)
 - defineWorkspace (creation, tables/kv access, capabilities, destroy)
@@ -1122,7 +1122,7 @@ packages/epicenter/src/static/
 ### Deviations from Spec
 
 1. **`find()` returns `undefined` instead of `null`**: More idiomatic TypeScript
-2. **No `name` parameter in `defineTable()`/`defineKV()`**: The spec showed optional name parameter but implementation doesn't require it (name comes from the key in the definition map)
+2. **No `name` parameter in `defineTable()`/`defineKv()`**: The spec showed optional name parameter but implementation doesn't require it (name comes from the key in the definition map)
 
 ### Remaining Work
 

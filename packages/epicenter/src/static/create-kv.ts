@@ -4,10 +4,10 @@
  * @example
  * ```typescript
  * import * as Y from 'yjs';
- * import { createKV, defineKV } from 'epicenter/static';
+ * import { createKV, defineKv } from 'epicenter/static';
  * import { type } from 'arktype';
  *
- * const theme = defineKV()
+ * const theme = defineKv()
  *   .version(type({ mode: "'light' | 'dark'" }))
  *   .migrate((v) => v);
  *

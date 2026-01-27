@@ -1,17 +1,17 @@
 import { describe, expect, test } from 'bun:test';
 import { type } from 'arktype';
-import { defineKV } from './define-kv.js';
+import { defineKv } from './define-kv.js';
 
-describe('defineKV', () => {
+describe('defineKv', () => {
 	describe('shorthand syntax', () => {
 		test('creates valid KV definition with direct schema', () => {
-			const theme = defineKV(type({ mode: "'light' | 'dark'" }));
+			const theme = defineKv(type({ mode: "'light' | 'dark'" }));
 
 			expect(theme.versions).toHaveLength(1);
 		});
 
 		test('migrate is identity function for shorthand', () => {
-			const sidebar = defineKV(type({ collapsed: 'boolean', width: 'number' }));
+			const sidebar = defineKv(type({ collapsed: 'boolean', width: 'number' }));
 
 			const value = { collapsed: true, width: 300 };
 			expect(sidebar.migrate(value)).toBe(value);
@@ -20,8 +20,8 @@ describe('defineKV', () => {
 		test('shorthand produces equivalent output to builder pattern', () => {
 			const schema = type({ collapsed: 'boolean', width: 'number' });
 
-			const shorthand = defineKV(schema);
-			const builder = defineKV().version(schema).migrate((v) => v);
+			const shorthand = defineKv(schema);
+			const builder = defineKv().version(schema).migrate((v) => v);
 
 			expect(shorthand.versions).toEqual(builder.versions);
 			expect(shorthand.unionSchema).toBe(builder.unionSchema);
@@ -30,7 +30,7 @@ describe('defineKV', () => {
 
 	describe('builder syntax', () => {
 		test('creates valid KV definition with single version', () => {
-			const theme = defineKV()
+			const theme = defineKv()
 				.version(type({ mode: "'light' | 'dark'" }))
 				.migrate((v) => v);
 
@@ -38,7 +38,7 @@ describe('defineKV', () => {
 		});
 
 		test('creates KV definition with multiple versions', () => {
-			const theme = defineKV()
+			const theme = defineKv()
 				.version(type({ mode: "'light' | 'dark'" }))
 				.version(type({ mode: "'light' | 'dark' | 'system'", fontSize: 'number' }))
 				.migrate((v) => {
@@ -50,7 +50,7 @@ describe('defineKV', () => {
 		});
 
 		test('migrate function transforms old version to latest', () => {
-			const theme = defineKV()
+			const theme = defineKv()
 				.version(type({ mode: "'light' | 'dark'" }))
 				.version(type({ mode: "'light' | 'dark'", fontSize: 'number' }))
 				.migrate((v) => {
@@ -65,14 +65,14 @@ describe('defineKV', () => {
 
 	describe('schema patterns', () => {
 		test('primitive value (not recommended but supported)', () => {
-			const fontSize = defineKV(type('number'));
+			const fontSize = defineKv(type('number'));
 
 			expect(fontSize.versions).toHaveLength(1);
 			expect(fontSize.migrate(14)).toBe(14);
 		});
 
 		test('object with _v discriminant (recommended)', () => {
-			const theme = defineKV()
+			const theme = defineKv()
 				.version(type({ mode: "'light' | 'dark'", _v: '"1"' }))
 				.version(type({ mode: "'light' | 'dark' | 'system'", fontSize: 'number', _v: '"2"' }))
 				.migrate((v) => {
