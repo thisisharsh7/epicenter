@@ -22,15 +22,14 @@
 
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { createUnionSchema } from './schema-union.js';
-import type { TableDefinition } from './types.js';
+import type { LastSchema, TableDefinition } from './types.js';
 
 /**
  * Builder for defining table schemas with versioning support.
  *
- * @typeParam TVersions - Tuple of schema types added via .version()
- * @typeParam TLatest - Output type of the most recent version
+ * @typeParam TVersions - Tuple of schema types added via .version() (single source of truth)
  */
-type TableBuilder<TVersions extends StandardSchemaV1[], TLatest> = {
+type TableBuilder<TVersions extends StandardSchemaV1[]> = {
 	/**
 	 * Add a schema version. Schema must include `{ id: string }`.
 	 * The last version added becomes the "latest" schema shape.
@@ -39,24 +38,26 @@ type TableBuilder<TVersions extends StandardSchemaV1[], TLatest> = {
 		schema: StandardSchemaV1.InferOutput<TSchema> extends { id: string }
 			? TSchema
 			: never,
-	): TableBuilder<[...TVersions, TSchema], StandardSchemaV1.InferOutput<TSchema>>;
+	): TableBuilder<[...TVersions, TSchema]>;
 
 	/**
 	 * Provide a migration function that normalizes any version to the latest.
 	 * This completes the table definition.
 	 *
-	 * @returns TableDefinition with TVersionUnion (union of all version outputs) and TRow (migrated type)
+	 * @returns TableDefinition with TVersions tuple as the source of truth
 	 */
 	migrate(
-		fn: (row: StandardSchemaV1.InferOutput<TVersions[number]>) => TLatest,
-	): TableDefinition<StandardSchemaV1.InferOutput<TVersions[number]>, TLatest & { id: string }>;
+		fn: (
+			row: StandardSchemaV1.InferOutput<TVersions[number]>,
+		) => StandardSchemaV1.InferOutput<LastSchema<TVersions>> & { id: string },
+	): TableDefinition<TVersions>;
 };
 
 /**
  * Creates a table definition with a single schema version.
  * Schema must include `{ id: string }`.
  *
- * For single-version definitions, TVersionUnion and TRow are the same type.
+ * For single-version definitions, the TVersions tuple contains a single element.
  *
  * @example
  * ```typescript
@@ -67,10 +68,7 @@ export function defineTable<TSchema extends StandardSchemaV1>(
 	schema: StandardSchemaV1.InferOutput<TSchema> extends { id: string }
 		? TSchema
 		: never,
-): TableDefinition<
-	StandardSchemaV1.InferOutput<TSchema> & { id: string },
-	StandardSchemaV1.InferOutput<TSchema> & { id: string }
->;
+): TableDefinition<[TSchema]>;
 
 /**
  * Creates a table definition builder for multiple versions with migrations.
@@ -86,25 +84,17 @@ export function defineTable<TSchema extends StandardSchemaV1>(
  *   });
  * ```
  */
-export function defineTable(): TableBuilder<[], never>;
+export function defineTable(): TableBuilder<[]>;
 
 export function defineTable<TSchema extends StandardSchemaV1>(
 	schema?: TSchema,
-):
-	| TableDefinition<
-			StandardSchemaV1.InferOutput<TSchema> & { id: string },
-			StandardSchemaV1.InferOutput<TSchema> & { id: string }
-	  >
-	| TableBuilder<[], never> {
+): TableDefinition<[TSchema]> | TableBuilder<[]> {
 	if (schema) {
 		return {
 			schema,
 			migrate: (row: unknown) => row as { id: string },
 			_rowType: undefined as never,
-		} as TableDefinition<
-			StandardSchemaV1.InferOutput<TSchema> & { id: string },
-			StandardSchemaV1.InferOutput<TSchema> & { id: string }
-		>;
+		} as TableDefinition<[TSchema]>;
 	}
 
 	const versions: StandardSchemaV1[] = [];
@@ -130,5 +120,5 @@ export function defineTable<TSchema extends StandardSchemaV1>(
 		},
 	};
 
-	return builder as unknown as TableBuilder<[], never>;
+	return builder as unknown as TableBuilder<[]>;
 }

@@ -88,30 +88,39 @@ export type KvChange<TValue> =
 // TABLE DEFINITION TYPES
 // ════════════════════════════════════════════════════════════════════════════
 
+/** Extract the last element from a tuple, constrained to StandardSchemaV1 */
+export type LastSchema<T extends readonly StandardSchemaV1[]> = T extends readonly [
+	...StandardSchemaV1[],
+	infer L extends StandardSchemaV1,
+]
+	? L
+	: T[number];
+
 /**
  * A table definition created by defineTable().version().migrate()
  *
- * @typeParam TVersionUnion - Union of all version output types
- * @typeParam TRow - The latest/migrated row type (must include { id: string })
+ * @typeParam TVersions - Tuple of StandardSchemaV1 types representing all versions
  */
-export type TableDefinition<TVersionUnion, TRow extends { id: string }> = {
-	readonly schema: StandardSchemaV1<unknown, TVersionUnion>;
-	readonly migrate: (row: TVersionUnion) => TRow;
+export type TableDefinition<TVersions extends readonly StandardSchemaV1[]> = {
+	readonly schema: StandardSchemaV1<unknown, StandardSchemaV1.InferOutput<TVersions[number]>>;
+	readonly migrate: (
+		row: StandardSchemaV1.InferOutput<TVersions[number]>,
+	) => StandardSchemaV1.InferOutput<LastSchema<TVersions>> & { id: string };
 	/** Type brand for inference */
-	readonly _rowType: TRow;
+	readonly _rowType: StandardSchemaV1.InferOutput<LastSchema<TVersions>> & { id: string };
 };
 
 /** Extract the row type from a TableDefinition */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type InferTableRow<T> = T extends TableDefinition<any, infer R>
-	? R
-	: never;
+export type InferTableRow<T> =
+	T extends TableDefinition<infer V extends readonly StandardSchemaV1[]>
+		? StandardSchemaV1.InferOutput<LastSchema<V>> & { id: string }
+		: never;
 
 /** Extract the version union type from a TableDefinition */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type InferTableVersionUnion<T> = T extends TableDefinition<infer V, any>
-	? V
-	: never;
+export type InferTableVersionUnion<T> =
+	T extends TableDefinition<infer V extends readonly StandardSchemaV1[]>
+		? StandardSchemaV1.InferOutput<V[number]>
+		: never;
 
 // ════════════════════════════════════════════════════════════════════════════
 // KV DEFINITION TYPES
@@ -120,25 +129,28 @@ export type InferTableVersionUnion<T> = T extends TableDefinition<infer V, any>
 /**
  * A KV definition created by defineKv().version().migrate()
  *
- * @typeParam TVersionUnion - Union of all version output types
- * @typeParam TValue - The latest/migrated value type
+ * @typeParam TVersions - Tuple of StandardSchemaV1 types representing all versions
  */
-export type KvDefinition<TVersionUnion, TValue> = {
-	readonly schema: StandardSchemaV1<unknown, TVersionUnion>;
-	readonly migrate: (value: TVersionUnion) => TValue;
+export type KvDefinition<TVersions extends readonly StandardSchemaV1[]> = {
+	readonly schema: StandardSchemaV1<unknown, StandardSchemaV1.InferOutput<TVersions[number]>>;
+	readonly migrate: (
+		value: StandardSchemaV1.InferOutput<TVersions[number]>,
+	) => StandardSchemaV1.InferOutput<LastSchema<TVersions>>;
 	/** Type brand for inference */
-	readonly _valueType: TValue;
+	readonly _valueType: StandardSchemaV1.InferOutput<LastSchema<TVersions>>;
 };
 
 /** Extract the value type from a KvDefinition */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type InferKvValue<T> = T extends KvDefinition<any, infer V> ? V : never;
+export type InferKvValue<T> =
+	T extends KvDefinition<infer V extends readonly StandardSchemaV1[]>
+		? StandardSchemaV1.InferOutput<LastSchema<V>>
+		: never;
 
 /** Extract the version union type from a KvDefinition */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type InferKvVersionUnion<T> = T extends KvDefinition<infer V, any>
-	? V
-	: never;
+export type InferKvVersionUnion<T> =
+	T extends KvDefinition<infer V extends readonly StandardSchemaV1[]>
+		? StandardSchemaV1.InferOutput<V[number]>
+		: never;
 
 // ════════════════════════════════════════════════════════════════════════════
 // HELPER TYPES
@@ -220,15 +232,12 @@ export type TableHelper<TRow extends { id: string }> = {
 // ════════════════════════════════════════════════════════════════════════════
 
 /** Map of table definitions (uses `any` to allow variance in generic parameters) */
-export type TableDefinitionMap = Record<
-	string,
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	TableDefinition<any, { id: string }>
->;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type TableDefinitionMap = Record<string, TableDefinition<any>>;
 
 /** Map of KV definitions (uses `any` to allow variance in generic parameters) */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type KvDefinitionMap = Record<string, KvDefinition<any, any>>;
+export type KvDefinitionMap = Record<string, KvDefinition<any>>;
 
 /** Tables helper object with all table helpers */
 export type TablesHelper<TTables extends TableDefinitionMap> = {

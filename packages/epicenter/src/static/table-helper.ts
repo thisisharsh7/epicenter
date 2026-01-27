@@ -6,10 +6,12 @@
 
 import type * as Y from 'yjs';
 import { YKeyValue, type YKeyValueChange } from '../core/utils/y-keyvalue.js';
+import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type {
 	DeleteManyResult,
 	DeleteResult,
 	GetResult,
+	InferTableRow,
 	InvalidRowResult,
 	RowResult,
 	TableDefinition,
@@ -20,10 +22,11 @@ import type {
 /**
  * Creates a TableHelper for a single table bound to a YKeyValue store.
  */
-export function createTableHelper<TRow extends { id: string }>(
+export function createTableHelper<TVersions extends readonly StandardSchemaV1[]>(
 	ykv: YKeyValue<unknown>,
-	definition: TableDefinition<unknown, TRow>,
-): TableHelper<TRow> {
+	definition: TableDefinition<TVersions>,
+): TableHelper<InferTableRow<TableDefinition<TVersions>>> {
+	type TRow = InferTableRow<TableDefinition<TVersions>>;
 	/**
 	 * Parse and migrate a raw row value.
 	 */

@@ -20,6 +20,7 @@
  */
 
 import type * as Y from 'yjs';
+import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { YKeyValue, type YKeyValueChange } from '../core/utils/y-keyvalue.js';
 import type {
 	InferKvValue,
@@ -53,7 +54,7 @@ export function createKv<TKV extends KvDefinitionMap>(
 	 */
 	function parseValue<TValue>(
 		raw: unknown,
-		definition: KvDefinition<unknown, TValue>,
+		definition: KvDefinition<readonly StandardSchemaV1[]>,
 	): KvGetResult<TValue> {
 		const result = definition.schema['~standard'].validate(raw);
 		if (result instanceof Promise)
@@ -69,7 +70,7 @@ export function createKv<TKV extends KvDefinitionMap>(
 
 		// Migrate to latest version
 		const migrated = definition.migrate(result.value);
-		return { status: 'valid', value: migrated };
+		return { status: 'valid', value: migrated as TValue };
 	}
 
 	return {
@@ -81,7 +82,7 @@ export function createKv<TKV extends KvDefinitionMap>(
 			if (raw === undefined) {
 				return { status: 'not_found' };
 			}
-			return parseValue(raw, definition as KvDefinition<unknown, unknown>);
+			return parseValue(raw, definition);
 		},
 
 		set(key, value) {
@@ -109,10 +110,7 @@ export function createKv<TKV extends KvDefinitionMap>(
 					callback({ type: 'delete' }, transaction);
 				} else {
 					// For add or update, parse and migrate the new value
-					const parsed = parseValue(
-						change.newValue,
-						definition as KvDefinition<unknown, unknown>,
-					);
+					const parsed = parseValue(change.newValue, definition);
 					if (parsed.status === 'valid') {
 						callback(
 							{ type: 'set', value: parsed.value } as Parameters<

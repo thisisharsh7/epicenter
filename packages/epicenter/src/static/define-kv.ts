@@ -22,38 +22,39 @@
 
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { createUnionSchema } from './schema-union.js';
-import type { KvDefinition } from './types.js';
+import type { KvDefinition, LastSchema } from './types.js';
 
 /**
  * Builder for defining KV schemas with versioning support.
  *
- * @typeParam TVersions - Tuple of schema types added via .version()
- * @typeParam TLatest - Output type of the most recent version
+ * @typeParam TVersions - Tuple of schema types added via .version() (single source of truth)
  */
-type KvBuilder<TVersions extends StandardSchemaV1[], TLatest> = {
+type KvBuilder<TVersions extends StandardSchemaV1[]> = {
 	/**
 	 * Add a schema version.
 	 * The last version added becomes the "latest" schema shape.
 	 */
 	version<TSchema extends StandardSchemaV1>(
 		schema: TSchema,
-	): KvBuilder<[...TVersions, TSchema], StandardSchemaV1.InferOutput<TSchema>>;
+	): KvBuilder<[...TVersions, TSchema]>;
 
 	/**
 	 * Provide a migration function that normalizes any version to the latest.
 	 * This completes the KV definition.
 	 *
-	 * @returns KvDefinition with TVersionUnion (union of all version outputs) and TLatest (migrated type)
+	 * @returns KvDefinition with TVersions tuple as the source of truth
 	 */
 	migrate(
-		fn: (value: StandardSchemaV1.InferOutput<TVersions[number]>) => TLatest,
-	): KvDefinition<StandardSchemaV1.InferOutput<TVersions[number]>, TLatest>;
+		fn: (
+			value: StandardSchemaV1.InferOutput<TVersions[number]>,
+		) => StandardSchemaV1.InferOutput<LastSchema<TVersions>>,
+	): KvDefinition<TVersions>;
 };
 
 /**
  * Creates a KV definition with a single schema version.
  *
- * For single-version definitions, TVersionUnion and TValue are the same type.
+ * For single-version definitions, TVersions is a single-element tuple.
  *
  * @example
  * ```typescript
@@ -62,10 +63,7 @@ type KvBuilder<TVersions extends StandardSchemaV1[], TLatest> = {
  */
 export function defineKv<TSchema extends StandardSchemaV1>(
 	schema: TSchema,
-): KvDefinition<
-	StandardSchemaV1.InferOutput<TSchema>,
-	StandardSchemaV1.InferOutput<TSchema>
->;
+): KvDefinition<[TSchema]>;
 
 /**
  * Creates a KV definition builder for multiple versions with migrations.
@@ -81,25 +79,17 @@ export function defineKv<TSchema extends StandardSchemaV1>(
  *   });
  * ```
  */
-export function defineKv(): KvBuilder<[], never>;
+export function defineKv(): KvBuilder<[]>;
 
 export function defineKv<TSchema extends StandardSchemaV1>(
 	schema?: TSchema,
-):
-	| KvDefinition<
-			StandardSchemaV1.InferOutput<TSchema>,
-			StandardSchemaV1.InferOutput<TSchema>
-	  >
-	| KvBuilder<[], never> {
+): KvDefinition<[TSchema]> | KvBuilder<[]> {
 	if (schema) {
 		return {
 			schema,
 			migrate: (v: unknown) => v,
 			_valueType: undefined as never,
-		} as KvDefinition<
-			StandardSchemaV1.InferOutput<TSchema>,
-			StandardSchemaV1.InferOutput<TSchema>
-		>;
+		} as KvDefinition<[TSchema]>;
 	}
 
 	const versions: StandardSchemaV1[] = [];
@@ -125,5 +115,5 @@ export function defineKv<TSchema extends StandardSchemaV1>(
 		},
 	};
 
-	return builder as unknown as KvBuilder<[], never>;
+	return builder as unknown as KvBuilder<[]>;
 }
