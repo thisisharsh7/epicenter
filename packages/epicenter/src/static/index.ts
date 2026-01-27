@@ -77,7 +77,6 @@ export type {
 	RowResult,
 	GetResult,
 	DeleteResult,
-	DeleteManyResult,
 	KvGetResult,
 	KvChange,
 	// Definition types
@@ -87,8 +86,10 @@ export type {
 	InferKvValue,
 	// Helper types
 	TableHelper,
+	TableBatchTransaction,
 	TablesHelper,
 	KvHelper,
+	KvBatchTransaction,
 	// Map types
 	TableDefinitionMap,
 	KvDefinitionMap,

@@ -24,6 +24,7 @@ import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { YKeyValue, type YKeyValueChange } from '../core/utils/y-keyvalue.js';
 import type {
 	InferKvValue,
+	KvBatchTransaction,
 	KvDefinition,
 	KvDefinitionMap,
 	KvGetResult,
@@ -92,6 +93,21 @@ export function createKv<TKV extends KvDefinitionMap>(
 		delete(key) {
 			if (!definitions[key]) throw new Error(`Unknown KV key: ${key}`);
 			ykv.delete(key);
+		},
+
+		batch(fn) {
+			ykv.doc.transact(() => {
+				fn({
+					set: (key, value) => {
+						if (!definitions[key]) throw new Error(`Unknown KV key: ${key}`);
+						ykv.set(key, value);
+					},
+					delete: (key) => {
+						if (!definitions[key]) throw new Error(`Unknown KV key: ${key}`);
+						ykv.delete(key);
+					},
+				} as KvBatchTransaction<TKV>);
+			});
 		},
 
 		observe(key, callback) {

@@ -383,9 +383,6 @@ type TableHelper<TRow extends { id: string }> = {
   /** Set a row (insert or replace). Always writes full row. */
   set(row: TRow): void;
 
-  /** Set multiple rows. */
-  setMany(rows: TRow[]): void;
-
   // ════════════════════════════════════════════════════════════════
   // READ (validates + migrates to latest)
   // ════════════════════════════════════════════════════════════════
@@ -419,11 +416,20 @@ type TableHelper<TRow extends { id: string }> = {
   /** Delete a row by ID. */
   delete(id: string): DeleteResult;
 
-  /** Delete multiple rows. */
-  deleteMany(ids: string[]): DeleteManyResult;
-
   /** Delete all rows (table structure preserved). */
   clear(): void;
+
+  // ════════════════════════════════════════════════════════════════
+  // BATCH (Y.js transaction for atomicity)
+  // ════════════════════════════════════════════════════════════════
+
+  /**
+   * Execute multiple operations atomically in a Y.js transaction.
+   * - Single undo/redo step
+   * - Observers fire once (not per-operation)
+   * - All changes applied together
+   */
+  batch(fn: (tx: TableBatchTransaction<TRow>) => void): void;
 
   // ════════════════════════════════════════════════════════════════
   // OBSERVE
@@ -442,6 +448,12 @@ type TableHelper<TRow extends { id: string }> = {
   /** Check if row exists. */
   has(id: string): boolean;
 };
+
+/** Operations available inside a batch transaction. */
+type TableBatchTransaction<TRow extends { id: string }> = {
+  set(row: TRow): void;
+  delete(id: string): void;
+};
 ```
 
 **Key Design Decision: `set` not `upsert`/`insert`/`update`**
@@ -451,6 +463,42 @@ There's no distinction between insert and update. `set()` always writes the full
 - If row doesn't exist → created
 
 This simplifies the mental model and enables schema versioning (entire row is atomic).
+
+**Key Design Decision: `batch()` not `setMany()`/`deleteMany()`**
+
+Instead of separate "many" methods, we provide a `batch()` method that wraps operations in a Y.js transaction:
+
+```typescript
+// ✓ Atomic batch - single transaction, single observer notification
+table.batch((tx) => {
+  tx.set(row1);
+  tx.set(row2);
+  tx.delete('old-id');
+});
+
+// ✗ Not atomic - multiple transactions, multiple notifications
+table.set(row1);
+table.set(row2);
+table.delete('old-id');
+```
+
+Benefits:
+- **Explicit atomicity**: Clear when operations are grouped
+- **Flexible composition**: Can mix sets and deletes in one transaction
+- **Single observer notification**: UI updates once, not N times
+- **Single undo/redo step**: Better UX for undo
+
+**Cross-Table Transactions**
+
+For operations spanning multiple tables or tables + KV, use `ydoc.transact()` directly:
+
+```typescript
+client.ydoc.transact(() => {
+  client.tables.posts.set(post);
+  client.tables.users.set(user);
+  client.kv.set('lastModified', { timestamp: Date.now(), _v: '1' });
+});
+```
 
 ---
 
@@ -469,11 +517,22 @@ type KvHelper<TKV extends Record<string, KvDefinition<any, any>>> = {
   /** Delete a value by key. */
   delete<K extends keyof TKV>(key: K): void;
 
+  /**
+   * Execute multiple operations atomically in a Y.js transaction.
+   */
+  batch(fn: (tx: KvBatchTransaction<TKV>) => void): void;
+
   /** Watch for changes to a specific key. */
   observe<K extends keyof TKV>(
     key: K,
     callback: (change: KvChange<InferKvValue<TKV[K]>>, tx: Y.Transaction) => void
   ): () => void;
+};
+
+/** Operations available inside a KV batch transaction. */
+type KvBatchTransaction<TKV extends Record<string, KvDefinition<any, any>>> = {
+  set<K extends keyof TKV>(key: K, value: InferKvValue<TKV[K]>): void;
+  delete<K extends keyof TKV>(key: K): void;
 };
 
 type KvGetResult<TValue> =
@@ -968,11 +1027,6 @@ type RowResult<TRow> =
 type DeleteResult =
   | { status: 'deleted' }
   | { status: 'not_found_locally' };
-
-type DeleteManyResult =
-  | { status: 'all_deleted'; deleted: string[] }
-  | { status: 'partially_deleted'; deleted: string[]; notFoundLocally: string[] }
-  | { status: 'none_deleted'; notFoundLocally: string[] };
 
 // KV results
 type KvGetResult<TValue> =

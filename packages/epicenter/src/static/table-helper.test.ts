@@ -44,16 +44,16 @@ describe('createTableHelper', () => {
 			}
 		});
 
-		test('setMany stores multiple rows', () => {
+		test('batch stores multiple rows atomically', () => {
 			const { ykv } = setup();
 			const definition = defineTable(type({ id: 'string', name: 'string' }));
 			const helper = createTableHelper(ykv, definition);
 
-			helper.setMany([
-				{ id: '1', name: 'Alice' },
-				{ id: '2', name: 'Bob' },
-				{ id: '3', name: 'Charlie' },
-			]);
+			helper.batch((tx) => {
+				tx.set({ id: '1', name: 'Alice' });
+				tx.set({ id: '2', name: 'Bob' });
+				tx.set({ id: '3', name: 'Charlie' });
+			});
 
 			expect(helper.count()).toBe(3);
 			expect(helper.getAllValid()).toHaveLength(3);
@@ -141,11 +141,11 @@ describe('createTableHelper', () => {
 			const definition = defineTable(type({ id: 'string', active: 'boolean' }));
 			const helper = createTableHelper(ykv, definition);
 
-			helper.setMany([
-				{ id: '1', active: true },
-				{ id: '2', active: false },
-				{ id: '3', active: true },
-			]);
+			helper.batch((tx) => {
+				tx.set({ id: '1', active: true });
+				tx.set({ id: '2', active: false });
+				tx.set({ id: '3', active: true });
+			});
 
 			const active = helper.filter((row) => row.active);
 			expect(active).toHaveLength(2);
@@ -157,10 +157,10 @@ describe('createTableHelper', () => {
 			const definition = defineTable(type({ id: 'string', active: 'boolean' }));
 			const helper = createTableHelper(ykv, definition);
 
-			helper.setMany([
-				{ id: '1', active: false },
-				{ id: '2', active: false },
-			]);
+			helper.batch((tx) => {
+				tx.set({ id: '1', active: false });
+				tx.set({ id: '2', active: false });
+			});
 
 			const active = helper.filter((row) => row.active);
 			expect(active).toEqual([]);
@@ -183,10 +183,10 @@ describe('createTableHelper', () => {
 			const definition = defineTable(type({ id: 'string', name: 'string' }));
 			const helper = createTableHelper(ykv, definition);
 
-			helper.setMany([
-				{ id: '1', name: 'Alice' },
-				{ id: '2', name: 'Bob' },
-			]);
+			helper.batch((tx) => {
+				tx.set({ id: '1', name: 'Alice' });
+				tx.set({ id: '2', name: 'Bob' });
+			});
 
 			const found = helper.find((row) => row.name === 'Bob');
 			expect(found).toEqual({ id: '2', name: 'Bob' });
@@ -238,53 +238,45 @@ describe('createTableHelper', () => {
 			expect(result.status).toBe('not_found_locally');
 		});
 
-		test('deleteMany returns all_deleted when all exist', () => {
+		test('batch deletes multiple rows atomically', () => {
 			const { ykv } = setup();
 			const definition = defineTable(type({ id: 'string', name: 'string' }));
 			const helper = createTableHelper(ykv, definition);
 
-			helper.setMany([
-				{ id: '1', name: 'A' },
-				{ id: '2', name: 'B' },
-				{ id: '3', name: 'C' },
-			]);
+			helper.batch((tx) => {
+				tx.set({ id: '1', name: 'A' });
+				tx.set({ id: '2', name: 'B' });
+				tx.set({ id: '3', name: 'C' });
+			});
 
-			const result = helper.deleteMany(['1', '2', '3']);
-			expect(result.status).toBe('all_deleted');
-			if (result.status === 'all_deleted') {
-				expect(result.deleted.sort()).toEqual(['1', '2', '3']);
-			}
+			helper.batch((tx) => {
+				tx.delete('1');
+				tx.delete('2');
+				tx.delete('3');
+			});
+
 			expect(helper.count()).toBe(0);
 		});
 
-		test('deleteMany returns partially_deleted when some exist', () => {
+		test('batch can mix set and delete operations', () => {
 			const { ykv } = setup();
 			const definition = defineTable(type({ id: 'string', name: 'string' }));
 			const helper = createTableHelper(ykv, definition);
 
-			helper.setMany([
-				{ id: '1', name: 'A' },
-				{ id: '3', name: 'C' },
-			]);
+			helper.batch((tx) => {
+				tx.set({ id: '1', name: 'A' });
+				tx.set({ id: '2', name: 'B' });
+			});
 
-			const result = helper.deleteMany(['1', '2', '3', '4']);
-			expect(result.status).toBe('partially_deleted');
-			if (result.status === 'partially_deleted') {
-				expect(result.deleted.sort()).toEqual(['1', '3']);
-				expect(result.notFoundLocally.sort()).toEqual(['2', '4']);
-			}
-		});
+			helper.batch((tx) => {
+				tx.delete('1');
+				tx.set({ id: '3', name: 'C' });
+			});
 
-		test('deleteMany returns none_deleted when none exist', () => {
-			const { ykv } = setup();
-			const definition = defineTable(type({ id: 'string', name: 'string' }));
-			const helper = createTableHelper(ykv, definition);
-
-			const result = helper.deleteMany(['1', '2', '3']);
-			expect(result.status).toBe('none_deleted');
-			if (result.status === 'none_deleted') {
-				expect(result.notFoundLocally.sort()).toEqual(['1', '2', '3']);
-			}
+			expect(helper.count()).toBe(2);
+			expect(helper.has('1')).toBe(false);
+			expect(helper.has('2')).toBe(true);
+			expect(helper.has('3')).toBe(true);
 		});
 
 		test('clear removes all rows', () => {
@@ -292,10 +284,10 @@ describe('createTableHelper', () => {
 			const definition = defineTable(type({ id: 'string', name: 'string' }));
 			const helper = createTableHelper(ykv, definition);
 
-			helper.setMany([
-				{ id: '1', name: 'A' },
-				{ id: '2', name: 'B' },
-			]);
+			helper.batch((tx) => {
+				tx.set({ id: '1', name: 'A' });
+				tx.set({ id: '2', name: 'B' });
+			});
 			expect(helper.count()).toBe(2);
 
 			helper.clear();
@@ -322,6 +314,32 @@ describe('createTableHelper', () => {
 			expect(changes[0]!.has('1')).toBe(true);
 			expect(changes[1]!.has('2')).toBe(true);
 			expect(changes[2]!.has('1')).toBe(true);
+
+			unsubscribe();
+		});
+
+		test('batch fires observer once for all operations', () => {
+			const { ykv } = setup();
+			const definition = defineTable(type({ id: 'string', name: 'string' }));
+			const helper = createTableHelper(ykv, definition);
+
+			const changes: Set<string>[] = [];
+			const unsubscribe = helper.observe((changedIds) => {
+				changes.push(new Set(changedIds));
+			});
+
+			// Three operations, but observer should fire once
+			helper.batch((tx) => {
+				tx.set({ id: '1', name: 'Alice' });
+				tx.set({ id: '2', name: 'Bob' });
+				tx.set({ id: '3', name: 'Charlie' });
+			});
+
+			// Should have exactly one change event containing all three IDs
+			expect(changes).toHaveLength(1);
+			expect(changes[0]!.has('1')).toBe(true);
+			expect(changes[0]!.has('2')).toBe(true);
+			expect(changes[0]!.has('3')).toBe(true);
 
 			unsubscribe();
 		});
@@ -357,10 +375,10 @@ describe('createTableHelper', () => {
 			helper.set({ id: '1', name: 'A' });
 			expect(helper.count()).toBe(1);
 
-			helper.setMany([
-				{ id: '2', name: 'B' },
-				{ id: '3', name: 'C' },
-			]);
+			helper.batch((tx) => {
+				tx.set({ id: '2', name: 'B' });
+				tx.set({ id: '3', name: 'C' });
+			});
 			expect(helper.count()).toBe(3);
 		});
 

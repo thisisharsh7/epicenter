@@ -45,16 +45,6 @@ export type DeleteResult =
 	| { status: 'deleted' }
 	| { status: 'not_found_locally' };
 
-/** Result of deleting multiple rows */
-export type DeleteManyResult =
-	| { status: 'all_deleted'; deleted: string[] }
-	| {
-			status: 'partially_deleted';
-			deleted: string[];
-			notFoundLocally: string[];
-	  }
-	| { status: 'none_deleted'; notFoundLocally: string[] };
-
 // ════════════════════════════════════════════════════════════════════════════
 // KV RESULT TYPES
 // ════════════════════════════════════════════════════════════════════════════
@@ -146,6 +136,12 @@ export type InferKvVersionUnion<T> =
 // HELPER TYPES
 // ════════════════════════════════════════════════════════════════════════════
 
+/** Operations available inside a table batch transaction. */
+export type TableBatchTransaction<TRow extends { id: string }> = {
+	set(row: TRow): void;
+	delete(id: string): void;
+};
+
 /** Helper for a single table */
 export type TableHelper<TRow extends { id: string }> = {
 	// ═══════════════════════════════════════════════════════════════════════
@@ -154,9 +150,6 @@ export type TableHelper<TRow extends { id: string }> = {
 
 	/** Set a row (insert or replace). Always writes full row. */
 	set(row: TRow): void;
-
-	/** Set multiple rows. */
-	setMany(rows: readonly TRow[]): void;
 
 	// ═══════════════════════════════════════════════════════════════════════
 	// READ (validates + migrates to latest)
@@ -191,11 +184,20 @@ export type TableHelper<TRow extends { id: string }> = {
 	/** Delete a row by ID. */
 	delete(id: string): DeleteResult;
 
-	/** Delete multiple rows. */
-	deleteMany(ids: readonly string[]): DeleteManyResult;
-
 	/** Delete all rows (table structure preserved). */
 	clear(): void;
+
+	// ═══════════════════════════════════════════════════════════════════════
+	// BATCH (Y.js transaction for atomicity)
+	// ═══════════════════════════════════════════════════════════════════════
+
+	/**
+	 * Execute multiple operations atomically in a Y.js transaction.
+	 * - Single undo/redo step
+	 * - Observers fire once (not per-operation)
+	 * - All changes applied together
+	 */
+	batch(fn: (tx: TableBatchTransaction<TRow>) => void): void;
 
 	// ═══════════════════════════════════════════════════════════════════════
 	// OBSERVE
@@ -234,6 +236,12 @@ export type TablesHelper<TTables extends TableDefinitionMap> = {
 	readonly [K in keyof TTables]: TableHelper<InferTableRow<TTables[K]>>;
 };
 
+/** Operations available inside a KV batch transaction. */
+export type KvBatchTransaction<TKV extends KvDefinitionMap> = {
+	set<K extends keyof TKV & string>(key: K, value: InferKvValue<TKV[K]>): void;
+	delete<K extends keyof TKV & string>(key: K): void;
+};
+
 /** KV helper with dictionary-style access */
 export type KvHelper<TKV extends KvDefinitionMap> = {
 	/** Get a value by key (validates + migrates). */
@@ -244,6 +252,11 @@ export type KvHelper<TKV extends KvDefinitionMap> = {
 
 	/** Delete a value by key. */
 	delete<K extends keyof TKV & string>(key: K): void;
+
+	/**
+	 * Execute multiple operations atomically in a Y.js transaction.
+	 */
+	batch(fn: (tx: KvBatchTransaction<TKV>) => void): void;
 
 	/** Watch for changes to a key. Returns unsubscribe function. */
 	observe<K extends keyof TKV & string>(

@@ -8,12 +8,12 @@ import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type * as Y from 'yjs';
 import type { YKeyValue, YKeyValueChange } from '../core/utils/y-keyvalue.js';
 import type {
-	DeleteManyResult,
 	DeleteResult,
 	GetResult,
 	InferTableRow,
 	InvalidRowResult,
 	RowResult,
+	TableBatchTransaction,
 	TableDefinition,
 	TableHelper,
 } from './types.js';
@@ -57,12 +57,6 @@ export function createTableHelper<
 
 		set(row: TRow): void {
 			ykv.set(row.id, row);
-		},
-
-		setMany(rows: readonly TRow[]): void {
-			for (const row of rows) {
-				ykv.set(row.id, row);
-			}
 		},
 
 		// ═══════════════════════════════════════════════════════════════════════
@@ -147,33 +141,24 @@ export function createTableHelper<
 			return { status: 'deleted' };
 		},
 
-		deleteMany(ids: readonly string[]): DeleteManyResult {
-			const deleted: string[] = [];
-			const notFoundLocally: string[] = [];
-
-			for (const id of ids) {
-				if (ykv.has(id)) {
-					ykv.delete(id);
-					deleted.push(id);
-				} else {
-					notFoundLocally.push(id);
-				}
-			}
-
-			if (deleted.length === ids.length) {
-				return { status: 'all_deleted', deleted };
-			}
-			if (deleted.length === 0) {
-				return { status: 'none_deleted', notFoundLocally };
-			}
-			return { status: 'partially_deleted', deleted, notFoundLocally };
-		},
-
 		clear(): void {
 			const keys = Array.from(ykv.map.keys());
 			for (const key of keys) {
 				ykv.delete(key);
 			}
+		},
+
+		// ═══════════════════════════════════════════════════════════════════════
+		// BATCH (Y.js transaction for atomicity)
+		// ═══════════════════════════════════════════════════════════════════════
+
+		batch(fn: (tx: TableBatchTransaction<TRow>) => void): void {
+			ykv.doc.transact(() => {
+				fn({
+					set: (row: TRow) => ykv.set(row.id, row),
+					delete: (id: string) => ykv.delete(id),
+				});
+			});
 		},
 
 		// ═══════════════════════════════════════════════════════════════════════
