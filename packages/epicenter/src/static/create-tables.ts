@@ -50,10 +50,7 @@ export function createTables<TTables extends TableDefinitionMap>(
 		const yarray = ydoc.getArray<{ key: string; val: unknown }>(`table:${name}`);
 		const ykv = new YKeyValue(yarray);
 
-		helpers[name] = createTableHelper(
-			ykv,
-			definition as TableDefinition<{ id: string }>,
-		);
+		helpers[name] = createTableHelper(ykv, definition);
 	}
 
 	return helpers as TablesHelper<TTables>;
