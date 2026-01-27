@@ -6,13 +6,13 @@
  */
 import { describe, expect, test } from 'bun:test';
 import * as Y from 'yjs';
-import { YKeyValue } from './y-keyvalue';
+import { YKeyValue, type YKeyValueEntry } from './y-keyvalue';
 import { YKeyValueLww, type YKeyValueLwwEntry } from './y-keyvalue-lww';
 
 /** Helper to create a YKeyValue with fresh doc */
 function createKv<T>() {
 	const doc = new Y.Doc();
-	const array = doc.getArray<{ key: string; val: T }>('data');
+	const array = doc.getArray<YKeyValueEntry<T>>('data');
 	return { doc, array, kv: new YKeyValue(array) };
 }
 
@@ -36,8 +36,8 @@ describe('Conflict Resolution: YKeyValue vs YKeyValueLww', () => {
 		const doc2 = new Y.Doc({ guid: 'shared' });
 
 		// For YKeyValue (positional)
-		const arr1 = doc1.getArray<{ key: string; val: string }>('positional');
-		const arr2 = doc2.getArray<{ key: string; val: string }>('positional');
+		const arr1 = doc1.getArray<YKeyValueEntry<string>>('positional');
+		const arr2 = doc2.getArray<YKeyValueEntry<string>>('positional');
 
 		// For YKeyValueLww (timestamp)
 		const arrLww1 = doc1.getArray<YKeyValueLwwEntry<string>>('lww');
@@ -81,8 +81,8 @@ describe('Conflict Resolution: YKeyValue vs YKeyValueLww', () => {
 			const doc1 = new Y.Doc({ guid: `test-${i}` });
 			const doc2 = new Y.Doc({ guid: `test-${i}` });
 
-			const arr1 = doc1.getArray<{ key: string; val: string }>('data');
-			const arr2 = doc2.getArray<{ key: string; val: string }>('data');
+			const arr1 = doc1.getArray<YKeyValueEntry<string>>('data');
+			const arr2 = doc2.getArray<YKeyValueEntry<string>>('data');
 
 			arr1.push([{ key: 'x', val: 'earlier' }]);
 			arr2.push([{ key: 'x', val: 'later' }]);

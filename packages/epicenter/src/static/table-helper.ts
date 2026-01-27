@@ -6,7 +6,10 @@
 
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type * as Y from 'yjs';
-import type { YKeyValue, YKeyValueChange } from '../core/utils/y-keyvalue.js';
+import type {
+	YKeyValueLww,
+	YKeyValueLwwChange,
+} from '../core/utils/y-keyvalue-lww.js';
 import type {
 	DeleteResult,
 	GetResult,
@@ -24,7 +27,7 @@ import type {
 export function createTableHelper<
 	TVersions extends readonly StandardSchemaV1[],
 >(
-	ykv: YKeyValue<unknown>,
+	ykv: YKeyValueLww<unknown>,
 	definition: TableDefinition<TVersions>,
 ): TableHelper<InferTableRow<TableDefinition<TVersions>>> {
 	type TRow = InferTableRow<TableDefinition<TVersions>>;
@@ -169,7 +172,7 @@ export function createTableHelper<
 			callback: (changedIds: Set<string>, transaction: unknown) => void,
 		): () => void {
 			const handler = (
-				changes: Map<string, YKeyValueChange<unknown>>,
+				changes: Map<string, YKeyValueLwwChange<unknown>>,
 				transaction: Y.Transaction,
 			) => {
 				callback(new Set(changes.keys()), transaction);

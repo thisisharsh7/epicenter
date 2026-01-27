@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { type } from 'arktype';
 import * as Y from 'yjs';
+import type { YKeyValueLwwEntry } from '../core/utils/y-keyvalue-lww.js';
 import { createKv } from './create-kv.js';
 import { defineKv } from './define-kv.js';
 
@@ -62,8 +63,8 @@ describe('createKv', () => {
 		});
 
 		// Simulate old data
-		const yarray = ydoc.getArray<{ key: string; val: unknown }>('kv');
-		yarray.push([{ key: 'theme', val: { mode: 'dark' } }]);
+		const yarray = ydoc.getArray<YKeyValueLwwEntry<unknown>>('kv');
+		yarray.push([{ key: 'theme', val: { mode: 'dark' }, ts: 0 }]);
 
 		// Read should migrate
 		const result = kv.get('theme');

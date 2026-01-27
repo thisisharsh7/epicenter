@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { type } from 'arktype';
 import * as Y from 'yjs';
+import type { YKeyValueLwwEntry } from '../core/utils/y-keyvalue-lww.js';
 import { createTables } from './create-tables.js';
 import { defineTable } from './define-table.js';
 
@@ -168,8 +169,8 @@ describe('createTables', () => {
 		});
 
 		// Simulate writing old data by accessing the raw array
-		const yarray = ydoc.getArray<{ key: string; val: unknown }>('table:posts');
-		yarray.push([{ key: '1', val: { id: '1', title: 'Old Post' } }]);
+		const yarray = ydoc.getArray<YKeyValueLwwEntry<unknown>>('table:posts');
+		yarray.push([{ key: '1', val: { id: '1', title: 'Old Post' }, ts: 0 }]);
 
 		// Read should migrate
 		const result = tables.posts.get('1');
@@ -210,10 +211,10 @@ describe('migration scenarios', () => {
 		});
 
 		// Insert v1 data directly
-		const yarray = ydoc.getArray<{ key: string; val: unknown }>('table:posts');
-		yarray.push([{ key: '1', val: { id: '1', title: 'Old', _v: '1' } }]);
+		const yarray = ydoc.getArray<YKeyValueLwwEntry<unknown>>('table:posts');
+		yarray.push([{ key: '1', val: { id: '1', title: 'Old', _v: '1' }, ts: 0 }]);
 		yarray.push([
-			{ key: '2', val: { id: '2', title: 'Medium', views: 10, _v: '2' } },
+			{ key: '2', val: { id: '2', title: 'Medium', views: 10, _v: '2' }, ts: 0 },
 		]);
 
 		// Read should migrate both
@@ -271,8 +272,8 @@ describe('migration scenarios', () => {
 		});
 
 		// Insert v1 data
-		const yarray = ydoc.getArray<{ key: string; val: unknown }>('table:posts');
-		yarray.push([{ key: '1', val: { id: '1', title: 'Old' } }]);
+		const yarray = ydoc.getArray<YKeyValueLwwEntry<unknown>>('table:posts');
+		yarray.push([{ key: '1', val: { id: '1', title: 'Old' }, ts: 0 }]);
 
 		const result = tables.posts.get('1');
 		expect(result.status).toBe('valid');

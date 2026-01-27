@@ -149,6 +149,9 @@
  */
 import type * as Y from 'yjs';
 
+/** Entry stored in the Y.Array. */
+export type YKeyValueEntry<T> = { key: string; val: T };
+
 export type YKeyValueChange<T> =
 	| { action: 'add'; newValue: T }
 	| { action: 'update'; oldValue: T; newValue: T }
@@ -161,7 +164,7 @@ export type YKeyValueChangeHandler<T> = (
 
 export class YKeyValue<T> {
 	/** The underlying Y.Array that stores `{key, val}` entries. This is the CRDT source of truth. */
-	readonly yarray: Y.Array<{ key: string; val: T }>;
+	readonly yarray: Y.Array<YKeyValueEntry<T>>;
 
 	/** The Y.Doc that owns this array. Required for transactions. */
 	readonly doc: Y.Doc;
@@ -173,7 +176,7 @@ export class YKeyValue<T> {
 	 * the actual entry objects in yarray, so `map.get(key) === yarray.get(i)` for
 	 * the corresponding index.
 	 */
-	readonly map: Map<string, { key: string; val: T }>;
+	readonly map: Map<string, YKeyValueEntry<T>>;
 
 	/**
 	 * Registered change handlers for the `.on('change', handler)` API.
@@ -217,7 +220,7 @@ export class YKeyValue<T> {
 	 *
 	 * @param yarray - A Y.Array storing `{key: string, val: T}` entries
 	 */
-	constructor(yarray: Y.Array<{ key: string; val: T }>) {
+	constructor(yarray: Y.Array<YKeyValueEntry<T>>) {
 		this.yarray = yarray;
 		this.doc = yarray.doc as Y.Doc;
 		this.map = new Map();
