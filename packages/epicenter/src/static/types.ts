@@ -12,49 +12,36 @@ import type { StandardSchemaV1 } from '@standard-schema/spec';
 
 /** Result of getting a single row by ID */
 export type GetResult<TRow> =
-	| { readonly status: 'valid'; readonly row: TRow }
-	| {
-			readonly status: 'invalid';
-			readonly id: string;
-			readonly errors: readonly StandardSchemaV1.Issue[];
-			readonly raw: unknown;
-	  }
-	| { readonly status: 'not_found'; readonly id: string };
+	| { status: 'valid'; row: TRow }
+	| { status: 'invalid'; id: string; errors: readonly StandardSchemaV1.Issue[]; raw: unknown }
+	| { status: 'not_found'; id: string };
 
 /** Result of a row in getAll (excludes not_found since we're iterating existing rows) */
 export type RowResult<TRow> =
-	| { readonly status: 'valid'; readonly row: TRow }
-	| {
-			readonly status: 'invalid';
-			readonly id: string;
-			readonly errors: readonly StandardSchemaV1.Issue[];
-			readonly raw: unknown;
-	  };
+	| { status: 'valid'; row: TRow }
+	| { status: 'invalid'; id: string; errors: readonly StandardSchemaV1.Issue[]; raw: unknown };
 
 /** Result for invalid rows (used in getAllInvalid) */
 export type InvalidRowResult = {
-	readonly id: string;
-	readonly errors: readonly StandardSchemaV1.Issue[];
-	readonly raw: unknown;
+	id: string;
+	errors: readonly StandardSchemaV1.Issue[];
+	raw: unknown;
 };
 
 /** Result of deleting a single row */
 export type DeleteResult =
-	| { readonly status: 'deleted' }
-	| { readonly status: 'not_found_locally' };
+	| { status: 'deleted' }
+	| { status: 'not_found_locally' };
 
 /** Result of deleting multiple rows */
 export type DeleteManyResult =
-	| { readonly status: 'all_deleted'; readonly deleted: readonly string[] }
+	| { status: 'all_deleted'; deleted: string[] }
 	| {
-			readonly status: 'partially_deleted';
-			readonly deleted: readonly string[];
-			readonly notFoundLocally: readonly string[];
+			status: 'partially_deleted';
+			deleted: string[];
+			notFoundLocally: string[];
 	  }
-	| {
-			readonly status: 'none_deleted';
-			readonly notFoundLocally: readonly string[];
-	  };
+	| { status: 'none_deleted'; notFoundLocally: string[] };
 
 // ════════════════════════════════════════════════════════════════════════════
 // KV RESULT TYPES
@@ -62,18 +49,14 @@ export type DeleteManyResult =
 
 /** Result of getting a KV value */
 export type KvGetResult<TValue> =
-	| { readonly status: 'valid'; readonly value: TValue }
-	| {
-			readonly status: 'invalid';
-			readonly errors: readonly StandardSchemaV1.Issue[];
-			readonly raw: unknown;
-	  }
-	| { readonly status: 'not_found' };
+	| { status: 'valid'; value: TValue }
+	| { status: 'invalid'; errors: readonly StandardSchemaV1.Issue[]; raw: unknown }
+	| { status: 'not_found' };
 
 /** Change event for KV observation */
 export type KvChange<TValue> =
-	| { readonly type: 'set'; readonly value: TValue }
-	| { readonly type: 'delete' };
+	| { type: 'set'; value: TValue }
+	| { type: 'delete' };
 
 // ════════════════════════════════════════════════════════════════════════════
 // TABLE DEFINITION TYPES
