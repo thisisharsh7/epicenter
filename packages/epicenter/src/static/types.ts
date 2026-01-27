@@ -334,59 +334,42 @@ export type CapabilityContext<
 /**
  * Factory function that creates a capability with lifecycle hooks.
  *
- * Capabilities are **schema-generic**: they can work with ANY workspace's tables/kv.
- * The specific types are bound when the capability is passed to `workspace.create()`.
- *
  * All capabilities MUST return an object that satisfies the {@link Lifecycle} protocol:
  * - `whenSynced`: Promise that resolves when the capability is ready
  * - `destroy`: Cleanup function called when the workspace is destroyed
  *
  * Use {@link defineExports} from `core/lifecycle.ts` to easily create compliant exports.
  *
- * ## Type Flow
- *
- * ```
- * CapabilityFactory<TExports>
- *   = <TTableDefs, TKvDefs>(context) => TExports
- *        ▲
- *        │ Generic at call site - bound by workspace.create()
- *        │
- * workspace.create({ myCapability })
- *        │
- *        ▼ Workspace provides specific TTableDefs, TKvDefs
- * context.tables is TablesHelper<WorkspaceTables>
- * ```
- *
  * @example Simple capability (works with any workspace)
  * ```typescript
- * const persistence: CapabilityFactory<{ provider: IndexeddbPersistence } & Lifecycle> =
- *   ({ ydoc }) => {
- *     const provider = new IndexeddbPersistence(ydoc.guid, ydoc);
- *     return defineExports({
- *       provider,
- *       whenSynced: provider.whenSynced,
- *       destroy: () => provider.destroy(),
- *     });
- *   };
+ * const persistence: CapabilityFactory = ({ ydoc }) => {
+ *   const provider = new IndexeddbPersistence(ydoc.guid, ydoc);
+ *   return defineExports({
+ *     provider,
+ *     whenSynced: provider.whenSynced,
+ *     destroy: () => provider.destroy(),
+ *   });
+ * };
  * ```
  *
- * @example Capability with table access (types bound at workspace.create())
+ * @example Capability bound to specific workspace types
  * ```typescript
- * const logger: CapabilityFactory = ({ tables }) => {
- *   // At this point, tables is TablesHelper<TTableDefs> where TTableDefs
- *   // is the specific workspace's table definitions
+ * const logger: CapabilityFactory<MyTables, MyKv> = ({ tables }) => {
+ *   // tables is fully typed as TablesHelper<MyTables>
+ *   tables.posts.getAll(); // ← autocomplete works!
  *   return defineExports();
  * };
  * ```
  *
+ * @typeParam TTableDefinitions - Table definitions this capability accepts (defaults to any)
+ * @typeParam TKvDefinitions - KV definitions this capability accepts (defaults to any)
  * @typeParam TExports - The exports returned by this capability (must extend Lifecycle)
  */
-export type CapabilityFactory<TExports extends Lifecycle = Lifecycle> = <
-	TTableDefinitions extends TableDefinitions,
-	TKvDefinitions extends KvDefinitions,
->(
-	context: CapabilityContext<TTableDefinitions, TKvDefinitions>,
-) => TExports;
+export type CapabilityFactory<
+	TTableDefinitions extends TableDefinitions = TableDefinitions,
+	TKvDefinitions extends KvDefinitions = KvDefinitions,
+	TExports extends Lifecycle = Lifecycle,
+> = (context: CapabilityContext<TTableDefinitions, TKvDefinitions>) => TExports;
 
 /**
  * Map of capability factories.

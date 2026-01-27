@@ -89,7 +89,7 @@ export function defineWorkspace<
 			if (capabilities) {
 				for (const [name, factory] of Object.entries(capabilities) as [
 					string,
-					(ctx: { ydoc: Y.Doc; tables: unknown; kv: unknown }) => Lifecycle,
+					CapabilityFactory<TTableDefinitions, TKvDefinitions>,
 				][]) {
 					capabilityExports[name] = factory({ ydoc, tables, kv });
 				}
