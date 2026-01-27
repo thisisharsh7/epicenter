@@ -24,7 +24,7 @@ export const queryClient = new QueryClient({
 /**
  * Query and mutation factories from wellcrafted
  * These provide the dual interface pattern:
- * - .options() for reactive use with createQuery/createMutation
+ * - .options for reactive use with createQuery/createMutation (wrap in accessor: () => x.options)
  * - .fetch()/.execute() for imperative use
  */
 export const { defineQuery, defineMutation } =

@@ -11,11 +11,11 @@ First, there's the pattern I was using:
 ```typescript
 // Callbacks at mutation creation
 const deleteSessionMutation = createMutation(() => ({
-  ...rpc.sessions.deleteSession.options(),
-  onSuccess: () => {
-    // Can't access isDialogOpen here!
-    toast.success('Deleted');
-  }
+	...rpc.sessions.deleteSession.options,
+	onSuccess: () => {
+		// Can't access isDialogOpen here!
+		toast.success('Deleted');
+	},
 }));
 ```
 
@@ -23,15 +23,20 @@ Then I discovered you can pass them when calling `.mutate()`:
 
 ```typescript
 // Callbacks at call site
-const deleteSessionMutation = createMutation(rpc.sessions.deleteSession.options);
+const deleteSessionMutation = createMutation(
+	rpc.sessions.deleteSession.options,
+);
 
 // Later, when triggering the mutation
-deleteSessionMutation.mutate({ sessionId }, {
-  onSuccess: () => {
-    isDialogOpen = false;  // Now I can access local state!
-    toast.success('Deleted');
-  }
-});
+deleteSessionMutation.mutate(
+	{ sessionId },
+	{
+		onSuccess: () => {
+			isDialogOpen = false; // Now I can access local state!
+			toast.success('Deleted');
+		},
+	},
+);
 ```
 
 That's it. No complex state management. No prop drilling. Just callbacks where they have the most context.
@@ -52,28 +57,33 @@ Here's a real example from a file upload dialog:
 
 ```svelte
 <script lang="ts">
-  const copyToClipboard = createMutation(rpc.clipboard.copyToClipboard.options);
-  
-  let isDialogOpen = $state(false);
-  let selectedText = $state('');
+	const copyToClipboard = createMutation(rpc.clipboard.copyToClipboard.options);
+
+	let isDialogOpen = $state(false);
+	let selectedText = $state('');
 </script>
 
-<Button onclick={() => {
-  copyToClipboard.mutate({ text: selectedText }, {
-    onSuccess: () => {
-      // Access to everything in component scope
-      isDialogOpen = false;
-      selectedText = '';
-      toast.success('Copied to clipboard!');
-    },
-    onError: (error) => {
-      // Even error handling can be contextual
-      console.error('Failed to copy:', selectedText);
-      toast.error(error.message);
-    }
-  });
-}}>
-  Copy
+<Button
+	onclick={() => {
+		copyToClipboard.mutate(
+			{ text: selectedText },
+			{
+				onSuccess: () => {
+					// Access to everything in component scope
+					isDialogOpen = false;
+					selectedText = '';
+					toast.success('Copied to clipboard!');
+				},
+				onError: (error) => {
+					// Even error handling can be contextual
+					console.error('Failed to copy:', selectedText);
+					toast.error(error.message);
+				},
+			},
+		);
+	}}
+>
+	Copy
 </Button>
 ```
 
@@ -84,18 +94,18 @@ Another pattern that emerges: the same mutation might need different success beh
 ```typescript
 // In a table row
 deleteRecording.mutate(id, {
-  onSuccess: () => toast.success('Recording deleted')
+	onSuccess: () => toast.success('Recording deleted'),
 });
 
 // In a bulk action
 deleteRecording.mutate(id, {
-  onSuccess: () => {
-    remainingIds = remainingIds.filter(rid => rid !== id);
-    if (remainingIds.length === 0) {
-      isSelecting = false;
-      toast.success('All recordings deleted!');
-    }
-  }
+	onSuccess: () => {
+		remainingIds = remainingIds.filter((rid) => rid !== id);
+		if (remainingIds.length === 0) {
+			isSelecting = false;
+			toast.success('All recordings deleted!');
+		}
+	},
 });
 ```
 
@@ -108,22 +118,22 @@ You might worry that moving callbacks out of `createMutation` breaks something. 
 ```svelte
 const saveSettings = createMutation(rpc.settings.save.options);
 
-<Button 
-  disabled={saveSettings.isPending}
-  onclick={() => {
-    saveSettings.mutate(currentSettings, {
-      onSuccess: () => {
-        hasUnsavedChanges = false;
-        toast.success('Settings saved');
-      }
-    });
-  }}
+<Button
+	disabled={saveSettings.isPending}
+	onclick={() => {
+		saveSettings.mutate(currentSettings, {
+			onSuccess: () => {
+				hasUnsavedChanges = false;
+				toast.success('Settings saved');
+			},
+		});
+	}}
 >
-  {#if saveSettings.isPending}
-    Saving...
-  {:else}
-    Save
-  {/if}
+	{#if saveSettings.isPending}
+		Saving...
+	{:else}
+		Save
+	{/if}
 </Button>
 ```
 
@@ -136,11 +146,11 @@ Sometimes you do want callbacks at the mutation level. If every single call site
 ```typescript
 // Audit logging on every call
 const deleteSession = createMutation({
-  ...rpc.sessions.deleteSession.options,
-  onSuccess: (data) => {
-    // This ALWAYS needs to happen
-    logAuditEvent('session_deleted', data.id);
-  }
+	...rpc.sessions.deleteSession.options,
+	onSuccess: (data) => {
+		// This ALWAYS needs to happen
+		logAuditEvent('session_deleted', data.id);
+	},
 });
 ```
 
@@ -148,18 +158,21 @@ But even then, you can still add call-site callbacks. They'll both run.
 
 ## The Pattern in Practice
 
-After adopting this pattern, my components got simpler. No more passing callbacks through props. No more lifting state up just to access it in a success handler. 
+After adopting this pattern, my components got simpler. No more passing callbacks through props. No more lifting state up just to access it in a success handler.
 
 Each mutation call is self-contained:
 
 ```typescript
-shareMutation.mutate({ sessionId }, {
-  onSuccess: ({ url }) => {
-    shareUrl = url;
-    isShareModalOpen = true;
-    navigator.clipboard.writeText(url);
-  }
-});
+shareMutation.mutate(
+	{ sessionId },
+	{
+		onSuccess: ({ url }) => {
+			shareUrl = url;
+			isShareModalOpen = true;
+			navigator.clipboard.writeText(url);
+		},
+	},
+);
 ```
 
 You can read the click handler and understand everything that happens. The context is right there.
@@ -171,6 +184,7 @@ Callbacks want context. Put them where the context lives.
 I was treating mutation creation like a service definition—trying to define all behavior upfront. But mutations in components aren't services. They're UI interactions. And UI interactions need access to UI state.
 
 So now I do this:
+
 - `createMutation(rpc.thing.options)` - just the options, no callbacks
 - `.mutate(data, { onSuccess, onError })` - callbacks with full context
 

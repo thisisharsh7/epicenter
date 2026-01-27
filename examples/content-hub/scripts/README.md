@@ -5,6 +5,7 @@ Utility scripts for programmatically transforming markdown files in your Epicent
 ## Setup
 
 1. Copy `.env.example` to `.env`:
+
    ```bash
    cp .env.example .env
    ```
@@ -30,6 +31,7 @@ The numbered prefix indicates the recommended order of operations. Run normalize
 **Purpose**: Standardizes YAML frontmatter formatting across all markdown files.
 
 **What it does**:
+
 - Recursively scans a directory for `.md` files
 - Parses each file's frontmatter using Epicenter's `readMarkdownFile`
 - Re-serializes frontmatter using `Bun.YAML.stringify` with consistent formatting (2-space indent)
@@ -38,11 +40,13 @@ The numbered prefix indicates the recommended order of operations. Run normalize
 **Why run this first**: Different editors and tools format YAML differently. Normalizing first ensures all subsequent transformations work with consistent formatting, making diffs cleaner and transformations more predictable.
 
 **Primitives used**:
-- `listMarkdownFiles` from `@epicenter/hq/providers/markdown` - recursively finds all .md files
-- `readMarkdownFile` from `@epicenter/hq/providers/markdown` - parses markdown with frontmatter
-- `writeMarkdownFile` from `@epicenter/hq/providers/markdown` - writes markdown with YAML frontmatter
+
+- `listMarkdownFiles` from `@epicenter/hq/extensions/markdown` - recursively finds all .md files
+- `readMarkdownFile` from `@epicenter/hq/extensions/markdown` - parses markdown with frontmatter
+- `writeMarkdownFile` from `@epicenter/hq/extensions/markdown` - writes markdown with YAML frontmatter
 
 **Usage**:
+
 ```bash
 # Dry run to preview changes
 bun scripts/01-normalize-markdown.ts --dry-run
@@ -56,6 +60,7 @@ bun scripts/01-normalize-markdown.ts
 **Purpose**: Consolidates timezone information into date fields using pipe notation.
 
 **What it does**:
+
 - Scans for markdown files with a `timezone` or `timeZone` frontmatter field
 - Appends timezone to `date`, `created_at`, and `updated_at` fields using pipe operator
   - Example: `2024-01-15T10:30:00` becomes `2024-01-15T10:30:00|America/Los_Angeles`
@@ -65,13 +70,15 @@ bun scripts/01-normalize-markdown.ts
 **Why this transformation**: Instead of storing timezone separately, this embeds it directly in the date fields using a pipe delimiter. This makes date fields self-describing and eliminates the need for a separate timezone field.
 
 **Primitives used**:
-- `listMarkdownFiles` from `@epicenter/hq/providers/markdown` - recursively finds all .md files
-- `readMarkdownFile` from `@epicenter/hq/providers/markdown` - parses markdown with frontmatter
-- `writeMarkdownFile` from `@epicenter/hq/providers/markdown` - writes markdown with YAML frontmatter
+
+- `listMarkdownFiles` from `@epicenter/hq/extensions/markdown` - recursively finds all .md files
+- `readMarkdownFile` from `@epicenter/hq/extensions/markdown` - parses markdown with frontmatter
+- `writeMarkdownFile` from `@epicenter/hq/extensions/markdown` - writes markdown with YAML frontmatter
 - String concatenation with pipe operator for date transformation
 - `delete` operator to remove obsolete fields
 
 **Usage**:
+
 ```bash
 # Dry run to preview changes
 bun scripts/02-transform-dates.ts --dry-run
@@ -85,12 +92,14 @@ bun scripts/02-transform-dates.ts
 When transforming markdown files in bulk:
 
 1. **Normalize first**: Run `01-normalize-markdown.ts` to standardize YAML formatting
+
    ```bash
    bun scripts/01-normalize-markdown.ts --dry-run
    bun scripts/01-normalize-markdown.ts
    ```
 
 2. **Transform dates**: Run `02-transform-dates.ts` to consolidate timezone info
+
    ```bash
    bun scripts/02-transform-dates.ts --dry-run
    bun scripts/02-transform-dates.ts
@@ -107,7 +116,7 @@ import {
 	listMarkdownFiles,
 	readMarkdownFile,
 	writeMarkdownFile,
-} from '@epicenter/hq/providers/markdown';
+} from '@epicenter/hq/extensions/markdown';
 
 const sourcePath = process.env.MARKDOWN_SOURCE_PATH;
 if (!sourcePath) {
@@ -154,7 +163,7 @@ await Promise.all(
 
 ## Key Primitives
 
-All markdown operations are available from `@epicenter/hq/providers/markdown`:
+All markdown operations are available from `@epicenter/hq/extensions/markdown`:
 
 - **listMarkdownFiles(sourcePath)**: Recursively finds all .md files, returns `AbsolutePath[]`
 - **readMarkdownFile(filePath)**: Parses markdown with frontmatter, returns `Result<{ data: object, body: string }>`
@@ -164,6 +173,7 @@ All markdown operations are available from `@epicenter/hq/providers/markdown`:
 ## Safety Features
 
 All scripts include:
+
 - **Dry run mode**: Preview changes with `--dry-run` flag
 - **Error tracking**: Failed files are collected and reported
 - **Stats reporting**: Clear summary of what was processed, modified, skipped, or errored

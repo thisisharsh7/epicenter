@@ -1,0 +1,53 @@
+import { error } from '@sveltejs/kit';
+import { createHead } from '$lib/docs/head';
+import { registry } from '$lib/docs/registry';
+import { createWorkspaceClient } from '$lib/docs/workspace';
+import type { LayoutLoad } from './$types';
+
+/**
+ * Load a workspace lazily by ID.
+ *
+ * Flow:
+ * 1. Verify workspace exists in registry
+ * 2. Create head doc via createHead(workspaceId)
+ * 3. Create client via createWorkspaceClient(head)
+ *
+ * This eliminates the need to read definition.json from disk.
+ * The definition lives in Y.Map('definition') inside the Y.Doc itself.
+ * Workspace identity (name, icon) comes from Head Doc's Y.Map('meta').
+ */
+export const load: LayoutLoad = async ({ params }) => {
+	const workspaceId = params.id;
+	console.log(`[Layout] Loading workspace: ${workspaceId}`);
+
+	// Step 1: Verify workspace exists in registry
+	await registry.whenSynced;
+	if (!registry.hasWorkspace(workspaceId)) {
+		console.error(`[Layout] Workspace not found in registry: ${workspaceId}`);
+		error(404, { message: `Workspace "${workspaceId}" not found` });
+	}
+
+	// Step 2: Get head doc (validates workspace exists)
+	const head = createHead(workspaceId);
+	await head.whenSynced;
+	const epoch = head.getEpoch();
+	console.log(`[Layout] Workspace epoch: ${epoch}`);
+
+	// Step 3: Create client (dynamic definition mode)
+	// Definition comes from Y.Doc, not from definition.json file
+	const client = createWorkspaceClient(head);
+	await client.whenSynced;
+
+	// Get workspace name from Head Doc's meta (not from client)
+	const meta = head.getMeta();
+	console.log(`[Layout] Loaded workspace: ${meta.name} (${client.id})`);
+
+	return {
+		/** The live workspace client for CRUD operations. */
+		client,
+		/** The head doc for epoch management. */
+		head,
+		/** Current epoch this client is connected to. */
+		epoch,
+	};
+};

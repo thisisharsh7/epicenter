@@ -9,10 +9,10 @@ When iterating over a heterogeneous collection of table helpers in Epicenter, Ty
 
 ### The Core Issue
 
-The `tables.$all()` method returns `TableHelper<TSchema[keyof TSchema]>[]`, which is a union type of all possible table schemas. When we pair each table with its resolved configuration:
+The `tables.defined()` method returns `TableHelper<TSchema[keyof TSchema]>[]`, which is a union type of all possible table schemas. When we pair each table with its resolved configuration:
 
 ```typescript
-const tableWithConfigs = tables.$all().map((table) => ({
+const tableWithConfigs = tables.defined().map((table) => ({
 	table, // TableHelper<TSchema['posts']> | TableHelper<TSchema['authors']> | ...
 	tableConfig: resolveConfig(table), // ResolvedTableConfig<TSchema['posts']> | ResolvedTableConfig<TSchema['authors']> | ...
 }));
@@ -79,64 +79,12 @@ tableConfig.serialize({
 **Concept**: Encapsulate the type assertion in a single helper function that processes one table at a time with full type safety within the callback.
 
 ```typescript
-function processTable<TTableSchema extends TableSchema>(
-	table: TableHelper<TTableSchema>,
-	tableConfig: ResolvedTableConfig<TTableSchema>,
-	callback: (context: {
-		table: TableHelper<TTableSchema>;
-		config: ResolvedTableConfig<TTableSchema>;
-		rows: Row<TTableSchema>[];
-	}) => void,
-) {
-	const rows = table.getAllValid();
-	callback({ table, config: tableConfig, rows });
-}
-
-// Usage
-for (const { table, tableConfig } of tableWithConfigs) {
-	// Single @ts-expect-error here, but type-safe inside callback
-	// @ts-expect-error Union type narrowing
-	processTable(table, tableConfig, ({ table, config, rows }) => {
-		// Fully typed within this scope!
-		for (const row of rows) {
-			config.serialize({ row: row.toJSON(), table });
-		}
-	});
-}
-```
-
-**Pros**:
-
-- Centralizes the type assertion to one location
-- Callback body is fully type-safe
-- Minimal changes to existing code structure
-- Easy to understand and maintain
-
-**Cons**:
-
-- Still requires one `@ts-expect-error` at call site
-- Callback pattern adds slight indirection
-- Doesn't eliminate the fundamental type issue
-
-### Solution B: Discriminated Union with Table Name
-
-**Concept**: Create a discriminated union where the table name acts as a discriminant, allowing TypeScript to narrow the types.
-
-```typescript
-type TableContext<TSchema extends WorkspaceSchema> = {
-	[K in keyof TSchema]: {
-		name: K;
-		table: TableHelper<TSchema[K]>;
-		config: ResolvedTableConfig<TSchema[K]>;
-	};
-}[keyof TSchema];
-
 // Create the discriminated union array
 function createTableContexts<TSchema extends WorkspaceSchema>(
 	tables: Tables<TSchema>,
 	configs: { [K in keyof TSchema]: ResolvedTableConfig<TSchema[K]> },
 ): TableContext<TSchema>[] {
-	return tables.$all().map((table) => ({
+	return tables.defined().map((table) => ({
 		name: table.name as keyof TSchema,
 		table,
 		config: configs[table.name as keyof TSchema],
@@ -436,13 +384,13 @@ processTableWithConfig(table, tableConfig, ({ table, config }) => {
 
 ### What Was Actually Implemented
 
-Instead of the callback-based `processTableWithConfig` helper (Solution A), we implemented a simpler `$zip()` method on the Tables object that returns correlated tuples.
+Instead of the callback-based `processTableWithConfig` helper (Solution A), we implemented a simpler `zip()` method on the Tables object that returns correlated tuples.
 
-#### The `$zip()` API
+#### The `zip()` API
 
 ```typescript
 // Added to createTables() return object in core.ts
-$zip<TConfigs extends Record<keyof TSchema, unknown>>(
+zip<TConfigs extends Record<keyof TSchema, unknown>>(
   configs: TConfigs,
 ): Array<{
   [K in keyof TSchema]: {
@@ -459,7 +407,7 @@ $zip<TConfigs extends Record<keyof TSchema, unknown>>(
 
 ```typescript
 // BEFORE: Scattered @ts-expect-error comments
-const tableWithConfigs = tables.$all().map((table) => ({
+const tableWithConfigs = tables.defined().map((table) => ({
 	table,
 	tableConfig: configs[table.name],
 }));
@@ -468,28 +416,28 @@ for (const { table, tableConfig } of tableWithConfigs) {
 	tableConfig.serialize({ row, table });
 }
 
-// AFTER: Single cast encapsulated in $zip(), rename 'paired' at destructure
-for (const { table, paired: tableConfig } of tables.$zip(resolvedConfigs)) {
+// AFTER: Single cast encapsulated in zip(), rename 'paired' at destructure
+for (const { table, paired: tableConfig } of tables.zip(resolvedConfigs)) {
 	tableConfig.serialize({ row, table }); // Type-safe!
 }
 
 // SQLite provider example
-for (const { table, paired: drizzleTable } of tables.$zip(drizzleTables)) {
+for (const { table, paired: drizzleTable } of tables.zip(drizzleTables)) {
 	await sqliteDb.insert(drizzleTable).values(rows);
 }
 ```
 
-### Why `$zip` and `paired`?
+### Why `zip` and `paired`?
 
-1. **`$zip`**: Familiar functional programming term for pairing two collections
+1. **`zip`**: Familiar functional programming term for pairing two collections
 2. **`paired`**: Generic name that works for any paired value (configs, drizzle tables, etc.)
 3. **Rename at destructure**: `paired: tableConfig` or `paired: drizzleTable` gives domain-specific clarity
 
 ### Why This Approach
 
 1. **Simpler**: No callback indirection, just a standard for-of loop
-2. **Follows existing pattern**: Mirrors `$all()` but with config correlation
-3. **Single point of type assertion**: The cast is inside `$zip()`, not scattered across usage sites
+2. **Follows existing pattern**: Mirrors `defined()` but with config correlation
+3. **Single point of type assertion**: The cast is inside `zip()`, not scattered across usage sites
 4. **Flexible**: Works with any configs object that has matching keys
 
 ### Results
@@ -500,7 +448,7 @@ for (const { table, paired: drizzleTable } of tables.$zip(drizzleTables)) {
 | sqlite-provider.ts   | 4                       | 2     | 2 remain (different issue) |
 | **Total**            | **12**                  | **2** | **83% reduction**          |
 
-The remaining 2 errors in sqlite-provider.ts are a _different_ TypeScript limitation: `SerializedRow<TSchema[keyof TSchema]>[]` not assignable to `InferInsertModel<DrizzleTable>[]`. This is a Drizzle ORM type incompatibility that `$zip()` can't solve since it happens when passing data TO Drizzle, not when iterating tables.
+The remaining 2 errors in sqlite-provider.ts are a _different_ TypeScript limitation: `SerializedRow<TSchema[keyof TSchema]>[]` not assignable to `InferInsertModel<DrizzleTable>[]`. This is a Drizzle ORM type incompatibility that `zip()` can't solve since it happens when passing data TO Drizzle, not when iterating tables.
 
 ### Additional Changes
 
@@ -511,7 +459,7 @@ The remaining 2 errors in sqlite-provider.ts are a _different_ TypeScript limita
 ### Commits Made
 
 1. `refactor(db): rename createEpicenterDb to createTables`
-2. `feat(db): add $zip() for type-safe table iteration with configs`
+2. `feat(db): add zip() for type-safe table iteration with configs`
 
 ## References
 

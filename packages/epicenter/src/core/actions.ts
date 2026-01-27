@@ -1,442 +1,157 @@
-import type { StandardSchemaV1, StandardSchemaWithJSONSchema } from './schema';
-
 /**
- * The structure of workspace actions.
+ * Action System: Lightweight boundary layer for exposing workspace functionality.
  *
- * Contains only action contracts (queries/mutations) or nested namespaces of contracts.
- * Everything defined here is auto-mapped to API endpoints and MCP tools.
+ * Actions are plain objects with handlers and metadata for cross-boundary invocation.
+ * They enable REST API endpoints, MCP tool definitions, CLI commands, and OpenAPI docs.
  *
- * @example Flat structure
+ * @example
  * ```typescript
- * actions: {
- *   getUser: defineQuery({ input: ..., output: ... }),
- *   createUser: defineMutation({ input: ..., output: ... }),
- * }
- * ```
+ * import { defineQuery, defineMutation } from '@epicenter/hq';
  *
- * @example Namespaced structure
- * ```typescript
- * actions: {
- *   users: {
- *     getAll: defineQuery({ output: ... }),
- *     create: defineMutation({ input: ..., output: ... }),
+ * const actions = {
+ *   posts: {
+ *     getAll: defineQuery({
+ *       handler: () => client.tables.get('posts').getAllValid(),
+ *     }),
+ *     create: defineMutation({
+ *       input: type({ title: 'string' }),
+ *       handler: ({ title }) => {
+ *         client.tables.get('posts').upsert({ id: generateId(), title });
+ *         return { id };
+ *       },
+ *     }),
  *   },
- * }
+ * };
+ *
+ * const server = createServer(client, { actions });
  * ```
  */
-export type ActionContracts = {
-	[key: string]: ActionContract | ActionContracts;
+
+import type {
+	StandardSchemaV1,
+	StandardSchemaWithJSONSchema,
+} from './schema/standard/types';
+
+type ActionConfig<
+	TInput extends StandardSchemaWithJSONSchema | undefined = undefined,
+	TOutput = unknown,
+> = {
+	description?: string;
+	input?: TInput;
+	output?: StandardSchemaWithJSONSchema;
+	handler: TInput extends StandardSchemaWithJSONSchema
+		? (
+				input: StandardSchemaV1.InferOutput<TInput>,
+			) => TOutput | Promise<TOutput>
+		: () => TOutput | Promise<TOutput>;
+};
+
+export type Query<
+	TInput extends StandardSchemaWithJSONSchema | undefined = undefined,
+	TOutput = unknown,
+> = ActionConfig<TInput, TOutput> & {
+	type: 'query';
+};
+
+export type Mutation<
+	TInput extends StandardSchemaWithJSONSchema | undefined = undefined,
+	TOutput = unknown,
+> = ActionConfig<TInput, TOutput> & {
+	type: 'mutation';
+};
+
+export type Action<
+	TInput extends StandardSchemaWithJSONSchema | undefined = undefined,
+	TOutput = unknown,
+> = Query<TInput, TOutput> | Mutation<TInput, TOutput>;
+
+export type Actions = {
+	[key: string]: Action<any, any> | Actions;
 };
 
 /**
- * Action contract - metadata for cross-boundary invocation.
+ * Define a query (read operation) with full type inference.
  *
- * Action contracts define the shape of inputs and outputs without implementations.
- * They are JSON-serializable, enabling:
- * - Browser introspection without executing code
- * - REST API endpoint generation
- * - MCP tool definitions
- * - CLI command generation
- * - OpenAPI documentation
- *
- * Handlers are bound separately via `.withHandlers()` at runtime.
- *
- * Input and output schemas must implement StandardSchemaV1 (validation) and
- * StandardJSONSchemaV1 (JSON Schema) for runtime validation and documentation.
- */
-export type ActionContract<
-	TInput extends StandardSchemaWithJSONSchema | undefined =
-		| StandardSchemaWithJSONSchema
-		| undefined,
-	TOutput extends StandardSchemaWithJSONSchema = StandardSchemaWithJSONSchema,
-> = QueryContract<TInput, TOutput> | MutationContract<TInput, TOutput>;
-
-/**
- * Query contract: read operation with no side effects.
- *
- * Defines the input/output schema for a query without the handler implementation.
- * The handler is bound separately via `.withHandlers()`.
- *
- * When TInput is undefined, the `input` key is omitted entirely from the contract.
- * This allows introspection via `'input' in contract` to determine if input is required.
- */
-export type QueryContract<
-	TInput extends StandardSchemaWithJSONSchema | undefined =
-		| StandardSchemaWithJSONSchema
-		| undefined,
-	TOutput extends StandardSchemaWithJSONSchema = StandardSchemaWithJSONSchema,
-> = {
-	/** Discriminator for action type */
-	type: 'query';
-	/** Output schema for validation and documentation */
-	output: TOutput;
-	/** Human-readable description for documentation and AI assistants */
-	description?: string;
-} & (TInput extends undefined
-	? Record<string, never>
-	: {
-			/** Input schema for validation and documentation */
-			input: TInput;
-		});
-
-/**
- * Mutation contract: write operation that modifies state.
- *
- * Defines the input/output schema for a mutation without the handler implementation.
- * The handler is bound separately via `.withHandlers()`.
- *
- * When TInput is undefined, the `input` key is omitted entirely from the contract.
- * This allows introspection via `'input' in contract` to determine if input is required.
- */
-export type MutationContract<
-	TInput extends StandardSchemaWithJSONSchema | undefined =
-		| StandardSchemaWithJSONSchema
-		| undefined,
-	TOutput extends StandardSchemaWithJSONSchema = StandardSchemaWithJSONSchema,
-> = {
-	/** Discriminator for action type */
-	type: 'mutation';
-	/** Output schema for validation and documentation */
-	output: TOutput;
-	/** Human-readable description for documentation and AI assistants */
-	description?: string;
-} & (TInput extends undefined
-	? Record<string, never>
-	: {
-			/** Input schema for validation and documentation */
-			input: TInput;
-		});
-
-/**
- * Define a query contract (read operation with no side effects).
- *
- * Creates a JSON-serializable contract that describes the query's input/output schemas.
- * The actual handler implementation is bound separately via `.withHandlers()`.
- *
- * **With input schema:**
+ * The `type: 'query'` discriminator is attached automatically.
+ * Queries map to HTTP GET requests when exposed via the server adapter.
  *
  * @example
  * ```typescript
- * const getUser = defineQuery({
+ * const getAllPosts = defineQuery({
+ *   handler: () => client.tables.get('posts').getAllValid(),
+ * });
+ *
+ * const getPost = defineQuery({
  *   input: type({ id: 'string' }),
- *   output: type({ id: 'string', name: 'string', email: 'string' }),
- *   description: 'Get a user by ID',
+ *   handler: ({ id }) => client.tables.get('posts').get({ id }),
  * });
  * ```
- *
- * **Without input schema:**
- *
- * @example
- * ```typescript
- * const getAllUsers = defineQuery({
- *   output: type({ id: 'string', name: 'string' }).array(),
- *   description: 'Get all users',
- * });
- * ```
- *
- * **Input Schema Constraints**
- *
- * Input schemas are converted to JSON Schema for MCP/CLI/OpenAPI. Avoid:
- *
- * - **Transforms**: `.pipe()` (ArkType), `.transform()` (Zod), `transform()` action (Valibot)
- * - **Custom validation**: `.filter()` (ArkType), `.refine()` (Zod), `check()`/`custom()` (Valibot)
- * - **Non-JSON types**: `bigint`, `symbol`, `undefined`, `Date`, `Map`, `Set`
- *
- * Use basic types (`string`, `number`, `boolean`, objects, arrays) and `.matching(regex)` for patterns.
- * For complex validation, validate in the handler instead.
- *
- * Learn more:
- * - Zod: https://zod.dev/json-schema?id=unrepresentable
- * - Valibot: https://www.npmjs.com/package/@valibot/to-json-schema
- * - ArkType: https://arktype.io/docs/configuration#fallback-codes
  */
 export function defineQuery<
-	TInput extends StandardSchemaWithJSONSchema,
-	TOutput extends StandardSchemaWithJSONSchema,
->(config: {
-	input: TInput;
-	output: TOutput;
-	description?: string;
-}): QueryContract<TInput, TOutput>;
-
-/**
- * Define a query contract without input (read operation with no side effects).
- *
- * Creates a JSON-serializable contract for queries that take no input.
- * The actual handler implementation is bound separately via `.withHandlers()`.
- */
-export function defineQuery<
-	TOutput extends StandardSchemaWithJSONSchema,
->(config: {
-	output: TOutput;
-	description?: string;
-}): QueryContract<undefined, TOutput>;
-
-export function defineQuery(config: {
-	input?: StandardSchemaWithJSONSchema;
-	output: StandardSchemaWithJSONSchema;
-	description?: string;
-}): QueryContract {
-	return {
-		type: 'query',
-		output: config.output,
-		description: config.description,
-		...(config.input && { input: config.input }),
-	} as QueryContract;
+	TInput extends StandardSchemaWithJSONSchema | undefined = undefined,
+	TOutput = unknown,
+>(config: ActionConfig<TInput, TOutput>): Query<TInput, TOutput> {
+	return { type: 'query', ...config } as Query<TInput, TOutput>;
 }
 
 /**
- * Define a mutation contract (write operation that modifies state).
+ * Define a mutation (write operation) with full type inference.
  *
- * Creates a JSON-serializable contract that describes the mutation's input/output schemas.
- * The actual handler implementation is bound separately via `.withHandlers()`.
- *
- * **With input schema:**
+ * The `type: 'mutation'` discriminator is attached automatically.
+ * Mutations map to HTTP POST requests when exposed via the server adapter.
  *
  * @example
  * ```typescript
- * const createUser = defineMutation({
- *   input: type({ name: 'string', email: 'string' }),
- *   output: type({ id: 'string', name: 'string', email: 'string' }),
- *   description: 'Create a new user',
+ * const createPost = defineMutation({
+ *   input: type({ title: 'string' }),
+ *   handler: ({ title }) => {
+ *     client.tables.get('posts').upsert({ id: generateId(), title });
+ *     return { id };
+ *   },
+ * });
+ *
+ * const syncMarkdown = defineMutation({
+ *   description: 'Sync markdown files to YJS',
+ *   handler: () => client.extensions.markdown.pullFromMarkdown(),
  * });
  * ```
- *
- * **Without input schema:**
- *
- * @example
- * ```typescript
- * const resetDatabase = defineMutation({
- *   output: type({ success: 'boolean' }),
- *   description: 'Reset the database to initial state',
- * });
- * ```
- *
- * **Input Schema Constraints**
- *
- * Input schemas are converted to JSON Schema for MCP/CLI/OpenAPI. Avoid:
- *
- * - **Transforms**: `.pipe()` (ArkType), `.transform()` (Zod), `transform()` action (Valibot)
- * - **Custom validation**: `.filter()` (ArkType), `.refine()` (Zod), `check()`/`custom()` (Valibot)
- * - **Non-JSON types**: `bigint`, `symbol`, `undefined`, `Date`, `Map`, `Set`
- *
- * Use basic types (`string`, `number`, `boolean`, objects, arrays) and `.matching(regex)` for patterns.
- * For complex validation, validate in the handler instead.
- *
- * Learn more:
- * - Zod: https://zod.dev/json-schema?id=unrepresentable
- * - Valibot: https://www.npmjs.com/package/@valibot/to-json-schema
- * - ArkType: https://arktype.io/docs/configuration#fallback-codes
  */
 export function defineMutation<
-	TInput extends StandardSchemaWithJSONSchema,
-	TOutput extends StandardSchemaWithJSONSchema,
->(config: {
-	input: TInput;
-	output: TOutput;
-	description?: string;
-}): MutationContract<TInput, TOutput>;
-
-/**
- * Define a mutation contract without input (write operation that modifies state).
- *
- * Creates a JSON-serializable contract for mutations that take no input.
- * The actual handler implementation is bound separately via `.withHandlers()`.
- */
-export function defineMutation<
-	TOutput extends StandardSchemaWithJSONSchema,
->(config: {
-	output: TOutput;
-	description?: string;
-}): MutationContract<undefined, TOutput>;
-
-export function defineMutation(config: {
-	input?: StandardSchemaWithJSONSchema;
-	output: StandardSchemaWithJSONSchema;
-	description?: string;
-}): MutationContract {
-	return {
-		type: 'mutation',
-		output: config.output,
-		description: config.description,
-		...(config.input && { input: config.input }),
-	} as MutationContract;
+	TInput extends StandardSchemaWithJSONSchema | undefined = undefined,
+	TOutput = unknown,
+>(config: ActionConfig<TInput, TOutput>): Mutation<TInput, TOutput> {
+	return { type: 'mutation', ...config } as Mutation<TInput, TOutput>;
 }
 
-/**
- * Type guard: Check if a value is an ActionContract (QueryContract or MutationContract).
- *
- * Action contracts are plain objects with a `type` property of 'query' or 'mutation'.
- *
- * @example
- * ```typescript
- * const getUser = defineQuery({ output: ... });
- * const createUser = defineMutation({ input: ..., output: ... });
- *
- * isActionContract(getUser) // true
- * isActionContract(createUser) // true
- * isActionContract({ foo: 'bar' }) // false
- * ```
- */
-export function isActionContract(value: unknown): value is ActionContract {
+export function isAction(value: unknown): value is Action<any, any> {
 	return (
 		typeof value === 'object' &&
 		value !== null &&
 		'type' in value &&
 		(value.type === 'query' || value.type === 'mutation') &&
-		'output' in value
+		'handler' in value &&
+		typeof value.handler === 'function'
 	);
 }
 
-/**
- * Type guard: Check if a value is a QueryContract.
- *
- * @example
- * ```typescript
- * const getUser = defineQuery({ output: ... });
- * const createUser = defineMutation({ input: ..., output: ... });
- *
- * isQueryContract(getUser) // true
- * isQueryContract(createUser) // false
- * ```
- */
-export function isQueryContract(value: unknown): value is QueryContract {
-	return isActionContract(value) && value.type === 'query';
+export function isQuery(value: unknown): value is Query<any, any> {
+	return isAction(value) && value.type === 'query';
 }
 
-/**
- * Type guard: Check if a value is a MutationContract.
- *
- * @example
- * ```typescript
- * const getUser = defineQuery({ output: ... });
- * const createUser = defineMutation({ input: ..., output: ... });
- *
- * isMutationContract(getUser) // false
- * isMutationContract(createUser) // true
- * ```
- */
-export function isMutationContract(value: unknown): value is MutationContract {
-	return isActionContract(value) && value.type === 'mutation';
+export function isMutation(value: unknown): value is Mutation<any, any> {
+	return isAction(value) && value.type === 'mutation';
 }
 
-/**
- * Type guard: Check if a value is a namespace (plain object that might contain action contracts).
- *
- * A namespace is any plain object that is not an action contract itself.
- * This allows us to recursively walk through nested contract structures.
- *
- * @example
- * ```typescript
- * const contracts = {
- *   getUser: defineQuery({ output: ... }),
- *   users: { getAll: defineQuery({ output: ... }) }
- * };
- *
- * isNamespace(contracts.getUser) // false (it's an action contract)
- * isNamespace(contracts.users) // true (it's a namespace containing contracts)
- * isNamespace([1, 2, 3]) // false (arrays are not namespaces)
- * isNamespace("hello") // false (primitives are not namespaces)
- * ```
- */
-export function isNamespace(value: unknown): value is Record<string, unknown> {
-	return (
-		typeof value === 'object' &&
-		value !== null &&
-		!Array.isArray(value) &&
-		!isActionContract(value)
-	);
-}
-
-/**
- * Recursively walk through action contracts and yield each contract with its path.
- *
- * This generator function traverses a nested action contract structure and yields
- * each contract along with its path from the root. The path is an array of
- * keys that identifies the contract's location in the hierarchy.
- *
- * @param contracts - The workspace action contracts object to walk through
- * @param path - Current path array (used internally for recursion)
- * @yields Objects containing the contract path and the contract itself
- *
- * @example
- * ```typescript
- * const contracts = {
- *   users: {
- *     getAll: defineQuery({ output: ... }),
- *     crud: {
- *       create: defineMutation({ input: ..., output: ... })
- *     }
- *   },
- *   health: defineQuery({ output: ... })
- * };
- *
- * for (const { path, contract } of walkActionContracts(contracts)) {
- *   // First: path = ['users', 'getAll'], contract = QueryContract
- *   // Second: path = ['users', 'crud', 'create'], contract = MutationContract
- *   // Third: path = ['health'], contract = QueryContract
- * }
- * ```
- */
-export function* walkActionContracts(
-	contracts: unknown,
+export function* iterateActions(
+	actions: Actions,
 	path: string[] = [],
-): Generator<{ path: string[]; contract: ActionContract }> {
-	if (!contracts || typeof contracts !== 'object') return;
-
-	for (const [key, value] of Object.entries(contracts)) {
-		if (isActionContract(value)) {
-			yield { path: [...path, key], contract: value };
-		} else if (isNamespace(value)) {
-			yield* walkActionContracts(value, [...path, key]);
+): Generator<[Action<any, any>, string[]]> {
+	for (const [key, value] of Object.entries(actions)) {
+		const currentPath = [...path, key];
+		if (isAction(value)) {
+			yield [value, currentPath];
+		} else {
+			yield* iterateActions(value, currentPath);
 		}
 	}
 }
-
-/**
- * Helper to define workspace action contracts with full type inference.
- *
- * Identity function that provides type safety and better IDE support
- * when defining workspace action contracts.
- *
- * @example
- * ```typescript
- * const contracts = defineActionContracts({
- *   getUser: defineQuery({ input: ..., output: ... }),
- *   createUser: defineMutation({ input: ..., output: ... }),
- * });
- * // Type is fully inferred: {
- * //   getUser: QueryContract<...>,
- * //   createUser: MutationContract<...>,
- * // }
- * ```
- */
-export function defineActionContracts<T extends ActionContracts>(
-	contracts: T,
-): T {
-	return contracts;
-}
-
-// =============================================================================
-// Type utilities for handler binding (used by .withHandlers())
-// =============================================================================
-
-/**
- * Infer the input type from an action contract.
- *
- * Returns `undefined` if the contract has no input schema.
- */
-export type InferContractInput<T extends ActionContract> =
-	T extends ActionContract<infer TInput, infer _TOutput>
-		? TInput extends StandardSchemaWithJSONSchema
-			? StandardSchemaV1.InferOutput<TInput>
-			: undefined
-		: never;
-
-/**
- * Infer the output type from an action contract.
- */
-export type InferContractOutput<T extends ActionContract> =
-	T extends ActionContract<infer _TInput, infer TOutput>
-		? StandardSchemaV1.InferOutput<TOutput>
-		: never;

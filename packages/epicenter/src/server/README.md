@@ -1,6 +1,6 @@
 # Epicenter Server
 
-Expose your workspace clients as REST APIs and AI-accessible tools.
+Expose your workspace tables as REST APIs and WebSocket sync endpoints.
 
 ## What This Does
 
@@ -8,7 +8,7 @@ Expose your workspace clients as REST APIs and AI-accessible tools.
 
 1. **Takes initialized clients** (single or array)
 2. **Keeps them alive** (doesn't dispose until you stop the server)
-3. **Maps HTTP endpoints** to each action (REST, WebSocket Sync)
+3. **Maps HTTP endpoints** to tables (REST CRUD, WebSocket sync)
 
 The key difference from running scripts:
 
@@ -18,58 +18,31 @@ The key difference from running scripts:
 ## Quick Start
 
 ```typescript
-import {
-	defineWorkspace,
-	defineMutation,
-	defineQuery,
-	createServer,
-	id,
-	text,
-} from '@epicenter/hq';
-import { type } from 'arktype';
+import { defineWorkspace, createServer, id, text } from '@epicenter/hq';
+import { sqliteProvider } from '@epicenter/hq';
 
-// 1. Define workspace contract
+// 1. Define workspace
 const blogWorkspace = defineWorkspace({
 	id: 'blog',
 	tables: {
 		posts: { id: id(), title: text() },
 	},
-	actions: {
-		createPost: defineMutation({
-			input: type({ title: 'string' }),
-			output: type({ id: 'string' }),
-		}),
-		getAllPosts: defineQuery({
-			output: type({ id: 'string', title: 'string' }).array(),
-		}),
-	},
 });
 
-// 2. Create client with handlers
+// 2. Create client
 const blogClient = await blogWorkspace
 	.withProviders({ sqlite: sqliteProvider })
-	.createWithHandlers({
-		createPost: async (input, ctx) => {
-			const id = generateId();
-			ctx.tables.posts.upsert({ id, title: input.title });
-			return { id };
-		},
-		getAllPosts: async (input, ctx) => {
-			return ctx.tables.posts
-				.getAllValid()
-				.map((p) => ({ id: p.id, title: p.title }));
-		},
-	});
+	.create();
 
 // 3. Create and start server
 const server = createServer(blogClient, { port: 3913 });
 server.start();
 ```
 
-Now your actions are available as HTTP endpoints:
+Now your tables are available as REST endpoints:
 
-- `GET http://localhost:3913/workspaces/blog/actions/getAllPosts`
-- `POST http://localhost:3913/workspaces/blog/actions/createPost`
+- `GET http://localhost:3913/workspaces/blog/tables/posts`
+- `POST http://localhost:3913/workspaces/blog/tables/posts`
 
 ## API
 
@@ -121,12 +94,11 @@ await server.destroy(); // Stop server and cleanup all clients
 
 ```typescript
 const blogClient = await blogWorkspace
-  .withProviders({ sqlite: sqliteProvider })
-  .createWithHandlers({ ... });
-
+	.withProviders({ sqlite: sqliteProvider })
+	.create();
 const authClient = await authWorkspace
-  .withProviders({ sqlite: sqliteProvider })
-  .createWithHandlers({ ... });
+	.withProviders({ sqlite: sqliteProvider })
+	.create();
 
 // Pass array of clients
 const server = createServer([blogClient, authClient], { port: 3913 });
@@ -135,8 +107,8 @@ server.start();
 
 Routes are namespaced by workspace ID:
 
-- `/workspaces/blog/actions/createPost`
-- `/workspaces/auth/actions/login`
+- `/workspaces/blog/tables/posts`
+- `/workspaces/auth/tables/users`
 
 ## URL Hierarchy
 
@@ -145,7 +117,6 @@ Routes are namespaced by workspace ID:
 /openapi                                       - Scalar UI documentation
 /openapi/json                                  - OpenAPI spec (JSON)
 /workspaces/{workspaceId}/sync                 - WebSocket sync (y-websocket protocol)
-/workspaces/{workspaceId}/actions/{action}     - Workspace actions
 /workspaces/{workspaceId}/tables/{table}       - RESTful table CRUD
 /workspaces/{workspaceId}/tables/{table}/{id}  - Single row operations
 ```
@@ -156,12 +127,12 @@ Routes are namespaced by workspace ID:
 
 ```typescript
 {
-  await using client = await blogWorkspace
-    .withProviders({ sqlite: sqliteProvider })
-    .createWithHandlers({ ... });
+	await using client = await blogWorkspace
+		.withProviders({ sqlite: sqliteProvider })
+		.create();
 
-  await client.actions.createPost({ title: 'Hello' });
-  // Client disposed when block exits
+	client.tables.posts.upsert({ id: '1', title: 'Hello' });
+	// Client disposed when block exits
 }
 ```
 
@@ -173,8 +144,8 @@ Routes are namespaced by workspace ID:
 
 ```typescript
 const client = await blogWorkspace
-  .withProviders({ sqlite: sqliteProvider })
-  .createWithHandlers({ ... });
+	.withProviders({ sqlite: sqliteProvider })
+	.create();
 
 const server = createServer(client, { port: 3913 });
 server.start();
@@ -188,51 +159,18 @@ server.start();
 Use the HTTP API instead of creating another client:
 
 ```typescript
-// ❌ DON'T: Create another client (storage conflict!)
+// DON'T: Create another client (storage conflict!)
 {
-  await using client = await blogWorkspace...createWithHandlers({ ... });
-  await client.actions.createPost({ ... });
+	await using client = await blogWorkspace.withProviders({ ... }).create();
+	client.tables.posts.upsert({ ... });
 }
 
-// ✅ DO: Use the server's HTTP API
-await fetch('http://localhost:3913/workspaces/blog/actions/createPost', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ title: 'New Post' }),
+// DO: Use the server's HTTP API
+await fetch('http://localhost:3913/workspaces/blog/tables/posts', {
+	method: 'POST',
+	headers: { 'Content-Type': 'application/json' },
+	body: JSON.stringify({ id: '1', title: 'New Post' }),
 });
-```
-
-## REST API Format
-
-### Request
-
-**Query actions (GET):** Pass parameters as query strings
-
-```
-GET /workspaces/blog/actions/getPost?id=123
-```
-
-**Mutation actions (POST):** Send JSON body
-
-```
-POST /workspaces/blog/actions/createPost
-Content-Type: application/json
-
-{ "title": "Hello" }
-```
-
-### Response
-
-**Success:**
-
-```json
-{ "data": { "id": "123" } }
-```
-
-**Error:**
-
-```json
-{ "error": { "message": "What went wrong" } }
 ```
 
 ## RESTful Tables
@@ -247,16 +185,37 @@ Tables are automatically exposed as CRUD endpoints:
 | `PUT`    | `/workspaces/{workspace}/tables/{table}/{id}` | Update row fields    |
 | `DELETE` | `/workspaces/{workspace}/tables/{table}/{id}` | Delete row           |
 
-## Custom Routes
+### Response Format
 
-Access the underlying Elysia app to add custom routes:
+**Success:**
+
+```json
+{ "data": { "id": "123", "title": "Hello" } }
+```
+
+**Error:**
+
+```json
+{ "error": { "message": "What went wrong" } }
+```
+
+## Custom Endpoints
+
+Write regular functions that use your client and expose them via custom routes:
 
 ```typescript
 const server = createServer(blogClient, { port: 3913 });
 
-// Add custom routes before starting
+// Define functions that use the client
+function createPost(title: string) {
+	const id = generateId();
+	blogClient.tables.posts.upsert({ id, title });
+	return { id };
+}
+
+// Add custom routes
+server.app.post('/api/posts', ({ body }) => createPost(body.title));
 server.app.get('/health', () => 'OK');
-server.app.get('/version', () => ({ version: '1.0.0' }));
 
 server.start();
 ```

@@ -1,33 +1,24 @@
 import { expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { createClient } from '@epicenter/hq';
-import epicenterConfig from './epicenter.config';
+import blogWorkspace from './epicenter.config';
 
 test('markdown file edits sync back to YJS', async () => {
-	console.log('🚀 Testing bidirectional markdown sync...');
+	console.log('Testing bidirectional markdown sync...');
 
-	await using client = await createClient(epicenterConfig);
-	const blog = client.blog;
+	await using client = await blogWorkspace.create();
 
-	// Create a test post
-	console.log('📝 Creating test post...');
-	const { data: post } = await blog.createPost({
+	console.log('Creating test post...');
+	const { data: post } = await client.actions.createPost({
 		title: 'Bidirectional Sync Test',
 		content: 'Original content',
 		category: 'tech',
 	});
 	console.log(`   Created post with ID: ${post.id}`);
 
-	// Wait for markdown file to be created
 	await new Promise((resolve) => setTimeout(resolve, 300));
 
-	// Verify markdown file exists
-	const markdownPath = join(
-		process.cwd(),
-		'.data/content/posts',
-		`${post.id}.md`,
-	);
+	const markdownPath = join(process.cwd(), 'blog/posts', `${post.id}.md`);
 	const fileExists = (() => {
 		try {
 			readFileSync(markdownPath, 'utf-8');
@@ -37,27 +28,24 @@ test('markdown file edits sync back to YJS', async () => {
 		}
 	})();
 	expect(fileExists).toBe(true);
-	console.log(`   ✅ Markdown file created: ${markdownPath}`);
+	console.log(`   Markdown file created: ${markdownPath}`);
 
-	// Read the markdown file
 	const originalContent = readFileSync(markdownPath, 'utf-8');
 	console.log('   Original markdown content read');
 
-	// Edit the markdown file programmatically
-	console.log('✏️  Editing markdown file programmatically...');
+	console.log('Editing markdown file programmatically...');
 	const updatedContent = originalContent
 		.replace('title: Bidirectional Sync Test', 'title: Updated Title')
 		.replace('content: Original content', 'content: Updated content via file');
 	await Bun.write(markdownPath, updatedContent);
-	console.log('   ✅ Markdown file updated');
+	console.log('   Markdown file updated');
 
-	// Wait for file watcher to process the change
-	console.log('⏳ Waiting for file watcher to process changes...');
-	await new Promise((resolve) => setTimeout(resolve, 500));
+	console.log('Waiting for file watcher to process changes...');
+	await new Promise((resolve) => setTimeout(resolve, 1500));
 
-	// Query the post to verify changes were synced
-	console.log('🔍 Querying post to verify changes synced...');
-	const { data: updatedPost } = await blog.getPost({ id: post.id });
+	console.log('Querying post to verify changes synced...');
+	const { data: updatedPosts } = await client.actions.getPost({ id: post.id });
+	const updatedPost = updatedPosts[0];
 
 	expect(updatedPost).toBeTruthy();
 	expect(updatedPost.title).toBe('Updated Title');
@@ -71,6 +59,6 @@ test('markdown file edits sync back to YJS', async () => {
 	console.log(`      Content: "${updatedPost.content}"`);
 
 	console.log(
-		'\n✅ Bidirectional sync is working! Changes from markdown file synced to YJS.',
+		'\nBidirectional sync is working! Changes from markdown file synced to YJS.',
 	);
 });
