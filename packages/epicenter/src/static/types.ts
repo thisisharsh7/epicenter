@@ -70,7 +70,7 @@ export type DeleteManyResult =
 // ════════════════════════════════════════════════════════════════════════════
 
 /** Result of getting a KV value */
-export type KVGetResult<TValue> =
+export type KvGetResult<TValue> =
 	| { readonly status: 'valid'; readonly value: TValue }
 	| {
 			readonly status: 'invalid';
@@ -80,7 +80,7 @@ export type KVGetResult<TValue> =
 	| { readonly status: 'not_found' };
 
 /** Change event for KV observation */
-export type KVChange<TValue> =
+export type KvChange<TValue> =
 	| { readonly type: 'set'; readonly value: TValue }
 	| { readonly type: 'delete' };
 
@@ -105,7 +105,7 @@ export type InferTableRow<T> = T extends TableDefinition<infer R> ? R : never;
 // ════════════════════════════════════════════════════════════════════════════
 
 /** A KV definition created by defineKv().version().migrate() */
-export type KVDefinition<TValue> = {
+export type KvDefinition<TValue> = {
 	readonly versions: readonly StandardSchemaV1[];
 	readonly unionSchema: StandardSchemaV1;
 	readonly migrate: (value: unknown) => TValue;
@@ -113,8 +113,8 @@ export type KVDefinition<TValue> = {
 	readonly _valueType: TValue;
 };
 
-/** Extract the value type from a KVDefinition */
-export type InferKVValue<T> = T extends KVDefinition<infer V> ? V : never;
+/** Extract the value type from a KvDefinition */
+export type InferKvValue<T> = T extends KvDefinition<infer V> ? V : never;
 
 // ════════════════════════════════════════════════════════════════════════════
 // HELPER TYPES
@@ -199,7 +199,7 @@ export type TableHelper<TRow extends { id: string }> = {
 export type TableDefinitionMap = Record<string, TableDefinition<{ id: string }>>;
 
 /** Map of KV definitions */
-export type KVDefinitionMap = Record<string, KVDefinition<unknown>>;
+export type KvDefinitionMap = Record<string, KvDefinition<unknown>>;
 
 /** Tables helper object with all table helpers */
 export type TablesHelper<TTables extends TableDefinitionMap> = {
@@ -207,12 +207,12 @@ export type TablesHelper<TTables extends TableDefinitionMap> = {
 };
 
 /** KV helper with dictionary-style access */
-export type KVHelper<TKV extends KVDefinitionMap> = {
+export type KvHelper<TKV extends KvDefinitionMap> = {
 	/** Get a value by key (validates + migrates). */
-	get<K extends keyof TKV & string>(key: K): KVGetResult<InferKVValue<TKV[K]>>;
+	get<K extends keyof TKV & string>(key: K): KvGetResult<InferKvValue<TKV[K]>>;
 
 	/** Set a value by key (always latest schema). */
-	set<K extends keyof TKV & string>(key: K, value: InferKVValue<TKV[K]>): void;
+	set<K extends keyof TKV & string>(key: K, value: InferKvValue<TKV[K]>): void;
 
 	/** Delete a value by key. */
 	delete<K extends keyof TKV & string>(key: K): void;
@@ -220,7 +220,7 @@ export type KVHelper<TKV extends KVDefinitionMap> = {
 	/** Watch for changes to a key. Returns unsubscribe function. */
 	observe<K extends keyof TKV & string>(
 		key: K,
-		callback: (change: KVChange<InferKVValue<TKV[K]>>, transaction: unknown) => void,
+		callback: (change: KvChange<InferKvValue<TKV[K]>>, transaction: unknown) => void,
 	): () => void;
 };
 
@@ -228,7 +228,7 @@ export type KVHelper<TKV extends KVDefinitionMap> = {
 export type WorkspaceDefinition<
 	TId extends string,
 	TTables extends TableDefinitionMap,
-	TKV extends KVDefinitionMap,
+	TKV extends KvDefinitionMap,
 > = {
 	readonly id: TId;
 	readonly tableDefinitions: TTables;
@@ -259,13 +259,13 @@ export type InferCapabilityExports<TCapabilities extends CapabilityMap> = {
 export type WorkspaceClient<
 	TId extends string,
 	TTables extends TableDefinitionMap,
-	TKV extends KVDefinitionMap,
+	TKV extends KvDefinitionMap,
 	TCapabilities extends CapabilityMap,
 > = {
 	readonly id: TId;
 	readonly ydoc: unknown;
 	readonly tables: TablesHelper<TTables>;
-	readonly kv: KVHelper<TKV>;
+	readonly kv: KvHelper<TKV>;
 	readonly capabilities: InferCapabilityExports<TCapabilities>;
 
 	/** Cleanup all resources */

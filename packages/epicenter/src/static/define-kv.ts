@@ -22,19 +22,19 @@
 
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { createUnionSchema } from './schema-union.js';
-import type { KVDefinition } from './types.js';
+import type { KvDefinition } from './types.js';
 
 /**
  * Builder for defining KV schemas with versioning support.
  */
-type KVBuilder<TVersions extends StandardSchemaV1[], TLatest> = {
+type KvBuilder<TVersions extends StandardSchemaV1[], TLatest> = {
 	/**
 	 * Add a schema version.
 	 * The last version added becomes the "latest" schema shape.
 	 */
 	version<TSchema extends StandardSchemaV1>(
 		schema: TSchema,
-	): KVBuilder<[...TVersions, TSchema], StandardSchemaV1.InferOutput<TSchema>>;
+	): KvBuilder<[...TVersions, TSchema], StandardSchemaV1.InferOutput<TSchema>>;
 
 	/**
 	 * Provide a migration function that normalizes any version to the latest.
@@ -42,7 +42,7 @@ type KVBuilder<TVersions extends StandardSchemaV1[], TLatest> = {
 	 */
 	migrate(
 		fn: (value: StandardSchemaV1.InferOutput<TVersions[number]>) => TLatest,
-	): KVDefinition<TLatest>;
+	): KvDefinition<TLatest>;
 };
 
 /**
@@ -55,7 +55,7 @@ type KVBuilder<TVersions extends StandardSchemaV1[], TLatest> = {
  */
 export function defineKv<TSchema extends StandardSchemaV1>(
 	schema: TSchema,
-): KVDefinition<StandardSchemaV1.InferOutput<TSchema>>;
+): KvDefinition<StandardSchemaV1.InferOutput<TSchema>>;
 
 /**
  * Creates a KV definition builder for multiple versions with migrations.
@@ -71,11 +71,11 @@ export function defineKv<TSchema extends StandardSchemaV1>(
  *   });
  * ```
  */
-export function defineKv(): KVBuilder<[], never>;
+export function defineKv(): KvBuilder<[], never>;
 
 export function defineKv<TSchema extends StandardSchemaV1>(
 	schema?: TSchema,
-): KVDefinition<StandardSchemaV1.InferOutput<TSchema>> | KVBuilder<[], never> {
+): KvDefinition<StandardSchemaV1.InferOutput<TSchema>> | KvBuilder<[], never> {
 	if (schema) {
 		return {
 			versions: [schema],
@@ -87,10 +87,10 @@ export function defineKv<TSchema extends StandardSchemaV1>(
 
 	const versions: StandardSchemaV1[] = [];
 
-	const builder: KVBuilder<StandardSchemaV1[], unknown> = {
+	const builder: KvBuilder<StandardSchemaV1[], unknown> = {
 		version(schema) {
 			versions.push(schema);
-			return builder as KVBuilder<StandardSchemaV1[], unknown>;
+			return builder as KvBuilder<StandardSchemaV1[], unknown>;
 		},
 
 		migrate(fn) {
@@ -109,5 +109,5 @@ export function defineKv<TSchema extends StandardSchemaV1>(
 		},
 	};
 
-	return builder as KVBuilder<[], never>;
+	return builder as KvBuilder<[], never>;
 }

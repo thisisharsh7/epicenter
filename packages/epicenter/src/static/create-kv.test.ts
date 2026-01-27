@@ -1,13 +1,13 @@
 import { describe, expect, test } from 'bun:test';
 import { type } from 'arktype';
 import * as Y from 'yjs';
-import { createKV } from './create-kv.js';
+import { createKv } from './create-kv.js';
 import { defineKv } from './define-kv.js';
 
-describe('createKV', () => {
+describe('createKv', () => {
 	test('set and get a value', () => {
 		const ydoc = new Y.Doc();
-		const kv = createKV(ydoc, {
+		const kv = createKv(ydoc, {
 			theme: defineKv()
 				.version(type({ mode: "'light' | 'dark'" }))
 				.migrate((v) => v),
@@ -24,7 +24,7 @@ describe('createKV', () => {
 
 	test('get returns not_found for unset key', () => {
 		const ydoc = new Y.Doc();
-		const kv = createKV(ydoc, {
+		const kv = createKv(ydoc, {
 			theme: defineKv()
 				.version(type({ mode: "'light' | 'dark'" }))
 				.migrate((v) => v),
@@ -36,7 +36,7 @@ describe('createKV', () => {
 
 	test('delete removes the value', () => {
 		const ydoc = new Y.Doc();
-		const kv = createKV(ydoc, {
+		const kv = createKv(ydoc, {
 			theme: defineKv()
 				.version(type({ mode: "'light' | 'dark'" }))
 				.migrate((v) => v),
@@ -51,7 +51,7 @@ describe('createKV', () => {
 
 	test('migrates old data on read', () => {
 		const ydoc = new Y.Doc();
-		const kv = createKV(ydoc, {
+		const kv = createKv(ydoc, {
 			theme: defineKv()
 				.version(type({ mode: "'light' | 'dark'" }))
 				.version(type({ mode: "'light' | 'dark'", fontSize: 'number' }))

@@ -30,14 +30,14 @@
  */
 
 import * as Y from 'yjs';
-import { createKV } from './create-kv.js';
+import { createKv } from './create-kv.js';
 import { createTables } from './create-tables.js';
 import type {
 	CapabilityFactory,
 	CapabilityMap,
 	InferCapabilityExports,
-	KVDefinitionMap,
-	KVHelper,
+	KvDefinitionMap,
+	KvHelper,
 	TableDefinitionMap,
 	TablesHelper,
 	WorkspaceClient,
@@ -59,7 +59,7 @@ import type {
 export function defineWorkspace<
 	TId extends string,
 	TTables extends TableDefinitionMap = {},
-	TKV extends KVDefinitionMap = {},
+	TKV extends KvDefinitionMap = {},
 >({
 	id,
 	tables: tableDefinitions = {} as TTables,
@@ -83,7 +83,7 @@ export function defineWorkspace<
 
 			// Create tables and KV helpers
 			const tables = createTables(ydoc, tableDefinitions);
-			const kv = createKV(ydoc, kvDefinitions);
+			const kv = createKv(ydoc, kvDefinitions);
 
 			// Initialize capabilities
 			const capabilityExports: Record<string, unknown> = {};
@@ -121,7 +121,7 @@ export function defineWorkspace<
 				id,
 				ydoc,
 				tables: tables as TablesHelper<TTables>,
-				kv: kv as KVHelper<TKV>,
+				kv: kv as KvHelper<TKV>,
 				capabilities: capabilityExports as InferCapabilityExports<TCapabilities>,
 				destroy,
 				[Symbol.asyncDispose]: destroy,

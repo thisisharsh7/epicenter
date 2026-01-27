@@ -72,7 +72,7 @@ No need to invent variable names for single-use values. The property key (`posts
 
 ### 3. Matches the Mental Model
 
-For factory functions like `createTables()` or `createKV()`, the definition IS the usage. You're not defining a table and then doing something else with it. You're defining a table to pass to a factory. They're inseparable.
+For factory functions like `createTables()` or `createKv()`, the definition IS the usage. You're not defining a table and then doing something else with it. You're defining a table to pass to a factory. They're inseparable.
 
 ### 4. Easier to Copy and Modify
 
@@ -90,7 +90,7 @@ Extract to a variable when:
 ## What This Applies To
 
 - `defineTable()`, `defineKv()`, `defineWorkspace()` builders
-- `createTables()`, `createKV()` factory calls
+- `createTables()`, `createKv()` factory calls
 - Schema definitions (arktype, zod, valibot, typebox)
 - Configuration objects passed to factories
 - Mock functions used only once

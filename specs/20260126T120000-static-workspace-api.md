@@ -27,7 +27,7 @@ The API is designed in layers. Each layer is independently usable:
 │  defineWorkspace() + workspace.create()                     │  ← High-level
 │    Creates Y.Doc internally, binds tables/kv/capabilities   │
 ├─────────────────────────────────────────────────────────────┤
-│  createTables(ydoc, {...}) / createKV(ydoc, {...})          │  ← Mid-level
+│  createTables(ydoc, {...}) / createKv(ydoc, {...})          │  ← Mid-level
 │    Binds to existing Y.Doc                                  │
 ├─────────────────────────────────────────────────────────────┤
 │  defineTable() / defineKv()                                 │  ← Low-level
@@ -40,7 +40,7 @@ The API is designed in layers. Each layer is independently usable:
 | Prefix | Meaning | Side Effects | Example |
 |--------|---------|--------------|---------|
 | `define*` | Pure schema declaration | None | `defineTable()`, `defineKv()`, `defineWorkspace()` |
-| `create*` | Instantiation | Creates Y.Doc, binds data | `createTables()`, `createKV()`, `workspace.create()` |
+| `create*` | Instantiation | Creates Y.Doc, binds data | `createTables()`, `createKv()`, `workspace.create()` |
 
 ### 3. No Wrapper Functions for Composition
 
@@ -160,25 +160,25 @@ const theme = defineKv()
 **Type Signature:**
 
 ```typescript
-// Shorthand: direct schema → KVDefinition
+// Shorthand: direct schema → KvDefinition
 function defineKv<TSchema extends StandardSchemaV1>(
   schema: TSchema
-): KVDefinition<StandardSchemaV1.InferOutput<TSchema>>;
+): KvDefinition<StandardSchemaV1.InferOutput<TSchema>>;
 
-// Builder: no args → KVBuilder
-function defineKv(): KVBuilder<[], never>;
+// Builder: no args → KvBuilder
+function defineKv(): KvBuilder<[], never>;
 
-type KVBuilder<TVersions extends StandardSchemaV1[], TLatest> = {
+type KvBuilder<TVersions extends StandardSchemaV1[], TLatest> = {
   version<TSchema extends StandardSchemaV1>(
     schema: TSchema
-  ): KVBuilder<[...TVersions, TSchema], StandardSchemaV1.InferOutput<TSchema>>;
+  ): KvBuilder<[...TVersions, TSchema], StandardSchemaV1.InferOutput<TSchema>>;
 
   migrate(
     fn: (value: StandardSchemaV1.InferOutput<TVersions[number]>) => TLatest
-  ): KVDefinition<TLatest>;
+  ): KvDefinition<TLatest>;
 };
 
-type KVDefinition<TValue> = {
+type KvDefinition<TValue> = {
   readonly versions: readonly StandardSchemaV1[];
   readonly unionSchema: StandardSchemaV1;
   readonly migrate: (value: unknown) => TValue;
@@ -207,7 +207,7 @@ const workspace = defineWorkspace({
 function defineWorkspace<
   TId extends string,
   TTables extends Record<string, TableDefinition<any>>,
-  TKV extends Record<string, KVDefinition<any>>,
+  TKV extends Record<string, KvDefinition<any>>,
 >(config: {
   id: TId;
   tables?: TTables;
@@ -261,7 +261,7 @@ type WorkspaceClient<TId, TTables, TKV, TCapabilities> = {
   readonly id: TId;
   readonly ydoc: Y.Doc;
   readonly tables: TablesHelper<TTables>;
-  readonly kv: KVHelper<TKV>;
+  readonly kv: KvHelper<TKV>;
   readonly capabilities: InferCapabilityExports<TCapabilities>;
 
   destroy(): Promise<void>;
@@ -280,7 +280,7 @@ client.tables.posts.get('1');  // GetResult<Post>
 
 // Type-safe KV access (dictionary-style)
 client.kv.set('theme', { mode: 'dark', fontSize: 16 });
-client.kv.get('theme');  // KVGetResult<Theme>
+client.kv.get('theme');  // KvGetResult<Theme>
 
 // Wait for capabilities if needed (async property pattern)
 await client.capabilities.persistence.whenSynced;
@@ -336,15 +336,15 @@ type TablesHelper<TTables> = {
 
 ---
 
-#### `createKV()`
+#### `createKv()`
 
 Binds KV definitions to an existing Y.Doc.
 
 ```typescript
-import { createKV } from 'epicenter/static';
+import { createKv } from 'epicenter/static';
 
 const ydoc = new Y.Doc({ guid: 'my-doc' });
-const kv = createKV(ydoc, { theme, sidebar });
+const kv = createKv(ydoc, { theme, sidebar });
 
 kv.set('theme', { mode: 'dark', fontSize: 16 });
 ```
@@ -352,18 +352,18 @@ kv.set('theme', { mode: 'dark', fontSize: 16 });
 **Type Signature:**
 
 ```typescript
-function createKV<TKV extends Record<string, KVDefinition<any>>>(
+function createKv<TKV extends Record<string, KvDefinition<any>>>(
   ydoc: Y.Doc,
   definitions: TKV
-): KVHelper<TKV>;
+): KvHelper<TKV>;
 
-type KVHelper<TKV extends Record<string, KVDefinition<any>>> = {
-  get<K extends keyof TKV>(key: K): KVGetResult<InferKVValue<TKV[K]>>;
-  set<K extends keyof TKV>(key: K, value: InferKVValue<TKV[K]>): void;
+type KvHelper<TKV extends Record<string, KvDefinition<any>>> = {
+  get<K extends keyof TKV>(key: K): KvGetResult<InferKvValue<TKV[K]>>;
+  set<K extends keyof TKV>(key: K, value: InferKvValue<TKV[K]>): void;
   delete<K extends keyof TKV>(key: K): void;
   observe<K extends keyof TKV>(
     key: K,
-    callback: (change: KVChange<InferKVValue<TKV[K]>>, tx: Y.Transaction) => void
+    callback: (change: KvChange<InferKvValue<TKV[K]>>, tx: Y.Transaction) => void
   ): () => void;
 };
 ```
@@ -459,12 +459,12 @@ This simplifies the mental model and enables schema versioning (entire row is at
 Methods available on `kv` (dictionary-style access):
 
 ```typescript
-type KVHelper<TKV extends Record<string, KVDefinition<any>>> = {
+type KvHelper<TKV extends Record<string, KvDefinition<any>>> = {
   /** Get a value by key (validates + migrates). */
-  get<K extends keyof TKV>(key: K): KVGetResult<InferKVValue<TKV[K]>>;
+  get<K extends keyof TKV>(key: K): KvGetResult<InferKvValue<TKV[K]>>;
 
   /** Set a value by key (always latest schema). */
-  set<K extends keyof TKV>(key: K, value: InferKVValue<TKV[K]>): void;
+  set<K extends keyof TKV>(key: K, value: InferKvValue<TKV[K]>): void;
 
   /** Delete a value by key. */
   delete<K extends keyof TKV>(key: K): void;
@@ -472,11 +472,11 @@ type KVHelper<TKV extends Record<string, KVDefinition<any>>> = {
   /** Watch for changes to a specific key. */
   observe<K extends keyof TKV>(
     key: K,
-    callback: (change: KVChange<InferKVValue<TKV[K]>>, tx: Y.Transaction) => void
+    callback: (change: KvChange<InferKvValue<TKV[K]>>, tx: Y.Transaction) => void
   ): () => void;
 };
 
-type KVGetResult<TValue> =
+type KvGetResult<TValue> =
   | { status: 'valid'; value: TValue }
   | { status: 'invalid'; error: ValidationError }
   | { status: 'not_found' };
@@ -538,7 +538,7 @@ packages/epicenter/src/static/
 ├── define-kv.ts                # defineKv() builder
 ├── define-workspace.ts         # defineWorkspace() + workspace.create()
 ├── create-tables.ts            # createTables() lower-level API
-├── create-kv.ts                # createKV() lower-level API + KVHelper implementation
+├── create-kv.ts                # createKv() lower-level API + KvHelper implementation
 ├── table-helper.ts             # TableHelper implementation
 ├── types.ts                    # Shared types
 └── schema-union.ts             # Standard Schema union validation
@@ -556,19 +556,19 @@ export { defineWorkspace } from './define-workspace';
 
 // Lower-level APIs (for existing Y.Doc)
 export { createTables } from './create-tables';
-export { createKV } from './create-kv';
+export { createKv } from './create-kv';
 
 // Types
 export type {
   TableDefinition,
-  KVDefinition,
+  KvDefinition,
   Workspace,
   WorkspaceClient,
   TableHelper,
-  KVHelper,
+  KvHelper,
   GetResult,
   RowResult,
-  KVGetResult,
+  KvGetResult,
   // ...
 } from './types';
 ```
@@ -973,7 +973,7 @@ type DeleteManyResult =
   | { status: 'none_deleted'; notFoundLocally: string[] };
 
 // KV results
-type KVGetResult<TValue> =
+type KvGetResult<TValue> =
   | { status: 'valid'; value: TValue }
   | { status: 'invalid'; error: ValidationError }
   | { status: 'not_found' };
@@ -1056,7 +1056,7 @@ const fontSize = defineKv(type('number'));  // Just stores 14
 - [x] Implement `defineKv()` with TypeScript inference
 - [x] Implement `defineWorkspace()` and `workspace.create()`
 - [x] Implement `createTables()` with YKeyValue storage
-- [x] Implement `createKV()` with YKeyValue storage
+- [x] Implement `createKv()` with YKeyValue storage
 - [x] Implement Standard Schema union validation
 - [x] Add comprehensive tests for migration scenarios
 - [x] Update package exports
@@ -1081,7 +1081,7 @@ packages/epicenter/src/static/
 ├── define-kv.ts       # defineKv() builder
 ├── table-helper.ts    # TableHelper implementation (CRUD operations)
 ├── create-tables.ts   # createTables() factory
-├── create-kv.ts       # createKV() factory + KVHelper implementation (get/set/observe)
+├── create-kv.ts       # createKv() factory + KvHelper implementation (get/set/observe)
 ├── define-workspace.ts # defineWorkspace() + workspace.create()
 └── *.test.ts          # Per-module test files
 ```
@@ -1115,7 +1115,7 @@ packages/epicenter/src/static/
 - defineTable builder (single version, multiple versions, migration)
 - defineKv builder (single version, multiple versions, migration)
 - createTables CRUD (set, get, getAll, filter, find, delete, clear, count)
-- createKV operations (set, get, reset, migration on read)
+- createKv operations (set, get, reset, migration on read)
 - defineWorkspace (creation, tables/kv access, capabilities, destroy)
 - Migration scenarios (with/without explicit `_v` field, multi-version)
 

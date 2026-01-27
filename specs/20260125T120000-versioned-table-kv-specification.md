@@ -380,7 +380,7 @@ For consistency with tables and bounded memory, we use YKeyValue for both.
 ### API: defineKv
 
 ```typescript
-import { defineKv, createKV } from 'epicenter';
+import { defineKv, createKv } from 'epicenter';
 import { type } from 'arktype';
 
 // Define KV keys with schema versions
@@ -405,7 +405,7 @@ const sidebarDefinition = defineKv('sidebar')
   });
 
 // Bind to Y.Doc
-const kv = createKV(ydoc, {
+const kv = createKv(ydoc, {
   theme: themeDefinition,
   sidebar: sidebarDefinition,
 });
@@ -418,19 +418,19 @@ const theme = kv.theme.get();  // Validated + migrated
 ### Type Signature
 
 ```typescript
-function defineKv(key: string): KVBuilder<[], never>;
+function defineKv(key: string): KvBuilder<[], never>;
 
-type KVBuilder<TVersions extends StandardSchemaV1[], TLatest> = {
+type KvBuilder<TVersions extends StandardSchemaV1[], TLatest> = {
   version<TSchema extends StandardSchemaV1>(
     schema: TSchema
-  ): KVBuilder<[...TVersions, TSchema], StandardSchemaV1.InferOutput<TSchema>>;
+  ): KvBuilder<[...TVersions, TSchema], StandardSchemaV1.InferOutput<TSchema>>;
 
   migrate(
     fn: (value: StandardSchemaV1.InferOutput<TVersions[number]>) => TLatest
-  ): KVDefinition<TLatest>;
+  ): KvDefinition<TLatest>;
 };
 
-type KVDefinition<TValue> = {
+type KvDefinition<TValue> = {
   readonly key: string;
   readonly versions: readonly StandardSchemaV1[];
   readonly unionSchema: StandardSchemaV1;
@@ -441,9 +441,9 @@ type KVDefinition<TValue> = {
 ### KV Helper Methods
 
 ```typescript
-type KVHelper<TValue> = {
+type KvHelper<TValue> = {
   // Read (validates + migrates)
-  get(): KVGetResult<TValue>;
+  get(): KvGetResult<TValue>;
 
   // Write (always writes latest schema shape)
   set(value: TValue): void;
@@ -452,10 +452,10 @@ type KVHelper<TValue> = {
   reset(): void;
 
   // Observe
-  observe(callback: (change: KVChange<TValue>, transaction: Y.Transaction) => void): () => void;
+  observe(callback: (change: KvChange<TValue>, transaction: Y.Transaction) => void): () => void;
 };
 
-type KVGetResult<TValue> =
+type KvGetResult<TValue> =
   | { status: 'valid'; value: TValue }
   | { status: 'invalid'; key: string; error: KVValidationError }
   | { status: 'not_found'; key: string };
@@ -535,20 +535,20 @@ function createTables<TDefs extends Record<string, TableDefinition<{ id: string 
 }
 ```
 
-### createKV Implementation
+### createKv Implementation
 
 ```typescript
-function createKV<TDefs extends Record<string, KVDefinition<any>>>(
+function createKv<TDefs extends Record<string, KvDefinition<any>>>(
   ydoc: Y.Doc,
   definitions: TDefs
-): { [K in keyof TDefs]: KVHelper<TDefs[K] extends KVDefinition<infer V> ? V : never> } {
+): { [K in keyof TDefs]: KvHelper<TDefs[K] extends KvDefinition<infer V> ? V : never> } {
   // Use YKeyValue for bounded memory (consistent with tables)
   const yarray = ydoc.getArray<{ key: string; val: unknown }>('kv');
   const ykv = new YKeyValue(yarray);
 
   return Object.fromEntries(
     Object.entries(definitions).map(([name, definition]) => {
-      return [name, createKVHelper(ykv, definition)];
+      return [name, createKvHelper(ykv, definition)];
     })
   ) as any;
 }
@@ -560,7 +560,7 @@ function createKV<TDefs extends Record<string, KVDefinition<any>>>(
 
 ```typescript
 import * as Y from 'yjs';
-import { defineTable, defineKv, createTables, createKV } from 'epicenter';
+import { defineTable, defineKv, createTables, createKv } from 'epicenter';
 import { type } from 'arktype';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -634,7 +634,7 @@ const sidebar = defineKv('sidebar')
 const ydoc = new Y.Doc({ gc: true });
 
 const tables = createTables(ydoc, { posts, users });
-const kv = createKV(ydoc, { theme, sidebar });
+const kv = createKv(ydoc, { theme, sidebar });
 
 // ═══════════════════════════════════════════════════════════════════════════
 // USAGE
@@ -765,7 +765,7 @@ if (result.status === 'valid') {
 - [ ] Implement `defineKv` builder with TypeScript inference
 - [ ] Implement `createUnionStandardSchema` for library-agnostic validation
 - [ ] Implement `createTables` binding function
-- [ ] Implement `createKV` binding function
+- [ ] Implement `createKv` binding function
 - [ ] Add tests for migration scenarios
 - [ ] Add tests for validation error handling
 - [ ] Benchmark union validation performance

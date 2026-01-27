@@ -56,7 +56,7 @@ export { defineWorkspace } from './define-workspace.js';
 // ════════════════════════════════════════════════════════════════════════════
 
 export { createTables } from './create-tables.js';
-export { createKV } from './create-kv.js';
+export { createKv } from './create-kv.js';
 
 // ════════════════════════════════════════════════════════════════════════════
 // Validation Utilities
@@ -75,21 +75,21 @@ export type {
 	InvalidRowResult,
 	DeleteResult,
 	DeleteManyResult,
-	KVGetResult,
-	KVChange,
+	KvGetResult,
+	KvChange,
 	ValidationIssue,
 	// Definition types
 	TableDefinition,
-	KVDefinition,
+	KvDefinition,
 	InferTableRow,
-	InferKVValue,
+	InferKvValue,
 	// Helper types
 	TableHelper,
 	TablesHelper,
-	KVHelper,
+	KvHelper,
 	// Map types
 	TableDefinitionMap,
-	KVDefinitionMap,
+	KvDefinitionMap,
 	// Workspace types
 	WorkspaceDefinition,
 	WorkspaceClient,

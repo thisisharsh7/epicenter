@@ -1,10 +1,10 @@
 /**
- * createKV() - Lower-level API for binding KV definitions to an existing Y.Doc.
+ * createKv() - Lower-level API for binding KV definitions to an existing Y.Doc.
  *
  * @example
  * ```typescript
  * import * as Y from 'yjs';
- * import { createKV, defineKv } from 'epicenter/static';
+ * import { createKv, defineKv } from 'epicenter/static';
  * import { type } from 'arktype';
  *
  * const theme = defineKv()
@@ -12,7 +12,7 @@
  *   .migrate((v) => v);
  *
  * const ydoc = new Y.Doc({ guid: 'my-doc' });
- * const kv = createKV(ydoc, { theme });
+ * const kv = createKv(ydoc, { theme });
  *
  * kv.set('theme', { mode: 'dark' });
  * const result = kv.get('theme');
@@ -22,28 +22,28 @@
 import type * as Y from 'yjs';
 import { YKeyValue, type YKeyValueChange } from '../core/utils/y-keyvalue.js';
 import type {
-	InferKVValue,
-	KVDefinition,
-	KVDefinitionMap,
-	KVGetResult,
-	KVHelper,
+	InferKvValue,
+	KvDefinition,
+	KvDefinitionMap,
+	KvGetResult,
+	KvHelper,
 	ValidationIssue,
 } from './types.js';
 
 /**
  * Binds KV definitions to an existing Y.Doc.
  *
- * Creates a KVHelper with dictionary-style access methods.
+ * Creates a KvHelper with dictionary-style access methods.
  * All KV values are stored in a shared Y.Array at `kv`.
  *
  * @param ydoc - The Y.Doc to bind KV to
- * @param definitions - Map of key name to KVDefinition
- * @returns KVHelper with type-safe get/set/delete/observe methods
+ * @param definitions - Map of key name to KvDefinition
+ * @returns KvHelper with type-safe get/set/delete/observe methods
  */
-export function createKV<TKV extends KVDefinitionMap>(
+export function createKv<TKV extends KvDefinitionMap>(
 	ydoc: Y.Doc,
 	definitions: TKV,
-): KVHelper<TKV> {
+): KvHelper<TKV> {
 	// All KV values share a single YKeyValue store
 	const yarray = ydoc.getArray<{ key: string; val: unknown }>('kv');
 	const ykv = new YKeyValue(yarray);
@@ -53,8 +53,8 @@ export function createKV<TKV extends KVDefinitionMap>(
 	 */
 	function parseValue<TValue>(
 		raw: unknown,
-		definition: KVDefinition<TValue>,
-	): KVGetResult<TValue> {
+		definition: KvDefinition<TValue>,
+	): KvGetResult<TValue> {
 		const result = definition.unionSchema['~standard'].validate(raw);
 		if (result instanceof Promise)
 			throw new TypeError('Async schemas not supported');
@@ -81,7 +81,7 @@ export function createKV<TKV extends KVDefinitionMap>(
 			if (raw === undefined) {
 				return { status: 'not_found' };
 			}
-			return parseValue(raw, definition as KVDefinition<unknown>);
+			return parseValue(raw, definition as KvDefinition<unknown>);
 		},
 
 		set(key, value) {
@@ -111,7 +111,7 @@ export function createKV<TKV extends KVDefinitionMap>(
 					// For add or update, parse and migrate the new value
 					const parsed = parseValue(
 						change.newValue,
-						definition as KVDefinition<unknown>,
+						definition as KvDefinition<unknown>,
 					);
 					if (parsed.status === 'valid') {
 						callback(
@@ -128,8 +128,8 @@ export function createKV<TKV extends KVDefinitionMap>(
 			ykv.on('change', handler);
 			return () => ykv.off('change', handler);
 		},
-	} as KVHelper<TKV>;
+	} as KvHelper<TKV>;
 }
 
 // Re-export types for convenience
-export type { InferKVValue, KVDefinition, KVDefinitionMap, KVHelper };
+export type { InferKvValue, KvDefinition, KvDefinitionMap, KvHelper };

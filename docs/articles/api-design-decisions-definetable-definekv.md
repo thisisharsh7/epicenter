@@ -196,7 +196,7 @@ tables.posts.get()
 
 // KV
 defineKv('theme').version(...).migrate(...)
-createKV(ydoc, { theme })
+createKv(ydoc, { theme })
 kv.theme.get()
 ```
 
