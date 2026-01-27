@@ -1,5 +1,6 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "epicenter",
@@ -310,6 +311,7 @@
         "mime": "catalog:",
         "nanoid": "catalog:",
         "temporal-polyfill": "^0.3.0",
+        "tinybase": "^5.4.2",
         "typebox": "^1.0.75",
         "wellcrafted": "catalog:",
         "y-indexeddb": "^9.0.12",
@@ -2686,6 +2688,8 @@
 
     "tiny-inflate": ["tiny-inflate@1.0.3", "", {}, "sha512-pkY1fj1cKHb2seWDy0B16HeWyczlJA9/WW3u3c4z/NiWDsO3DOU5D7nhTLE9CF0yXv/QZFY7sEJmj24dK+Rrqw=="],
 
+    "tinybase": ["tinybase@5.4.9", "", { "peerDependencies": { "@automerge/automerge-repo": "^1.2.1", "@cloudflare/workers-types": "^4.20250312.0", "@electric-sql/pglite": "^0.2.17", "@libsql/client": "^0.14.0", "@powersync/common": "^1.25.0", "@sqlite.org/sqlite-wasm": "^3.49.1-build2", "@vlcn.io/crsqlite-wasm": "^0.16.0", "electric-sql": "^0.12.1", "expo": "^52.0.4", "expo-sqlite": "^15.1.2", "partykit": "^0.0.111", "partysocket": "^1.0.2", "postgres": "^3.4.5", "prettier": "^3.5.3", "react": "^18.2.0", "react-dom": "^18.2.0", "sqlite3": "^5.1.7", "ws": "^8.18.1", "yjs": "^13.6.24" }, "optionalPeers": ["@automerge/automerge-repo", "@cloudflare/workers-types", "@electric-sql/pglite", "@libsql/client", "@powersync/common", "@sqlite.org/sqlite-wasm", "@vlcn.io/crsqlite-wasm", "electric-sql", "expo", "expo-sqlite", "partykit", "partysocket", "postgres", "prettier", "react", "react-dom", "sqlite3", "ws", "yjs"], "bin": { "tinybase": "cli/index.js" } }, "sha512-sRXRqe/m6TEWrNZRDF/9JEbQoBTqDYsYQjz3uLQWwpQmhxFKydq2tb+yofzeMLFlj+b/m1TpUSbk8XBv8s7Fnw=="],
+
     "tinyexec": ["tinyexec@1.0.2", "", {}, "sha512-W/KYk+NFhkmsYpuHq5JykngiOCnxeVL8v8dFnqxSD8qEEdRfXk1SDM6JzNqcERbcGYj9tMrDQBYV9cjgnunFIg=="],
 
     "tinyglobby": ["tinyglobby@0.2.15", "", { "dependencies": { "fdir": "^6.5.0", "picomatch": "^4.0.3" } }, "sha512-j2Zq4NyQYG5XMST4cbs02Ak8iJUdxRM0XI5QyxXuZOzKOINmWurp3smXu3y5wDcJrptwpSjgXHzIQxR0omXljQ=="],
@@ -3036,7 +3040,7 @@
 
     "@devicefarmer/adbkit/debug": ["debug@4.3.7", "", { "dependencies": { "ms": "^2.1.3" } }, "sha512-Er2nc/H7RrMXZBFCEim6TCmMk02Z8vLC2Rbi1KEBggpo0fS6l0S1nnapwmIi3yW/+GOJap1Krg4w0Hg80oCqgQ=="],
 
-    "@epicenter/hq/@types/bun": ["@types/bun@1.3.6", "", { "dependencies": { "bun-types": "1.3.6" } }, "sha512-uWCv6FO/8LcpREhenN1d1b6fcspAB+cefwD7uti8C8VffIv0Um08TKMn98FynpTiU38+y2dUO55T11NgDt8VAA=="],
+    "@epicenter/hq/@types/bun": ["@types/bun@1.3.7", "", { "dependencies": { "bun-types": "1.3.7" } }, "sha512-lmNuMda+Z9b7tmhA0tohwy8ZWFSnmQm1UDWXtH5r9F7wZCfkeO3Jx7wKQ1EOiKq43yHts7ky6r8SDJQWRNupkA=="],
 
     "@epicenter/ui/@lucide/svelte": ["@lucide/svelte@0.554.0", "", { "peerDependencies": { "svelte": "^5" } }, "sha512-CM6wLEH8uk3WBpC42t8R0hF7SlQrsYEL6qGuXdB99xKZwKglpWmX5XgYu7FIYOCBYOyC1rm4dNhIe6uF9pOXqw=="],
 
@@ -3316,7 +3320,7 @@
 
     "@astrojs/svelte/@sveltejs/vite-plugin-svelte/@sveltejs/vite-plugin-svelte-inspector": ["@sveltejs/vite-plugin-svelte-inspector@4.0.1", "", { "dependencies": { "debug": "^4.3.7" }, "peerDependencies": { "@sveltejs/vite-plugin-svelte": "^5.0.0", "svelte": "^5.0.0", "vite": "^6.0.0" } }, "sha512-J/Nmb2Q2y7mck2hyCX4ckVHcR5tu2J+MtBEQqpDrrgELZ2uvraQcK/ioCV61AqkdXFgriksOKIceDcQmqnGhVw=="],
 
-    "@epicenter/hq/@types/bun/bun-types": ["bun-types@1.3.6", "", { "dependencies": { "@types/node": "*" } }, "sha512-OlFwHcnNV99r//9v5IIOgQ9Uk37gZqrNMCcqEaExdkVq3Avwqok1bJFmvGMCkCE0FqzdY8VMOZpfpR3lwI+CsQ=="],
+    "@epicenter/hq/@types/bun/bun-types": ["bun-types@1.3.7", "", { "dependencies": { "@types/node": "*" } }, "sha512-qyschsA03Qz+gou+apt6HNl6HnI+sJJLL4wLDke4iugsE6584CMupOtTY1n+2YC9nGVrEKUlTs99jjRLKgWnjQ=="],
 
     "@esbuild-kit/core-utils/esbuild/@esbuild/android-arm": ["@esbuild/android-arm@0.18.20", "", { "os": "android", "cpu": "arm" }, "sha512-fyi7TDI/ijKKNZTUJAQqiG5T7YjJXgnzkURqmGj13C6dCqckZBLdl4h7bkhHt/t0WP+zO9/zwroDvANaOqO5Sw=="],
 

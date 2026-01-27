@@ -19,8 +19,8 @@
  * ```
  */
 
-import type * as Y from 'yjs';
 import type { StandardSchemaV1 } from '@standard-schema/spec';
+import type * as Y from 'yjs';
 import { YKeyValue, type YKeyValueChange } from '../core/utils/y-keyvalue.js';
 import type {
 	InferKvValue,

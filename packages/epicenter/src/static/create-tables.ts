@@ -59,9 +59,4 @@ export function createTables<TTableDefinitions extends TableDefinitions>(
 }
 
 // Re-export types for convenience
-export type {
-	InferTableRow,
-	TableDefinition,
-	TableDefinitions,
-	TablesHelper,
-};
+export type { InferTableRow, TableDefinition, TableDefinitions, TablesHelper };

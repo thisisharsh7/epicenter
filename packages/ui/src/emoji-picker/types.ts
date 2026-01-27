@@ -1,6 +1,10 @@
 import type { Emoji } from '@emoji-mart/data';
-import type { WithChildren, WithoutChild, WithoutChildren } from 'bits-ui';
-import type { Command as CommandPrimitive } from 'bits-ui';
+import type {
+	Command as CommandPrimitive,
+	WithChildren,
+	WithoutChild,
+	WithoutChildren,
+} from 'bits-ui';
 import type { Snippet } from 'svelte';
 import type { HTMLAttributes } from 'svelte/elements';
 import type { ButtonElementProps } from '../button';
@@ -62,7 +66,10 @@ export type EmojiPickerRootPropsWithoutHTML = WithChildren<{
 	);
 
 export type EmojiPickerRootProps = WithoutChild<
-	Omit<CommandPrimitive.RootProps, 'filter' | 'shouldFilter' | 'columns' | 'onValueChange'>
+	Omit<
+		CommandPrimitive.RootProps,
+		'filter' | 'shouldFilter' | 'columns' | 'onValueChange'
+	>
 > &
 	EmojiPickerRootPropsWithoutHTML;
 
@@ -70,7 +77,9 @@ export type EmojiPickerListPropsWithoutHTML = {
 	emptyMessage?: string;
 };
 
-export type EmojiPickerListProps = WithoutChildren<WithoutChild<CommandPrimitive.ListProps>> &
+export type EmojiPickerListProps = WithoutChildren<
+	WithoutChild<CommandPrimitive.ListProps>
+> &
 	EmojiPickerListPropsWithoutHTML;
 
 export type EmojiPickerSearchProps = CommandPrimitive.InputProps;
@@ -79,7 +88,9 @@ export type EmojiPickerFooterPropsWithoutHTML = {
 	children: Snippet<[{ active: SelectedEmoji | null }]>;
 };
 
-export type EmojiPickerFooterProps = WithoutChildren<HTMLAttributes<HTMLDivElement>> &
+export type EmojiPickerFooterProps = WithoutChildren<
+	HTMLAttributes<HTMLDivElement>
+> &
 	EmojiPickerFooterPropsWithoutHTML;
 
 export type EmojiPickerSkinPropsWithoutHTML = {

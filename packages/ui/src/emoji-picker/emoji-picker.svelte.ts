@@ -1,8 +1,8 @@
+import data, { type EmojiMartData } from '@emoji-mart/data';
 import { Context, watch } from 'runed';
 import type { ReadableBoxedValues, WritableBoxedValues } from 'svelte-toolbelt';
-import type { EmojiPickerSkin, SelectedEmoji } from './types';
-import data, { type EmojiMartData } from '@emoji-mart/data';
 import { UseFrecency } from '../hooks/use-frecency.svelte';
+import type { EmojiPickerSkin, SelectedEmoji } from './types';
 
 const emojiData = data as EmojiMartData;
 
@@ -13,7 +13,7 @@ type EmojiPickerState = {
 
 const defaultState: EmojiPickerState = {
 	search: '',
-	active: null
+	active: null,
 };
 
 type EmojiPickerRootProps = WritableBoxedValues<{
@@ -38,12 +38,14 @@ class EmojiPickerRootState {
 
 		if (this.opts.showRecents) {
 			if (!this.opts.recentsKey)
-				throw new Error('[emoji-picker] recentsKey is required when recents is true');
+				throw new Error(
+					'[emoji-picker] recentsKey is required when recents is true',
+				);
 
 			this.frecency = new UseFrecency(
 				this.opts.recentsKey.current,
 				{},
-				{ maxItems: this.opts.maxRecents.current }
+				{ maxItems: this.opts.maxRecents.current },
 			);
 		} else {
 			this.frecency = null;
@@ -56,7 +58,7 @@ class EmojiPickerRootState {
 		const selected = {
 			emoji: emojiData.emojis[name].skins[skin].native,
 			data: emojiData.emojis[name],
-			skin
+			skin,
 		};
 
 		this.opts.value.current = selected.emoji;
@@ -80,7 +82,7 @@ class EmojiPickerRootState {
 			this.emojiPickerState.active = {
 				emoji: data.skins[0].native,
 				data: data,
-				skin: 0
+				skin: 0,
 			};
 			return;
 		}
@@ -88,7 +90,7 @@ class EmojiPickerRootState {
 		this.emojiPickerState.active = {
 			emoji: data.skins[emojiSkin].native,
 			data: data,
-			skin: emojiSkin
+			skin: emojiSkin,
 		};
 	}
 }
@@ -135,13 +137,13 @@ type EmojiPickerInputProps = WritableBoxedValues<{
 class EmojiPickerInputState {
 	constructor(
 		readonly root: EmojiPickerRootState,
-		readonly opts: EmojiPickerInputProps
+		readonly opts: EmojiPickerInputProps,
 	) {
 		watch(
 			() => this.opts.value.current,
 			() => {
 				this.root.emojiPickerState.search = this.opts.value.current;
-			}
+			},
 		);
 	}
 }
@@ -157,7 +159,7 @@ type EmojiPickerSkinProps = ReadableBoxedValues<{
 class EmojiPickerSkinToneSelectorState {
 	constructor(
 		readonly root: EmojiPickerRootState,
-		readonly opts: EmojiPickerSkinProps
+		readonly opts: EmojiPickerSkinProps,
 	) {
 		this.cycleSkinTone = this.cycleSkinTone.bind(this);
 	}
@@ -178,7 +180,7 @@ class EmojiPickerSkinToneSelectorState {
 
 			if (data.skins.length === 0) {
 				throw new Error(
-					`The selected previewEmoji: ${this.opts.previewEmoji.current} does not have multiple skins!`
+					`The selected previewEmoji: ${this.opts.previewEmoji.current} does not have multiple skins!`,
 				);
 			}
 
@@ -203,7 +205,9 @@ class EmojiPickerSkinToneSelectorState {
 			this.root.opts.skin.current += 1;
 		}
 
-		this.root.opts.onSkinChange.current(this.root.opts.skin.current as EmojiPickerSkin);
+		this.root.opts.onSkinChange.current(
+			this.root.opts.skin.current as EmojiPickerSkin,
+		);
 	}
 }
 
