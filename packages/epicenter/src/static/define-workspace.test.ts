@@ -46,7 +46,7 @@ describe('defineWorkspace', () => {
 		expect(client.id).toBe('test-app');
 		expect(client.ydoc).toBeInstanceOf(Y.Doc);
 		expect(client.tables.posts).toBeDefined();
-		expect(client.kv.theme).toBeDefined();
+		expect(client.kv.get).toBeDefined();
 	});
 
 	test('client.tables and client.kv work correctly', () => {
@@ -72,8 +72,8 @@ describe('defineWorkspace', () => {
 		expect(postResult.status).toBe('valid');
 
 		// Use KV
-		client.kv.theme.set({ mode: 'dark' });
-		const themeResult = client.kv.theme.get();
+		client.kv.set('theme', { mode: 'dark' });
+		const themeResult = client.kv.get('theme');
 		expect(themeResult.status).toBe('valid');
 	});
 
@@ -139,6 +139,7 @@ describe('defineWorkspace', () => {
 
 		expect(client.id).toBe('empty-app');
 		expect(Object.keys(client.tables)).toHaveLength(0);
-		expect(Object.keys(client.kv)).toHaveLength(0);
+		// KV always has methods (get, set, delete, observe), but no keys are defined
+		expect(client.kv.get).toBeDefined();
 	});
 });

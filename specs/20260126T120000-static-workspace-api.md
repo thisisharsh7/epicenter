@@ -258,9 +258,9 @@ const client = workspace.create({ sqlite, persistence });
 client.tables.posts.set({ id: '1', title: 'Hello', views: 0, _v: '2' });
 client.tables.posts.get('1');  // GetResult<Post>
 
-// Type-safe KV access
-client.kv.theme.set({ mode: 'dark', fontSize: 16 });
-client.kv.theme.get();  // KVGetResult<Theme>
+// Type-safe KV access (dictionary-style)
+client.kv.set('theme', { mode: 'dark', fontSize: 16 });
+client.kv.get('theme');  // KVGetResult<Theme>
 
 // Wait for capabilities if needed (async property pattern)
 await client.capabilities.persistence.whenSynced;
@@ -326,7 +326,7 @@ import { createKV } from 'epicenter/static';
 const ydoc = new Y.Doc({ guid: 'my-doc' });
 const kv = createKV(ydoc, { theme, sidebar });
 
-kv.theme.set({ mode: 'dark', fontSize: 16 });
+kv.set('theme', { mode: 'dark', fontSize: 16 });
 ```
 
 **Type Signature:**
@@ -337,8 +337,14 @@ function createKV<TKV extends Record<string, KVDefinition<any>>>(
   definitions: TKV
 ): KVHelper<TKV>;
 
-type KVHelper<TKV> = {
-  [K in keyof TKV]: KVItemHelper<TKV[K]>;
+type KVHelper<TKV extends Record<string, KVDefinition<any>>> = {
+  get<K extends keyof TKV>(key: K): KVGetResult<InferKVValue<TKV[K]>>;
+  set<K extends keyof TKV>(key: K, value: InferKVValue<TKV[K]>): void;
+  delete<K extends keyof TKV>(key: K): void;
+  observe<K extends keyof TKV>(
+    key: K,
+    callback: (change: KVChange<InferKVValue<TKV[K]>>, tx: Y.Transaction) => void
+  ): () => void;
 };
 ```
 
@@ -430,21 +436,24 @@ This simplifies the mental model and enables schema versioning (entire row is at
 
 ## KV Helper Methods
 
-Methods available on `kv.{key}`:
+Methods available on `kv` (dictionary-style access):
 
 ```typescript
-type KVItemHelper<TValue> = {
-  /** Get the value (validates + migrates). */
-  get(): KVGetResult<TValue>;
+type KVHelper<TKV extends Record<string, KVDefinition<any>>> = {
+  /** Get a value by key (validates + migrates). */
+  get<K extends keyof TKV>(key: K): KVGetResult<InferKVValue<TKV[K]>>;
 
-  /** Set the value (always latest schema). */
-  set(value: TValue): void;
+  /** Set a value by key (always latest schema). */
+  set<K extends keyof TKV>(key: K, value: InferKVValue<TKV[K]>): void;
 
-  /** Reset to default or delete. */
-  reset(): void;
+  /** Delete a value by key. */
+  delete<K extends keyof TKV>(key: K): void;
 
-  /** Watch for changes. */
-  observe(callback: (change: KVChange<TValue>, tx: Y.Transaction) => void): () => void;
+  /** Watch for changes to a specific key. */
+  observe<K extends keyof TKV>(
+    key: K,
+    callback: (change: KVChange<InferKVValue<TKV[K]>>, tx: Y.Transaction) => void
+  ): () => void;
 };
 
 type KVGetResult<TValue> =
@@ -774,10 +783,10 @@ const theme = defineKV()
 - Schema defaults are applied during validation, so partial data gets filled in
 
 ```typescript
-const result = kv.theme.get();
+const result = kv.get('theme');
 if (result.status === 'not_found') {
   // First time - set initial value (schema defaults will apply)
-  kv.theme.set({ mode: 'light' });  // fontSize: 14 applied by schema default
+  kv.set('theme', { mode: 'light' });  // fontSize: 14 applied by schema default
 }
 ```
 

@@ -59,7 +59,7 @@ export function createKVItemHelper<TValue>(
 			ykv.set(key, value);
 		},
 
-		reset(): void {
+		delete(): void {
 			ykv.delete(key);
 		},
 

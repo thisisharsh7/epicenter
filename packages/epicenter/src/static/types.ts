@@ -191,7 +191,7 @@ export type TableHelper<TRow extends { id: string }> = {
 	has(id: string): boolean;
 };
 
-/** Helper for a single KV key */
+/** Helper for a single KV key (internal use) */
 export type KVItemHelper<TValue> = {
 	/** Get the value (validates + migrates). */
 	get(): KVGetResult<TValue>;
@@ -199,8 +199,8 @@ export type KVItemHelper<TValue> = {
 	/** Set the value (always latest schema). */
 	set(value: TValue): void;
 
-	/** Reset to default or delete. */
-	reset(): void;
+	/** Delete the value. */
+	delete(): void;
 
 	/** Watch for changes. */
 	observe(
@@ -223,9 +223,22 @@ export type TablesHelper<TTables extends TableDefinitionMap> = {
 	readonly [K in keyof TTables]: TableHelper<InferTableRow<TTables[K]>>;
 };
 
-/** KV helper object with all KV helpers */
+/** KV helper with dictionary-style access */
 export type KVHelper<TKV extends KVDefinitionMap> = {
-	readonly [K in keyof TKV]: KVItemHelper<InferKVValue<TKV[K]>>;
+	/** Get a value by key (validates + migrates). */
+	get<K extends keyof TKV & string>(key: K): KVGetResult<InferKVValue<TKV[K]>>;
+
+	/** Set a value by key (always latest schema). */
+	set<K extends keyof TKV & string>(key: K, value: InferKVValue<TKV[K]>): void;
+
+	/** Delete a value by key. */
+	delete<K extends keyof TKV & string>(key: K): void;
+
+	/** Watch for changes to a key. Returns unsubscribe function. */
+	observe<K extends keyof TKV & string>(
+		key: K,
+		callback: (change: KVChange<InferKVValue<TKV[K]>>, transaction: unknown) => void,
+	): () => void;
 };
 
 /** Workspace definition created by defineWorkspace() */

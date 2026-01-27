@@ -14,7 +14,8 @@
  * const ydoc = new Y.Doc({ guid: 'my-doc' });
  * const kv = createKV(ydoc, { theme });
  *
- * kv.theme.set({ mode: 'dark' });
+ * kv.set('theme', { mode: 'dark' });
+ * const result = kv.get('theme');
  * ```
  */
 
@@ -32,12 +33,12 @@ import type {
 /**
  * Binds KV definitions to an existing Y.Doc.
  *
- * Creates a KVHelper object with a KVItemHelper for each KV definition.
+ * Creates a KVHelper with dictionary-style access methods.
  * All KV values are stored in a shared Y.Array at `static:kv`.
  *
  * @param ydoc - The Y.Doc to bind KV to
  * @param definitions - Map of key name to KVDefinition
- * @returns KVHelper with type-safe access to each key
+ * @returns KVHelper with type-safe get/set/delete/observe methods
  */
 export function createKV<TKV extends KVDefinitionMap>(
 	ydoc: Y.Doc,
@@ -47,6 +48,7 @@ export function createKV<TKV extends KVDefinitionMap>(
 	const yarray = ydoc.getArray<{ key: string; val: unknown }>('static:kv');
 	const ykv = new YKeyValue(yarray);
 
+	// Create internal helpers for each key
 	const helpers: Record<string, KVItemHelper<unknown>> = {};
 
 	for (const [name, definition] of Object.entries(definitions)) {
@@ -57,7 +59,34 @@ export function createKV<TKV extends KVDefinitionMap>(
 		);
 	}
 
-	return helpers as KVHelper<TKV>;
+	// Return dictionary-style API
+	return {
+		get(key) {
+			const helper = helpers[key];
+			if (!helper) throw new Error(`Unknown KV key: ${key}`);
+			return helper.get();
+		},
+
+		set(key, value) {
+			const helper = helpers[key];
+			if (!helper) throw new Error(`Unknown KV key: ${key}`);
+			helper.set(value);
+		},
+
+		delete(key) {
+			const helper = helpers[key];
+			if (!helper) throw new Error(`Unknown KV key: ${key}`);
+			helper.delete();
+		},
+
+		observe(key, callback) {
+			const helper = helpers[key];
+			if (!helper) throw new Error(`Unknown KV key: ${key}`);
+			return helper.observe(
+				callback as Parameters<KVItemHelper<unknown>['observe']>[0],
+			);
+		},
+	} as KVHelper<TKV>;
 }
 
 // Re-export types for convenience

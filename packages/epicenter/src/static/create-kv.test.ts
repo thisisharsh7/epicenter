@@ -13,9 +13,9 @@ describe('createKV', () => {
 		const ydoc = new Y.Doc();
 		const kv = createKV(ydoc, { theme });
 
-		kv.theme.set({ mode: 'dark' });
+		kv.set('theme', { mode: 'dark' });
 
-		const result = kv.theme.get();
+		const result = kv.get('theme');
 		expect(result.status).toBe('valid');
 		if (result.status === 'valid') {
 			expect(result.value).toEqual({ mode: 'dark' });
@@ -30,11 +30,11 @@ describe('createKV', () => {
 		const ydoc = new Y.Doc();
 		const kv = createKV(ydoc, { theme });
 
-		const result = kv.theme.get();
+		const result = kv.get('theme');
 		expect(result.status).toBe('not_found');
 	});
 
-	test('reset removes the value', () => {
+	test('delete removes the value', () => {
 		const theme = defineKV()
 			.version(type({ mode: "'light' | 'dark'" }))
 			.migrate((v) => v);
@@ -42,11 +42,11 @@ describe('createKV', () => {
 		const ydoc = new Y.Doc();
 		const kv = createKV(ydoc, { theme });
 
-		kv.theme.set({ mode: 'dark' });
-		expect(kv.theme.get().status).toBe('valid');
+		kv.set('theme', { mode: 'dark' });
+		expect(kv.get('theme').status).toBe('valid');
 
-		kv.theme.reset();
-		expect(kv.theme.get().status).toBe('not_found');
+		kv.delete('theme');
+		expect(kv.get('theme').status).toBe('not_found');
 	});
 
 	test('migrates old data on read', () => {
@@ -66,7 +66,7 @@ describe('createKV', () => {
 		yarray.push([{ key: 'theme', val: { mode: 'dark' } }]);
 
 		// Read should migrate
-		const result = kv.theme.get();
+		const result = kv.get('theme');
 		expect(result.status).toBe('valid');
 		if (result.status === 'valid') {
 			expect(result.value.fontSize).toBe(14);

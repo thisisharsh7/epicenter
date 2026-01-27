@@ -34,7 +34,7 @@
  *
  * // Use tables and KV
  * client.tables.posts.set({ id: '1', title: 'Hello', views: 0, _v: '2' });
- * client.kv.theme.set({ mode: 'dark' });
+ * client.kv.set('theme', { mode: 'dark' });
  *
  * // Cleanup
  * await client.destroy();
