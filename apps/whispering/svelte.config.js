@@ -29,7 +29,7 @@ const config = {
 			// src/routes/+layout.svelte move it to bottom-center to avoid
 			// conflicts with devtools (bottom-left) and toasts (bottom-right)
 			toggleButtonPos: 'bottom-left',
-			toggleKeyCombo: 'meta-shift',
+			toggleKeyCombo: 'alt-x',
 		},
 	},
 };
