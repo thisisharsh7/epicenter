@@ -80,11 +80,11 @@ export type LastSchema<T extends readonly StandardSchemaV1[]> =
  * @typeParam TVersions - Tuple of StandardSchemaV1 types representing all versions
  */
 export type TableDefinition<TVersions extends readonly StandardSchemaV1[]> = {
-	readonly schema: StandardSchemaV1<
+	schema: StandardSchemaV1<
 		unknown,
 		StandardSchemaV1.InferOutput<TVersions[number]>
 	>;
-	readonly migrate: (
+	migrate: (
 		row: StandardSchemaV1.InferOutput<TVersions[number]>,
 	) => StandardSchemaV1.InferOutput<LastSchema<TVersions>> & { id: string };
 };
@@ -111,11 +111,11 @@ export type InferTableVersionUnion<T> =
  * @typeParam TVersions - Tuple of StandardSchemaV1 types representing all versions
  */
 export type KvDefinition<TVersions extends readonly StandardSchemaV1[]> = {
-	readonly schema: StandardSchemaV1<
+	schema: StandardSchemaV1<
 		unknown,
 		StandardSchemaV1.InferOutput<TVersions[number]>
 	>;
-	readonly migrate: (
+	migrate: (
 		value: StandardSchemaV1.InferOutput<TVersions[number]>,
 	) => StandardSchemaV1.InferOutput<LastSchema<TVersions>>;
 };
@@ -233,22 +233,32 @@ export type KvDefinitions = Record<string, KvDefinition<any>>;
 
 /** Tables helper object with all table helpers */
 export type TablesHelper<TTableDefinitions extends TableDefinitions> = {
-	readonly [K in keyof TTableDefinitions]: TableHelper<InferTableRow<TTableDefinitions[K]>>;
+	[K in keyof TTableDefinitions]: TableHelper<
+		InferTableRow<TTableDefinitions[K]>
+	>;
 };
 
 /** Operations available inside a KV batch transaction. */
 export type KvBatchTransaction<TKvDefinitions extends KvDefinitions> = {
-	set<K extends keyof TKvDefinitions & string>(key: K, value: InferKvValue<TKvDefinitions[K]>): void;
+	set<K extends keyof TKvDefinitions & string>(
+		key: K,
+		value: InferKvValue<TKvDefinitions[K]>,
+	): void;
 	delete<K extends keyof TKvDefinitions & string>(key: K): void;
 };
 
 /** KV helper with dictionary-style access */
 export type KvHelper<TKvDefinitions extends KvDefinitions> = {
 	/** Get a value by key (validates + migrates). */
-	get<K extends keyof TKvDefinitions & string>(key: K): KvGetResult<InferKvValue<TKvDefinitions[K]>>;
+	get<K extends keyof TKvDefinitions & string>(
+		key: K,
+	): KvGetResult<InferKvValue<TKvDefinitions[K]>>;
 
 	/** Set a value by key (always latest schema). */
-	set<K extends keyof TKvDefinitions & string>(key: K, value: InferKvValue<TKvDefinitions[K]>): void;
+	set<K extends keyof TKvDefinitions & string>(
+		key: K,
+		value: InferKvValue<TKvDefinitions[K]>,
+	): void;
 
 	/** Delete a value by key. */
 	delete<K extends keyof TKvDefinitions & string>(key: K): void;
@@ -274,9 +284,9 @@ export type WorkspaceDefinition<
 	TTableDefinitions extends TableDefinitions,
 	TKvDefinitions extends KvDefinitions,
 > = {
-	readonly id: TId;
-	readonly tableDefinitions: TTableDefinitions;
-	readonly kvDefinitions: TKvDefinitions;
+	id: TId;
+	tableDefinitions: TTableDefinitions;
+	kvDefinitions: TKvDefinitions;
 
 	/** Create a workspace client. Synchronous - returns immediately. */
 	create<TCapabilities extends CapabilityMap = {}>(
@@ -296,7 +306,7 @@ export type CapabilityMap = Record<string, CapabilityFactory>;
 
 /** Infer exports from a capability map */
 export type InferCapabilityExports<TCapabilities extends CapabilityMap> = {
-	readonly [K in keyof TCapabilities]: ReturnType<TCapabilities[K]>;
+	[K in keyof TCapabilities]: ReturnType<TCapabilities[K]>;
 };
 
 /** The workspace client returned by workspace.create() */
@@ -306,11 +316,11 @@ export type WorkspaceClient<
 	TKvDefinitions extends KvDefinitions,
 	TCapabilities extends CapabilityMap,
 > = {
-	readonly id: TId;
-	readonly ydoc: unknown;
-	readonly tables: TablesHelper<TTableDefinitions>;
-	readonly kv: KvHelper<TKvDefinitions>;
-	readonly capabilities: InferCapabilityExports<TCapabilities>;
+	id: TId;
+	ydoc: unknown;
+	tables: TablesHelper<TTableDefinitions>;
+	kv: KvHelper<TKvDefinitions>;
+	capabilities: InferCapabilityExports<TCapabilities>;
 
 	/** Cleanup all resources */
 	destroy(): Promise<void>;
