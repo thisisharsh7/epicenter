@@ -5,6 +5,7 @@
  */
 
 import type { StandardSchemaV1 } from '@standard-schema/spec';
+import type * as Y from 'yjs';
 import type { Lifecycle } from '../core/lifecycle.js';
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -323,7 +324,7 @@ export type CapabilityContext<
 	TKvDefinitions extends KvDefinitions = KvDefinitions,
 > = {
 	/** The underlying Y.Doc instance */
-	ydoc: unknown;
+	ydoc: Y.Doc;
 	/** Typed table helpers for the workspace */
 	tables: TablesHelper<TTableDefinitions>;
 	/** Typed KV helper for the workspace */
