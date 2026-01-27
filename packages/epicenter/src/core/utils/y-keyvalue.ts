@@ -320,6 +320,17 @@ export class YKeyValue<T> {
 	}
 
 	/**
+	 * Delete the entry with the given key from the Y.Array.
+	 *
+	 * The data structure maintains at most one entry per key (duplicates are
+	 * cleaned up on construction and during sync), so this only deletes one entry.
+	 */
+	private deleteEntryByKey(key: string): void {
+		const index = this.yarray.toArray().findIndex((e) => e.key === key);
+		if (index !== -1) this.yarray.delete(index);
+	}
+
+	/**
 	 * Set a key-value pair. Creates or replaces the entire value.
 	 *
 	 * Algorithm: Delete old entry (if exists) + append new entry to right.
@@ -331,10 +342,7 @@ export class YKeyValue<T> {
 		const existing = this.map.get(key);
 
 		this.doc.transact(() => {
-			if (existing) {
-				const index = this.yarray.toArray().findIndex((e) => e.key === key);
-				if (index !== -1) this.yarray.delete(index);
-			}
+			if (existing) this.deleteEntryByKey(key);
 			this.yarray.push([entry]);
 		});
 
@@ -345,8 +353,7 @@ export class YKeyValue<T> {
 	delete(key: string): void {
 		if (!this.map.has(key)) return;
 
-		const index = this.yarray.toArray().findIndex((e) => e.key === key);
-		if (index !== -1) this.yarray.delete(index);
+		this.deleteEntryByKey(key);
 		this.map.delete(key);
 	}
 

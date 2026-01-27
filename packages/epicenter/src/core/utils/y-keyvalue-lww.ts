@@ -339,6 +339,17 @@ export class YKeyValueLww<T> {
 	}
 
 	/**
+	 * Delete the entry with the given key from the Y.Array.
+	 *
+	 * The data structure maintains at most one entry per key (duplicates are
+	 * cleaned up on construction and during sync), so this only deletes one entry.
+	 */
+	private deleteEntryByKey(key: string): void {
+		const index = this.yarray.toArray().findIndex((e) => e.key === key);
+		if (index !== -1) this.yarray.delete(index);
+	}
+
+	/**
 	 * Set a key-value pair with automatic timestamp.
 	 * The timestamp enables LWW conflict resolution during sync.
 	 */
@@ -347,10 +358,7 @@ export class YKeyValueLww<T> {
 		const existing = this.map.get(key);
 
 		this.doc.transact(() => {
-			if (existing) {
-				const index = this.yarray.toArray().findIndex((e) => e.key === key);
-				if (index !== -1) this.yarray.delete(index);
-			}
+			if (existing) this.deleteEntryByKey(key);
 			this.yarray.push([entry]);
 		});
 
@@ -361,8 +369,7 @@ export class YKeyValueLww<T> {
 	delete(key: string): void {
 		if (!this.map.has(key)) return;
 
-		const index = this.yarray.toArray().findIndex((e) => e.key === key);
-		if (index !== -1) this.yarray.delete(index);
+		this.deleteEntryByKey(key);
 		this.map.delete(key);
 	}
 
