@@ -37,9 +37,7 @@ import type {
 	CapabilityMap,
 	InferCapabilityExports,
 	KvDefinitions,
-	KvHelper,
 	TableDefinitions,
-	TablesHelper,
 	WorkspaceClient,
 	WorkspaceDefinition,
 } from './types.js';
@@ -69,7 +67,6 @@ export function defineWorkspace<
 	tables?: TTableDefinitions;
 	kv?: TKvDefinitions;
 }): WorkspaceDefinition<TId, TTableDefinitions, TKvDefinitions> {
-
 	return {
 		id,
 		tableDefinitions,
@@ -91,7 +88,7 @@ export function defineWorkspace<
 
 			if (capabilities) {
 				for (const [name, factory] of Object.entries(capabilities)) {
-					const exports = (factory as CapabilityFactory)({
+					const exports = factory({
 						ydoc,
 						tables,
 						kv,
@@ -100,7 +97,8 @@ export function defineWorkspace<
 
 					// Track destroy callbacks
 					if (exports && typeof exports === 'object' && 'destroy' in exports) {
-						const destroy = (exports as { destroy?: () => Promise<void> }).destroy;
+						const destroy = (exports as { destroy?: () => Promise<void> })
+							.destroy;
 						if (typeof destroy === 'function') {
 							destroyCallbacks.push(destroy);
 						}
@@ -120,9 +118,10 @@ export function defineWorkspace<
 			return {
 				id,
 				ydoc,
-				tables: tables as TablesHelper<TTableDefinitions>,
-				kv: kv as KvHelper<TKvDefinitions>,
-				capabilities: capabilityExports as InferCapabilityExports<TCapabilities>,
+				tables,
+				kv,
+				capabilities:
+					capabilityExports as InferCapabilityExports<TCapabilities>,
 				destroy,
 				[Symbol.asyncDispose]: destroy,
 			};
