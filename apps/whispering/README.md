@@ -357,7 +357,7 @@ Choose from multiple transcription providers based on your needs for speed, accu
 #### 🎙️ ElevenLabs
 
 - **API Key:** [elevenlabs.io/app/settings/api-keys](https://elevenlabs.io/app/settings/api-keys)
-- **Models:** `scribe_v1`, `scribe_v1_experimental`
+- **Models:** `scribe_v2`, `scribe_v1`, `scribe_v1_experimental`
 - **Why:** High-quality voice AI
 
 #### 🏠 Speaches (Local)
