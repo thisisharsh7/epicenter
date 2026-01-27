@@ -1,3 +1,4 @@
+import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { describe, expect, test } from 'bun:test';
 import { type } from 'arktype';
 import { createUnionSchema } from './schema-union.js';
@@ -10,9 +11,8 @@ describe('createUnionSchema', () => {
 		const union = createUnionSchema([v1, v2]);
 		const result = union['~standard'].validate({ id: '1', title: 'Hello' });
 
-		if (result.issues) {
-			expect.unreachable('Expected validation to pass');
-		} else {
+		expect(result).not.toHaveProperty('issues');
+		if (!result.issues) {
 			expect(result.value).toEqual({ id: '1', title: 'Hello' });
 		}
 	});
@@ -28,9 +28,7 @@ describe('createUnionSchema', () => {
 			views: 42,
 		});
 
-		if (result.issues) {
-			expect.unreachable('Expected validation to pass');
-		}
+		expect(result).not.toHaveProperty('issues');
 	});
 
 	test('returns error when no schema matches', () => {
@@ -39,10 +37,22 @@ describe('createUnionSchema', () => {
 		const union = createUnionSchema([v1]);
 		const result = union['~standard'].validate({ id: 123 }); // id should be string
 
-		if (result.issues) {
-			expect(result.issues.length).toBeGreaterThan(0);
-		} else {
-			expect.unreachable('Expected validation to fail');
-		}
+		expect(result.issues?.length).toBeGreaterThan(0);
+	});
+
+	test('throws when schema validation is async', () => {
+		const asyncSchema = {
+			'~standard': {
+				version: 1,
+				vendor: 'test',
+				validate: () => Promise.resolve({ value: {} }),
+			},
+		} satisfies StandardSchemaV1;
+
+		const union = createUnionSchema([asyncSchema]);
+
+		expect(() => union['~standard'].validate({})).toThrow(
+			'Schema validation must be synchronous',
+		);
 	});
 });
