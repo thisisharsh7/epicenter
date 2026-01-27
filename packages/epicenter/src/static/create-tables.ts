@@ -47,7 +47,9 @@ export function createTables<TTables extends TableDefinitionMap>(
 
 	for (const [name, definition] of Object.entries(definitions)) {
 		// Each table gets its own Y.Array for isolation
-		const yarray = ydoc.getArray<{ key: string; val: unknown }>(`table:${name}`);
+		const yarray = ydoc.getArray<{ key: string; val: unknown }>(
+			`table:${name}`,
+		);
 		const ykv = new YKeyValue(yarray);
 
 		helpers[name] = createTableHelper(ykv, definition);
@@ -57,4 +59,9 @@ export function createTables<TTables extends TableDefinitionMap>(
 }
 
 // Re-export types for convenience
-export type { InferTableRow, TableDefinition, TableDefinitionMap, TablesHelper };
+export type {
+	InferTableRow,
+	TableDefinition,
+	TableDefinitionMap,
+	TablesHelper,
+};
