@@ -18,7 +18,7 @@ export type InvalidRowResult = {
 	status: 'invalid';
 	id: string;
 	errors: readonly StandardSchemaV1.Issue[];
-	raw: unknown;
+	row: unknown;
 };
 
 /** A row that was not found. */
@@ -65,7 +65,7 @@ export type KvGetResult<TValue> =
 	| {
 			status: 'invalid';
 			errors: readonly StandardSchemaV1.Issue[];
-			raw: unknown;
+			value: unknown;
 	  }
 	| { status: 'not_found' };
 

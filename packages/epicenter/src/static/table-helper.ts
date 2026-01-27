@@ -31,8 +31,8 @@ export function createTableHelper<
 	/**
 	 * Parse and migrate a raw row value.
 	 */
-	function parseRow(id: string, raw: unknown): GetResult<TRow> {
-		const result = definition.schema['~standard'].validate(raw);
+	function parseRow(id: string, row: unknown): GetResult<TRow> {
+		const result = definition.schema['~standard'].validate(row);
 		if (result instanceof Promise)
 			throw new TypeError('Async schemas not supported');
 
@@ -41,7 +41,7 @@ export function createTableHelper<
 				status: 'invalid',
 				id,
 				errors: result.issues,
-				raw,
+				row,
 			};
 		}
 

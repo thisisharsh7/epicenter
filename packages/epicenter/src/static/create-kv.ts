@@ -63,7 +63,7 @@ export function createKv<TKV extends KvDefinitionMap>(
 			return {
 				status: 'invalid',
 				errors: result.issues,
-				raw,
+				value: raw,
 			};
 		}
 
