@@ -5,6 +5,7 @@
  */
 
 import type { StandardSchemaV1 } from '@standard-schema/spec';
+import type { Lifecycle } from '../core/lifecycle.js';
 
 // ════════════════════════════════════════════════════════════════════════════
 // TABLE RESULT TYPES - Building Blocks
@@ -288,24 +289,121 @@ export type WorkspaceDefinition<
 	tableDefinitions: TTableDefinitions;
 	kvDefinitions: TKvDefinitions;
 
-	/** Create a workspace client. Synchronous - returns immediately. */
-	create<TCapabilities extends CapabilityMap = {}>(
+	/**
+	 * Create a workspace client. Synchronous - returns immediately.
+	 *
+	 * Capabilities receive typed context with access to the workspace's tables and KV.
+	 */
+	create<
+		TCapabilities extends CapabilityMap<TTableDefinitions, TKvDefinitions> = {},
+	>(
 		capabilities?: TCapabilities,
 	): WorkspaceClient<TId, TTableDefinitions, TKvDefinitions, TCapabilities>;
 };
 
-/** Capability factory function */
-export type CapabilityFactory<TExports = unknown> = (context: {
+// ════════════════════════════════════════════════════════════════════════════
+// CAPABILITY TYPES
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Context passed to capability factory functions.
+ *
+ * Capabilities receive typed access to the workspace's Y.Doc and helpers,
+ * allowing them to attach persistence, sync, or other functionality with
+ * full type safety.
+ *
+ * @typeParam TTableDefinitions - Map of table definitions for this workspace
+ * @typeParam TKvDefinitions - Map of KV definitions for this workspace
+ */
+export type CapabilityContext<
+	TTableDefinitions extends TableDefinitions = TableDefinitions,
+	TKvDefinitions extends KvDefinitions = KvDefinitions,
+> = {
+	/** The underlying Y.Doc instance */
 	ydoc: unknown;
-	tables: unknown;
-	kv: unknown;
-}) => TExports;
+	/** Typed table helpers for the workspace */
+	tables: TablesHelper<TTableDefinitions>;
+	/** Typed KV helper for the workspace */
+	kv: KvHelper<TKvDefinitions>;
+};
 
-/** Map of capability factories */
-export type CapabilityMap = Record<string, CapabilityFactory>;
+/**
+ * Factory function that creates a capability with lifecycle hooks.
+ *
+ * All capabilities MUST return an object that satisfies the {@link Lifecycle} protocol:
+ * - `whenSynced`: Promise that resolves when the capability is ready
+ * - `destroy`: Cleanup function called when the workspace is destroyed
+ *
+ * Use {@link defineExports} from `core/lifecycle.ts` to easily create compliant exports.
+ *
+ * @example Simple capability with no async initialization
+ * ```typescript
+ * const myCapability: CapabilityFactory = ({ ydoc }) => {
+ *   return defineExports(); // Provides default whenSynced and destroy
+ * };
+ * ```
+ *
+ * @example Capability with typed table access
+ * ```typescript
+ * // When passed to workspace.create(), tables and kv are fully typed
+ * const loggerCapability: CapabilityFactory = ({ tables }) => {
+ *   // tables.posts, tables.users, etc. are all typed based on workspace definition
+ *   return defineExports();
+ * };
+ * ```
+ *
+ * @example Capability with async initialization and cleanup
+ * ```typescript
+ * const sqliteCapability: CapabilityFactory<
+ *   TableDefinitions,
+ *   KvDefinitions,
+ *   { db: Database } & Lifecycle
+ * > = ({ ydoc }) => {
+ *   const db = new Database(':memory:');
+ *   return defineExports({
+ *     db,
+ *     whenSynced: db.initialize(),
+ *     destroy: () => db.close(),
+ *   });
+ * };
+ * ```
+ *
+ * @typeParam TTableDefinitions - Map of table definitions (inferred from workspace)
+ * @typeParam TKvDefinitions - Map of KV definitions (inferred from workspace)
+ * @typeParam TExports - Additional exports beyond the required Lifecycle fields
+ */
+export type CapabilityFactory<
+	TTableDefinitions extends TableDefinitions = TableDefinitions,
+	TKvDefinitions extends KvDefinitions = KvDefinitions,
+	TExports extends Lifecycle = Lifecycle,
+> = (context: CapabilityContext<TTableDefinitions, TKvDefinitions>) => TExports;
 
-/** Infer exports from a capability map */
-export type InferCapabilityExports<TCapabilities extends CapabilityMap> = {
+/**
+ * Map of capability factories for a specific workspace.
+ *
+ * @typeParam TTableDefinitions - Map of table definitions for this workspace
+ * @typeParam TKvDefinitions - Map of KV definitions for this workspace
+ */
+export type CapabilityMap<
+	TTableDefinitions extends TableDefinitions = TableDefinitions,
+	TKvDefinitions extends KvDefinitions = KvDefinitions,
+> = Record<
+	string,
+	CapabilityFactory<TTableDefinitions, TKvDefinitions, Lifecycle>
+>;
+
+/**
+ * Infer exports from a capability map, ensuring Lifecycle is always included.
+ *
+ * @typeParam TTableDefinitions - Map of table definitions for this workspace
+ * @typeParam TKvDefinitions - Map of KV definitions for this workspace
+ * @typeParam TCapabilities - The capability map to infer exports from
+ */
+export type InferCapabilityExports<
+	TTableDefinitions extends TableDefinitions,
+	TKvDefinitions extends KvDefinitions,
+	TCapabilities extends CapabilityMap<TTableDefinitions, TKvDefinitions>,
+> = {
 	[K in keyof TCapabilities]: ReturnType<TCapabilities[K]>;
 };
 
@@ -314,13 +412,17 @@ export type WorkspaceClient<
 	TId extends string,
 	TTableDefinitions extends TableDefinitions,
 	TKvDefinitions extends KvDefinitions,
-	TCapabilities extends CapabilityMap,
+	TCapabilities extends CapabilityMap<TTableDefinitions, TKvDefinitions>,
 > = {
 	id: TId;
 	ydoc: unknown;
 	tables: TablesHelper<TTableDefinitions>;
 	kv: KvHelper<TKvDefinitions>;
-	capabilities: InferCapabilityExports<TCapabilities>;
+	capabilities: InferCapabilityExports<
+		TTableDefinitions,
+		TKvDefinitions,
+		TCapabilities
+	>;
 
 	/** Cleanup all resources */
 	destroy(): Promise<void>;

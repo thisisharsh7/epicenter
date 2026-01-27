@@ -47,16 +47,16 @@
 // Schema Definitions (Pure)
 // ════════════════════════════════════════════════════════════════════════════
 
-export { defineTable } from './define-table.js';
 export { defineKv } from './define-kv.js';
+export { defineTable } from './define-table.js';
 export { defineWorkspace } from './define-workspace.js';
 
 // ════════════════════════════════════════════════════════════════════════════
 // Lower-Level APIs (Bring Your Own Y.Doc)
 // ════════════════════════════════════════════════════════════════════════════
 
-export { createTables } from './create-tables.js';
 export { createKv } from './create-kv.js';
+export { createTables } from './create-tables.js';
 
 // ════════════════════════════════════════════════════════════════════════════
 // Validation Utilities
@@ -69,34 +69,36 @@ export { createUnionSchema } from './schema-union.js';
 // ════════════════════════════════════════════════════════════════════════════
 
 export type {
-	// Result types - building blocks
-	ValidRowResult,
+	// Capability types
+	CapabilityContext,
+	CapabilityFactory,
+	CapabilityMap,
+	DeleteResult,
+	GetResult,
+	InferCapabilityExports,
+	InferKvValue,
+	InferTableRow,
 	InvalidRowResult,
+	KvBatchTransaction,
+	KvChange,
+	KvDefinition,
+	KvDefinitions,
+	KvGetResult,
+	KvHelper,
 	NotFoundResult,
 	// Result types - composed
 	RowResult,
-	GetResult,
-	DeleteResult,
-	KvGetResult,
-	KvChange,
+	TableBatchTransaction,
 	// Definition types
 	TableDefinition,
-	KvDefinition,
-	InferTableRow,
-	InferKvValue,
-	// Helper types
-	TableHelper,
-	TableBatchTransaction,
-	TablesHelper,
-	KvHelper,
-	KvBatchTransaction,
 	// Map types
 	TableDefinitions,
-	KvDefinitions,
+	// Helper types
+	TableHelper,
+	TablesHelper,
+	// Result types - building blocks
+	ValidRowResult,
+	WorkspaceClient,
 	// Workspace types
 	WorkspaceDefinition,
-	WorkspaceClient,
-	CapabilityFactory,
-	CapabilityMap,
-	InferCapabilityExports,
 } from './types.js';

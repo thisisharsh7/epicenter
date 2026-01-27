@@ -836,13 +836,48 @@ await Promise.all([
 - Follows "sync construction, async property" pattern (see `.claude/skills/sync-construction-async-property-ui-render-gate-pattern/`)
 - UI can render immediately, then show loading state while waiting for sync
 
-**Capability lifecycle exports:**
+**Capability lifecycle exports (REQUIRED):**
+
+All capabilities MUST return an object satisfying the `Lifecycle` protocol from `core/lifecycle.ts`:
 
 ```typescript
-type CapabilityExports = {
-	whenSynced?: Promise<void>; // Resolves when capability is fully initialized
-	destroy?: () => Promise<void>; // Cleanup on workspace destroy
-	// ... other capability-specific exports
+type Lifecycle = {
+	whenSynced: Promise<unknown>; // REQUIRED: Resolves when capability is fully initialized
+	destroy: () => MaybePromise<void>; // REQUIRED: Cleanup on workspace destroy
+};
+
+// Capability factory type enforces Lifecycle
+type CapabilityFactory<TExports extends Lifecycle = Lifecycle> = (
+	context: CapabilityContext,
+) => TExports;
+```
+
+Use `defineExports()` from `core/lifecycle.ts` to create compliant exports with sensible defaults:
+
+```typescript
+import { defineExports } from 'epicenter';
+
+// Simple capability (no async, no cleanup)
+const simple: CapabilityFactory = () => defineExports();
+// → { whenSynced: Promise.resolve(), destroy: () => {} }
+
+// Capability with async initialization
+const withAsync: CapabilityFactory = ({ ydoc }) => {
+	const provider = new SomeProvider(ydoc);
+	return defineExports({
+		whenSynced: provider.connected,
+		destroy: () => provider.disconnect(),
+	});
+};
+
+// Capability with additional exports
+const withExports: CapabilityFactory<{ db: Database } & Lifecycle> = () => {
+	const db = new Database(':memory:');
+	return defineExports({
+		db,
+		whenSynced: db.initialize(),
+		destroy: () => db.close(),
+	});
 };
 ```
 
@@ -1275,3 +1310,103 @@ packages/epicenter/src/static/
 ### Remaining Work
 
 - Migration guide for existing users (deferred to separate PR)
+
+---
+
+## Update: 2026-01-27 - Capability Lifecycle and Typed Context
+
+### Changes Made
+
+1. **Capability Lifecycle Enforcement**
+
+   All capabilities now MUST return an object satisfying the `Lifecycle` protocol from `core/lifecycle.ts`:
+
+   ```typescript
+   type Lifecycle = {
+   	whenSynced: Promise<unknown>; // REQUIRED
+   	destroy: () => MaybePromise<void>; // REQUIRED
+   };
+   ```
+
+   Use `defineExports()` to create compliant exports with sensible defaults.
+
+2. **Typed Capability Context**
+
+   `CapabilityContext` is now generic over table and KV definitions, providing full type safety:
+
+   ```typescript
+   export type CapabilityContext<
+   	TTableDefinitions extends TableDefinitions = TableDefinitions,
+   	TKvDefinitions extends KvDefinitions = KvDefinitions,
+   > = {
+   	ydoc: unknown;
+   	tables: TablesHelper<TTableDefinitions>; // Fully typed!
+   	kv: KvHelper<TKvDefinitions>; // Fully typed!
+   };
+   ```
+
+3. **Generic Capability Types**
+
+   `CapabilityFactory` and `CapabilityMap` are now parameterized to flow workspace types through:
+
+   ```typescript
+   export type CapabilityFactory<
+   	TTableDefinitions extends TableDefinitions = TableDefinitions,
+   	TKvDefinitions extends KvDefinitions = KvDefinitions,
+   	TExports extends Lifecycle = Lifecycle,
+   > = (
+   	context: CapabilityContext<TTableDefinitions, TKvDefinitions>,
+   ) => TExports;
+
+   export type CapabilityMap<
+   	TTableDefinitions extends TableDefinitions = TableDefinitions,
+   	TKvDefinitions extends KvDefinitions = KvDefinitions,
+   > = Record<
+   	string,
+   	CapabilityFactory<TTableDefinitions, TKvDefinitions, Lifecycle>
+   >;
+   ```
+
+### Usage Example
+
+```typescript
+import { defineWorkspace, defineTable, defineExports } from 'epicenter/static';
+import type { CapabilityFactory, Lifecycle } from 'epicenter/static';
+import { type } from 'arktype';
+
+// Define workspace with typed tables
+const posts = defineTable(
+	type({ id: 'string', title: 'string', views: 'number' }),
+);
+const workspace = defineWorkspace({
+	id: 'blog',
+	tables: { posts },
+	kv: {},
+});
+
+// Capability receives fully typed context
+const loggerCapability: CapabilityFactory = ({ tables }) => {
+	// tables.posts is fully typed - IDE shows .set(), .get(), .getAllValid(), etc.
+	const count = tables.posts.count();
+	console.log(`Logger initialized with ${count} posts`);
+
+	return defineExports({
+		destroy: () => console.log('Logger destroyed'),
+	});
+};
+
+// Create client with capability
+const client = workspace.create({ logger: loggerCapability });
+
+// Wait for capability to be ready
+await client.capabilities.logger.whenSynced;
+
+// Cleanup calls logger.destroy()
+await client.destroy();
+```
+
+### Why This Matters
+
+1. **Type Safety**: Capabilities can now access workspace tables/kv with full autocomplete and type checking
+2. **Lifecycle Guarantees**: Framework can reliably call `whenSynced` and `destroy` on all capabilities
+3. **Consistent Pattern**: Same lifecycle protocol used by extensions in `core/docs/workspace-doc.ts`
