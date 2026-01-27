@@ -74,7 +74,7 @@ export function defineWorkspace<
 		kvDefinitions,
 
 		create<TCapabilities extends CapabilityMap = {}>(
-			capabilities?: TCapabilities,
+			capabilities: TCapabilities = {} as TCapabilities,
 		): WorkspaceClient<TId, TTableDefinitions, TKvDefinitions, TCapabilities> {
 			// Create Y.Doc with workspace id as guid
 			const ydoc = new Y.Doc({ guid: id });
@@ -84,23 +84,16 @@ export function defineWorkspace<
 			const kv = createKv(ydoc, kvDefinitions);
 
 			// Initialize capabilities (each returns Lifecycle via defineExports)
-			const capabilityExports: Record<string, Lifecycle> = {};
-
-			if (capabilities) {
-				for (const [name, factory] of Object.entries(capabilities) as [
-					string,
-					CapabilityFactory<TTableDefinitions, TKvDefinitions>,
-				][]) {
-					capabilityExports[name] = factory({ ydoc, tables, kv });
-				}
-			}
+			const capabilityExports = Object.fromEntries(
+				Object.entries(capabilities).map(([name, factory]) => [
+					name,
+					(factory as CapabilityFactory<TTableDefinitions, TKvDefinitions>)({ ydoc, tables, kv }),
+				]),
+			) as Record<string, Lifecycle>;
 
 			// Destroy function - capabilities guarantee destroy() exists via Lifecycle
 			async function destroy(): Promise<void> {
-				const entries = Object.values(capabilityExports);
-				for (let i = entries.length - 1; i >= 0; i--) {
-					await entries[i]!.destroy();
-				}
+				await Promise.all(Object.values(capabilityExports).map((c) => c.destroy()));
 				ydoc.destroy();
 			}
 
