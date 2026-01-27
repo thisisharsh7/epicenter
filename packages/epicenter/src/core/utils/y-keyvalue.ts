@@ -133,8 +133,8 @@
  * // Delete
  * kv.delete('user2');
  *
- * // Observe changes
- * kv.on('change', (changes, transaction) => {
+ * // Observe changes (matches Y.Map/Y.Array API)
+ * kv.observe((changes, transaction) => {
  *   for (const [key, change] of changes) {
  *     if (change.action === 'add') {
  *       console.log(`Added ${key}:`, change.newValue);
@@ -184,7 +184,7 @@ export class YKeyValue<T> {
 	readonly map: Map<string, YKeyValueEntry<T>>;
 
 	/**
-	 * Registered change handlers for the `.on('change', handler)` API.
+	 * Registered change handlers for the `.observe(handler)` API.
 	 *
 	 * ## Why not use Y.Array.observe() directly?
 	 *
@@ -205,7 +205,7 @@ export class YKeyValue<T> {
 	 * });
 	 *
 	 * // YKeyValue event (high-level, semantic):
-	 * kv.on('change', (changes) => {
+	 * kv.observe((changes) => {
 	 *   // changes: Map<key, { action: 'add'|'update'|'delete', oldValue?, newValue? }>
 	 * });
 	 * ```
@@ -367,17 +367,13 @@ export class YKeyValue<T> {
 		return this.map.has(key);
 	}
 
-	/** Subscribe to changes. Handler receives a Map of key → change info. */
-	on(event: 'change', handler: YKeyValueChangeHandler<T>): void {
-		if (event === 'change') {
-			this.changeHandlers.add(handler);
-		}
+	/** Register an observer. Called when keys are added, updated, or deleted. */
+	observe(handler: YKeyValueChangeHandler<T>): void {
+		this.changeHandlers.add(handler);
 	}
 
-	/** Unsubscribe from changes. */
-	off(event: 'change', handler: YKeyValueChangeHandler<T>): void {
-		if (event === 'change') {
-			this.changeHandlers.delete(handler);
-		}
+	/** Unregister an observer. */
+	unobserve(handler: YKeyValueChangeHandler<T>): void {
+		this.changeHandlers.delete(handler);
 	}
 }

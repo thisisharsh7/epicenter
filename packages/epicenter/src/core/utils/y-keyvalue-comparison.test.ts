@@ -203,11 +203,11 @@ describe('API Compatibility', () => {
 		expect(typeof kv1.has).toBe('function');
 		expect(typeof kv2.has).toBe('function');
 
-		expect(typeof kv1.on).toBe('function');
-		expect(typeof kv2.on).toBe('function');
+		expect(typeof kv1.observe).toBe('function');
+		expect(typeof kv2.observe).toBe('function');
 
-		expect(typeof kv1.off).toBe('function');
-		expect(typeof kv2.off).toBe('function');
+		expect(typeof kv1.unobserve).toBe('function');
+		expect(typeof kv2.unobserve).toBe('function');
 
 		// Same properties
 		expect(kv1.map).toBeInstanceOf(Map);

@@ -383,17 +383,13 @@ export class YKeyValueLww<T> {
 		return this.map.has(key);
 	}
 
-	/** Subscribe to changes. */
-	on(event: 'change', handler: YKeyValueLwwChangeHandler<T>): void {
-		if (event === 'change') {
-			this.changeHandlers.add(handler);
-		}
+	/** Register an observer. Called when keys are added, updated, or deleted. */
+	observe(handler: YKeyValueLwwChangeHandler<T>): void {
+		this.changeHandlers.add(handler);
 	}
 
-	/** Unsubscribe from changes. */
-	off(event: 'change', handler: YKeyValueLwwChangeHandler<T>): void {
-		if (event === 'change') {
-			this.changeHandlers.delete(handler);
-		}
+	/** Unregister an observer. */
+	unobserve(handler: YKeyValueLwwChangeHandler<T>): void {
+		this.changeHandlers.delete(handler);
 	}
 }

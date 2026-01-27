@@ -178,8 +178,8 @@ export function createTableHelper<
 				callback(new Set(changes.keys()), transaction);
 			};
 
-			ykv.on('change', handler);
-			return () => ykv.off('change', handler);
+			ykv.observe(handler);
+			return () => ykv.unobserve(handler);
 		},
 
 		// ═══════════════════════════════════════════════════════════════════════

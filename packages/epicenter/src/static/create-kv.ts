@@ -142,8 +142,8 @@ export function createKv<TKvDefinitions extends KvDefinitions>(
 				}
 			};
 
-			ykv.on('change', handler);
-			return () => ykv.off('change', handler);
+			ykv.observe(handler);
+			return () => ykv.unobserve(handler);
 		},
 	} as KvHelper<TKvDefinitions>;
 }

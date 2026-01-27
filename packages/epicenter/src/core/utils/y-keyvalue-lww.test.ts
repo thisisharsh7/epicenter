@@ -175,7 +175,7 @@ describe('YKeyValueLww', () => {
 			const kv = new YKeyValueLww(yarray);
 
 			const events: Array<{ key: string; action: string }> = [];
-			kv.on('change', (changes) => {
+			kv.observe((changes) => {
 				for (const [key, change] of changes) {
 					events.push({ key, action: change.action });
 				}
@@ -193,7 +193,7 @@ describe('YKeyValueLww', () => {
 			kv.set('foo', 'first');
 
 			const events: Array<{ key: string; action: string }> = [];
-			kv.on('change', (changes) => {
+			kv.observe((changes) => {
 				for (const [key, change] of changes) {
 					events.push({ key, action: change.action });
 				}
@@ -211,7 +211,7 @@ describe('YKeyValueLww', () => {
 			kv.set('foo', 'bar');
 
 			const events: Array<{ key: string; action: string }> = [];
-			kv.on('change', (changes) => {
+			kv.observe((changes) => {
 				for (const [key, change] of changes) {
 					events.push({ key, action: change.action });
 				}

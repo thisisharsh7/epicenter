@@ -67,7 +67,7 @@ describe('YKeyValue', () => {
 			const kv = new YKeyValue(yarray);
 
 			const events: Array<{ key: string; action: string }> = [];
-			kv.on('change', (changes) => {
+			kv.observe((changes) => {
 				for (const [key, change] of changes) {
 					events.push({ key, action: change.action });
 				}
@@ -90,7 +90,7 @@ describe('YKeyValue', () => {
 				oldValue?: string;
 				newValue?: string;
 			}> = [];
-			kv.on('change', (changes) => {
+			kv.observe((changes) => {
 				for (const [key, change] of changes) {
 					events.push({
 						key,
@@ -115,7 +115,7 @@ describe('YKeyValue', () => {
 			kv.set('foo', 'bar');
 
 			const events: Array<{ key: string; action: string }> = [];
-			kv.on('change', (changes) => {
+			kv.observe((changes) => {
 				for (const [key, change] of changes) {
 					events.push({ key, action: change.action });
 				}
