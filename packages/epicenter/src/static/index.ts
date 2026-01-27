@@ -69,10 +69,13 @@ export { createUnionSchema } from './schema-union.js';
 // ════════════════════════════════════════════════════════════════════════════
 
 export type {
-	// Result types
-	GetResult,
-	RowResult,
+	// Result types - building blocks
+	ValidRowResult,
 	InvalidRowResult,
+	NotFoundResult,
+	// Result types - composed
+	RowResult,
+	GetResult,
 	DeleteResult,
 	DeleteManyResult,
 	KvGetResult,

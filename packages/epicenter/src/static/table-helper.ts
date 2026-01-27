@@ -4,9 +4,9 @@
  * Provides CRUD operations with validation and migration on read.
  */
 
-import type * as Y from 'yjs';
-import { YKeyValue, type YKeyValueChange } from '../core/utils/y-keyvalue.js';
 import type { StandardSchemaV1 } from '@standard-schema/spec';
+import type * as Y from 'yjs';
+import type { YKeyValue, YKeyValueChange } from '../core/utils/y-keyvalue.js';
 import type {
 	DeleteManyResult,
 	DeleteResult,
@@ -21,7 +21,9 @@ import type {
 /**
  * Creates a TableHelper for a single table bound to a YKeyValue store.
  */
-export function createTableHelper<TVersions extends readonly StandardSchemaV1[]>(
+export function createTableHelper<
+	TVersions extends readonly StandardSchemaV1[],
+>(
 	ykv: YKeyValue<unknown>,
 	definition: TableDefinition<TVersions>,
 ): TableHelper<InferTableRow<TableDefinition<TVersions>>> {
@@ -102,11 +104,7 @@ export function createTableHelper<TVersions extends readonly StandardSchemaV1[]>
 			for (const [key, entry] of ykv.map) {
 				const result = parseRow(key, entry.val);
 				if (result.status === 'invalid') {
-					invalid.push({
-						id: result.id,
-						errors: result.errors,
-						raw: result.raw,
-					});
+					invalid.push(result);
 				}
 			}
 			return invalid;

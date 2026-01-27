@@ -7,26 +7,38 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 
 // ════════════════════════════════════════════════════════════════════════════
-// TABLE RESULT TYPES
+// TABLE RESULT TYPES - Building Blocks
 // ════════════════════════════════════════════════════════════════════════════
 
-/** Result of getting a single row by ID */
-export type GetResult<TRow> =
-	| { status: 'valid'; row: TRow }
-	| { status: 'invalid'; id: string; errors: readonly StandardSchemaV1.Issue[]; raw: unknown }
-	| { status: 'not_found'; id: string };
+/** A row that passed validation. */
+export type ValidRowResult<TRow> = { status: 'valid'; row: TRow };
 
-/** Result of a row in getAll (excludes not_found since we're iterating existing rows) */
-export type RowResult<TRow> =
-	| { status: 'valid'; row: TRow }
-	| { status: 'invalid'; id: string; errors: readonly StandardSchemaV1.Issue[]; raw: unknown };
-
-/** Result for invalid rows (used in getAllInvalid) */
+/** A row that exists but failed validation. */
 export type InvalidRowResult = {
+	status: 'invalid';
 	id: string;
 	errors: readonly StandardSchemaV1.Issue[];
 	raw: unknown;
 };
+
+/** A row that was not found. */
+export type NotFoundResult = { status: 'not_found'; id: string };
+
+// ════════════════════════════════════════════════════════════════════════════
+// TABLE RESULT TYPES - Composed Types
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Result of validating a row.
+ * The shape after parsing a row from storage - either valid or invalid.
+ */
+export type RowResult<TRow> = ValidRowResult<TRow> | InvalidRowResult;
+
+/**
+ * Result of getting a single row by ID.
+ * Includes not_found since the row may not exist.
+ */
+export type GetResult<TRow> = RowResult<TRow> | NotFoundResult;
 
 /** Result of deleting a single row */
 export type DeleteResult =
@@ -50,7 +62,11 @@ export type DeleteManyResult =
 /** Result of getting a KV value */
 export type KvGetResult<TValue> =
 	| { status: 'valid'; value: TValue }
-	| { status: 'invalid'; errors: readonly StandardSchemaV1.Issue[]; raw: unknown }
+	| {
+			status: 'invalid';
+			errors: readonly StandardSchemaV1.Issue[];
+			raw: unknown;
+	  }
 	| { status: 'not_found' };
 
 /** Change event for KV observation */
