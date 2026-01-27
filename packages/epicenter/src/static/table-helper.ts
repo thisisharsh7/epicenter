@@ -5,7 +5,7 @@
  */
 
 import type * as Y from 'yjs';
-import { YKeyValue } from '../core/utils/y-keyvalue.js';
+import { YKeyValue, type YKeyValueChange } from '../core/utils/y-keyvalue.js';
 import type {
 	DeleteManyResult,
 	DeleteResult,
@@ -29,7 +29,8 @@ export function createTableHelper<TRow extends { id: string }>(
 	 */
 	function parseRow(id: string, raw: unknown): GetResult<TRow> {
 		const result = definition.unionSchema['~standard'].validate(raw);
-		if (result instanceof Promise) throw new TypeError('Async schemas not supported');
+		if (result instanceof Promise)
+			throw new TypeError('Async schemas not supported');
 
 		if (result.issues) {
 			return {
@@ -183,14 +184,14 @@ export function createTableHelper<TRow extends { id: string }>(
 			callback: (changedIds: Set<string>, transaction: unknown) => void,
 		): () => void {
 			const handler = (
-				changes: Map<string, unknown>,
+				changes: Map<string, YKeyValueChange<unknown>>,
 				transaction: Y.Transaction,
 			) => {
 				callback(new Set(changes.keys()), transaction);
 			};
 
-			ykv.on('change', handler as Parameters<typeof ykv.on>[1]);
-			return () => ykv.off('change', handler as Parameters<typeof ykv.off>[1]);
+			ykv.on('change', handler);
+			return () => ykv.off('change', handler);
 		},
 
 		// ═══════════════════════════════════════════════════════════════════════
