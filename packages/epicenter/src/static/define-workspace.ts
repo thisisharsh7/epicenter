@@ -60,12 +60,15 @@ export function defineWorkspace<
 	TId extends string,
 	TTables extends TableDefinitionMap = {},
 	TKV extends KVDefinitionMap = {},
->(config: {
+>({
+	id,
+	tables: tableDefinitions = {} as TTables,
+	kv: kvDefinitions = {} as TKV,
+}: {
 	id: TId;
 	tables?: TTables;
 	kv?: TKV;
 }): WorkspaceDefinition<TId, TTables, TKV> {
-	const { id, tables: tableDefinitions = {} as TTables, kv: kvDefinitions = {} as TKV } = config;
 
 	return {
 		id,
