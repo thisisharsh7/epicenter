@@ -13,6 +13,8 @@ import type { StandardSchemaV1 } from '@standard-schema/spec';
  * Tries each schema in order until one passes validation.
  * If none pass, returns an issue indicating no schema matched.
  *
+ * Note: Only synchronous schemas are supported. Async schemas will throw.
+ *
  * @example
  * ```typescript
  * import { type } from 'arktype';
@@ -40,6 +42,9 @@ export function createUnionSchema<TSchemas extends readonly StandardSchemaV1[]>(
 
 				for (const schema of schemas) {
 					const result = schema['~standard'].validate(value);
+					if (result instanceof Promise) {
+						throw new TypeError('Schema validation must be synchronous');
+					}
 
 					// If validation passes, return the result
 					if (!result.issues) {
@@ -67,6 +72,7 @@ export function createUnionSchema<TSchemas extends readonly StandardSchemaV1[]>(
 
 /**
  * Validates a value against a Standard Schema and returns a normalized result.
+ * Only supports synchronous schemas.
  *
  * @example
  * ```typescript
@@ -85,6 +91,9 @@ export function validateWithSchema<TSchema extends StandardSchemaV1>(
 	| { success: true; value: StandardSchemaV1.InferOutput<TSchema> }
 	| { success: false; issues: readonly StandardSchemaV1.Issue[] } {
 	const result = schema['~standard'].validate(value);
+	if (result instanceof Promise) {
+		throw new TypeError('Schema validation must be synchronous');
+	}
 
 	if (result.issues) {
 		return { success: false, issues: result.issues };
