@@ -2,7 +2,7 @@
 	import { createCopyFn } from '$lib/utils/createCopyFn';
 	import { Button } from '@epicenter/ui/button';
 	import { CopyButton } from '@epicenter/ui/copy-button';
-	import * as Dialog from '@epicenter/ui/dialog';
+	import * as Modal from '@epicenter/ui/modal';
 	import * as InputGroup from '@epicenter/ui/input-group';
 	import { Spinner } from '@epicenter/ui/spinner';
 	import { Textarea } from '@epicenter/ui/textarea';
@@ -64,9 +64,9 @@
 	let isDialogOpen = $state(false);
 </script>
 
-<Dialog.Root bind:open={isDialogOpen}>
+<Modal.Root bind:open={isDialogOpen}>
 	<InputGroup.Root data-disabled={disabled || loading}>
-		<Dialog.Trigger {id} disabled={disabled || loading} class="flex-1 min-w-0">
+		<Modal.Trigger {id} disabled={disabled || loading} class="flex-1 min-w-0">
 			{#snippet child({ props })}
 				<textarea
 					{...props}
@@ -80,7 +80,7 @@
 					aria-label="Click to view {label}"
 				></textarea>
 			{/snippet}
-		</Dialog.Trigger>
+		</Modal.Trigger>
 		<InputGroup.Addon align="inline-end">
 			{#if loading}
 				<Spinner />
@@ -94,10 +94,10 @@
 			{/if}
 		</InputGroup.Addon>
 	</InputGroup.Root>
-	<Dialog.Content class="max-w-4xl">
-		<Dialog.Title>{title}</Dialog.Title>
+	<Modal.Content class="max-w-4xl">
+		<Modal.Title>{title}</Modal.Title>
 		<Textarea readonly value={text} rows={20} />
-		<Dialog.Footer>
+		<Modal.Footer>
 			<Button variant="outline" onclick={() => (isDialogOpen = false)}>
 				Close
 			</Button>
@@ -112,6 +112,6 @@
 			>
 				Copy Text
 			</CopyButton>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
+		</Modal.Footer>
+	</Modal.Content>
+</Modal.Root>

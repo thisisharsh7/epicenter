@@ -5,9 +5,15 @@ import type { Settings } from '$lib/settings';
 
 export const ELEVENLABS_TRANSCRIPTION_MODELS = [
 	{
+		name: 'scribe_v2',
+		description:
+			'Latest flagship transcription model with 97% accuracy. Features speaker diarization (up to 48 speakers), entity detection, keyterm prompting, and dynamic audio tagging across 90+ languages.',
+		cost: '$0.40/hour',
+	},
+	{
 		name: 'scribe_v1',
 		description:
-			"World's most accurate transcription model with 96.7% accuracy for English. Supports 99 languages with word-level timestamps and speaker diarization.",
+			'Previous generation transcription model with 96.7% accuracy for English. Supports 99 languages with word-level timestamps and speaker diarization.',
 		cost: '$0.40/hour',
 	},
 	{

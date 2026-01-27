@@ -97,10 +97,10 @@ This automatically handles installation and updates.
 
 #### Option 2: Direct Download
 
-| Architecture      | Download                                                                                                                                        | Requirements     |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
-| **Apple Silicon** | [Whispering_7.11.0_aarch64_darwin.dmg](https://github.com/EpicenterHQ/epicenter/releases/download/v7.11.0/Whispering_7.11.0_aarch64_darwin.dmg) | M1/M2/M3/M4 Macs |
-| **Intel**         | [Whispering_7.11.0_x64_darwin.dmg](https://github.com/EpicenterHQ/epicenter/releases/download/v7.11.0/Whispering_7.11.0_x64_darwin.dmg)         | Intel-based Macs |
+| Architecture      | Download                                                                                                                          | Requirements     |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| **Apple Silicon** | [Whispering_7.11.0_aarch64.dmg](https://github.com/EpicenterHQ/epicenter/releases/download/v7.11.0/Whispering_7.11.0_aarch64.dmg) | M1/M2/M3/M4 Macs |
+| **Intel**         | [Whispering_7.11.0_x64.dmg](https://github.com/EpicenterHQ/epicenter/releases/download/v7.11.0/Whispering_7.11.0_x64.dmg)         | Intel-based Macs |
 
 > **💡 Tip:** Not sure which Mac you have? Click the Apple menu → About This Mac. Look for "Chip" or "Processor":
 >
@@ -126,10 +126,10 @@ This automatically handles installation and updates.
 
 #### Download Options
 
-| Installer Type    | Download                                                                                                                                        | Description                            |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| **MSI Installer** | [Whispering_7.11.0_x64_en-US_windows.msi](https://github.com/EpicenterHQ/epicenter/releases/download/v7.11.0/Whispering_7.11.0_x64_en-US_windows.msi) | Recommended Standard Windows installer |
-| **EXE Installer** | [Whispering_7.11.0_x64-setup_windows.exe](https://github.com/EpicenterHQ/epicenter/releases/download/v7.11.0/Whispering_7.11.0_x64-setup_windows.exe) | Alternative installer option           |
+| Installer Type    | Download                                                                                                                              | Description                            |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| **MSI Installer** | [Whispering_7.11.0_x64_en-US.msi](https://github.com/EpicenterHQ/epicenter/releases/download/v7.11.0/Whispering_7.11.0_x64_en-US.msi) | Recommended Standard Windows installer |
+| **EXE Installer** | [Whispering_7.11.0_x64-setup.exe](https://github.com/EpicenterHQ/epicenter/releases/download/v7.11.0/Whispering_7.11.0_x64-setup.exe) | Alternative installer option           |
 
 #### Installation
 
@@ -147,34 +147,34 @@ Whispering will appear in your Start Menu when complete.
 
 #### Download Options
 
-| Package Format  | Download                                                                                                                                      | Compatible With          |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
-| **AppImage**    | [Whispering_7.11.0_amd64_linux.AppImage](https://github.com/EpicenterHQ/epicenter/releases/download/v7.11.0/Whispering_7.11.0_amd64_linux.AppImage) | All Linux distributions  |
-| **DEB Package** | [Whispering_7.11.0_amd64_linux.deb](https://github.com/EpicenterHQ/epicenter/releases/download/v7.11.0/Whispering_7.11.0_amd64_linux.deb)           | Debian, Ubuntu, Pop!\_OS |
-| **RPM Package** | [Whispering-7.11.0-1.x86_64_linux.rpm](https://github.com/EpicenterHQ/epicenter/releases/download/v7.11.0/Whispering-7.11.0-1.x86_64_linux.rpm)     | Fedora, RHEL, openSUSE   |
+| Package Format  | Download                                                                                                                                | Compatible With          |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| **AppImage**    | [Whispering_7.11.0_amd64.AppImage](https://github.com/EpicenterHQ/epicenter/releases/download/v7.11.0/Whispering_7.11.0_amd64.AppImage) | All Linux distributions  |
+| **DEB Package** | [Whispering_7.11.0_amd64.deb](https://github.com/EpicenterHQ/epicenter/releases/download/v7.11.0/Whispering_7.11.0_amd64.deb)           | Debian, Ubuntu, Pop!\_OS |
+| **RPM Package** | [Whispering-7.11.0-1.x86_64.rpm](https://github.com/EpicenterHQ/epicenter/releases/download/v7.11.0/Whispering-7.11.0-1.x86_64.rpm)     | Fedora, RHEL, openSUSE   |
 
 #### Quick Install Commands
 
 **AppImage (Universal)**
 
 ```bash
-wget https://github.com/EpicenterHQ/epicenter/releases/download/v7.11.0/Whispering_7.11.0_amd64_linux.AppImage
-chmod +x Whispering_7.11.0_amd64_linux.AppImage
-./Whispering_7.11.0_amd64_linux.AppImage
+wget https://github.com/EpicenterHQ/epicenter/releases/download/v7.11.0/Whispering_7.11.0_amd64.AppImage
+chmod +x Whispering_7.11.0_amd64.AppImage
+./Whispering_7.11.0_amd64.AppImage
 ```
 
 **Debian/Ubuntu**
 
 ```bash
-wget https://github.com/EpicenterHQ/epicenter/releases/download/v7.11.0/Whispering_7.11.0_amd64_linux.deb
-sudo dpkg -i Whispering_7.11.0_amd64_linux.deb
+wget https://github.com/EpicenterHQ/epicenter/releases/download/v7.11.0/Whispering_7.11.0_amd64.deb
+sudo dpkg -i Whispering_7.11.0_amd64.deb
 ```
 
 **Fedora/RHEL**
 
 ```bash
-wget https://github.com/EpicenterHQ/epicenter/releases/download/v7.11.0/Whispering-7.11.0-1.x86_64_linux.rpm
-sudo rpm -i Whispering-7.11.0-1.x86_64_linux.rpm
+wget https://github.com/EpicenterHQ/epicenter/releases/download/v7.11.0/Whispering-7.11.0-1.x86_64.rpm
+sudo rpm -i Whispering-7.11.0-1.x86_64.rpm
 ```
 
 </details>
@@ -357,7 +357,7 @@ Choose from multiple transcription providers based on your needs for speed, accu
 #### 🎙️ ElevenLabs
 
 - **API Key:** [elevenlabs.io/app/settings/api-keys](https://elevenlabs.io/app/settings/api-keys)
-- **Models:** `scribe_v1`, `scribe_v1_experimental`
+- **Models:** `scribe_v2`, `scribe_v1`, `scribe_v1_experimental`
 - **Why:** High-quality voice AI
 
 #### 🏠 Speaches (Local)
@@ -635,6 +635,8 @@ The architecture achieves extensive code reuse through build-time platform detec
 2. Change into the project directory: `cd epicenter`
 3. Install the necessary dependencies: `bun i`
 
+> Want to contribute? See [CONTRIBUTING.md](../../CONTRIBUTING.md) for fork and PR instructions.
+
 To run the desktop app and website:
 
 ```bash
@@ -786,47 +788,47 @@ Adding a new transcription service involves four main steps:
 
    // Add import for your models
    import {
-     YOUR_SERVICE_MODELS,
-     type YourServiceModel,
+   	YOUR_SERVICE_MODELS,
+   	type YourServiceModel,
    } from './cloud/your-service';
 
    // Add to the TranscriptionModel union type
    type TranscriptionModel =
-     | OpenAIModel
-     | GroqModel
-     | ElevenLabsModel
-     | DeepgramModel
-     | YourServiceModel;
+   	| OpenAIModel
+   	| GroqModel
+   	| ElevenLabsModel
+   	| DeepgramModel
+   	| YourServiceModel;
 
    // Add to TRANSCRIPTION_SERVICE_IDS array
    export const TRANSCRIPTION_SERVICE_IDS = [
-     'whispercpp',
-     'parakeet',
-     'Groq',
-     'OpenAI',
-     'ElevenLabs',
-     'Deepgram',
-     'speaches',
-     'YourService', // Add your service here
+   	'whispercpp',
+   	'parakeet',
+   	'Groq',
+   	'OpenAI',
+   	'ElevenLabs',
+   	'Deepgram',
+   	'speaches',
+   	'YourService', // Add your service here
    ] as const;
 
    // Add to TRANSCRIPTION_SERVICES array (in the appropriate section)
    export const TRANSCRIPTION_SERVICES = [
-     // ... existing services
-     // Add in the cloud services section:
-     {
-       id: 'YourService',
-       name: 'Your Service Name',
-       icon: yourServiceIcon,
-       invertInDarkMode: true, // or false, depending on your icon
-       description: 'Description of what makes your service special',
-       models: YOUR_SERVICE_MODELS,
-       defaultModel: YOUR_SERVICE_MODELS[0],
-       modelSettingKey: 'transcription.yourservice.model',
-       apiKeyField: 'apiKeys.yourservice',
-       location: 'cloud', // or 'local' or 'self-hosted'
-     },
-     // ... rest of services
+   	// ... existing services
+   	// Add in the cloud services section:
+   	{
+   		id: 'YourService',
+   		name: 'Your Service Name',
+   		icon: yourServiceIcon,
+   		invertInDarkMode: true, // or false, depending on your icon
+   		description: 'Description of what makes your service special',
+   		models: YOUR_SERVICE_MODELS,
+   		defaultModel: YOUR_SERVICE_MODELS[0],
+   		modelSettingKey: 'transcription.yourservice.model',
+   		apiKeyField: 'apiKeys.yourservice',
+   		location: 'cloud', // or 'local' or 'self-hosted'
+   	},
+   	// ... rest of services
    ] as const satisfies SatisfiedTranscriptionService[];
    ```
 

@@ -5,6 +5,6 @@ export type {
 	StandardTypedV1,
 } from './types.js';
 
-export { generateJsonSchema } from './to-json-schema.js';
+export { standardSchemaToJsonSchema } from './to-json-schema.js';
 
 export { ARKTYPE_JSON_SCHEMA_FALLBACK } from './arktype-fallback.js';

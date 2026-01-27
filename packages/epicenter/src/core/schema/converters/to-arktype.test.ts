@@ -1,30 +1,31 @@
 import { describe, expect, test } from 'bun:test';
 import { type } from 'arktype';
+import { Type } from 'typebox';
 import { id, integer, json, select, text } from '../../schema';
-import { tableSchemaToArktype } from './to-arktype';
+import { tableToArktype } from './to-arktype';
 
-describe('tableSchemaToArktype', () => {
+describe('tableToArktype', () => {
 	test('returns a complete arktype Type instance', () => {
-		const schema = {
+		const fields = {
 			id: id(),
 			title: text(),
 			count: integer(),
 		};
 
-		const validator = tableSchemaToArktype(schema);
+		const validator = tableToArktype(fields);
 
 		expect(validator).toBeDefined();
 		expect(typeof validator).toBe('function');
 	});
 
 	test('validates complete objects correctly', () => {
-		const schema = {
+		const fields = {
 			id: id(),
 			title: text(),
 			count: integer(),
 		};
 
-		const validator = tableSchemaToArktype(schema);
+		const validator = tableToArktype(fields);
 
 		const valid = validator({
 			id: 'test-123',
@@ -36,13 +37,13 @@ describe('tableSchemaToArktype', () => {
 	});
 
 	test('rejects invalid objects', () => {
-		const schema = {
+		const fields = {
 			id: id(),
 			title: text(),
 			count: integer(),
 		};
 
-		const validator = tableSchemaToArktype(schema);
+		const validator = tableToArktype(fields);
 
 		const invalid = validator({
 			id: 'test-123',
@@ -54,13 +55,13 @@ describe('tableSchemaToArktype', () => {
 	});
 
 	test('supports .partial() composition', () => {
-		const schema = {
+		const fields = {
 			id: id(),
 			title: text(),
 			count: integer(),
 		};
 
-		const validator = tableSchemaToArktype(schema);
+		const validator = tableToArktype(fields);
 		const partialValidator = validator.partial().merge({ id: type.string });
 
 		// Should allow partial objects
@@ -74,12 +75,12 @@ describe('tableSchemaToArktype', () => {
 	});
 
 	test('supports .array() composition', () => {
-		const schema = {
+		const fields = {
 			id: id(),
 			title: text(),
 		};
 
-		const validator = tableSchemaToArktype(schema);
+		const validator = tableToArktype(fields);
 		const arrayValidator = validator.array();
 
 		const valid = arrayValidator([
@@ -91,12 +92,12 @@ describe('tableSchemaToArktype', () => {
 	});
 
 	test('supports .merge() composition', () => {
-		const schema = {
+		const fields = {
 			id: id(),
 			title: text(),
 		};
 
-		const validator = tableSchemaToArktype(schema);
+		const validator = tableToArktype(fields);
 		const merged = validator.merge({ extra: type.boolean });
 
 		const valid = merged({
@@ -109,19 +110,19 @@ describe('tableSchemaToArktype', () => {
 	});
 
 	test('handles complex nested schema', () => {
-		const schema = {
+		const fields = {
 			id: id(),
 			title: text(),
 			metadata: json({
-				schema: type({
-					author: 'string',
-					tags: type.string.array(),
+				schema: Type.Object({
+					author: Type.String(),
+					tags: Type.Array(Type.String()),
 				}),
 			}),
 			status: select({ options: ['draft', 'published'] }),
 		};
 
-		const validator = tableSchemaToArktype(schema);
+		const validator = tableToArktype(fields);
 
 		const valid = validator({
 			id: 'post-123',
@@ -144,7 +145,7 @@ describe('tableSchemaToArktype', () => {
 	});
 
 	test('nullable fields with .default(null) can be omitted and default to null', () => {
-		const schema = {
+		const fields = {
 			id: id(),
 			title: text(),
 			subtitle: text({ nullable: true }),
@@ -155,7 +156,7 @@ describe('tableSchemaToArktype', () => {
 			}),
 		};
 
-		const validator = tableSchemaToArktype(schema);
+		const validator = tableToArktype(fields);
 
 		// Missing nullable fields should default to null
 		const result = validator({
@@ -173,13 +174,13 @@ describe('tableSchemaToArktype', () => {
 	});
 
 	test('required fields must be present even when nullable fields are omitted', () => {
-		const schema = {
+		const fields = {
 			id: id(),
 			title: text(), // required
 			subtitle: text({ nullable: true }), // optional, defaults to null
 		};
 
-		const validator = tableSchemaToArktype(schema);
+		const validator = tableToArktype(fields);
 
 		// Missing required field should fail validation
 		const invalid = validator({
@@ -192,13 +193,13 @@ describe('tableSchemaToArktype', () => {
 	});
 
 	test('nullable fields accept null explicitly', () => {
-		const schema = {
+		const fields = {
 			id: id(),
 			title: text(),
 			subtitle: text({ nullable: true }),
 		};
 
-		const validator = tableSchemaToArktype(schema);
+		const validator = tableToArktype(fields);
 
 		const result = validator({
 			id: 'test-123',

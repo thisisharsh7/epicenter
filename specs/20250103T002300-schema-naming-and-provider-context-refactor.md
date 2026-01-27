@@ -212,7 +212,7 @@ export const sqliteProvider = (async <TTables extends TablesSchema>(
   // BEFORE: convertWorkspaceSchemaToDrizzle(schema)
   // AFTER: Build schema from tables
   const tablesSchema = Object.fromEntries(
-    tables.$all().map(table => [table.name, table.schema])
+    tables.defined().map(table => [table.name, table.schema])
   ) as TTables;
   const drizzleTables = convertWorkspaceSchemaToDrizzle(tablesSchema);
 ```
@@ -411,7 +411,7 @@ Commits:
 3. **`sqlite-provider.ts`**:
    - Updated generic from `TSchema extends WorkspaceSchema` to `TTablesSchema extends TablesSchema`
    - Removed `schema` from context destructuring
-   - Reconstructs schema from tables: `Object.fromEntries(tables.$all().map(t => [t.name, t.schema]))`
+   - Reconstructs schema from tables: `Object.fromEntries(tables.defined().map(t => [t.name, t.schema]))`
 
 4. **`markdown-provider.ts`**:
    - Updated all `WorkspaceSchema` references to `TablesSchema`

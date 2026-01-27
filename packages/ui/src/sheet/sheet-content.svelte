@@ -26,7 +26,7 @@
 	import type { Snippet } from 'svelte';
 	import SheetPortal from './sheet-portal.svelte';
 	import SheetOverlay from './sheet-overlay.svelte';
-	import { cn, type WithoutChildrenOrChild } from '#/utils/utils.js';
+	import { cn, type WithoutChildrenOrChild } from '#/utils.js';
 	import type { ComponentProps } from 'svelte';
 
 	let {

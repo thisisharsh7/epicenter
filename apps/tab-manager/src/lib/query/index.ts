@@ -9,7 +9,7 @@ import { tabs } from './tabs';
  * import { rpc } from '$lib/query';
  *
  * // Reactive (in components)
- * const tabsQuery = createQuery(rpc.tabs.getAll.options());
+ * const tabsQuery = createQuery(() => rpc.tabs.getAll.options);
  *
  * // Imperative (anywhere)
  * const { data, error } = await rpc.tabs.close.execute(tabId);

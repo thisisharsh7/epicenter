@@ -2,9 +2,9 @@
 
 # The Case Against catch-all `types.ts`: Why I Co-locate Types with Their Implementations
 
-I was refactoring a database schema system when I opened `types.ts` and stared at 750 lines of type definitions. DateWithTimezone types at the top. Validator types in the middle. Column schemas. Row types. Validation result types. Everything that vaguely related to "data" lived in this one file.
+I was refactoring a database schema system when I opened `types.ts` and stared at 750 lines of type definitions. DateTime types at the top. Validator types in the middle. Column schemas. Row types. Validation result types. Everything that vaguely related to "data" lived in this one file.
 
-But here's the weird part: the DateWithTimezone functions lived in `date-with-timezone.ts`. The validator functions lived in `validation.ts`. The ID generation function lived in `id.ts`. Why were the types separated from their implementations?
+But here's the weird part: the DateTime functions lived in `datetime.ts`. The validator functions lived in `validation.ts`. The ID generation function lived in `id.ts`. Why were the types separated from their implementations?
 
 This should have been obvious, but it took me way too long to realize: **types don't need their own file just because they're types**.
 
@@ -16,7 +16,7 @@ Let me show you what I mean. Here's what the file tree looked like:
 src/schema/
 ├── types.ts (750+ lines)
 ├── validation.ts
-├── date-with-timezone.ts
+├── datetime.ts
 ├── id.ts
 └── ... other files
 ```
@@ -26,34 +26,31 @@ And here's what `types.ts` contained (simplified):
 ```typescript
 // types.ts
 
-// DateWithTimezone types
-export type DateWithTimezone = {
-  date: string;
-  timezone: string;
-};
+// DateTime types
+export type DateTimeString = `${string}Z|${string}` & Brand<'DateTimeString'>;
 
 // Validator types
 export type TableValidators<T> = {
-  validateRow: (row: T) => YRowValidationResult;
-  // ... more validators
+	validateRow: (row: T) => YRowValidationResult;
+	// ... more validators
 };
 
 export type YRowValidationResult =
-  | { valid: true; row: YRow }
-  | { valid: false; reasons: ValidationReason[] };
+	| { valid: true; row: YRow }
+	| { valid: false; reasons: ValidationReason[] };
 
 export type ValidationReason = {
-  // ... validation reason structure
+	// ... validation reason structure
 };
 
 // Column schema types
 export type ColumnSchema = {
-  // ... column definition
+	// ... column definition
 };
 
 // Row types
 export type YRow = {
-  // ... row structure
+	// ... row structure
 };
 
 // ... 700 more lines of mixed type definitions
@@ -66,11 +63,11 @@ Now imagine you're trying to understand how validation works. You open `validati
 import type { TableValidators, YRowValidationResult } from './types';
 
 export function createValidators(): TableValidators {
-  return {
-    validateRow: (row) => {
-      // validation logic
-    },
-  };
+	return {
+		validateRow: (row) => {
+			// validation logic
+		},
+	};
 }
 ```
 
@@ -78,7 +75,7 @@ What is `TableValidators`? You have to jump to `types.ts`. Okay, you find it. Bu
 
 You're not reading code anymore. You're playing ping-pong between two files.
 
-And `types.ts` doesn't help you. It's 750 lines of everything. DateWithTimezone types are mixed with validator types are mixed with schema types. There's no narrative. No story. Just a dump of type definitions.
+And `types.ts` doesn't help you. It's 750 lines of everything. DateTime types are mixed with validator types are mixed with schema types. There's no narrative. No story. Just a dump of type definitions.
 
 ## The Realization
 
@@ -99,42 +96,48 @@ I started co-locating types with their implementations:
 ```typescript
 // validation.ts
 export type TableValidators<T> = {
-  validateRow: (row: T) => YRowValidationResult;
-  // ... more validators
+	validateRow: (row: T) => YRowValidationResult;
+	// ... more validators
 };
 
 export type YRowValidationResult =
-  | { valid: true; row: YRow }
-  | { valid: false; reasons: ValidationReason[] };
+	| { valid: true; row: YRow }
+	| { valid: false; reasons: ValidationReason[] };
 
 export type ValidationReason = {
-  // ... validation reason structure
+	// ... validation reason structure
 };
 
 export function createValidators(): TableValidators {
-  return {
-    validateRow: (row) => {
-      // validation logic
-    },
-  };
+	return {
+		validateRow: (row) => {
+			// validation logic
+		},
+	};
 }
 ```
 
-Same with DateWithTimezone:
+Same with DateTimeString:
 
 ```typescript
-// date-with-timezone.ts
-export type DateWithTimezone = {
-  date: string;
-  timezone: string;
-};
+// datetime.ts
+export type DateTimeString = `${DateIsoString}|${TimezoneId}` &
+	Brand<'DateTimeString'>;
 
-export function createDateWithTimezone(
-  date: string,
-  timezone: string
-): DateWithTimezone {
-  return { date, timezone };
-}
+export const DateTimeString = {
+	parse(str: DateTimeString): Temporal.ZonedDateTime {
+		/* ... */
+	},
+	stringify(dt: Temporal.ZonedDateTime): DateTimeString {
+		/* ... */
+	},
+	is(value: unknown): value is DateTimeString {
+		/* ... */
+	},
+	now(timezone?: string): DateTimeString {
+		/* ... */
+	},
+};
 ```
 
 And IDs:
@@ -144,7 +147,7 @@ And IDs:
 export type Id = string & { readonly __brand: 'Id' };
 
 export function generateId(): Id {
-  return crypto.randomUUID() as Id;
+	return crypto.randomUUID() as Id;
 }
 ```
 
@@ -154,7 +157,7 @@ The new file tree:
 src/schema/
 ├── types.ts (core schema types only)
 ├── validation.ts (validator types + functions)
-├── date-with-timezone.ts (DateWithTimezone types + functions)
+├── datetime.ts (DateTimeString type + companion object)
 ├── id.ts (Id type + generation function)
 └── ... other files
 ```
@@ -164,15 +167,15 @@ src/schema/
 ```typescript
 // types.ts
 export type ColumnSchema = {
-  // Core column definition used everywhere
+	// Core column definition used everywhere
 };
 
 export type TableSchema = {
-  // Core table definition used everywhere
+	// Core table definition used everywhere
 };
 
 export type YRow = {
-  // Core row structure used everywhere
+	// Core row structure used everywhere
 };
 ```
 
@@ -181,19 +184,20 @@ These are the types that don't "belong" to any single implementation. They're th
 ## What Changed
 
 The difference in discoverability is dramatic. Now when I open `validation.ts`, I see the complete picture:
+
 - What types the validators use
 - What the validators return
 - How the validators work
 
 I don't have to jump to another file. I don't have to search through 750 lines of mixed type definitions. Everything I need is right there.
 
-Same with DateWithTimezone. Same with IDs. The type and its implementation are co-located. They tell a single, coherent story.
+Same with DateTimeString. Same with IDs. The type and its implementation are co-located. They tell a single, coherent story.
 
 ## The Counter-Argument
 
 You might be thinking: "But what if a type is used in multiple files?"
 
-That's a fair question. And here's what I found: most types aren't actually used across multiple files. `TableValidators` is only used by validation code. DateWithTimezone types are only used by DateWithTimezone functions and maybe one or two utility functions.
+That's a fair question. And here's what I found: most types aren't actually used across multiple files. `TableValidators` is only used by validation code. DateTimeString types are only used by DateTimeString functions and maybe one or two utility functions.
 
 When a type really is shared across multiple unrelated modules, then yeah, it probably belongs in a shared types file. But that's the exception, not the rule.
 

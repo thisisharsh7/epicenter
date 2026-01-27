@@ -12,60 +12,60 @@ Here's what that looked like:
 
 ```typescript
 const proxy = new Proxy(
-  {},
-  {
-    get(_target, prop) {
-      if (prop === 'toJSON') {
-        return () => {
-          const result: Record<string, unknown> = {};
-          for (const key in schema) {
-            const value = yrow.get(key);
-            if (value !== undefined) {
-              result[key] = serializeCellValue(value);
-            }
-          }
-          return result as SerializedRow<TSchema>;
-        };
-      }
+	{},
+	{
+		get(_target, prop) {
+			if (prop === 'toJSON') {
+				return () => {
+					const result: Record<string, unknown> = {};
+					for (const key in schema) {
+						const value = yrow.get(key);
+						if (value !== undefined) {
+							result[key] = serializeCellValue(value);
+						}
+					}
+					return result as SerializedRow<TSchema>;
+				};
+			}
 
-      if (prop === '$yRow') {
-        return yrow;
-      }
+			if (prop === '$yRow') {
+				return yrow;
+			}
 
-      if (typeof prop === 'string') {
-        return yrow.get(prop);
-      }
+			if (typeof prop === 'string') {
+				return yrow.get(prop);
+			}
 
-      return undefined;
-    },
+			return undefined;
+		},
 
-    has(_target, prop) {
-      if (prop === 'toJSON' || prop === '$yRow') return true;
-      return yrow.has(prop as string);
-    },
+		has(_target, prop) {
+			if (prop === 'toJSON' || prop === '$yRow') return true;
+			return yrow.has(prop as string);
+		},
 
-    ownKeys(_target) {
-      return [...yrow.keys(), 'toJSON', '$yRow'];
-    },
+		ownKeys(_target) {
+			return [...yrow.keys(), 'toJSON', '$yRow'];
+		},
 
-    getOwnPropertyDescriptor(_target, prop) {
-      if (prop === 'toJSON' || prop === '$yRow') {
-        return {
-          configurable: true,
-          enumerable: false,
-          writable: false,
-        };
-      }
-      if (typeof prop === 'string' && yrow.has(prop)) {
-        return {
-          configurable: true,
-          enumerable: true,
-          writable: false,
-        };
-      }
-      return undefined;
-    },
-  },
+		getOwnPropertyDescriptor(_target, prop) {
+			if (prop === 'toJSON' || prop === '$yRow') {
+				return {
+					configurable: true,
+					enumerable: false,
+					writable: false,
+				};
+			}
+			if (typeof prop === 'string' && yrow.has(prop)) {
+				return {
+					configurable: true,
+					enumerable: true,
+					writable: false,
+				};
+			}
+			return undefined;
+		},
+	},
 ) as Row;
 ```
 
@@ -96,47 +96,47 @@ We switched to this approach:
 
 ```typescript
 function buildRowFromYRow<TSchema extends TableSchema>(
-  yrow: YRow,
-  schema: TSchema,
+	yrow: YRow,
+	schema: TSchema,
 ): Row<TSchema> {
-  const descriptors = Object.fromEntries(
-    Array.from(yrow.keys()).map(key => [
-      key,
-      {
-        get: () => yrow.get(key),
-        enumerable: true,
-        configurable: true,
-      },
-    ]),
-  );
+	const descriptors = Object.fromEntries(
+		Array.from(yrow.keys()).map((key) => [
+			key,
+			{
+				get: () => yrow.get(key),
+				enumerable: true,
+				configurable: true,
+			},
+		]),
+	);
 
-  const row: Record<string, unknown> = {};
-  Object.defineProperties(row, descriptors);
+	const row: Record<string, unknown> = {};
+	Object.defineProperties(row, descriptors);
 
-  // Add special properties as non-enumerable
-  Object.defineProperties(row, {
-    toJSON: {
-      value: () => {
-        const result: Record<string, unknown> = {};
-        for (const key in schema) {
-          const value = yrow.get(key);
-          if (value !== undefined) {
-            result[key] = serializeCellValue(value);
-          }
-        }
-        return result as SerializedRow<TSchema>;
-      },
-      enumerable: false,
-      configurable: true,
-    },
-    $yRow: {
-      value: yrow,
-      enumerable: false,
-      configurable: true,
-    },
-  });
+	// Add special properties as non-enumerable
+	Object.defineProperties(row, {
+		toJSON: {
+			value: () => {
+				const result: Record<string, unknown> = {};
+				for (const key in schema) {
+					const value = yrow.get(key);
+					if (value !== undefined) {
+						result[key] = serializeCellValue(value);
+					}
+				}
+				return result as SerializedRow<TSchema>;
+			},
+			enumerable: false,
+			configurable: true,
+		},
+		$yRow: {
+			value: yrow,
+			enumerable: false,
+			configurable: true,
+		},
+	});
 
-  return row as Row<TSchema>;
+	return row as Row<TSchema>;
 }
 ```
 
@@ -159,7 +159,7 @@ You see:
   description: "...",
   niche: "coding",
   postedAt: Y.Text {...},
-  updatedAt: DateWithTimezone {...}
+  updatedAt: "2024-01-01T20:00:00.000Z|America/New_York"
 }
 ```
 
@@ -168,12 +168,14 @@ All the properties. All the actual types. Inspection works naturally.
 ## The Difference
 
 **Proxy version:**
+
 - Four trap handlers with conditional logic
 - ~60 lines of code
 - Console shows `{}`
 - Complex interception for each operation
 
 **Object.defineProperty version:**
+
 - One loop that builds getters
 - ~52 lines of code
 - Console shows the actual object shape

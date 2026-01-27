@@ -41,7 +41,9 @@
 	);
 
 	const selfHostedServices = $derived(
-		TRANSCRIPTION_SERVICES.filter((service) => service.location === 'self-hosted'),
+		TRANSCRIPTION_SERVICES.filter(
+			(service) => service.location === 'self-hosted',
+		),
 	);
 
 	const localServices = $derived(
@@ -51,6 +53,7 @@
 	const combobox = useCombobox();
 
 	// Track which services are expanded
+	// svelte-ignore state_referenced_locally - intentional one-time init to expand the currently selected service
 	let expandedServices = new SvelteSet(
 		selectedService ? [selectedService.id] : [],
 	);

@@ -12,7 +12,7 @@
 
 <script lang="ts">
 	import { ToggleGroup as ToggleGroupPrimitive } from 'bits-ui';
-	import { cn } from '#/utils/utils.js';
+	import { cn } from '#/utils.js';
 
 	let {
 		ref = $bindable(null),
@@ -23,9 +23,14 @@
 		...restProps
 	}: ToggleGroupPrimitive.RootProps & ToggleVariants = $props();
 
+	// Use getters so child components receive reactive values when props change
 	setToggleGroupCtx({
-		variant,
-		size,
+		get variant() {
+			return variant;
+		},
+		get size() {
+			return size;
+		},
 	});
 </script>
 

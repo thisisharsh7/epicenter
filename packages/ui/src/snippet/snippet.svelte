@@ -3,7 +3,7 @@
 -->
 
 <script lang="ts" module>
-	import { cn } from '#/utils/utils';
+	import { cn } from '#/utils.js';
 	import { tv, type VariantProps } from 'tailwind-variants';
 	import { CopyButton } from '#/copy-button';
 	import type { UseClipboard } from '#/hooks/use-clipboard.svelte';

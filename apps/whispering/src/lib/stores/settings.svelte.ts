@@ -51,12 +51,6 @@ export const settings = (() => {
 			// Fallback - should never reach here
 			return getDefaultSettings();
 		},
-		onUpdateSuccess: () => {
-			rpc.notify.success({
-				title: 'Settings updated!',
-				description: '',
-			});
-		},
 		onUpdateError: (err) => {
 			rpc.notify.error({
 				title: 'Error updating settings',

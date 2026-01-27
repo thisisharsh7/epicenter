@@ -1,27 +1,30 @@
 {
 	"name": "@epicenter/hq",
 	"version": "0.0.1",
-	"main": "./src/index.node.ts",
-	"types": "./src/index.node.ts",
+	"main": "./src/index.ts",
+	"types": "./src/index.ts",
 	"exports": {
-		".": {
-			"browser": "./src/index.browser.ts",
-			"node": "./src/index.node.ts",
-			"default": "./src/index.node.ts"
+		".": "./src/index.ts",
+		"./node": "./src/core/workspace/node.ts",
+		"./extensions/persistence": {
+			"browser": "./src/extensions/persistence/index.browser.ts",
+			"node": "./src/extensions/persistence/index.node.ts",
+			"default": "./src/extensions/persistence/index.node.ts"
 		},
-		"./providers/persistence": {
-			"browser": "./src/providers/persistence/index.browser.ts",
-			"node": "./src/providers/persistence/index.node.ts",
-			"default": "./src/providers/persistence/index.node.ts"
+		"./extensions/persistence/web": "./src/extensions/persistence/web.ts",
+		"./extensions/persistence/desktop": "./src/extensions/persistence/desktop.ts",
+		"./extensions/websocket-sync": "./src/extensions/websocket-sync.ts",
+		"./extensions/markdown": {
+			"node": "./src/extensions/markdown/index.ts",
+			"default": "./src/extensions/markdown/index.ts"
 		},
-		"./providers/websocket-sync": "./src/providers/websocket-sync.ts",
-		"./providers/markdown": {
-			"node": "./src/providers/markdown/index.ts",
-			"default": "./src/providers/markdown/index.ts"
+		"./extensions/sqlite": {
+			"node": "./src/extensions/sqlite/index.ts",
+			"default": "./src/extensions/sqlite/index.ts"
 		},
-		"./providers/sqlite": {
-			"node": "./src/providers/sqlite/index.ts",
-			"default": "./src/providers/sqlite/index.ts"
+		"./extensions/revision-history": {
+			"node": "./src/extensions/revision-history/index.ts",
+			"default": "./src/extensions/revision-history/index.ts"
 		},
 		"./cli": "./src/cli/index.ts",
 		"./server": "./src/server/index.ts"
@@ -35,19 +38,22 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
+		"@ark/json-schema": "^0.0.4",
 		"@elysiajs/openapi": "^1.4.11",
+		"@sindresorhus/slugify": "^3.0.0",
 		"@standard-schema/spec": "^1.1.0",
 		"@tursodatabase/database": "^0.3.2",
 		"@types/bun": "catalog:",
 		"arkregex": "catalog:",
 		"arktype": "catalog:",
 		"chokidar": "^5.0.0",
-		"diff": "^8.0.2",
 		"drizzle-orm": "catalog:",
 		"elysia": "^1.2.25",
 		"lib0": "^0.2.99",
 		"mime": "catalog:",
 		"nanoid": "catalog:",
+		"temporal-polyfill": "^0.3.0",
+		"typebox": "^1.0.75",
 		"wellcrafted": "catalog:",
 		"y-indexeddb": "^9.0.12",
 		"y-protocols": "^1.0.6",
