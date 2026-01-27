@@ -10,7 +10,7 @@ import { createTables } from './create-tables.js';
 import { defineKV } from './define-kv.js';
 import { defineTable } from './define-table.js';
 import { defineWorkspace } from './define-workspace.js';
-import { createUnionSchema, validateWithSchema } from './schema-union.js';
+import { createUnionSchema } from './schema-union.js';
 
 // ════════════════════════════════════════════════════════════════════════════
 // Schema Union Tests
@@ -22,10 +22,11 @@ describe('createUnionSchema', () => {
 		const v2 = type({ id: 'string', title: 'string', views: 'number' });
 
 		const union = createUnionSchema([v1, v2]);
-		const result = validateWithSchema(union, { id: '1', title: 'Hello' });
+		const result = union['~standard'].validate({ id: '1', title: 'Hello' });
 
-		expect(result.success).toBe(true);
-		if (result.success) {
+		if (result.issues) {
+			expect.unreachable('Expected validation to pass');
+		} else {
 			expect(result.value).toEqual({ id: '1', title: 'Hello' });
 		}
 	});
@@ -35,24 +36,27 @@ describe('createUnionSchema', () => {
 		const v2 = type({ id: 'string', title: 'string', views: 'number' });
 
 		const union = createUnionSchema([v1, v2]);
-		const result = validateWithSchema(union, {
+		const result = union['~standard'].validate({
 			id: '1',
 			title: 'Hello',
 			views: 42,
 		});
 
-		expect(result.success).toBe(true);
+		if (result.issues) {
+			expect.unreachable('Expected validation to pass');
+		}
 	});
 
 	test('returns error when no schema matches', () => {
 		const v1 = type({ id: 'string', title: 'string' });
 
 		const union = createUnionSchema([v1]);
-		const result = validateWithSchema(union, { id: 123 }); // id should be string
+		const result = union['~standard'].validate({ id: 123 }); // id should be string
 
-		expect(result.success).toBe(false);
-		if (!result.success) {
+		if (result.issues) {
 			expect(result.issues.length).toBeGreaterThan(0);
+		} else {
+			expect.unreachable('Expected validation to fail');
 		}
 	});
 });

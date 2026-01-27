@@ -29,10 +29,7 @@ import type { StandardSchemaV1 } from '@standard-schema/spec';
  */
 export function createUnionSchema<TSchemas extends readonly StandardSchemaV1[]>(
 	schemas: TSchemas,
-): StandardSchemaV1<
-	StandardSchemaV1.InferInput<TSchemas[number]>,
-	StandardSchemaV1.InferOutput<TSchemas[number]>
-> {
+) {
 	return {
 		'~standard': {
 			version: 1,
@@ -67,37 +64,8 @@ export function createUnionSchema<TSchemas extends readonly StandardSchemaV1[]>(
 				};
 			},
 		},
-	};
-}
-
-/**
- * Validates a value against a Standard Schema and returns a normalized result.
- * Only supports synchronous schemas.
- *
- * @example
- * ```typescript
- * const result = validateWithSchema(schema, data);
- * if (result.success) {
- *   console.log(result.value);
- * } else {
- *   console.log(result.issues);
- * }
- * ```
- */
-export function validateWithSchema<TSchema extends StandardSchemaV1>(
-	schema: TSchema,
-	value: unknown,
-):
-	| { success: true; value: StandardSchemaV1.InferOutput<TSchema> }
-	| { success: false; issues: readonly StandardSchemaV1.Issue[] } {
-	const result = schema['~standard'].validate(value);
-	if (result instanceof Promise) {
-		throw new TypeError('Schema validation must be synchronous');
-	}
-
-	if (result.issues) {
-		return { success: false, issues: result.issues };
-	}
-
-	return { success: true, value: result.value as StandardSchemaV1.InferOutput<TSchema> };
+	} as const satisfies StandardSchemaV1<
+		StandardSchemaV1.InferInput<TSchemas[number]>,
+		StandardSchemaV1.InferOutput<TSchemas[number]>
+	>;
 }

@@ -6,7 +6,6 @@
 
 import type * as Y from 'yjs';
 import type { YKeyValue, YKeyValueChange } from '../core/utils/y-keyvalue.js';
-import { validateWithSchema } from './schema-union.js';
 import type {
 	KVChange,
 	KVDefinition,
@@ -31,18 +30,19 @@ export function createKVItemHelper<TValue>(
 	 * Parse and migrate a raw value.
 	 */
 	function parseValue(raw: unknown): KVGetResult<TValue> {
-		const validation = validateWithSchema(definition.unionSchema, raw);
+		const result = definition.unionSchema['~standard'].validate(raw);
+		if (result instanceof Promise) throw new TypeError('Async schemas not supported');
 
-		if (!validation.success) {
+		if (result.issues) {
 			return {
 				status: 'invalid',
-				errors: validation.issues as ValidationIssue[],
+				errors: result.issues as ValidationIssue[],
 				raw,
 			};
 		}
 
 		// Migrate to latest version
-		const migrated = definition.migrate(validation.value);
+		const migrated = definition.migrate(result.value);
 		return { status: 'valid', value: migrated };
 	}
 

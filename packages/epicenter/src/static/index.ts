@@ -62,7 +62,7 @@ export { createKV } from './create-kv.js';
 // Validation Utilities
 // ════════════════════════════════════════════════════════════════════════════
 
-export { createUnionSchema, validateWithSchema } from './schema-union.js';
+export { createUnionSchema } from './schema-union.js';
 
 // ════════════════════════════════════════════════════════════════════════════
 // Types
