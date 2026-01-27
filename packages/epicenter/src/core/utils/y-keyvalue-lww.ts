@@ -106,7 +106,19 @@ export class YKeyValueLww<T> {
 	/** Registered change handlers. */
 	private changeHandlers: Set<YKeyValueLwwChangeHandler<T>> = new Set();
 
-	/** Last timestamp used, for monotonic clock. */
+	/**
+	 * Last timestamp used for monotonic clock.
+	 *
+	 * Tracks the highest timestamp seen from BOTH local writes and remote synced entries.
+	 * This ensures:
+	 * 1. Same-millisecond writes get unique timestamps (no collisions)
+	 * 2. Clock regression is handled (if system clock goes backward)
+	 * 3. Self-healing from clock skew (local writes "catch up" after syncing with faster clocks)
+	 *
+	 * Example: Device A's clock is at 1000ms. It syncs an entry from Device B with ts=5000ms.
+	 * Device A's lastTimestamp becomes 5000, so its next write uses 5001 (not 1001).
+	 * This prevents Device A from writing "old" timestamps that would lose to Device B.
+	 */
 	private lastTimestamp = 0;
 
 	/**
@@ -153,7 +165,10 @@ export class YKeyValueLww<T> {
 				}
 			}
 
-			// Track max timestamp for monotonic clock
+			// Track max timestamp for monotonic clock (including remote entries)
+			// This ensures our next local write will have a higher timestamp than
+			// any entry we've seen, preventing us from writing "old" timestamps
+			// that would lose conflicts to devices with faster clocks
 			if (entry.ts > this.lastTimestamp) this.lastTimestamp = entry.ts;
 		}
 
@@ -178,7 +193,7 @@ export class YKeyValueLww<T> {
 				for (const content of item.content.getContent() as YKeyValueLwwEntry<T>[]) {
 					addedEntries.push(content);
 
-					// Track max timestamp
+					// Track max timestamp from synced entries (self-healing behavior)
 					if (content.ts > this.lastTimestamp) this.lastTimestamp = content.ts;
 				}
 			}
@@ -279,8 +294,20 @@ export class YKeyValueLww<T> {
 	}
 
 	/**
-	 * Generate a monotonic timestamp.
-	 * Guarantees increasing values even for same-millisecond calls.
+	 * Generate a monotonic timestamp for local writes.
+	 *
+	 * Returns a timestamp that is ALWAYS greater than the previous one, even if:
+	 * - Multiple writes happen in the same millisecond
+	 * - The system clock goes backward (NTP adjustment, manual change)
+	 * - We've synced entries from devices with higher timestamps
+	 *
+	 * Algorithm:
+	 * - If Date.now() > lastTimestamp: use wall clock time (normal case)
+	 * - Otherwise: increment lastTimestamp by 1 (handles collisions and clock regression)
+	 *
+	 * Note: lastTimestamp is updated from BOTH local writes (here) and remote synced
+	 * entries (in constructor and observer). This creates "self-healing" behavior where
+	 * devices with slow clocks adopt higher timestamps after syncing.
 	 */
 	private getTimestamp(): number {
 		const now = Date.now();
