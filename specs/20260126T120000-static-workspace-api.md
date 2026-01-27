@@ -1313,13 +1313,48 @@ packages/epicenter/src/static/
 
 ---
 
-## Update: 2026-01-27 - Capability Lifecycle and Typed Context
+## Update: 2026-01-27 - Capability Lifecycle and Schema-Generic Design
+
+### Design Decision: Schema-Generic Capabilities
+
+We chose the **schema-generic factory** pattern for capabilities. This means:
+
+1. Capabilities are defined without knowing the specific workspace schema
+2. The workspace binds the specific table/kv types when `workspace.create()` is called
+3. `InferCapabilityExports` only needs ONE generic parameter
+
+### Why Schema-Generic? (Variance Explanation)
+
+The alternative (capabilities parameterized by table/kv types) creates a **contravariance problem**:
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                        TYPE FLOW DIRECTION                                │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│   COVARIANT (OUT) = "Produces" = Can infer FROM                          │
+│   ────────────────────────────────────────────►                          │
+│                                                                          │
+│   CONTRAVARIANT (IN) = "Consumes" = CANNOT infer FROM                    │
+│   ◄────────────────────────────────────────────                          │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+
+CapabilityFactory signature:
+   (context: CapabilityContext<TTableDefs, TKvDefs>) => TExports
+         ▲                                               │
+         │                                               │
+   CONTRAVARIANT (IN)                              COVARIANT (OUT)
+   Cannot infer TTableDefs                         Can infer TExports
+```
+
+If `TTableDefs` appears in a function **parameter** (contravariant), you can't infer it reliably. The schema-generic approach sidesteps this by making the factory generic at the call site.
 
 ### Changes Made
 
 1. **Capability Lifecycle Enforcement**
 
-   All capabilities now MUST return an object satisfying the `Lifecycle` protocol from `core/lifecycle.ts`:
+   All capabilities MUST return an object satisfying the `Lifecycle` protocol:
 
    ```typescript
    type Lifecycle = {
@@ -1328,50 +1363,41 @@ packages/epicenter/src/static/
    };
    ```
 
-   Use `defineExports()` to create compliant exports with sensible defaults.
+2. **Schema-Generic CapabilityFactory**
 
-2. **Typed Capability Context**
-
-   `CapabilityContext` is now generic over table and KV definitions, providing full type safety:
+   Capabilities are generic at the call site, not at definition:
 
    ```typescript
-   export type CapabilityContext<
-   	TTableDefinitions extends TableDefinitions = TableDefinitions,
-   	TKvDefinitions extends KvDefinitions = KvDefinitions,
-   > = {
-   	ydoc: unknown;
-   	tables: TablesHelper<TTableDefinitions>; // Fully typed!
-   	kv: KvHelper<TKvDefinitions>; // Fully typed!
-   };
-   ```
-
-3. **Generic Capability Types**
-
-   `CapabilityFactory` and `CapabilityMap` are now parameterized to flow workspace types through:
-
-   ```typescript
-   export type CapabilityFactory<
-   	TTableDefinitions extends TableDefinitions = TableDefinitions,
-   	TKvDefinitions extends KvDefinitions = KvDefinitions,
-   	TExports extends Lifecycle = Lifecycle,
-   > = (
+   // CapabilityFactory is generic over exports only
+   export type CapabilityFactory<TExports extends Lifecycle = Lifecycle> = <
+   	TTableDefinitions extends TableDefinitions,
+   	TKvDefinitions extends KvDefinitions,
+   >(
    	context: CapabilityContext<TTableDefinitions, TKvDefinitions>,
    ) => TExports;
+   ```
 
-   export type CapabilityMap<
-   	TTableDefinitions extends TableDefinitions = TableDefinitions,
-   	TKvDefinitions extends KvDefinitions = KvDefinitions,
-   > = Record<
-   	string,
-   	CapabilityFactory<TTableDefinitions, TKvDefinitions, Lifecycle>
-   >;
+3. **Simplified CapabilityMap and InferCapabilityExports**
+
+   ```typescript
+   // Map is simple - no schema generics needed
+   export type CapabilityMap = Record<string, CapabilityFactory<Lifecycle>>;
+
+   // InferCapabilityExports only needs TCapabilities!
+   export type InferCapabilityExports<TCapabilities extends CapabilityMap> = {
+   	[K in keyof TCapabilities]: TCapabilities[K] extends CapabilityFactory<
+   		infer TExports
+   	>
+   		? TExports
+   		: Lifecycle;
+   };
    ```
 
 ### Usage Example
 
 ```typescript
 import { defineWorkspace, defineTable, defineExports } from 'epicenter/static';
-import type { CapabilityFactory, Lifecycle } from 'epicenter/static';
+import type { CapabilityFactory } from 'epicenter/static';
 import { type } from 'arktype';
 
 // Define workspace with typed tables
@@ -1384,29 +1410,33 @@ const workspace = defineWorkspace({
 	kv: {},
 });
 
-// Capability receives fully typed context
-const loggerCapability: CapabilityFactory = ({ tables }) => {
-	// tables.posts is fully typed - IDE shows .set(), .get(), .getAllValid(), etc.
-	const count = tables.posts.count();
-	console.log(`Logger initialized with ${count} posts`);
-
+// Capability is schema-generic - works with ANY workspace
+const persistence: CapabilityFactory<
+	{ provider: IndexeddbPersistence } & Lifecycle
+> = ({ ydoc }) => {
+	const provider = new IndexeddbPersistence(ydoc.guid, ydoc);
 	return defineExports({
-		destroy: () => console.log('Logger destroyed'),
+		provider,
+		whenSynced: provider.whenSynced,
+		destroy: () => provider.destroy(),
 	});
 };
 
-// Create client with capability
-const client = workspace.create({ logger: loggerCapability });
+// When passed to workspace.create(), context.tables is typed!
+const client = workspace.create({ persistence });
 
 // Wait for capability to be ready
-await client.capabilities.logger.whenSynced;
+await client.capabilities.persistence.whenSynced;
 
-// Cleanup calls logger.destroy()
+// Cleanup
 await client.destroy();
 ```
 
-### Why This Matters
+### Benefits
 
-1. **Type Safety**: Capabilities can now access workspace tables/kv with full autocomplete and type checking
-2. **Lifecycle Guarantees**: Framework can reliably call `whenSynced` and `destroy` on all capabilities
-3. **Consistent Pattern**: Same lifecycle protocol used by extensions in `core/docs/workspace-doc.ts`
+1. **Simple Inference**: `InferCapabilityExports` needs only ONE generic
+2. **Reusable Capabilities**: Same capability works with any workspace
+3. **No Variance Issues**: Avoids contravariance problems entirely
+4. **Full Type Safety**: Context is still fully typed at the call site
+5. **Lifecycle Guarantees**: Framework can reliably call `whenSynced` and `destroy` on all capabilities
+6. **Consistent Pattern**: Same lifecycle protocol used by extensions in `core/docs/workspace-doc.ts`
