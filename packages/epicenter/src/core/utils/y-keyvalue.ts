@@ -332,14 +332,8 @@ export class YKeyValue<T> {
 
 		this.doc.transact(() => {
 			if (existing) {
-				let index = 0;
-				for (const currentEntry of this.yarray) {
-					if (currentEntry.key === key) {
-						this.yarray.delete(index);
-						break;
-					}
-					index++;
-				}
+				const index = this.yarray.toArray().findIndex((e) => e.key === key);
+				if (index !== -1) this.yarray.delete(index);
 			}
 			this.yarray.push([entry]);
 		});
@@ -351,14 +345,8 @@ export class YKeyValue<T> {
 	delete(key: string): void {
 		if (!this.map.has(key)) return;
 
-		let index = 0;
-		for (const currentEntry of this.yarray) {
-			if (currentEntry.key === key) {
-				this.yarray.delete(index);
-				break;
-			}
-			index++;
-		}
+		const index = this.yarray.toArray().findIndex((e) => e.key === key);
+		if (index !== -1) this.yarray.delete(index);
 		this.map.delete(key);
 	}
 
