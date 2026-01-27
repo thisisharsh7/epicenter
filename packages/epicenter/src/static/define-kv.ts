@@ -88,7 +88,6 @@ export function defineKv<TSchema extends StandardSchemaV1>(
 		return {
 			schema,
 			migrate: (v: unknown) => v,
-			_valueType: undefined as never,
 		} as KvDefinition<[TSchema]>;
 	}
 
@@ -108,7 +107,6 @@ export function defineKv<TSchema extends StandardSchemaV1>(
 			return {
 				schema: createUnionSchema(versions),
 				migrate: fn,
-				_valueType: undefined as never,
 			};
 		},
 	};

@@ -89,12 +89,10 @@ export type KvChange<TValue> =
 // ════════════════════════════════════════════════════════════════════════════
 
 /** Extract the last element from a tuple, constrained to StandardSchemaV1 */
-export type LastSchema<T extends readonly StandardSchemaV1[]> = T extends readonly [
-	...StandardSchemaV1[],
-	infer L extends StandardSchemaV1,
-]
-	? L
-	: T[number];
+export type LastSchema<T extends readonly StandardSchemaV1[]> =
+	T extends readonly [...StandardSchemaV1[], infer L extends StandardSchemaV1]
+		? L
+		: T[number];
 
 /**
  * A table definition created by defineTable().version().migrate()
@@ -102,12 +100,13 @@ export type LastSchema<T extends readonly StandardSchemaV1[]> = T extends readon
  * @typeParam TVersions - Tuple of StandardSchemaV1 types representing all versions
  */
 export type TableDefinition<TVersions extends readonly StandardSchemaV1[]> = {
-	readonly schema: StandardSchemaV1<unknown, StandardSchemaV1.InferOutput<TVersions[number]>>;
+	readonly schema: StandardSchemaV1<
+		unknown,
+		StandardSchemaV1.InferOutput<TVersions[number]>
+	>;
 	readonly migrate: (
 		row: StandardSchemaV1.InferOutput<TVersions[number]>,
 	) => StandardSchemaV1.InferOutput<LastSchema<TVersions>> & { id: string };
-	/** Type brand for inference */
-	readonly _rowType: StandardSchemaV1.InferOutput<LastSchema<TVersions>> & { id: string };
 };
 
 /** Extract the row type from a TableDefinition */
@@ -132,12 +131,13 @@ export type InferTableVersionUnion<T> =
  * @typeParam TVersions - Tuple of StandardSchemaV1 types representing all versions
  */
 export type KvDefinition<TVersions extends readonly StandardSchemaV1[]> = {
-	readonly schema: StandardSchemaV1<unknown, StandardSchemaV1.InferOutput<TVersions[number]>>;
+	readonly schema: StandardSchemaV1<
+		unknown,
+		StandardSchemaV1.InferOutput<TVersions[number]>
+	>;
 	readonly migrate: (
 		value: StandardSchemaV1.InferOutput<TVersions[number]>,
 	) => StandardSchemaV1.InferOutput<LastSchema<TVersions>>;
-	/** Type brand for inference */
-	readonly _valueType: StandardSchemaV1.InferOutput<LastSchema<TVersions>>;
 };
 
 /** Extract the value type from a KvDefinition */
@@ -258,7 +258,10 @@ export type KvHelper<TKV extends KvDefinitionMap> = {
 	/** Watch for changes to a key. Returns unsubscribe function. */
 	observe<K extends keyof TKV & string>(
 		key: K,
-		callback: (change: KvChange<InferKvValue<TKV[K]>>, transaction: unknown) => void,
+		callback: (
+			change: KvChange<InferKvValue<TKV[K]>>,
+			transaction: unknown,
+		) => void,
 	): () => void;
 };
 

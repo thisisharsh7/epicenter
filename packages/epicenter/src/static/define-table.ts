@@ -93,7 +93,6 @@ export function defineTable<TSchema extends StandardSchemaV1>(
 		return {
 			schema,
 			migrate: (row: unknown) => row as { id: string },
-			_rowType: undefined as never,
 		} as TableDefinition<[TSchema]>;
 	}
 
@@ -113,7 +112,6 @@ export function defineTable<TSchema extends StandardSchemaV1>(
 			return {
 				schema: createUnionSchema(versions),
 				migrate: fn,
-				_rowType: undefined as never,
 			};
 		},
 	};
