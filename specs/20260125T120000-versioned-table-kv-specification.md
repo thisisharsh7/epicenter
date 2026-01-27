@@ -4,6 +4,11 @@
 
 This specification defines APIs for versioned data storage in local-first applications, enabling schema evolution without traditional migrations. Data is validated against a union of all schema versions on read, then migrated to the latest version.
 
+### Related Specs
+
+- `specs/20260126T103000-table-api-split.md` - Versioned Tables vs Dynamic Tables distinction
+- `specs/20260126T120000-static-workspace-api.md` - Full API for defineTable, defineKv, defineWorkspace, and composability
+
 ---
 
 ## Core Concepts
@@ -200,7 +205,7 @@ const tables = createTables(ydoc, {
 });
 
 // Usage
-tables.posts.upsert({ id: 'post-1', title: 'Hello', views: 0, author: null });
+tables.posts.set({ id: 'post-1', title: 'Hello', views: 0, author: null });
 const post = tables.posts.get('post-1');  // Validated + migrated
 ```
 
@@ -210,8 +215,11 @@ const post = tables.posts.get('post-1');  // Validated + migrated
 function defineTable(name: string): TableBuilder<[], never>;
 
 type TableBuilder<TVersions extends StandardSchemaV1[], TLatest> = {
+  // Schema must extend { id: string } - enforced at type level
   version<TSchema extends StandardSchemaV1>(
-    schema: TSchema
+    schema: StandardSchemaV1.InferOutput<TSchema> extends { id: string }
+      ? TSchema
+      : never
   ): TableBuilder<[...TVersions, TSchema], StandardSchemaV1.InferOutput<TSchema>>;
 
   migrate(
@@ -219,7 +227,7 @@ type TableBuilder<TVersions extends StandardSchemaV1[], TLatest> = {
   ): TableDefinition<TLatest>;
 };
 
-type TableDefinition<TRow> = {
+type TableDefinition<TRow extends { id: string }> = {
   readonly name: string;
   readonly versions: readonly StandardSchemaV1[];
   readonly unionSchema: StandardSchemaV1;
@@ -274,10 +282,44 @@ defineTable('posts')
 3. **Simpler types** - Migration function is `(V1 | V2 | V3) => V3`
 4. **Familiar pattern** - Builder pattern with terminal `.migrate()` is intuitive
 
+### Design Decision: Why `id` in Row (Not Separate Parameter)?
+
+We considered two API patterns for `set()`:
+
+**Option A: `set(row)` where row includes id (chosen)**
+```typescript
+tables.posts.set({ id: 'post-1', title: 'Hello', views: 0 });
+```
+
+**Option B: `set(id, row)` where row omits id (not chosen)**
+```typescript
+tables.posts.set('post-1', { title: 'Hello', views: 0 });
+```
+
+**Why we chose Option A:**
+
+1. **Read/write symmetry** - `get()` returns `TRow` with id, `set()` takes `TRow` with id. No type gymnastics.
+   ```typescript
+   const post = tables.posts.get('post-1');
+   tables.posts.set({ ...post, views: post.views + 1 }); // Just spread and update
+   ```
+
+2. **Self-contained rows** - When iterating with `getAll()`, each row stands alone. No need to zip keys with values.
+
+3. **No mismatch risk** - With `set(id, row)`, if `row` also has an `id` field, which one wins? Confusing.
+
+4. **Domain modeling** - The id *is* a property of the entity, not just a storage address. A Post has an id.
+
+5. **Type enforcement** - All schemas must extend `{ id: string }`, enforced at compile time.
+
+**Trade-off:** Slight redundancy at call site (`id` appears in property), but this is outweighed by consistency benefits.
+
+**Reference:** Dexie.js supports both patterns, but their primary/common pattern is also id-in-object.
+
 ### Table Helper Methods
 
 ```typescript
-type TableHelper<TRow> = {
+type TableHelper<TRow extends { id: string }> = {
   // Read (validates + migrates)
   get(id: string): GetResult<TRow>;
   getAll(): RowResult<TRow>[];
@@ -286,8 +328,9 @@ type TableHelper<TRow> = {
   find(predicate: (row: TRow) => boolean): TRow | null;
 
   // Write (always writes latest schema shape)
-  upsert(row: TRow): void;
-  upsertMany(rows: TRow[]): void;
+  // Row includes id - no separate id parameter needed
+  set(row: TRow): void;
+  setMany(rows: TRow[]): void;
 
   // Delete
   delete(id: string): DeleteResult;
@@ -334,14 +377,14 @@ Benchmarks show Y.Map has unbounded memory growth with frequent updates:
 
 For consistency with tables and bounded memory, we use YKeyValue for both.
 
-### API: defineKV
+### API: defineKv
 
 ```typescript
-import { defineKV, createKV } from 'epicenter';
+import { defineKv, createKv } from 'epicenter';
 import { type } from 'arktype';
 
 // Define KV keys with schema versions
-const themeDefinition = defineKV('theme')
+const themeDefinition = defineKv('theme')
   .version(type({ value: "'light' | 'dark'" }))
   .version(type({ value: "'light' | 'dark' | 'system'", fontSize: 'number' }))
   .migrate((v) => {
@@ -351,7 +394,7 @@ const themeDefinition = defineKV('theme')
     return v;
   });
 
-const sidebarDefinition = defineKV('sidebar')
+const sidebarDefinition = defineKv('sidebar')
   .version(type({ collapsed: 'boolean' }))
   .version(type({ collapsed: 'boolean', width: 'number' }))
   .migrate((v) => {
@@ -362,7 +405,7 @@ const sidebarDefinition = defineKV('sidebar')
   });
 
 // Bind to Y.Doc
-const kv = createKV(ydoc, {
+const kv = createKv(ydoc, {
   theme: themeDefinition,
   sidebar: sidebarDefinition,
 });
@@ -375,19 +418,19 @@ const theme = kv.theme.get();  // Validated + migrated
 ### Type Signature
 
 ```typescript
-function defineKV(key: string): KVBuilder<[], never>;
+function defineKv(key: string): KvBuilder<[], never>;
 
-type KVBuilder<TVersions extends StandardSchemaV1[], TLatest> = {
+type KvBuilder<TVersions extends StandardSchemaV1[], TLatest> = {
   version<TSchema extends StandardSchemaV1>(
     schema: TSchema
-  ): KVBuilder<[...TVersions, TSchema], StandardSchemaV1.InferOutput<TSchema>>;
+  ): KvBuilder<[...TVersions, TSchema], StandardSchemaV1.InferOutput<TSchema>>;
 
   migrate(
     fn: (value: StandardSchemaV1.InferOutput<TVersions[number]>) => TLatest
-  ): KVDefinition<TLatest>;
+  ): KvDefinition<TLatest>;
 };
 
-type KVDefinition<TValue> = {
+type KvDefinition<TValue> = {
   readonly key: string;
   readonly versions: readonly StandardSchemaV1[];
   readonly unionSchema: StandardSchemaV1;
@@ -398,9 +441,9 @@ type KVDefinition<TValue> = {
 ### KV Helper Methods
 
 ```typescript
-type KVHelper<TValue> = {
+type KvHelper<TValue> = {
   // Read (validates + migrates)
-  get(): KVGetResult<TValue>;
+  get(): KvGetResult<TValue>;
 
   // Write (always writes latest schema shape)
   set(value: TValue): void;
@@ -409,10 +452,10 @@ type KVHelper<TValue> = {
   reset(): void;
 
   // Observe
-  observe(callback: (change: KVChange<TValue>, transaction: Y.Transaction) => void): () => void;
+  observe(callback: (change: KvChange<TValue>, transaction: Y.Transaction) => void): () => void;
 };
 
-type KVGetResult<TValue> =
+type KvGetResult<TValue> =
   | { status: 'valid'; value: TValue }
   | { status: 'invalid'; key: string; error: KVValidationError }
   | { status: 'not_found'; key: string };
@@ -470,7 +513,7 @@ function parseRow<TRow>(
 ### createTables Implementation
 
 ```typescript
-function createTables<TDefs extends Record<string, TableDefinition<any>>>(
+function createTables<TDefs extends Record<string, TableDefinition<{ id: string }>>>(
   ydoc: Y.Doc,
   definitions: TDefs
 ): { [K in keyof TDefs]: TableHelper<TDefs[K] extends TableDefinition<infer R> ? R : never> } {
@@ -492,20 +535,20 @@ function createTables<TDefs extends Record<string, TableDefinition<any>>>(
 }
 ```
 
-### createKV Implementation
+### createKv Implementation
 
 ```typescript
-function createKV<TDefs extends Record<string, KVDefinition<any>>>(
+function createKv<TDefs extends Record<string, KvDefinition<any>>>(
   ydoc: Y.Doc,
   definitions: TDefs
-): { [K in keyof TDefs]: KVHelper<TDefs[K] extends KVDefinition<infer V> ? V : never> } {
+): { [K in keyof TDefs]: KvHelper<TDefs[K] extends KvDefinition<infer V> ? V : never> } {
   // Use YKeyValue for bounded memory (consistent with tables)
   const yarray = ydoc.getArray<{ key: string; val: unknown }>('kv');
   const ykv = new YKeyValue(yarray);
 
   return Object.fromEntries(
     Object.entries(definitions).map(([name, definition]) => {
-      return [name, createKVHelper(ykv, definition)];
+      return [name, createKvHelper(ykv, definition)];
     })
   ) as any;
 }
@@ -517,7 +560,7 @@ function createKV<TDefs extends Record<string, KVDefinition<any>>>(
 
 ```typescript
 import * as Y from 'yjs';
-import { defineTable, defineKV, createTables, createKV } from 'epicenter';
+import { defineTable, defineKv, createTables, createKv } from 'epicenter';
 import { type } from 'arktype';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -569,7 +612,7 @@ const users = defineTable('users')
   .migrate((row) => row);
 
 // KV: theme (2 versions)
-const theme = defineKV('theme')
+const theme = defineKv('theme')
   .version(type({ mode: "'light' | 'dark'" }))
   .version(type({ mode: "'light' | 'dark' | 'system'", accentColor: 'string' }))
   .migrate((v) => {
@@ -580,7 +623,7 @@ const theme = defineKV('theme')
   });
 
 // KV: sidebar (1 version)
-const sidebar = defineKV('sidebar')
+const sidebar = defineKv('sidebar')
   .version(type({ collapsed: 'boolean', width: 'number' }))
   .migrate((v) => v);
 
@@ -591,14 +634,14 @@ const sidebar = defineKV('sidebar')
 const ydoc = new Y.Doc({ gc: true });
 
 const tables = createTables(ydoc, { posts, users });
-const kv = createKV(ydoc, { theme, sidebar });
+const kv = createKv(ydoc, { theme, sidebar });
 
 // ═══════════════════════════════════════════════════════════════════════════
 // USAGE
 // ═══════════════════════════════════════════════════════════════════════════
 
 // Write (always latest version)
-tables.posts.upsert({
+tables.posts.set({
   id: 'post-1',
   title: 'Hello World',
   content: 'My first post',
@@ -654,7 +697,7 @@ tables.posts.observe((changedIds) => {
 const result = tables.posts.get('post-1');
 if (result.status === 'valid') {
   // Optionally persist the migrated version
-  tables.posts.upsert(result.row);
+  tables.posts.set(result.row);
 }
 ```
 
@@ -719,10 +762,10 @@ if (result.status === 'valid') {
 ## TODO
 
 - [ ] Implement `defineTable` builder with TypeScript inference
-- [ ] Implement `defineKV` builder with TypeScript inference
+- [ ] Implement `defineKv` builder with TypeScript inference
 - [ ] Implement `createUnionStandardSchema` for library-agnostic validation
 - [ ] Implement `createTables` binding function
-- [ ] Implement `createKV` binding function
+- [ ] Implement `createKv` binding function
 - [ ] Add tests for migration scenarios
 - [ ] Add tests for validation error handling
 - [ ] Benchmark union validation performance
