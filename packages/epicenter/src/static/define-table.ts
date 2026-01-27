@@ -110,10 +110,8 @@ export function defineTable<TSchema extends StandardSchemaV1>(
 				throw new Error('defineTable() requires at least one .version() call');
 			}
 
-			const unionSchema = createUnionSchema(versions);
-
 			return {
-				schema: unionSchema,
+				schema: createUnionSchema(versions),
 				migrate: fn,
 				_rowType: undefined as never,
 			};

@@ -105,10 +105,8 @@ export function defineKv<TSchema extends StandardSchemaV1>(
 				throw new Error('defineKv() requires at least one .version() call');
 			}
 
-			const unionSchema = createUnionSchema(versions);
-
 			return {
-				schema: unionSchema,
+				schema: createUnionSchema(versions),
 				migrate: fn,
 				_valueType: undefined as never,
 			};
