@@ -8,6 +8,10 @@
  * Key finding: YKeyValue uses POSITIONAL conflict resolution (rightmost wins),
  * built on top of Yjs's clientID-based ordering. The "winner" is deterministic
  * based on clientIDs, just like Y.Map.
+ *
+ * See also:
+ * - `y-keyvalue-lww.ts` for timestamp-based LWW alternative
+ * - `y-keyvalue-comparison.test.ts` for side-by-side behavioral comparison
  */
 import { describe, expect, test } from 'bun:test';
 import * as Y from 'yjs';

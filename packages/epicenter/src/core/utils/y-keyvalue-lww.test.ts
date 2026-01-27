@@ -3,6 +3,10 @@
  *
  * These tests verify that YKeyValueLWW correctly implements timestamp-based
  * conflict resolution, where higher timestamps always win regardless of sync order.
+ *
+ * See also:
+ * - `y-keyvalue.ts` for positional (rightmost-wins) alternative
+ * - `y-keyvalue-comparison.test.ts` for side-by-side behavioral comparison
  */
 import { describe, expect, test } from 'bun:test';
 import * as Y from 'yjs';
