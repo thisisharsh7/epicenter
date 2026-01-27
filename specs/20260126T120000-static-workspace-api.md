@@ -85,6 +85,10 @@ Defines a versioned table schema with migration support.
 import { defineTable } from 'epicenter/static';
 import { type } from 'arktype';
 
+// Shorthand for single version (no migration needed)
+const users = defineTable(type({ id: 'string', email: 'string' }));
+
+// Builder pattern for multiple versions with migration
 const posts = defineTable()
   .version(type({ id: 'string', title: 'string', _v: '"1"' }))
   .version(type({ id: 'string', title: 'string', views: 'number', _v: '"2"' }))
@@ -97,6 +101,12 @@ const posts = defineTable()
 **Type Signature:**
 
 ```typescript
+// Shorthand: direct schema → TableDefinition
+function defineTable<TSchema extends StandardSchemaV1>(
+  schema: StandardSchemaV1.InferOutput<TSchema> extends { id: string } ? TSchema : never
+): TableDefinition<StandardSchemaV1.InferOutput<TSchema> & { id: string }>;
+
+// Builder: no args → TableBuilder
 function defineTable(): TableBuilder<[], never>;
 
 type TableBuilder<TVersions extends StandardSchemaV1[], TLatest> = {
@@ -134,6 +144,10 @@ Defines a versioned KV schema with migration support.
 import { defineKV } from 'epicenter/static';
 import { type } from 'arktype';
 
+// Shorthand for single version (no migration needed)
+const sidebar = defineKV(type({ collapsed: 'boolean', width: 'number' }));
+
+// Builder pattern for multiple versions with migration
 const theme = defineKV()
   .version(type({ mode: "'light' | 'dark'" }))
   .version(type({ mode: "'light' | 'dark' | 'system'", fontSize: 'number' }))
@@ -146,6 +160,12 @@ const theme = defineKV()
 **Type Signature:**
 
 ```typescript
+// Shorthand: direct schema → KVDefinition
+function defineKV<TSchema extends StandardSchemaV1>(
+  schema: TSchema
+): KVDefinition<StandardSchemaV1.InferOutput<TSchema>>;
+
+// Builder: no args → KVBuilder
 function defineKV(): KVBuilder<[], never>;
 
 type KVBuilder<TVersions extends StandardSchemaV1[], TLatest> = {
@@ -727,26 +747,28 @@ type CapabilityExports = {
 
 ### 3. Single version tables (no migration)
 
-When there's only one version, `.migrate()` is still required but trivial:
+**Decision**: Implemented shorthand syntax for single-version definitions.
+
+When there's only one version, you can pass the schema directly:
 
 ```typescript
+// Shorthand (single version)
+const posts = defineTable(type({ id: 'string', title: 'string' }));
+const sidebar = defineKV(type({ collapsed: 'boolean', width: 'number' }));
+
+// Equivalent builder pattern
 const posts = defineTable()
   .version(type({ id: 'string', title: 'string' }))
-  .migrate((row) => row);  // Identity function
+  .migrate((row) => row);
 ```
 
-**Decision**: Keep `.migrate()` required for now. Explicit is better than implicit.
+The shorthand:
+- Accepts a schema directly as the first argument
+- Creates an identity migration function automatically
+- Produces equivalent output to the builder pattern
+- Works with any Standard Schema v1 compliant schema
 
-**Future consideration**: Shorthand for single-version tables:
-
-```typescript
-// Potential future shorthand (not implementing now)
-const posts = defineTable(type({ id: 'string', title: 'string' }));
-// Equivalent to:
-// defineTable().version(schema).migrate((row) => row)
-```
-
-This would pass the schema directly to `defineTable()` and auto-generate an identity migration. Defer until we see if the verbosity is actually painful in practice.
+Use the builder pattern when you need multiple versions with custom migration logic.
 
 ---
 

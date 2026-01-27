@@ -6,6 +6,10 @@
  * import { defineKV } from 'epicenter/static';
  * import { type } from 'arktype';
  *
+ * // Shorthand for single version
+ * const sidebar = defineKV(type({ collapsed: 'boolean', width: 'number' }));
+ *
+ * // Builder pattern for multiple versions
  * const theme = defineKV()
  *   .version(type({ mode: "'light' | 'dark'" }))
  *   .version(type({ mode: "'light' | 'dark' | 'system'", fontSize: 'number' }))
@@ -42,19 +46,22 @@ type KVBuilder<TVersions extends StandardSchemaV1[], TLatest> = {
 };
 
 /**
- * Creates a KV definition builder.
- *
- * Chain `.version()` calls to add schema versions, then call `.migrate()`
- * to provide a migration function that normalizes any version to latest.
+ * Creates a KV definition with a single schema version.
  *
  * @example
  * ```typescript
- * // Single version (no migration needed)
- * const sidebar = defineKV()
- *   .version(type({ collapsed: 'boolean', width: 'number' }))
- *   .migrate((v) => v);
+ * const sidebar = defineKV(type({ collapsed: 'boolean', width: 'number' }));
+ * ```
+ */
+export function defineKV<TSchema extends StandardSchemaV1>(
+	schema: TSchema,
+): KVDefinition<StandardSchemaV1.InferOutput<TSchema>>;
+
+/**
+ * Creates a KV definition builder for multiple versions with migrations.
  *
- * // Multiple versions with migration
+ * @example
+ * ```typescript
  * const theme = defineKV()
  *   .version(type({ mode: "'light' | 'dark'" }))
  *   .version(type({ mode: "'light' | 'dark' | 'system'", fontSize: 'number' }))
@@ -64,7 +71,20 @@ type KVBuilder<TVersions extends StandardSchemaV1[], TLatest> = {
  *   });
  * ```
  */
-export function defineKV(): KVBuilder<[], never> {
+export function defineKV(): KVBuilder<[], never>;
+
+export function defineKV<TSchema extends StandardSchemaV1>(
+	schema?: TSchema,
+): KVDefinition<StandardSchemaV1.InferOutput<TSchema>> | KVBuilder<[], never> {
+	if (schema) {
+		return {
+			versions: [schema],
+			unionSchema: schema,
+			migrate: (v: unknown) => v,
+			_valueType: undefined as never,
+		};
+	}
+
 	const versions: StandardSchemaV1[] = [];
 
 	const builder: KVBuilder<StandardSchemaV1[], unknown> = {

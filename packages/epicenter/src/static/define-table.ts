@@ -6,6 +6,10 @@
  * import { defineTable } from 'epicenter/static';
  * import { type } from 'arktype';
  *
+ * // Shorthand for single version
+ * const users = defineTable(type({ id: 'string', email: 'string' }));
+ *
+ * // Builder pattern for multiple versions
  * const posts = defineTable()
  *   .version(type({ id: 'string', title: 'string', _v: '"1"' }))
  *   .version(type({ id: 'string', title: 'string', views: 'number', _v: '"2"' }))
@@ -44,19 +48,25 @@ type TableBuilder<TVersions extends StandardSchemaV1[], TLatest> = {
 };
 
 /**
- * Creates a table definition builder.
- *
- * Chain `.version()` calls to add schema versions, then call `.migrate()`
- * to provide a migration function that normalizes any version to latest.
+ * Creates a table definition with a single schema version.
+ * Schema must include `{ id: string }`.
  *
  * @example
  * ```typescript
- * // Single version (no migration needed)
- * const users = defineTable()
- *   .version(type({ id: 'string', email: 'string' }))
- *   .migrate((row) => row);
+ * const users = defineTable(type({ id: 'string', email: 'string' }));
+ * ```
+ */
+export function defineTable<TSchema extends StandardSchemaV1>(
+	schema: StandardSchemaV1.InferOutput<TSchema> extends { id: string }
+		? TSchema
+		: never,
+): TableDefinition<StandardSchemaV1.InferOutput<TSchema> & { id: string }>;
+
+/**
+ * Creates a table definition builder for multiple versions with migrations.
  *
- * // Multiple versions with migration
+ * @example
+ * ```typescript
  * const posts = defineTable()
  *   .version(type({ id: 'string', title: 'string' }))
  *   .version(type({ id: 'string', title: 'string', views: 'number' }))
@@ -66,7 +76,20 @@ type TableBuilder<TVersions extends StandardSchemaV1[], TLatest> = {
  *   });
  * ```
  */
-export function defineTable(): TableBuilder<[], never> {
+export function defineTable(): TableBuilder<[], never>;
+
+export function defineTable<TSchema extends StandardSchemaV1>(
+	schema?: TSchema,
+): TableDefinition<StandardSchemaV1.InferOutput<TSchema> & { id: string }> | TableBuilder<[], never> {
+	if (schema) {
+		return {
+			versions: [schema],
+			unionSchema: schema,
+			migrate: (row: unknown) => row as { id: string },
+			_rowType: undefined as never,
+		};
+	}
+
 	const versions: StandardSchemaV1[] = [];
 
 	const builder: TableBuilder<StandardSchemaV1[], unknown> = {
