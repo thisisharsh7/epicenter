@@ -69,4 +69,37 @@ describe('defineTable', () => {
 			}).toThrow('defineTable() requires at least one .version() call');
 		});
 	});
+
+	describe('schema patterns', () => {
+		test('without _v discriminant (field presence detection)', () => {
+			const posts = defineTable()
+				.version(type({ id: 'string', title: 'string' }))
+				.version(type({ id: 'string', title: 'string', views: 'number' }))
+				.migrate((row) => {
+					if (!('views' in row)) return { ...row, views: 0 };
+					return row;
+				});
+
+			expect(posts.versions).toHaveLength(2);
+
+			const migrated = posts.migrate({ id: '1', title: 'Test' });
+			expect(migrated).toEqual({ id: '1', title: 'Test', views: 0 });
+		});
+
+		test('with _v discriminant (recommended)', () => {
+			const posts = defineTable()
+				.version(type({ id: 'string', title: 'string', _v: '"1"' }))
+				.version(type({ id: 'string', title: 'string', views: 'number', _v: '"2"' }))
+				.migrate((row) => {
+					if (row._v === '1') return { ...row, views: 0, _v: '2' as const };
+					return row;
+				});
+
+			expect(posts.versions).toHaveLength(2);
+
+			// Migrate v1 to v2
+			const migrated = posts.migrate({ id: '1', title: 'Test', _v: '1' as const });
+			expect(migrated).toEqual({ id: '1', title: 'Test', views: 0, _v: '2' });
+		});
+	});
 });
