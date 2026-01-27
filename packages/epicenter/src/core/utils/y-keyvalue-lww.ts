@@ -39,6 +39,7 @@
  * Uses a monotonic clock that guarantees:
  * - Local writes always have increasing timestamps (no same-millisecond collisions)
  * - Clock regression is handled (ignores backward jumps)
+ * - Cross-device convergence by adopting higher timestamps from synced entries
  *
  * ```typescript
  * // Simplified logic:
@@ -46,6 +47,10 @@
  * this.lastTimestamp = now > this.lastTimestamp ? now : this.lastTimestamp + 1;
  * return this.lastTimestamp;
  * ```
+ *
+ * Tracks the maximum timestamp from both local writes and remote synced entries.
+ * Devices with slow clocks "catch up" after syncing, preventing their writes from
+ * losing to stale timestamps.
  *
  * ## Tiebreaker
  *
@@ -55,10 +60,10 @@
  *
  * ## Limitations
  *
- * - **Clock skew**: If a device's clock is far in the future, its writes win unfairly.
- *   This is rare with NTP and recoverable (correct-clock writes eventually win).
- * - **No tombstones**: Deletes remove the entry entirely. A concurrent delete vs update
- *   is still subject to Yjs merge ordering for the delete operation itself.
+ * - Future clock dominance: If a device's clock is far in the future, its writes dominate
+ *   indefinitely. All devices adopt the highest timestamp seen, so writes won't catch up
+ *   until wall-clock reaches that point. Rare with NTP, but be aware in environments with
+ *   unreliable time sync.
  *
  * @example
  * ```typescript
