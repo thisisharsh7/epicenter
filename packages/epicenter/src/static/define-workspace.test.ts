@@ -89,7 +89,7 @@ describe('defineWorkspace', () => {
 
 		// Mock capability
 		const mockCapability = (_context: {
-			ydoc: unknown;
+			ydoc: Y.Doc;
 			tables: unknown;
 			kv: unknown;
 		}) => ({

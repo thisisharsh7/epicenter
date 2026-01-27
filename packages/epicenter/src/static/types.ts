@@ -420,7 +420,7 @@ export type WorkspaceClient<
 	TCapabilities extends CapabilityMap,
 > = {
 	id: TId;
-	ydoc: unknown;
+	ydoc: Y.Doc;
 	tables: TablesHelper<TTableDefinitions>;
 	kv: KvHelper<TKvDefinitions>;
 	capabilities: InferCapabilityExports<TCapabilities>;

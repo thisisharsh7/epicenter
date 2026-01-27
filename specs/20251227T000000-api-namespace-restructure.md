@@ -283,7 +283,7 @@ export type WorkspaceClient<
 
 ```typescript
 type BaseWorkspaceClient = Actions & {
-	$ydoc: unknown;
+	$ydoc: Y.Doc;
 	$tables: unknown; // Add
 	$providers: unknown; // Add
 	destroy: () => Promise<void>;
