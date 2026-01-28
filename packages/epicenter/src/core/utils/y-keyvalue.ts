@@ -3,6 +3,10 @@
  *
  * Based on [y-utility](https://github.com/yjs/y-utility) (MIT License).
  *
+ * **See also**: `y-keyvalue-lww.ts` for timestamp-based last-write-wins conflict resolution,
+ * which is better suited for offline-first, multi-device scenarios where "latest edit wins"
+ * semantics are desired.
+ *
  * ## The Problem: Y.Map's Unbounded Growth
  *
  * Yjs is a CRDT (Conflict-free Replicated Data Type) library that enables real-time
@@ -129,8 +133,8 @@
  * // Delete
  * kv.delete('user2');
  *
- * // Observe changes
- * kv.on('change', (changes, transaction) => {
+ * // Observe changes (matches Y.Map/Y.Array API)
+ * kv.observe((changes, transaction) => {
  *   for (const [key, change] of changes) {
  *     if (change.action === 'add') {
  *       console.log(`Added ${key}:`, change.newValue);
@@ -145,6 +149,14 @@
  */
 import type * as Y from 'yjs';
 
+/**
+ * Entry stored in the Y.Array.
+ *
+ * Field names are intentionally short (`val` not `value`) to minimize
+ * serialized storage size - these entries are persisted and synced.
+ */
+export type YKeyValueEntry<T> = { key: string; val: T };
+
 export type YKeyValueChange<T> =
 	| { action: 'add'; newValue: T }
 	| { action: 'update'; oldValue: T; newValue: T }
@@ -157,7 +169,7 @@ export type YKeyValueChangeHandler<T> = (
 
 export class YKeyValue<T> {
 	/** The underlying Y.Array that stores `{key, val}` entries. This is the CRDT source of truth. */
-	readonly yarray: Y.Array<{ key: string; val: T }>;
+	readonly yarray: Y.Array<YKeyValueEntry<T>>;
 
 	/** The Y.Doc that owns this array. Required for transactions. */
 	readonly doc: Y.Doc;
@@ -169,10 +181,10 @@ export class YKeyValue<T> {
 	 * the actual entry objects in yarray, so `map.get(key) === yarray.get(i)` for
 	 * the corresponding index.
 	 */
-	readonly map: Map<string, { key: string; val: T }>;
+	readonly map: Map<string, YKeyValueEntry<T>>;
 
 	/**
-	 * Registered change handlers for the `.on('change', handler)` API.
+	 * Registered change handlers for the `.observe(handler)` API.
 	 *
 	 * ## Why not use Y.Array.observe() directly?
 	 *
@@ -193,7 +205,7 @@ export class YKeyValue<T> {
 	 * });
 	 *
 	 * // YKeyValue event (high-level, semantic):
-	 * kv.on('change', (changes) => {
+	 * kv.observe((changes) => {
 	 *   // changes: Map<key, { action: 'add'|'update'|'delete', oldValue?, newValue? }>
 	 * });
 	 * ```
@@ -213,96 +225,109 @@ export class YKeyValue<T> {
 	 *
 	 * @param yarray - A Y.Array storing `{key: string, val: T}` entries
 	 */
-	constructor(yarray: Y.Array<{ key: string; val: T }>) {
+	constructor(yarray: Y.Array<YKeyValueEntry<T>>) {
 		this.yarray = yarray;
 		this.doc = yarray.doc as Y.Doc;
 		this.map = new Map();
 
-		const arr = yarray.toArray();
+		const entries = yarray.toArray();
 		this.doc.transact(() => {
-			for (let i = arr.length - 1; i >= 0; i--) {
-				const v = arr[i]!;
-				if (this.map.has(v.key)) {
+			for (let i = entries.length - 1; i >= 0; i--) {
+				const entry = entries[i]!;
+				if (this.map.has(entry.key)) {
 					yarray.delete(i);
 				} else {
-					this.map.set(v.key, v);
+					this.map.set(entry.key, entry);
 				}
 			}
 		});
 
-		yarray.observe((event, tr) => {
+		yarray.observe((event, transaction) => {
 			const changes = new Map<string, YKeyValueChange<T>>();
 			const addedItems: Y.Item[] = Array.from(event.changes.added);
 
-			event.changes.deleted.forEach((ditem) => {
-				ditem.content.getContent().forEach((c: { key: string; val: T }) => {
-					if (this.map.get(c.key) === c) {
-						this.map.delete(c.key);
-						changes.set(c.key, { action: 'delete', oldValue: c.val });
+			event.changes.deleted.forEach((deletedItem) => {
+				deletedItem.content.getContent().forEach((entry: YKeyValueEntry<T>) => {
+					// Reference equality: only process if this is the entry we have cached
+					// (Yjs returns the same object reference from the array)
+					if (this.map.get(entry.key) === entry) {
+						this.map.delete(entry.key);
+						changes.set(entry.key, { action: 'delete', oldValue: entry.val });
 					}
 				});
 			});
 
-			const addedVals = new Map<string, { key: string; val: T }>();
+			const addedEntriesByKey = new Map<string, YKeyValueEntry<T>>();
 			addedItems
-				.flatMap((item) => item.content.getContent())
-				.forEach((v: { key: string; val: T }) => {
-					addedVals.set(v.key, v);
+				.flatMap((addedItem) => addedItem.content.getContent())
+				.forEach((entry: YKeyValueEntry<T>) => {
+					addedEntriesByKey.set(entry.key, entry);
 				});
 
-			const itemsToRemove = new Set<string>();
-			const vals = yarray.toArray();
+			const keysToRemove = new Set<string>();
+			const allEntries = yarray.toArray();
 
 			this.doc.transact(() => {
 				for (
-					let i = vals.length - 1;
-					i >= 0 && (addedVals.size > 0 || itemsToRemove.size > 0);
+					let i = allEntries.length - 1;
+					i >= 0 && (addedEntriesByKey.size > 0 || keysToRemove.size > 0);
 					i--
 				) {
-					const currVal = vals[i]!;
+					const currentEntry = allEntries[i]!;
 
-					if (itemsToRemove.has(currVal.key)) {
-						itemsToRemove.delete(currVal.key);
+					if (keysToRemove.has(currentEntry.key)) {
+						keysToRemove.delete(currentEntry.key);
 						yarray.delete(i, 1);
-					} else if (addedVals.get(currVal.key) === currVal) {
-						const prevValue = this.map.get(currVal.key);
-						if (prevValue) {
-							itemsToRemove.add(currVal.key);
-							changes.set(currVal.key, {
+					} else if (addedEntriesByKey.get(currentEntry.key) === currentEntry) {
+						const previousEntry = this.map.get(currentEntry.key);
+						if (previousEntry) {
+							keysToRemove.add(currentEntry.key);
+							changes.set(currentEntry.key, {
 								action: 'update',
-								oldValue: prevValue.val,
-								newValue: currVal.val,
+								oldValue: previousEntry.val,
+								newValue: currentEntry.val,
 							});
 						} else {
-							const delEvent = changes.get(currVal.key);
-							if (delEvent && delEvent.action === 'delete') {
-								changes.set(currVal.key, {
+							const deleteEvent = changes.get(currentEntry.key);
+							if (deleteEvent && deleteEvent.action === 'delete') {
+								changes.set(currentEntry.key, {
 									action: 'update',
-									newValue: currVal.val,
-									oldValue: delEvent.oldValue,
+									newValue: currentEntry.val,
+									oldValue: deleteEvent.oldValue,
 								});
 							} else {
-								changes.set(currVal.key, {
+								changes.set(currentEntry.key, {
 									action: 'add',
-									newValue: currVal.val,
+									newValue: currentEntry.val,
 								});
 							}
 						}
-						addedVals.delete(currVal.key);
-						this.map.set(currVal.key, currVal);
-					} else if (addedVals.has(currVal.key)) {
-						itemsToRemove.add(currVal.key);
-						addedVals.delete(currVal.key);
+						addedEntriesByKey.delete(currentEntry.key);
+						this.map.set(currentEntry.key, currentEntry);
+					} else if (addedEntriesByKey.has(currentEntry.key)) {
+						keysToRemove.add(currentEntry.key);
+						addedEntriesByKey.delete(currentEntry.key);
 					}
 				}
 			});
 
 			if (changes.size > 0) {
 				for (const handler of this.changeHandlers) {
-					handler(changes, tr);
+					handler(changes, transaction);
 				}
 			}
 		});
+	}
+
+	/**
+	 * Delete the entry with the given key from the Y.Array.
+	 *
+	 * The data structure maintains at most one entry per key (duplicates are
+	 * cleaned up on construction and during sync), so this only deletes one entry.
+	 */
+	private deleteEntryByKey(key: string): void {
+		const index = this.yarray.toArray().findIndex((e) => e.key === key);
+		if (index !== -1) this.yarray.delete(index);
 	}
 
 	/**
@@ -317,16 +342,7 @@ export class YKeyValue<T> {
 		const existing = this.map.get(key);
 
 		this.doc.transact(() => {
-			if (existing) {
-				let i = 0;
-				for (const v of this.yarray) {
-					if (v.key === key) {
-						this.yarray.delete(i);
-						break;
-					}
-					i++;
-				}
-			}
+			if (existing) this.deleteEntryByKey(key);
 			this.yarray.push([entry]);
 		});
 
@@ -337,14 +353,7 @@ export class YKeyValue<T> {
 	delete(key: string): void {
 		if (!this.map.has(key)) return;
 
-		let i = 0;
-		for (const val of this.yarray) {
-			if (val.key === key) {
-				this.yarray.delete(i);
-				break;
-			}
-			i++;
-		}
+		this.deleteEntryByKey(key);
 		this.map.delete(key);
 	}
 
@@ -358,17 +367,13 @@ export class YKeyValue<T> {
 		return this.map.has(key);
 	}
 
-	/** Subscribe to changes. Handler receives a Map of key → change info. */
-	on(event: 'change', handler: YKeyValueChangeHandler<T>): void {
-		if (event === 'change') {
-			this.changeHandlers.add(handler);
-		}
+	/** Register an observer. Called when keys are added, updated, or deleted. */
+	observe(handler: YKeyValueChangeHandler<T>): void {
+		this.changeHandlers.add(handler);
 	}
 
-	/** Unsubscribe from changes. */
-	off(event: 'change', handler: YKeyValueChangeHandler<T>): void {
-		if (event === 'change') {
-			this.changeHandlers.delete(handler);
-		}
+	/** Unregister an observer. */
+	unobserve(handler: YKeyValueChangeHandler<T>): void {
+		this.changeHandlers.delete(handler);
 	}
 }

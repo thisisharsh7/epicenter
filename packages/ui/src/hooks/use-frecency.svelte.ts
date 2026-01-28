@@ -5,7 +5,9 @@ type FrecencyItem = {
 	lastUsage: number;
 };
 
-type PersistedStateOptions<T> = ConstructorParameters<typeof PersistedState<T>>[2];
+type PersistedStateOptions<T> = ConstructorParameters<
+	typeof PersistedState<T>
+>[2];
 
 type UseFrecencyOptions = PersistedStateOptions<FrecencyMap> & {
 	maxItems?: number;
@@ -19,7 +21,7 @@ export class UseFrecency {
 	constructor(
 		key: string,
 		initialValue: FrecencyMap = {},
-		readonly opts: UseFrecencyOptions = {}
+		readonly opts: UseFrecencyOptions = {},
 	) {
 		this.#items = new PersistedState<FrecencyMap>(key, initialValue, this.opts);
 
@@ -31,7 +33,7 @@ export class UseFrecency {
 
 		this.#items.current[key] = {
 			uses: 1 + (item?.uses ?? 0),
-			lastUsage: Date.now()
+			lastUsage: Date.now(),
 		};
 	}
 

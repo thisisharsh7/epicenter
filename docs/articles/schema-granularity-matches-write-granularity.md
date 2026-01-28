@@ -92,7 +92,7 @@ Because the entire row is atomic, you're guaranteed that `row._v` tells you the 
 The same principle applies to key-value storage:
 
 ```typescript
-const theme = defineKV('theme')
+const theme = defineKv('theme')
   .version(type({ mode: "'light' | 'dark'", _v: '"1"' }))
   .version(type({ mode: "'light' | 'dark' | 'system'", accentColor: 'string', _v: '"2"' }))
   .migrate((v) => {

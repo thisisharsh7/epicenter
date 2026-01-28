@@ -5,13 +5,17 @@
 	import { useEmojiPickerInput } from './emoji-picker.svelte.js';
 	import { box } from 'svelte-toolbelt';
 
-	let { value = $bindable(''), placeholder = 'Search', ...rest }: EmojiPickerSearchProps = $props();
+	let {
+		value = $bindable(''),
+		placeholder = 'Search',
+		...rest
+	}: EmojiPickerSearchProps = $props();
 
 	useEmojiPickerInput({
 		value: box.with(
 			() => value,
-			(v) => (value = v)
-		)
+			(v) => (value = v),
+		),
 	});
 </script>
 

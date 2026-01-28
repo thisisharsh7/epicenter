@@ -1,10 +1,11 @@
 # YKeyValue Conflict Resolution: Understanding the Last-Write-Wins Problem
 
-> **Update (2026-01-08)**: After extensive benchmarking, we decided to revert YKeyValue entirely
-> in favor of native Y.Map of Y.Maps with epoch-based compaction. The storage gains were dubious
-> (~6% difference, not 1935x), and the unpredictable conflict resolution was a footgun. Implementing
-> proper LWW timestamps would have added too much complexity. Native Y.Map is simpler and battle-tested.
-> See [PR #1226](https://github.com/EpicenterHQ/epicenter/pull/1226) for the full revert.
+> **Update (2026-01-27)**: We implemented `YKeyValueLww` with timestamp-based conflict resolution.
+> See [PR #1286](https://github.com/EpicenterHQ/epicenter/pull/1286). The static API now uses
+> `YKeyValueLww` by default, giving offline-first workspaces intuitive "later edit wins" semantics.
+>
+> _Previous update (2026-01-08)_: We had temporarily reverted to Y.Map, but restored YKeyValue
+> in [PR #1278](https://github.com/EpicenterHQ/epicenter/pull/1278) for the stable ID schema pattern.
 
 We discovered a conflict resolution problem in our YKeyValue implementation while researching [y-lwwmap](https://github.com/rozek/y-lwwmap). This article documents the problem, confirms it with tests, and discusses mitigation strategies.
 
@@ -251,44 +252,28 @@ Timestamp-based resolution is worth the overhead when:
 - Users expect chronological precedence ("my later edit should stick")
 - You need predictable behavior for debugging sync issues
 
-## Current Decision (2026-01-08): Deferred in Favor of Y.Map + Epochs
+## Current Decision (2026-01-27): Implemented as YKeyValueLww
 
-After extensive benchmarking and analysis, we decided to:
-
-1. **Use native Y.Map of Y.Maps** for table storage instead of YKeyValue
-2. **Rely on epoch-based compaction** for storage management
-3. **Defer LWW timestamps** until users actually complain about conflict resolution
+After the journey of adding, removing, and re-adding YKeyValue, we implemented proper LWW timestamps in [PR #1286](https://github.com/EpicenterHQ/epicenter/pull/1286).
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  WHY DEFER LWW TIMESTAMPS?                                                  │
+│  TWO IMPLEMENTATIONS, DIFFERENT TRADE-OFFS                                  │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│  1. Same-cell offline conflicts are RARE (<1% of edits)                     │
-│     • Different rows: no conflict                                           │
-│     • Same row, different columns: MERGE works                              │
-│     • Same row, same column, online: last write wins naturally              │
-│     • Same row, same column, offline: RARE                                  │
-│                                                                             │
-│  2. Y.Map + epochs is SIMPLER                                               │
-│     • Zero custom CRDT code                                                 │
-│     • Battle-tested YJS implementation                                      │
-│     • Free compaction via encodeStateAsUpdate()                             │
-│                                                                             │
-│  3. LWW adds COMPLEXITY                                                     │
-│     • ~200+ lines of custom code                                            │
-│     • Compaction race conditions to handle                                  │
-│     • Clock skew edge cases                                                 │
-│     • More surface area for bugs                                            │
-│                                                                             │
-│  4. Can add LWW LATER if needed                                             │
-│     • Epoch bump = perfect migration opportunity                            │
-│     • Add LWW per-table, not globally                                       │
+│  YKeyValue (positional)           │  YKeyValueLww (timestamp)               │
+│  ─────────────────────────────────┼─────────────────────────────────────────│
+│  • Simpler, no clock dependency   │  • Intuitive "later edit wins"          │
+│  • ~50% chance earlier wins       │  • 100% correct winner                  │
+│  • Entry: { key, val }            │  • Entry: { key, val, ts }              │
+│  • Best for real-time collab      │  • Best for offline-first               │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-See [Native Y.Map Storage Architecture](/specs/20260108T084500-ymap-native-storage-architecture.md) for the full analysis.
+The static API (`create-kv`, `create-tables`, `table-helper`) now uses `YKeyValueLww` by default. Both implementations share the same API surface, making them drop-in replacements for each other.
+
+See [specs/20260127T120000-ykeyvalue-dual-implementation.md](/specs/20260127T120000-ykeyvalue-dual-implementation.md) for guidance on when to use each.
 
 ---
 
