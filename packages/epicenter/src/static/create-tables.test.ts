@@ -214,7 +214,11 @@ describe('migration scenarios', () => {
 		const yarray = ydoc.getArray<YKeyValueLwwEntry<unknown>>('table:posts');
 		yarray.push([{ key: '1', val: { id: '1', title: 'Old', _v: '1' }, ts: 0 }]);
 		yarray.push([
-			{ key: '2', val: { id: '2', title: 'Medium', views: 10, _v: '2' }, ts: 0 },
+			{
+				key: '2',
+				val: { id: '2', title: 'Medium', views: 10, _v: '2' },
+				ts: 0,
+			},
 		]);
 
 		// Read should migrate both

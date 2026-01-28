@@ -69,8 +69,12 @@ describe('Conflict Resolution: YKeyValue vs YKeyValueLww', () => {
 		expect(kvLww2.get('x')).toBe('client-2-3pm'); // Both see same result
 
 		console.log('\n=== Conflict Resolution Comparison ===');
-		console.log(`YKeyValue winner: "${kv1.get('x')}" (clientID-based, unpredictable)`);
-		console.log(`YKeyValueLww winner: "${kvLww1.get('x')}" (timestamp-based, later edit wins)`);
+		console.log(
+			`YKeyValue winner: "${kv1.get('x')}" (clientID-based, unpredictable)`,
+		);
+		console.log(
+			`YKeyValueLww winner: "${kvLww1.get('x')}" (timestamp-based, later edit wins)`,
+		);
 	});
 
 	test('YKeyValue: ~50% chance earlier edit wins (clientID lottery)', () => {
@@ -95,7 +99,9 @@ describe('Conflict Resolution: YKeyValue vs YKeyValueLww', () => {
 		}
 
 		const earlierPercent = (earlierWins / trials) * 100;
-		console.log(`\nYKeyValue: earlier edit won ${earlierPercent.toFixed(0)}% of ${trials} trials`);
+		console.log(
+			`\nYKeyValue: earlier edit won ${earlierPercent.toFixed(0)}% of ${trials} trials`,
+		);
 
 		// Should be roughly 50/50 (within 30-70% range)
 		expect(earlierWins).toBeGreaterThan(20);
@@ -222,7 +228,11 @@ describe('API Compatibility', () => {
 
 	test('drop-in replacement works', () => {
 		// Code that works with YKeyValue should work with YKeyValueLww
-		function useKV(kv: { get: (k: string) => string | undefined; set: (k: string, v: string) => void; has: (k: string) => boolean }) {
+		function useKV(kv: {
+			get: (k: string) => string | undefined;
+			set: (k: string, v: string) => void;
+			has: (k: string) => boolean;
+		}) {
 			kv.set('a', '1');
 			kv.set('b', '2');
 			expect(kv.get('a')).toBe('1');

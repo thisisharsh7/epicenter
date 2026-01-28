@@ -208,19 +208,22 @@ export class YKeyValueLww<T> {
 					addedEntries.push(addedEntry);
 
 					// Track max timestamp from synced entries (self-healing behavior)
-					if (addedEntry.ts > this.lastTimestamp) this.lastTimestamp = addedEntry.ts;
+					if (addedEntry.ts > this.lastTimestamp)
+						this.lastTimestamp = addedEntry.ts;
 				}
 			}
 
 			// Handle deletions first
 			event.changes.deleted.forEach((deletedItem) => {
-				deletedItem.content.getContent().forEach((entry: YKeyValueLwwEntry<T>) => {
-					// Reference equality: only process if this is the entry we have cached
-					if (this.map.get(entry.key) === entry) {
-						this.map.delete(entry.key);
-						changes.set(entry.key, { action: 'delete', oldValue: entry.val });
-					}
-				});
+				deletedItem.content
+					.getContent()
+					.forEach((entry: YKeyValueLwwEntry<T>) => {
+						// Reference equality: only process if this is the entry we have cached
+						if (this.map.get(entry.key) === entry) {
+							this.map.delete(entry.key);
+							changes.set(entry.key, { action: 'delete', oldValue: entry.val });
+						}
+					});
 			});
 
 			// Process added entries with LWW logic
@@ -334,7 +337,8 @@ export class YKeyValueLww<T> {
 	 */
 	private getTimestamp(): number {
 		const now = Date.now();
-		this.lastTimestamp = now > this.lastTimestamp ? now : this.lastTimestamp + 1;
+		this.lastTimestamp =
+			now > this.lastTimestamp ? now : this.lastTimestamp + 1;
 		return this.lastTimestamp;
 	}
 

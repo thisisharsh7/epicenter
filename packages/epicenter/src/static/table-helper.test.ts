@@ -175,7 +175,9 @@ describe('createTableHelper', () => {
 			const helper = createTableHelper(ykv, definition);
 
 			helper.set({ id: '1', active: true });
-			yarray.push([{ key: '2', val: { id: '2', active: 'not-a-boolean' }, ts: 0 }]);
+			yarray.push([
+				{ key: '2', val: { id: '2', active: 'not-a-boolean' }, ts: 0 },
+			]);
 
 			const all = helper.filter(() => true);
 			expect(all).toHaveLength(1);
