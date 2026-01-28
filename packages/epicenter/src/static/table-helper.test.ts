@@ -1,15 +1,18 @@
 import { describe, expect, test } from 'bun:test';
 import { type } from 'arktype';
 import * as Y from 'yjs';
-import { YKeyValue } from '../core/utils/y-keyvalue.js';
+import {
+	YKeyValueLww,
+	type YKeyValueLwwEntry,
+} from '../core/utils/y-keyvalue-lww.js';
 import { defineTable } from './define-table.js';
 import { createTableHelper } from './table-helper.js';
 
 /** Creates Yjs infrastructure for testing */
 function setup() {
 	const ydoc = new Y.Doc();
-	const yarray = ydoc.getArray<{ key: string; val: unknown }>('test-table');
-	const ykv = new YKeyValue(yarray);
+	const yarray = ydoc.getArray<YKeyValueLwwEntry<unknown>>('test-table');
+	const ykv = new YKeyValueLww(yarray);
 	return { ydoc, yarray, ykv };
 }
 
@@ -79,7 +82,7 @@ describe('createTableHelper', () => {
 			const helper = createTableHelper(ykv, definition);
 
 			// Insert invalid data directly
-			yarray.push([{ key: '1', val: { id: '1', name: 123 } }]); // name should be string
+			yarray.push([{ key: '1', val: { id: '1', name: 123 }, ts: 0 }]); // name should be string
 
 			const result = helper.get('1');
 			expect(result.status).toBe('invalid');
@@ -96,7 +99,7 @@ describe('createTableHelper', () => {
 			const helper = createTableHelper(ykv, definition);
 
 			helper.set({ id: '1', name: 'Valid' });
-			yarray.push([{ key: '2', val: { id: '2', name: 999 } }]); // invalid
+			yarray.push([{ key: '2', val: { id: '2', name: 999 }, ts: 0 }]); // invalid
 
 			const results = helper.getAll();
 			expect(results).toHaveLength(2);
@@ -113,7 +116,7 @@ describe('createTableHelper', () => {
 			const helper = createTableHelper(ykv, definition);
 
 			helper.set({ id: '1', name: 'Valid' });
-			yarray.push([{ key: '2', val: { id: '2', name: 999 } }]); // invalid
+			yarray.push([{ key: '2', val: { id: '2', name: 999 }, ts: 0 }]); // invalid
 
 			const rows = helper.getAllValid();
 			expect(rows).toHaveLength(1);
@@ -126,8 +129,8 @@ describe('createTableHelper', () => {
 			const helper = createTableHelper(ykv, definition);
 
 			helper.set({ id: '1', name: 'Valid' });
-			yarray.push([{ key: '2', val: { id: '2', name: 999 } }]); // invalid
-			yarray.push([{ key: '3', val: { id: '3' } }]); // also invalid - missing name
+			yarray.push([{ key: '2', val: { id: '2', name: 999 }, ts: 0 }]); // invalid
+			yarray.push([{ key: '3', val: { id: '3' }, ts: 0 }]); // also invalid - missing name
 
 			const invalid = helper.getAllInvalid();
 			expect(invalid).toHaveLength(2);
@@ -172,7 +175,7 @@ describe('createTableHelper', () => {
 			const helper = createTableHelper(ykv, definition);
 
 			helper.set({ id: '1', active: true });
-			yarray.push([{ key: '2', val: { id: '2', active: 'not-a-boolean' } }]);
+			yarray.push([{ key: '2', val: { id: '2', active: 'not-a-boolean' }, ts: 0 }]);
 
 			const all = helper.filter(() => true);
 			expect(all).toHaveLength(1);
@@ -208,7 +211,7 @@ describe('createTableHelper', () => {
 			const definition = defineTable(type({ id: 'string', name: 'string' }));
 			const helper = createTableHelper(ykv, definition);
 
-			yarray.push([{ key: '1', val: { id: '1', name: 123 } }]); // invalid
+			yarray.push([{ key: '1', val: { id: '1', name: 123 }, ts: 0 }]); // invalid
 			helper.set({ id: '2', name: 'Valid' });
 
 			const found = helper.find(() => true);
@@ -407,7 +410,7 @@ describe('createTableHelper', () => {
 			const helper = createTableHelper(ykv, definition);
 
 			// Insert v1 data directly
-			yarray.push([{ key: '1', val: { id: '1', name: 'Alice' } }]);
+			yarray.push([{ key: '1', val: { id: '1', name: 'Alice' }, ts: 0 }]);
 
 			const result = helper.get('1');
 			expect(result.status).toBe('valid');

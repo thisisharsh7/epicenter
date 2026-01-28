@@ -1,11 +1,14 @@
 # YKeyValue LWW Timestamps Implementation
 
-**Status**: DEFERRED (see `20260108T084500-ymap-native-storage-architecture.md`)
+**Status**: IMPLEMENTED as `YKeyValueLww` (see `20260127T120000-ykeyvalue-dual-implementation.md`)
 
-> **Note**: This spec is deferred, not cancelled. After benchmarking and analysis, we determined
-> that native Y.Map of Y.Maps with epoch-based compaction provides sufficient functionality with
-> far less complexity. This spec should be revisited if users complain about unpredictable
-> conflict resolution in same-cell offline editing scenarios.
+> **Update 2026-01-27**: This spec has been implemented as a separate class `YKeyValueLww` in
+> `y-keyvalue-lww.ts`. The original `YKeyValue` (positional conflict resolution) is preserved
+> for backwards compatibility. See the dual-implementation spec for guidance on when to use each.
+>
+> The implementation below has been simplified: we store only `ts` (timestamp), not `by` (clientID),
+> because the clientID tiebreaker is only needed when timestamps are exactly equal, which is rare
+> enough that falling back to positional ordering (Yjs's native clientID-based ordering) suffices.
 
 ## Summary
 

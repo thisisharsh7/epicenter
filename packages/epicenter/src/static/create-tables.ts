@@ -19,7 +19,10 @@
  */
 
 import type * as Y from 'yjs';
-import { YKeyValue } from '../core/utils/y-keyvalue.js';
+import {
+	YKeyValueLww,
+	type YKeyValueLwwEntry,
+} from '../core/utils/y-keyvalue-lww.js';
 import { createTableHelper } from './table-helper.js';
 import type {
 	InferTableRow,
@@ -47,10 +50,8 @@ export function createTables<TTableDefinitions extends TableDefinitions>(
 
 	for (const [name, definition] of Object.entries(definitions)) {
 		// Each table gets its own Y.Array for isolation
-		const yarray = ydoc.getArray<{ key: string; val: unknown }>(
-			`table:${name}`,
-		);
-		const ykv = new YKeyValue(yarray);
+		const yarray = ydoc.getArray<YKeyValueLwwEntry<unknown>>(`table:${name}`);
+		const ykv = new YKeyValueLww(yarray);
 
 		helpers[name] = createTableHelper(ykv, definition);
 	}

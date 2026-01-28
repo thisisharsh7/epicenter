@@ -8,16 +8,20 @@
  * Key finding: YKeyValue uses POSITIONAL conflict resolution (rightmost wins),
  * built on top of Yjs's clientID-based ordering. The "winner" is deterministic
  * based on clientIDs, just like Y.Map.
+ *
+ * See also:
+ * - `y-keyvalue-lww.ts` for timestamp-based LWW alternative
+ * - `y-keyvalue-comparison.test.ts` for side-by-side behavioral comparison
  */
 import { describe, expect, test } from 'bun:test';
 import * as Y from 'yjs';
-import { YKeyValue } from './y-keyvalue';
+import { YKeyValue, type YKeyValueEntry } from './y-keyvalue';
 
 describe('YKeyValue', () => {
 	describe('Basic Operations', () => {
 		test('set and get work correctly', () => {
 			const ydoc = new Y.Doc({ guid: 'test' });
-			const yarray = ydoc.getArray<{ key: string; val: string }>('data');
+			const yarray = ydoc.getArray<YKeyValueEntry<string>>('data');
 			const kv = new YKeyValue(yarray);
 
 			kv.set('foo', 'bar');
@@ -26,7 +30,7 @@ describe('YKeyValue', () => {
 
 		test('set overwrites existing value', () => {
 			const ydoc = new Y.Doc({ guid: 'test' });
-			const yarray = ydoc.getArray<{ key: string; val: string }>('data');
+			const yarray = ydoc.getArray<YKeyValueEntry<string>>('data');
 			const kv = new YKeyValue(yarray);
 
 			kv.set('foo', 'first');
@@ -36,7 +40,7 @@ describe('YKeyValue', () => {
 
 		test('delete removes value', () => {
 			const ydoc = new Y.Doc({ guid: 'test' });
-			const yarray = ydoc.getArray<{ key: string; val: string }>('data');
+			const yarray = ydoc.getArray<YKeyValueEntry<string>>('data');
 			const kv = new YKeyValue(yarray);
 
 			kv.set('foo', 'bar');
@@ -47,7 +51,7 @@ describe('YKeyValue', () => {
 
 		test('has returns correct boolean', () => {
 			const ydoc = new Y.Doc({ guid: 'test' });
-			const yarray = ydoc.getArray<{ key: string; val: string }>('data');
+			const yarray = ydoc.getArray<YKeyValueEntry<string>>('data');
 			const kv = new YKeyValue(yarray);
 
 			expect(kv.has('foo')).toBe(false);
@@ -59,11 +63,11 @@ describe('YKeyValue', () => {
 	describe('Change Events', () => {
 		test('fires add event when new key is set', () => {
 			const ydoc = new Y.Doc({ guid: 'test' });
-			const yarray = ydoc.getArray<{ key: string; val: string }>('data');
+			const yarray = ydoc.getArray<YKeyValueEntry<string>>('data');
 			const kv = new YKeyValue(yarray);
 
 			const events: Array<{ key: string; action: string }> = [];
-			kv.on('change', (changes) => {
+			kv.observe((changes) => {
 				for (const [key, change] of changes) {
 					events.push({ key, action: change.action });
 				}
@@ -75,7 +79,7 @@ describe('YKeyValue', () => {
 
 		test('fires update event when existing key is changed', () => {
 			const ydoc = new Y.Doc({ guid: 'test' });
-			const yarray = ydoc.getArray<{ key: string; val: string }>('data');
+			const yarray = ydoc.getArray<YKeyValueEntry<string>>('data');
 			const kv = new YKeyValue(yarray);
 
 			kv.set('foo', 'first');
@@ -86,7 +90,7 @@ describe('YKeyValue', () => {
 				oldValue?: string;
 				newValue?: string;
 			}> = [];
-			kv.on('change', (changes) => {
+			kv.observe((changes) => {
 				for (const [key, change] of changes) {
 					events.push({
 						key,
@@ -105,13 +109,13 @@ describe('YKeyValue', () => {
 
 		test('fires delete event when key is removed', () => {
 			const ydoc = new Y.Doc({ guid: 'test' });
-			const yarray = ydoc.getArray<{ key: string; val: string }>('data');
+			const yarray = ydoc.getArray<YKeyValueEntry<string>>('data');
 			const kv = new YKeyValue(yarray);
 
 			kv.set('foo', 'bar');
 
 			const events: Array<{ key: string; action: string }> = [];
-			kv.on('change', (changes) => {
+			kv.observe((changes) => {
 				for (const [key, change] of changes) {
 					events.push({ key, action: change.action });
 				}
@@ -135,8 +139,8 @@ describe('YKeyValue', () => {
 			const doc1 = new Y.Doc({ guid: 'shared' });
 			const doc2 = new Y.Doc({ guid: 'shared' });
 
-			const array1 = doc1.getArray<{ key: string; val: string }>('data');
-			const array2 = doc2.getArray<{ key: string; val: string }>('data');
+			const array1 = doc1.getArray<YKeyValueEntry<string>>('data');
+			const array2 = doc2.getArray<YKeyValueEntry<string>>('data');
 
 			const kv1 = new YKeyValue(array1);
 			const kv2 = new YKeyValue(array2);
@@ -175,8 +179,8 @@ describe('YKeyValue', () => {
 				const doc1 = new Y.Doc({ guid: `shared-${i}` });
 				const doc2 = new Y.Doc({ guid: `shared-${i}` });
 
-				const array1 = doc1.getArray<{ key: string; val: string }>('data');
-				const array2 = doc2.getArray<{ key: string; val: string }>('data');
+				const array1 = doc1.getArray<YKeyValueEntry<string>>('data');
+				const array2 = doc2.getArray<YKeyValueEntry<string>>('data');
 
 				const kv1 = new YKeyValue(array1);
 				const kv2 = new YKeyValue(array2);
@@ -208,8 +212,8 @@ describe('YKeyValue', () => {
 			const doc1 = new Y.Doc({ guid: 'shared-delete-test' });
 			const doc2 = new Y.Doc({ guid: 'shared-delete-test' });
 
-			const array1 = doc1.getArray<{ key: string; val: string }>('data');
-			const array2 = doc2.getArray<{ key: string; val: string }>('data');
+			const array1 = doc1.getArray<YKeyValueEntry<string>>('data');
+			const array2 = doc2.getArray<YKeyValueEntry<string>>('data');
 
 			// First, establish initial state in both docs
 			const kv1 = new YKeyValue(array1);
@@ -250,7 +254,7 @@ describe('YKeyValue', () => {
 	describe('Array Cleanup Behavior', () => {
 		test('duplicate keys are cleaned up on construction', () => {
 			const ydoc = new Y.Doc({ guid: 'test' });
-			const yarray = ydoc.getArray<{ key: string; val: string }>('data');
+			const yarray = ydoc.getArray<YKeyValueEntry<string>>('data');
 
 			// Manually push duplicate keys (simulating sync artifacts)
 			yarray.push([{ key: 'foo', val: 'first' }]);
@@ -272,7 +276,7 @@ describe('YKeyValue', () => {
 
 		test('rightmost entry wins during cleanup', () => {
 			const ydoc = new Y.Doc({ guid: 'test' });
-			const yarray = ydoc.getArray<{ key: string; val: string }>('data');
+			const yarray = ydoc.getArray<YKeyValueEntry<string>>('data');
 
 			// Push same key multiple times
 			yarray.push([{ key: 'x', val: 'A' }]);
@@ -290,7 +294,7 @@ describe('YKeyValue', () => {
 	describe('Storage Efficiency', () => {
 		test('maintains constant size regardless of update count', () => {
 			const ydoc = new Y.Doc({ guid: 'test' });
-			const yarray = ydoc.getArray<{ key: string; val: number }>('data');
+			const yarray = ydoc.getArray<YKeyValueEntry<number>>('data');
 			const kv = new YKeyValue(yarray);
 
 			for (let i = 0; i < 100; i++) {
@@ -303,7 +307,7 @@ describe('YKeyValue', () => {
 
 		test('size scales with unique keys, not operations', () => {
 			const ydoc = new Y.Doc({ guid: 'test' });
-			const yarray = ydoc.getArray<{ key: string; val: string }>('data');
+			const yarray = ydoc.getArray<YKeyValueEntry<string>>('data');
 			const kv = new YKeyValue(yarray);
 
 			for (let i = 0; i < 10; i++) {
@@ -334,7 +338,7 @@ describe('YKeyValue', () => {
 		 */
 		test('conflict resolution is positional (rightmost wins)', () => {
 			const ydoc = new Y.Doc({ guid: 'test' });
-			const yarray = ydoc.getArray<{ key: string; val: string }>('data');
+			const yarray = ydoc.getArray<YKeyValueEntry<string>>('data');
 
 			// Manually construct a conflicted state
 			yarray.push([{ key: 'x', val: 'leftmost' }]);
@@ -353,7 +357,7 @@ describe('YKeyValue', () => {
 		 */
 		test('entries have no timestamp field', () => {
 			const ydoc = new Y.Doc({ guid: 'test' });
-			const yarray = ydoc.getArray<{ key: string; val: string }>('data');
+			const yarray = ydoc.getArray<YKeyValueEntry<string>>('data');
 			const kv = new YKeyValue(yarray);
 
 			kv.set('foo', 'bar');

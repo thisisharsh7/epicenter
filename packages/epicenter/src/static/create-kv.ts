@@ -21,7 +21,11 @@
 
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type * as Y from 'yjs';
-import { YKeyValue, type YKeyValueChange } from '../core/utils/y-keyvalue.js';
+import {
+	YKeyValueLww,
+	type YKeyValueLwwChange,
+	type YKeyValueLwwEntry,
+} from '../core/utils/y-keyvalue-lww.js';
 import type {
 	InferKvValue,
 	KvBatchTransaction,
@@ -45,9 +49,9 @@ export function createKv<TKvDefinitions extends KvDefinitions>(
 	ydoc: Y.Doc,
 	definitions: TKvDefinitions,
 ): KvHelper<TKvDefinitions> {
-	// All KV values share a single YKeyValue store
-	const yarray = ydoc.getArray<{ key: string; val: unknown }>('kv');
-	const ykv = new YKeyValue(yarray);
+	// All KV values share a single YKeyValueLww store
+	const yarray = ydoc.getArray<YKeyValueLwwEntry<unknown>>('kv');
+	const ykv = new YKeyValueLww(yarray);
 
 	/**
 	 * Parse and migrate a raw value using the given definition.
@@ -115,7 +119,7 @@ export function createKv<TKvDefinitions extends KvDefinitions>(
 			if (!definition) throw new Error(`Unknown KV key: ${key}`);
 
 			const handler = (
-				changes: Map<string, YKeyValueChange<unknown>>,
+				changes: Map<string, YKeyValueLwwChange<unknown>>,
 				transaction: Y.Transaction,
 			) => {
 				const change = changes.get(key);
@@ -138,8 +142,8 @@ export function createKv<TKvDefinitions extends KvDefinitions>(
 				}
 			};
 
-			ykv.on('change', handler);
-			return () => ykv.off('change', handler);
+			ykv.observe(handler);
+			return () => ykv.unobserve(handler);
 		},
 	} as KvHelper<TKvDefinitions>;
 }
