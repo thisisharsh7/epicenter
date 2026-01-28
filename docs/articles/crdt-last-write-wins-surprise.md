@@ -92,26 +92,25 @@ From the [Yjs INTERNALS.md](https://github.com/yjs/yjs/blob/main/INTERNALS.md):
 
 ## But I Really Want "Later Edit Wins"
 
-You can build it yourself. Libraries like `y-lwwmap` add timestamps on top of Yjs:
+You can build it yourself. Libraries like `y-lwwmap` add timestamps on top of Yjs.
+
+**We built `YKeyValueLww` for exactly this.** See [PR #1286](https://github.com/EpicenterHQ/epicenter/pull/1286) for the implementation. It stores a timestamp alongside each entry:
 
 ```typescript
-// Each write includes a timestamp
-map.set('title', {
-	value: 'Final',
-	timestamp: Date.now(),
-	authorId: myClientId,
-});
+// YKeyValue (positional - clientID ordering)
+type Entry<T> = { key: string; val: T };
 
-// On conflict, higher timestamp wins
-// Tie-breaker: hash of value (deterministic)
+// YKeyValueLww (timestamp - later edit wins)
+type Entry<T> = { key: string; val: T; ts: number };
 ```
+
+The monotonic clock ensures rapid writes get sequential timestamps, handles clock regression, and self-heals after syncing with devices that have faster clocks.
 
 **The tradeoffs you accept:**
 
-- Clock skew can still cause "earlier" to win if clocks disagree
-- You need tombstones for deletes (30-day retention typical)
-- More storage, more complexity
-- You're betting your devices have decent clocks
+- Clock skew can still cause "earlier" to win if clocks disagree significantly
+- Slightly more storage (~8 bytes per entry for timestamp)
+- You're betting your devices have reasonable clocks (NTP)
 
 For most apps, this tradeoff is fine. Your users' devices probably have NTP. But now you know it's a _choice_, not a guarantee.
 

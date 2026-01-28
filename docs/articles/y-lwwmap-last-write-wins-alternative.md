@@ -137,50 +137,40 @@ y-lwwmap is a drop-in replacement for YKeyValue. Same API, different internals. 
 
 That said, most collaborative apps can live with YKeyValue's behavior. The "random winner" scenario only matters when users actually notice which edit survived—and often they don't.
 
-## Update (2026-01-08): Epoch-Based Compaction Alternative
+## Update (2026-01-27): We Built YKeyValueLww
 
-Before implementing LWW timestamps, consider whether your architecture supports **epoch-based compaction**:
+We implemented our own LWW solution: `YKeyValueLww`. See [PR #1286](https://github.com/EpicenterHQ/epicenter/pull/1286).
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  EPOCH-BASED COMPACTION                                                     │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  If your system has versioned Y.Doc snapshots (epochs), you get FREE        │
-│  compaction without custom LWW code:                                        │
-│                                                                             │
-│  // Compact by re-encoding current state                                    │
-│  const snapshot = Y.encodeStateAsUpdate(dataDoc);                           │
-│  const freshDoc = new Y.Doc({ guid: dataDoc.guid });                        │
-│  Y.applyUpdate(freshDoc, snapshot);                                         │
-│  // History is gone, storage is minimal                                     │
-│                                                                             │
-│  This works with native Y.Map too, not just YKeyValue.                      │
-│  The question becomes: do you NEED predictable conflict resolution?         │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
+```typescript
+import { YKeyValueLww } from 'epicenter/core/utils/y-keyvalue-lww';
+
+const kv = new YKeyValueLww(yarray);
+kv.set('title', 'Final');  // Automatically timestamped
 ```
 
-**Decision flow**:
+Key differences from y-lwwmap:
+
+| Aspect | y-lwwmap | YKeyValueLww |
+|--------|----------|--------------|
+| Tie-breaker | MD5 hash | Positional (rightmost) |
+| Tombstones | Yes (30-day retention) | No (immediate deletion) |
+| Dependencies | lib0 + blueimp-md5 | lib0 only |
+| Timestamp factor | 3000x (sub-ms precision) | 1x (ms precision + increment) |
+
+We chose simpler defaults: millisecond timestamps with monotonic increment handle same-ms collisions, and positional tiebreaker for the rare equal-timestamp case. No tombstones means deletions don't propagate correctly in all edge cases, but that's acceptable for our use case where deletions are rare explicit user actions.
+
+**When to use which**:
 
 ```
-Do users complain about "my edit should have won"?
-        │
-   ┌────┴────┐
-   NO        YES
-   │         │
-   ▼         ▼
-Use Y.Map   How often?
-(simpler)        │
-            ┌────┴────┐
-          Rarely    Often
-            │         │
-            ▼         ▼
-        Y.Map is   Consider
-        still fine  LWW timestamps
+┌────────────────────────────────────────────────────────────────┐
+│  Scenario                         │  Recommendation            │
+├───────────────────────────────────┼────────────────────────────┤
+│  Real-time collab, simple cases   │  YKeyValue (positional)    │
+│  Offline-first, multi-device      │  YKeyValueLww (timestamp)  │
+│  Need tombstone deletions         │  y-lwwmap                  │
+│  Clock sync unreliable            │  YKeyValue (no clock dep)  │
+└────────────────────────────────────────────────────────────────┘
 ```
-
-See [Native Y.Map Storage Architecture](/specs/20260108T084500-ymap-native-storage-architecture.md) for the full analysis of when LWW timestamps are worth the complexity.
 
 ---
 
