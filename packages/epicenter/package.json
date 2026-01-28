@@ -5,6 +5,7 @@
 	"types": "./src/index.ts",
 	"exports": {
 		".": "./src/index.ts",
+		"./static": "./src/static/index.ts",
 		"./node": "./src/core/workspace/node.ts",
 		"./extensions/persistence": {
 			"browser": "./src/extensions/persistence/index.browser.ts",
@@ -38,6 +39,7 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
+		"tinybase": "^5.4.2",
 		"@ark/json-schema": "^0.0.4",
 		"@elysiajs/openapi": "^1.4.11",
 		"@sindresorhus/slugify": "^3.0.0",

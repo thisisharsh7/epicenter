@@ -144,7 +144,7 @@ You don't have to choose one approach for everything.
 **Use row-level for structured data:**
 ```typescript
 // Settings, preferences, records with schemas
-const settings = defineKV('settings')
+const settings = defineKv('settings')
   .version(schema1)
   .version(schema2)
   .migrate(...);

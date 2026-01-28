@@ -85,7 +85,9 @@ function benchmarkScenario(
 
 console.log('═══════════════════════════════════════════════════════════════');
 console.log('Y.Map vs YKeyValue Benchmark for KV Storage');
-console.log('═══════════════════════════════════════════════════════════════\n');
+console.log(
+	'═══════════════════════════════════════════════════════════════\n',
+);
 
 const scenarios = [
 	// Typical KV: few keys, rare updates
@@ -151,18 +153,28 @@ for (const scenario of scenarios) {
 	results.push(result);
 
 	console.log(`📊 ${result.name}`);
-	console.log(`   Y.Map:     ${formatBytes(result.ymapBytes).padStart(12)} | ${result.ymapTimeMs.toFixed(2).padStart(8)} ms`);
-	console.log(`   YKeyValue: ${formatBytes(result.ykvBytes).padStart(12)} | ${result.ykvTimeMs.toFixed(2).padStart(8)} ms`);
+	console.log(
+		`   Y.Map:     ${formatBytes(result.ymapBytes).padStart(12)} | ${result.ymapTimeMs.toFixed(2).padStart(8)} ms`,
+	);
+	console.log(
+		`   YKeyValue: ${formatBytes(result.ykvBytes).padStart(12)} | ${result.ykvTimeMs.toFixed(2).padStart(8)} ms`,
+	);
 	console.log(`   → ${result.ratio}`);
 	console.log();
 }
 
 console.log('═══════════════════════════════════════════════════════════════');
 console.log('Summary');
-console.log('═══════════════════════════════════════════════════════════════\n');
+console.log(
+	'═══════════════════════════════════════════════════════════════\n',
+);
 
-console.log('| Scenario | Y.Map Size | YKV Size | Y.Map Time | YKV Time | Winner |');
-console.log('|----------|------------|----------|------------|----------|--------|');
+console.log(
+	'| Scenario | Y.Map Size | YKV Size | Y.Map Time | YKV Time | Winner |',
+);
+console.log(
+	'|----------|------------|----------|------------|----------|--------|',
+);
 
 for (const r of results) {
 	const sizeWinner = r.ymapBytes <= r.ykvBytes ? 'Y.Map' : 'YKV';
@@ -177,8 +189,12 @@ for (const r of results) {
 console.log('\n');
 console.log('Key Insights:');
 console.log('- For few updates: Y.Map and YKeyValue are similar in size');
-console.log('- For many updates to same keys: YKeyValue stays bounded, Y.Map grows');
-console.log('- YKeyValue has slightly more overhead per operation (cleanup scan)');
+console.log(
+	'- For many updates to same keys: YKeyValue stays bounded, Y.Map grows',
+);
+console.log(
+	'- YKeyValue has slightly more overhead per operation (cleanup scan)',
+);
 console.log(
 	'- For typical KV (few keys, occasional updates): either works fine',
 );

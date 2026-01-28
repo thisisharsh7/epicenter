@@ -21,17 +21,17 @@
 	const state = useEmojiPicker({
 		value: box.with(
 			() => value,
-			(v) => (value = v)
+			(v) => (value = v),
 		),
 		skin: box.with(
 			() => skin,
-			(v) => (skin = v)
+			(v) => (skin = v),
 		),
 		showRecents: box.with(() => showRecents),
 		recentsKey: box.with(() => recentsKey),
 		maxRecents: box.with(() => maxRecents),
 		onSelect: box.with(() => onSelect),
-		onSkinChange: box.with(() => onSkinChange)
+		onSkinChange: box.with(() => onSkinChange),
 	});
 </script>
 

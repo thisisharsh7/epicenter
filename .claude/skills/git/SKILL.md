@@ -152,17 +152,103 @@ const server = createServer(client, { actions });
 
 The first version lets reviewers understand the API at a glance. The second forces them to dig through the code to understand the call sites.
 
-### Diagrams for Architecture Changes
+### Visual Communication with ASCII Art
 
-For PRs that change how components interact, include ASCII flow diagrams:
+Use ASCII diagrams liberally to communicate complex ideas. They're more scannable than prose and show relationships at a glance.
+
+#### Journey/Evolution Diagrams
+
+For PRs that iterate on previous work, show the evolution:
 
 ```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   Actions   │ ──> │  Adapters   │ ──> │  CLI/HTTP   │
-└─────────────┘     └─────────────┘     └─────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│  PR #1217 (Jan 7)                                                       │
+│  "Add YKeyValue for 1935x storage improvement"                          │
+│                                                                         │
+│       Y.Map (524,985 bytes) ──→ YKeyValue (271 bytes)                   │
+│                                                                         │
+└───────────────────────────────────┬─────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  PR #1226 (Jan 8)                                                       │
+│  "Remove YKeyValue, use native Y.Map + epoch compaction"                │
+│                                                                         │
+│  Reasoning: "Unpredictable LWW behavior"  ← ⚠️ (misleading!)            │
+│                                                                         │
+└───────────────────────────────────┬─────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  This PR                                                                │
+│  "Restore YKeyValue with LWW timestamps"                                │
+│                                                                         │
+│  Why: Timestamp-based resolution gives intuitive "latest wins"          │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-This immediately communicates the data flow without walls of text.
+#### Layered Architecture Diagrams
+
+Show how components stack:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  defineWorkspace() + workspace.create()                     │  ← High-level
+│    Creates Y.Doc internally, binds tables/kv/capabilities   │
+├─────────────────────────────────────────────────────────────┤
+│  createTables(ydoc, {...}) / createKv(ydoc, {...})          │  ← Mid-level
+│    Binds to existing Y.Doc                                  │
+├─────────────────────────────────────────────────────────────┤
+│  defineTable() / defineKv()                                 │  ← Low-level
+│    Pure schema definitions                                  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### Comparison Tables
+
+For showing trade-offs between approaches:
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│  Use Case                         │  Recommendation            │
+├───────────────────────────────────┼────────────────────────────┤
+│  Real-time collab, simple cases   │  YKeyValue (positional)    │
+│  Offline-first, multi-device      │  YKeyValueLww (timestamp)  │
+│  Clock sync unreliable            │  YKeyValue (no clock dep)  │
+└────────────────────────────────────────────────────────────────┘
+```
+
+#### Flow Diagrams
+
+For showing data/control flow:
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│                     Conflict Resolution                        │
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│  Client A (2:00pm)  ──┐                                        │
+│                       │──→  Sync  ──→  Winner?                 │
+│  Client B (3:00pm)  ──┘                                        │
+│                                    │                           │
+│                   ┌────────────────┴────────────────┐          │
+│                   ▼                                 ▼          │
+│             YKeyValue                         YKeyValueLww     │
+│          (clientID wins)                   (timestamp wins)    │
+│           ~50% correct                       100% correct      │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
+```
+
+#### When to Use Diagrams
+
+- **Journey diagrams**: PR iterates on previous work or fixes a past decision
+- **Layer diagrams**: PR introduces or changes architecture with distinct levels
+- **Comparison tables**: PR introduces alternatives or explains trade-offs
+- **Flow diagrams**: PR changes how data or control moves between components
+
+ASCII art characters to use: `┌ ┐ └ ┘ ─ │ ├ ┤ ┬ ┴ ┼ ▼ ▲ ◀ ▶ ──→ ←── ⚠️ ✅ ❌`
 
 ### Other Guidelines
 

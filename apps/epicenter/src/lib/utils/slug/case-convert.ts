@@ -1,4 +1,4 @@
-import type { SnakeCaseSlug, KebabCaseSlug } from './slugify';
+import type { KebabCaseSlug, SnakeCaseSlug } from './slugify';
 
 export function snakeToKebab(value: SnakeCaseSlug): KebabCaseSlug {
 	return value.replace(/_/g, '-') as KebabCaseSlug;

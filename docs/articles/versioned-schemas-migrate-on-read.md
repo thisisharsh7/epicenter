@@ -196,7 +196,7 @@ The trade-off is you must handle all versions yourself, but TypeScript helps ens
 The same pattern works for key-value storage:
 
 ```typescript
-const theme = defineKV('theme')
+const theme = defineKv('theme')
   .version(type({ mode: "'light' | 'dark'", _v: '"1"' }))
   .version(type({ mode: "'light' | 'dark' | 'system'", fontSize: 'number', _v: '"2"' }))
   .migrate((v) => {
