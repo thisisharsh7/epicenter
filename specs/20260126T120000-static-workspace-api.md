@@ -1004,7 +1004,7 @@ const posts = defineTable()
 // ════════════════════════════════════════════════════════════════════
 // TypeBox
 // ════════════════════════════════════════════════════════════════════
-import { Type } from '@sinclair/typebox';
+import { Type } from 'typebox';
 
 const posts = defineTable()
 	.version(Type.Object({ id: Type.String(), title: Type.String() }))

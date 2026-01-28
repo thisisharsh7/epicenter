@@ -135,11 +135,11 @@ Created `to-typebox.ts` converter that transforms FieldDefinition definitions in
 
 3. **`packages/epicenter/src/core/schema/converters/index.ts`** - Added exports
 
-4. **`packages/epicenter/package.json`** - Added `@sinclair/typebox` dependency
+4. **`packages/epicenter/package.json`** - Added `typebox` dependency (note: use `typebox`, not the deprecated `@sinclair/typebox`)
 
 ### Key Design Decisions
 
-1. **TypeBox 0.34.x** - Current stable version (1.0 not yet released on npm)
+1. **TypeBox 1.x** - Use `typebox` package (not `@sinclair/typebox` which is deprecated)
 2. **JSON fields use `Type.Unknown()`** - TypeBox acts as pass-through; the embedded StandardSchema validates at usage time (sqlite provider, handlers). When TypeBox 1.0 releases, `Type.Refine` can be used for inline validation.
 3. **Nullable handling** - Uses `Type.Union([baseType, Type.Null()])`
 4. **Select fields** - Uses `Type.Union([Type.Literal(...), ...])`
