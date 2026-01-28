@@ -158,9 +158,7 @@ export function tableToArktype<TFieldMap extends FieldMap>(
  * selectValidator('invalid'); // type.errors
  * ```
  */
-export function fieldToArktype<C extends Field>(
-	field: C,
-): FieldToArktype<C> {
+export function fieldToArktype<C extends Field>(field: C): FieldToArktype<C> {
 	let baseType: Type;
 
 	switch (field.type) {

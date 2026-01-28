@@ -11,7 +11,7 @@ import {
 	real as drizzleReal,
 	text as drizzleText,
 } from 'drizzle-orm/sqlite-core';
-import type { TSchema, Static } from 'typebox';
+import type { Static, TSchema } from 'typebox';
 import { Compile } from 'typebox/compile';
 import type { DateTimeString } from '../../core/schema';
 import { generateId } from '../../core/schema';

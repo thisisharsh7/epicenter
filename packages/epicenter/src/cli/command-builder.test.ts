@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { type } from 'arktype';
-import { defineMutation, defineQuery, type Actions } from '../core/actions';
+import { type Actions, defineMutation, defineQuery } from '../core/actions';
 import { buildActionCommands } from './command-builder';
 
 describe('buildActionCommands', () => {

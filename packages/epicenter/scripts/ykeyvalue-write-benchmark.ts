@@ -76,7 +76,11 @@ function benchmarkYMap(rowCount: number, updateCount: number) {
 	for (let i = 0; i < updateCount; i++) {
 		const randomKey = `row-${Math.floor(Math.random() * rowCount)}`;
 		const start = performance.now();
-		ymap.set(randomKey, { id: randomKey, name: `Updated ${i}`, value: i * 100 });
+		ymap.set(randomKey, {
+			id: randomKey,
+			name: `Updated ${i}`,
+			value: i * 100,
+		});
 		updateTimes.push(performance.now() - start);
 	}
 

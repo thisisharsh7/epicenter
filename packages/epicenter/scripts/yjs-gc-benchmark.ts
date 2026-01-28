@@ -1,5 +1,5 @@
-import * as Y from 'yjs';
 import { mkdir } from 'node:fs/promises';
+import * as Y from 'yjs';
 
 type BenchmarkResult = {
 	name: string;
@@ -22,7 +22,10 @@ function createDoc(gc: boolean): Y.Doc {
  * Benchmark 1: Y.Text Heavy Editing
  * Simulates Google Docs-like typing and deleting
  */
-function benchmarkTextEditing(gc: boolean, operations: number): BenchmarkResult {
+function benchmarkTextEditing(
+	gc: boolean,
+	operations: number,
+): BenchmarkResult {
 	const doc = createDoc(gc);
 	const text = doc.getText('content');
 
@@ -41,7 +44,10 @@ function benchmarkTextEditing(gc: boolean, operations: number): BenchmarkResult 
 		} else if (text.length > 0) {
 			// 10% - Delete a range
 			const pos = Math.floor(Math.random() * text.length);
-			const len = Math.min(Math.floor(Math.random() * 10) + 1, text.length - pos);
+			const len = Math.min(
+				Math.floor(Math.random() * 10) + 1,
+				text.length - pos,
+			);
 			text.delete(pos, len);
 		}
 	}
@@ -108,7 +114,10 @@ function benchmarkBadPattern(gc: boolean, operations: number): BenchmarkResult {
  * Each "update" reuses the existing Y.Map and only updates fields.
  * No orphaned Y.Maps = minimal tombstones.
  */
-function benchmarkGoodPattern(gc: boolean, operations: number): BenchmarkResult {
+function benchmarkGoodPattern(
+	gc: boolean,
+	operations: number,
+): BenchmarkResult {
 	const doc = createDoc(gc);
 	const root = doc.getMap('workspace');
 
@@ -152,7 +161,10 @@ function benchmarkGoodPattern(gc: boolean, operations: number): BenchmarkResult 
  *
  * No nesting at all. Each field is a top-level key.
  */
-function benchmarkFlatPattern(gc: boolean, operations: number): BenchmarkResult {
+function benchmarkFlatPattern(
+	gc: boolean,
+	operations: number,
+): BenchmarkResult {
 	const doc = createDoc(gc);
 	const root = doc.getMap('workspace');
 
@@ -185,7 +197,10 @@ function benchmarkAppendOnly(gc: boolean, operations: number): BenchmarkResult {
 	const text = doc.getText('log');
 
 	for (let i = 0; i < operations; i++) {
-		text.insert(text.length, `Entry ${i}: ${Math.random().toString(36).slice(2)}\n`);
+		text.insert(
+			text.length,
+			`Entry ${i}: ${Math.random().toString(36).slice(2)}\n`,
+		);
 	}
 
 	const encoded = Y.encodeStateAsUpdate(doc);
@@ -250,14 +265,17 @@ async function runBenchmarks() {
 	for (const [name, benchResults] of grouped) {
 		const gcOff = benchResults.find((r) => !r.gcEnabled)!;
 		const gcOn = benchResults.find((r) => r.gcEnabled)!;
-		const reduction = ((gcOff.sizeBytes - gcOn.sizeBytes) / gcOff.sizeBytes) * 100;
+		const reduction =
+			((gcOff.sizeBytes - gcOn.sizeBytes) / gcOff.sizeBytes) * 100;
 		const ratio = gcOff.sizeBytes / gcOn.sizeBytes;
 
 		console.log(`${name}`);
 		console.log(`  Operations: ${gcOff.operations.toLocaleString()}`);
 		console.log(`  GC OFF: ${formatBytes(gcOff.sizeBytes)}`);
 		console.log(`  GC ON:  ${formatBytes(gcOn.sizeBytes)}`);
-		console.log(`  Reduction: ${reduction.toFixed(1)}% (${ratio.toFixed(2)}x smaller)`);
+		console.log(
+			`  Reduction: ${reduction.toFixed(1)}% (${ratio.toFixed(2)}x smaller)`,
+		);
 		console.log();
 	}
 

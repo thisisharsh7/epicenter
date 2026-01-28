@@ -15,7 +15,7 @@
 	}: EmojiPickerSkinProps = $props();
 
 	const skinState = useEmojiPickerSkinToneSelector({
-		previewEmoji: box.with(() => previewEmoji)
+		previewEmoji: box.with(() => previewEmoji),
 	});
 </script>
 
@@ -24,7 +24,7 @@
 	{variant}
 	{size}
 	class={cn('size-8', className)}
-	onclick={(e: Parameters<NonNullable<ButtonElementProps['onclick']>>[0]) => {
+	onclick={(e: Parameters[0]) => {
 		onclick?.(e);
 		skinState.cycleSkinTone();
 	}}

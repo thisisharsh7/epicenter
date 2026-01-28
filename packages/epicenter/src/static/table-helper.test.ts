@@ -5,8 +5,8 @@ import {
 	YKeyValueLww,
 	type YKeyValueLwwEntry,
 } from '../core/utils/y-keyvalue-lww.js';
-import { createTableHelper } from './table-helper.js';
 import { defineTable } from './define-table.js';
+import { createTableHelper } from './table-helper.js';
 
 /** Creates Yjs infrastructure for testing */
 function setup() {

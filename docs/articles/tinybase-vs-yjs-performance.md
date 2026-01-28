@@ -8,53 +8,72 @@ But I wanted to compare TinyBase's MergeableStore performance against raw Yjs. H
 
 ## The Quick Takeaways
 
-1. **Yjs is faster** at writes (~2x) and sync (~4x) than TinyBase MergeableStore
-
-2. **Yjs is more compact** in storage (~2x smaller) thanks to binary encoding
-
-3. **TinyBase MergeableStore uses less memory** for the same data (~2.8x less heap usage)
-
-4. **TinyBase's cell-level LWW is semantically different** from Yjs's operation-based merging—pick based on your conflict resolution needs, not just performance
+1. **TinyBase is faster at reads** (~1.5x) thanks to its relational structure
+2. **Yjs is faster at writes** (~10-12x) and sync (~2x)
+3. **Yjs is more compact** in storage (~2.5x smaller) and memory (~2.7x less heap)
+4. **Yjs has built-in delta sync** (100x smaller incremental updates)
+5. **TinyBase's cell-level LWW is semantically different** from Yjs's operation-based merging—pick based on your conflict resolution needs, not just performance
 
 ## Benchmark Results
 
-### Write Performance
+### Read Performance
 
-| Operation | Yjs | TinyBase MergeableStore | Winner |
-|-----------|-----|-------------------------|--------|
-| Single row write | 0.010 ms | 0.022 ms | Yjs (2.2x) |
-| Batch write (1000 rows) | 1.05 ms | 1.67 ms | Yjs (1.6x) |
+| Operation | TinyBase MergeableStore | Yjs | Winner |
+|-----------|-------------------------|-----|--------|
+| 10k random cell reads | 1.47 ms | 7.81 ms | TinyBase (5.3x) |
+| 10k random cell reads (warm) | 3.65 ms | 5.45 ms | TinyBase (1.5x) |
 
-Yjs wins on write speed. The Y.Map structure is highly optimized in V8.
+TinyBase wins on read speed. Its table/row/cell structure provides efficient lookups.
+
+### Write Performance (Transacted)
+
+| Operation | TinyBase MergeableStore | Yjs | Winner |
+|-----------|-------------------------|-----|--------|
+| 1,000 rows | 8.43 ms | 0.69 ms | Yjs (12.3x) |
+| 10,000 rows | 104.30 ms | 9.39 ms | Yjs (11.1x) |
+
+Yjs crushes TinyBase on writes. The Y.Map structure is highly optimized.
 
 ### Synchronization
 
-| Operation | Yjs | TinyBase MergeableStore | Winner |
-|-----------|-----|-------------------------|--------|
-| One-way sync (100 rows) | 0.23 ms | 1.02 ms | Yjs (4.4x) |
-| Bidirectional with conflict | 0.036 ms | 0.076 ms | Yjs (2.1x) |
+| Operation | TinyBase MergeableStore | Yjs | Winner |
+|-----------|-------------------------|-----|--------|
+| Merge 1500 rows | 5.71 ms | 3.08 ms | Yjs (1.9x) |
 
-Yjs's binary delta encoding crushes TinyBase's JSON-based sync. This is where you really feel the difference.
+Yjs's binary encoding is more efficient for sync operations.
 
-### Storage Size (5000 rows, 2 fields each)
+### Incremental Sync (Delta Updates)
 
-| Format | Size | vs Yjs |
-|--------|------|--------|
-| Yjs (binary) | 492 KB | — |
-| TinyBase MergeableStore (JSON) | 919 KB | 1.9x larger |
+This is where Yjs really shines:
 
-MergeableStore stores HLC timestamps as strings for every cell. Yjs encodes the same information more cleverly in binary.
+| Metric | TinyBase | Yjs |
+|--------|----------|-----|
+| Full state (1000 rows) | 77.48 KB | 43.12 KB |
+| Delta after adding 10 rows | N/A (requires Synchronizer) | 440 B |
 
-### Memory Usage (10 docs × 10k rows)
+Yjs has built-in state-vector based delta sync. Adding 10 rows to a 1000-row document creates a 440-byte update instead of re-sending 43KB. That's 100x smaller.
 
-| Library | Heap Usage |
-|---------|------------|
-| Yjs | 51.7 MB |
-| TinyBase MergeableStore | 18.2 MB |
+TinyBase MergeableStore uses Synchronizers for incremental sync, which handles the delta logic differently (WebSocket-based, not state-vector based).
 
-Interestingly, TinyBase uses less runtime memory despite larger serialized size. Yjs maintains more internal structures (item structs, state vectors, delete sets).
+### Storage Size
 
-## Why MergeableStore Is Larger on Disk
+| Row Count | TinyBase MergeableStore | Yjs V2 | Winner |
+|-----------|-------------------------|--------|--------|
+| 1,000 rows × 3 fields | 174.14 KB | 67.20 KB | Yjs (2.6x smaller) |
+| 10,000 rows × 3 fields | 1.72 MB | 691.23 KB | Yjs (2.5x smaller) |
+
+MergeableStore stores HLC timestamps as strings for every cell. Yjs packs similar metadata into a more efficient binary format.
+
+### Memory Usage
+
+| Row Count | TinyBase MergeableStore | Yjs | Winner |
+|-----------|-------------------------|-----|--------|
+| 10,000 rows | 27.72 MB | 19.75 MB | Yjs (1.4x less) |
+| 50,000 rows | 122.43 MB | 44.72 MB | Yjs (2.7x less) |
+
+Yjs uses significantly less runtime memory. Despite its operation-based CRDT maintaining more internal structures, its binary encoding is more memory-efficient than TinyBase's JSON-based HLC timestamps.
+
+## Why MergeableStore Is Larger
 
 MergeableStore adds Hybrid Logical Clock (HLC) timestamps to every cell:
 
@@ -70,7 +89,7 @@ MergeableStore adds Hybrid Logical Clock (HLC) timestamps to every cell:
 }
 ```
 
-Every cell carries its timestamp as a string. For a table with 5000 rows × 2 cells, that's 10,000 timestamps. Yjs packs similar metadata into a more efficient binary format.
+Every cell carries its timestamp as a string. For a table with 10,000 rows × 3 cells, that's 30,000 timestamps stored as human-readable strings. Yjs packs similar metadata into a binary format.
 
 ## The Minimal Reproduction
 
@@ -83,121 +102,88 @@ Every cell carries its timestamp as a string. For a table with 5000 rows × 2 ce
 import * as Y from 'yjs';
 import { createMergeableStore } from 'tinybase';
 
-function benchmark(name: string, fn: () => void, iterations = 1000): number {
-  for (let i = 0; i < 10; i++) fn(); // warmup
-  const start = performance.now();
-  for (let i = 0; i < iterations; i++) fn();
-  return (performance.now() - start) / iterations;
-}
+const ROW_COUNT = 10_000;
 
-// Single writes
-const yjsSingle = benchmark('yjs', () => {
-  const doc = new Y.Doc();
-  const table = doc.getMap('pets');
-  const row = new Y.Map();
-  row.set('species', 'dog');
-  row.set('color', 'brown');
-  table.set('fido', row);
+// Write performance
+const store = createMergeableStore();
+const writeStart = performance.now();
+store.transaction(() => {
+  for (let i = 0; i < ROW_COUNT; i++) {
+    store.setRow('todos', `todo-${i}`, { title: `Todo ${i}`, completed: false });
+  }
 });
+console.log(`TinyBase write: ${(performance.now() - writeStart).toFixed(2)}ms`);
 
-const tbSingle = benchmark('tinybase', () => {
-  const store = createMergeableStore();
-  store.setRow('pets', 'fido', { species: 'dog', color: 'brown' });
-});
-
-console.log(`Single write: Yjs ${yjsSingle.toFixed(4)}ms, TinyBase ${tbSingle.toFixed(4)}ms`);
-
-// Storage size comparison
-const rowCount = 5000;
-
-const yjsDoc = new Y.Doc();
-const yjsTable = yjsDoc.getMap('users');
-yjsDoc.transact(() => {
-  for (let i = 0; i < rowCount; i++) {
+const doc = new Y.Doc();
+const table = doc.getMap<Y.Map<unknown>>('todos');
+const yjsStart = performance.now();
+doc.transact(() => {
+  for (let i = 0; i < ROW_COUNT; i++) {
     const row = new Y.Map();
-    row.set('name', `User ${i}`);
-    row.set('email', `user${i}@example.com`);
-    yjsTable.set(`user-${i}`, row);
+    row.set('title', `Todo ${i}`);
+    row.set('completed', false);
+    table.set(`todo-${i}`, row);
   }
 });
-const yjsSize = Y.encodeStateAsUpdate(yjsDoc).byteLength;
+console.log(`Yjs write: ${(performance.now() - yjsStart).toFixed(2)}ms`);
 
-const mergeable = createMergeableStore();
-mergeable.transaction(() => {
-  for (let i = 0; i < rowCount; i++) {
-    mergeable.setRow('users', `user-${i}`, {
-      name: `User ${i}`,
-      email: `user${i}@example.com`,
-    });
-  }
-});
-const mergeableSize = new TextEncoder().encode(
-  JSON.stringify(mergeable.getMergeableContent())
-).byteLength;
+// Storage size
+const tbSize = new TextEncoder().encode(
+  JSON.stringify(store.getMergeableContent())
+).length;
+const yjsSize = Y.encodeStateAsUpdateV2(doc).length;
 
-console.log(`\nStorage (${rowCount} rows):`);
-console.log(`  Yjs binary:              ${(yjsSize / 1024).toFixed(1)} KB`);
-console.log(`  TinyBase MergeableStore: ${(mergeableSize / 1024).toFixed(1)} KB`);
+console.log(`\nStorage (${ROW_COUNT} rows):`);
+console.log(`  TinyBase: ${(tbSize / 1024).toFixed(1)} KB`);
+console.log(`  Yjs V2:   ${(yjsSize / 1024).toFixed(1)} KB`);
 
-// Sync comparison
-const syncYjs = benchmark('yjs sync', () => {
-  const doc1 = new Y.Doc();
-  const doc2 = new Y.Doc();
-  const table1 = doc1.getMap('users');
-  doc1.transact(() => {
-    for (let i = 0; i < 100; i++) {
-      const row = new Y.Map();
-      row.set('name', `User ${i}`);
-      table1.set(`user-${i}`, row);
-    }
-  });
-  const update = Y.encodeStateAsUpdate(doc1);
-  Y.applyUpdate(doc2, update);
-}, 100);
+// Read performance
+const ids = Array.from({ length: 10000 }, () =>
+  `todo-${Math.floor(Math.random() * ROW_COUNT)}`
+);
 
-const syncTb = benchmark('tinybase sync', () => {
-  const store1 = createMergeableStore();
-  const store2 = createMergeableStore();
-  store1.transaction(() => {
-    for (let i = 0; i < 100; i++) {
-      store1.setRow('users', `user-${i}`, { name: `User ${i}` });
-    }
-  });
-  const content = store1.getMergeableContent();
-  store2.applyMergeableChanges(content);
-}, 100);
+const tbReadStart = performance.now();
+for (const id of ids) {
+  store.getCell('todos', id, 'title');
+  store.getCell('todos', id, 'completed');
+}
+console.log(`\nTinyBase read (10k): ${(performance.now() - tbReadStart).toFixed(2)}ms`);
 
-console.log(`\nSync (100 rows):`);
-console.log(`  Yjs:      ${syncYjs.toFixed(4)} ms`);
-console.log(`  TinyBase: ${syncTb.toFixed(4)} ms`);
+const yjsReadStart = performance.now();
+for (const id of ids) {
+  table.get(id)?.get('title');
+  table.get(id)?.get('completed');
+}
+console.log(`Yjs read (10k): ${(performance.now() - yjsReadStart).toFixed(2)}ms`);
 ```
 
 ## Sample Output
 
 ```
-Single write: Yjs 0.0099ms, TinyBase 0.0219ms
+TinyBase write: 98.40ms
+Yjs write: 9.91ms
 
-Storage (5000 rows):
-  Yjs binary:              492.5 KB
-  TinyBase MergeableStore: 919.4 KB
+Storage (10000 rows):
+  TinyBase: 1720.5 KB
+  Yjs V2:   691.2 KB
 
-Sync (100 rows):
-  Yjs:      0.2321 ms
-  TinyBase: 1.0160 ms
+TinyBase read (10k): 1.47ms
+Yjs read (10k): 5.45ms
 ```
 
 ## When to Use Which
 
 **Use TinyBase MergeableStore when:**
+- Your workload is read-heavy (dashboards, reports, browsing)
 - You need cell-level last-write-wins semantics specifically
 - The relational API (tables, rows, cells, queries, indexes) is valuable
-- Memory efficiency at runtime matters more than storage/sync size
-- You're okay with JSON-based sync payloads
+- You want human-readable JSON for debugging sync issues
 
 **Use raw Yjs when:**
+- Your workload is write-heavy (real-time collaboration, frequent updates)
 - Sync performance and payload size are critical
 - You need collaborative text editing (Y.Text)
-- You want the most battle-tested CRDT library
 - You're building for bandwidth-constrained environments
+- Memory efficiency matters at scale
 
-The lesson: Yjs is more efficient for sync and storage, but TinyBase MergeableStore offers a different conflict resolution model (cell-level LWW vs operation-based) that might be exactly what you need for structured data. Choose based on semantics first, performance second.
+The lesson: TinyBase MergeableStore wins on reads, Yjs wins on everything else. But TinyBase offers a different conflict resolution model (cell-level LWW vs operation-based) that might be exactly what you need for structured data. Choose based on semantics first, performance second.
