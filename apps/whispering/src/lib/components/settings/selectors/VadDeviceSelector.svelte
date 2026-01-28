@@ -32,11 +32,14 @@
 	const deviceChangeListener = createDeviceChangeListener();
 
 	// Auto-refresh device list when devices change (web only - desktop uses polling)
+	// Note: TanStack Query already fetches when enabled becomes true, so no manual refetch needed
 	$effect(() => {
 		if (combobox.open) {
 			deviceChangeListener.subscribe();
-			getDevicesQuery.refetch();
 		}
+		return () => {
+			deviceChangeListener.unsubscribe();
+		};
 	});
 
 	$effect(() => {
